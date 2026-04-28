@@ -1,0 +1,24 @@
+[Unit]
+Description=Smart Power Door Vision Service (Ultralytics)
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/srv/smart-center/current
+Environment=VISION_HOST=0.0.0.0
+Environment=VISION_PORT=18080
+Environment=MODEL_DEVICE=cuda:0
+Environment=MODEL_IMGSZ=640
+Environment=DOOR_MODEL_PATH=/srv/smart-center/models/door_state_cls.pt
+Environment=PERSON_MODEL_PATH=/srv/smart-center/models/yolo11n.pt
+Environment=DOOR_OPEN_LABELS=open,opened,door_open
+Environment=DOOR_CLOSED_LABELS=closed,close,door_closed
+ExecStart=/srv/smart-center/.venv/bin/python /srv/smart-center/current/runtime/door_probe/vision_service_ultralytics.py
+Restart=always
+RestartSec=2
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

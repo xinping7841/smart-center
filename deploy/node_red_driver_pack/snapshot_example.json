@@ -1,0 +1,3979 @@
+{
+  "ok": true,
+  "generated_at": "2026-04-04T01:14:32.419158",
+  "total_drivers": 32,
+  "online_drivers": 6,
+  "offline_drivers": 26,
+  "summary_by_group": {
+    "custom": {
+      "total": 1,
+      "online": 1
+    },
+    "env": {
+      "total": 1,
+      "online": 0
+    },
+    "light": {
+      "total": 3,
+      "online": 0
+    },
+    "m32r": {
+      "total": 1,
+      "online": 0
+    },
+    "meter": {
+      "total": 10,
+      "online": 0
+    },
+    "power": {
+      "total": 5,
+      "online": 5
+    },
+    "projector": {
+      "total": 3,
+      "online": 0
+    },
+    "screen": {
+      "total": 1,
+      "online": 0
+    },
+    "sequencer": {
+      "total": 2,
+      "online": 0
+    },
+    "snmp": {
+      "total": 4,
+      "online": 0
+    },
+    "ups": {
+      "total": 1,
+      "online": 0
+    }
+  },
+  "groups": {
+    "custom": [
+      {
+        "driver_id": "custom:dev_1775230252161",
+        "group": "custom",
+        "name": "新泛型设备",
+        "protocol": "tcp",
+        "comm_mode": "tcp",
+        "online": true,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.417985",
+        "data": {
+          "connectivity": "ok",
+          "interface": "tcp"
+        }
+      }
+    ],
+    "env": [
+      {
+        "driver_id": "env:env_1774425123763",
+        "group": "env",
+        "name": "光照温湿度变送器",
+        "protocol": "modbus",
+        "comm_mode": "modbus",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.413629",
+        "data": {}
+      }
+    ],
+    "light": [
+      {
+        "driver_id": "light:1",
+        "group": "light",
+        "name": "一号厅",
+        "protocol": "COXE",
+        "comm_mode": "TCP",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246383",
+        "data": {
+          "online": false,
+          "channels": []
+        }
+      },
+      {
+        "driver_id": "light:2",
+        "group": "light",
+        "name": "二号厅",
+        "protocol": "COXE",
+        "comm_mode": "TCP",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246388",
+        "data": {
+          "online": false,
+          "channels": []
+        }
+      },
+      {
+        "driver_id": "light:3",
+        "group": "light",
+        "name": "新灯光模块",
+        "protocol": "RF_TCP",
+        "comm_mode": "TCP",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246392",
+        "data": {
+          "online": false,
+          "channels": []
+        }
+      }
+    ],
+    "m32r": [
+      {
+        "driver_id": "m32r:mixer",
+        "group": "m32r",
+        "name": "M32R-OC-FA-99",
+        "protocol": "OSC",
+        "comm_mode": "UDP",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.419115",
+        "data": {
+          "connected": false,
+          "online": false,
+          "mode": "offline",
+          "host": "192.168.80.242",
+          "port": 10023,
+          "name": "M32R-OC-FA-99",
+          "model": "",
+          "firmware": "",
+          "show_position": null,
+          "last_error": "",
+          "updated_at": "",
+          "last_rx_at": "",
+          "auto_connect": false,
+          "auto_sync": false,
+          "sync_direction": "mixer_to_pc",
+          "known_mixers": [],
+          "discovered_mixers": [],
+          "local_ips": [],
+          "feedback_sources": {
+            "channel_name": "live",
+            "channel_on": "live",
+            "channel_fader": "live",
+            "channel_pan": "live",
+            "main_on": "live",
+            "main_fader": "live",
+            "channel_meter": "estimated",
+            "main_meter": "estimated",
+            "channel_scribble": "local",
+            "channel_gate": "local",
+            "channel_eq": "local",
+            "channel_dyn": "local",
+            "channel_sends": "local"
+          },
+          "channels": [
+            {
+              "channel": 1,
+              "name": "CH 01",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 2,
+              "name": "CH 02",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 3,
+              "name": "CH 03",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 4,
+              "name": "CH 04",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 5,
+              "name": "CH 05",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 6,
+              "name": "CH 06",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 7,
+              "name": "CH 07",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 8,
+              "name": "CH 08",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 9,
+              "name": "CH 09",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 10,
+              "name": "CH 10",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 11,
+              "name": "CH 11",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 12,
+              "name": "CH 12",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 13,
+              "name": "CH 13",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 14,
+              "name": "CH 14",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 15,
+              "name": "CH 15",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 16,
+              "name": "CH 16",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 17,
+              "name": "CH 17",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 18,
+              "name": "CH 18",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 19,
+              "name": "CH 19",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 20,
+              "name": "CH 20",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 21,
+              "name": "CH 21",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 22,
+              "name": "CH 22",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 23,
+              "name": "CH 23",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 24,
+              "name": "CH 24",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 25,
+              "name": "CH 25",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 26,
+              "name": "CH 26",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 27,
+              "name": "CH 27",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 28,
+              "name": "CH 28",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 29,
+              "name": "CH 29",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 30,
+              "name": "CH 30",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 31,
+              "name": "CH 31",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            },
+            {
+              "channel": 32,
+              "name": "CH 32",
+              "on": true,
+              "fader": 0.0,
+              "level_db": -90.0,
+              "pan": 0.0,
+              "meter_db": -90.0,
+              "scribble": "",
+              "gate": {
+                "enabled": false,
+                "threshold_db": -42.0,
+                "range_db": -18.0,
+                "attack_ms": 10,
+                "hold_ms": 120,
+                "release_ms": 250
+              },
+              "eq": {
+                "enabled": true,
+                "hpf_hz": 100,
+                "low_gain_db": -2.0,
+                "mid_freq_hz": 3200,
+                "mid_gain_db": 2.0,
+                "high_gain_db": 1.5
+              },
+              "dyn": {
+                "enabled": true,
+                "threshold_db": -18.0,
+                "ratio": 3.0,
+                "attack_ms": 20,
+                "release_ms": 120
+              },
+              "sends": {
+                "bus_1": 0.55,
+                "bus_2": 0.45,
+                "bus_3": 0.4,
+                "bus_4": 0.35
+              }
+            }
+          ],
+          "main": {
+            "fader": 0.0,
+            "on": true,
+            "level_db": -90.0,
+            "meter_db": -90.0
+          }
+        }
+      }
+    ],
+    "meter": [
+      {
+        "driver_id": "meter:legacy_meter_10",
+        "group": "meter",
+        "name": "2楼小机房",
+        "protocol": "南誉 2P Int Modbus",
+        "comm_mode": "TCP",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246367",
+        "data": {}
+      },
+      {
+        "driver_id": "meter:meter_1774625129670",
+        "group": "meter",
+        "name": "一号厅",
+        "protocol": "Modbus-RTU/TCP",
+        "comm_mode": "TCP",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246371",
+        "data": {}
+      },
+      {
+        "driver_id": "meter:legacy_meter_5",
+        "group": "meter",
+        "name": "中控室",
+        "protocol": "德力西 DTSU6606 直连 Modbus",
+        "comm_mode": "TCP",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246358",
+        "data": {}
+      },
+      {
+        "driver_id": "meter:legacy_meter_3",
+        "group": "meter",
+        "name": "二号厅",
+        "protocol": "南誉三相四线 Modbus",
+        "comm_mode": "TCP",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246356",
+        "data": {}
+      },
+      {
+        "driver_id": "meter:legacy_meter_12",
+        "group": "meter",
+        "name": "办公室",
+        "protocol": "南誉三相四线 Modbus",
+        "comm_mode": "TCP",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246363",
+        "data": {}
+      },
+      {
+        "driver_id": "meter:legacy_meter_9",
+        "group": "meter",
+        "name": "办公室&工作坊",
+        "protocol": "南誉三相四线 Modbus",
+        "comm_mode": "TCP",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246365",
+        "data": {}
+      },
+      {
+        "driver_id": "meter:legacy_meter_11",
+        "group": "meter",
+        "name": "咖啡厅",
+        "protocol": "南誉三相四线 Modbus",
+        "comm_mode": "TCP",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246369",
+        "data": {}
+      },
+      {
+        "driver_id": "meter:legacy_meter_2",
+        "group": "meter",
+        "name": "深澜空间总电表",
+        "protocol": "PD606 Modbus 地址表",
+        "comm_mode": "TCP",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246353",
+        "data": {}
+      },
+      {
+        "driver_id": "meter:legacy_meter_6",
+        "group": "meter",
+        "name": "运营中心",
+        "protocol": "南誉三相四线 Modbus",
+        "comm_mode": "TCP",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246361",
+        "data": {}
+      },
+      {
+        "driver_id": "meter:meter_1774629630399",
+        "group": "meter",
+        "name": "运营中心",
+        "protocol": "Modbus-RTU/TCP",
+        "comm_mode": "TCP",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246373",
+        "data": {}
+      }
+    ],
+    "power": [
+      {
+        "driver_id": "power:0",
+        "group": "power",
+        "name": "中控室",
+        "protocol": "AV-100",
+        "comm_mode": "TCP",
+        "online": true,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246335",
+        "data": {
+          "channels_1_4": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "cabinet_temp": 0,
+          "cabinet_humidity": 0,
+          "voltage_a": 0,
+          "voltage_b": 0,
+          "voltage_c": 0,
+          "current_a": 0,
+          "current_b": 0,
+          "current_c": 0,
+          "electric_energy": 0,
+          "daily_energy": 0.0,
+          "monthly_energy": 0.0,
+          "realtime_power": 0.0,
+          "current_month": 4,
+          "work_mode": "未知",
+          "comm_status": true
+        }
+      },
+      {
+        "driver_id": "power:1",
+        "group": "power",
+        "name": "二号厅LED",
+        "protocol": "AV-100",
+        "comm_mode": "TCP",
+        "online": true,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246342",
+        "data": {
+          "channels_1_4": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "cabinet_temp": 0,
+          "cabinet_humidity": 0,
+          "voltage_a": 0,
+          "voltage_b": 0,
+          "voltage_c": 0,
+          "current_a": 0,
+          "current_b": 0,
+          "current_c": 0,
+          "electric_energy": 0,
+          "daily_energy": 0.0,
+          "monthly_energy": 0.0,
+          "realtime_power": 0.0,
+          "current_month": 4,
+          "work_mode": "未知",
+          "comm_status": true
+        }
+      },
+      {
+        "driver_id": "power:3",
+        "group": "power",
+        "name": "影棚LED配电柜",
+        "protocol": "AV-100",
+        "comm_mode": "TCP",
+        "online": true,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246348",
+        "data": {
+          "channels_1_4": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "cabinet_temp": 0,
+          "cabinet_humidity": 0,
+          "voltage_a": 0,
+          "voltage_b": 0,
+          "voltage_c": 0,
+          "current_a": 0,
+          "current_b": 0,
+          "current_c": 0,
+          "electric_energy": 0,
+          "daily_energy": 0.0,
+          "monthly_energy": 0.0,
+          "realtime_power": 0.0,
+          "current_month": 4,
+          "work_mode": "未知",
+          "comm_status": true
+        }
+      },
+      {
+        "driver_id": "power:2",
+        "group": "power",
+        "name": "影棚配电柜",
+        "protocol": "AV-100",
+        "comm_mode": "TCP",
+        "online": true,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246346",
+        "data": {
+          "channels_1_4": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "cabinet_temp": 0,
+          "cabinet_humidity": 0,
+          "voltage_a": 0,
+          "voltage_b": 0,
+          "voltage_c": 0,
+          "current_a": 0,
+          "current_b": 0,
+          "current_c": 0,
+          "electric_energy": 0,
+          "daily_energy": 0.0,
+          "monthly_energy": 0.0,
+          "realtime_power": 0.0,
+          "current_month": 4,
+          "work_mode": "未知",
+          "comm_status": true
+        }
+      },
+      {
+        "driver_id": "power:4",
+        "group": "power",
+        "name": "门口LED",
+        "protocol": "AV-100",
+        "comm_mode": "TCP",
+        "online": true,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.246350",
+        "data": {
+          "channels_1_4": [
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false
+          ],
+          "cabinet_temp": 0,
+          "cabinet_humidity": 0,
+          "voltage_a": 0,
+          "voltage_b": 0,
+          "voltage_c": 0,
+          "current_a": 0,
+          "current_b": 0,
+          "current_c": 0,
+          "electric_energy": 0,
+          "daily_energy": 0.0,
+          "monthly_energy": 0.0,
+          "realtime_power": 0.0,
+          "current_month": 4,
+          "work_mode": "未知",
+          "comm_status": true
+        }
+      }
+    ],
+    "projector": [
+      {
+        "driver_id": "projector:proj_1774531663869",
+        "group": "projector",
+        "name": "台球桌",
+        "protocol": "pjlink",
+        "comm_mode": "pjlink",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.413624",
+        "data": {}
+      },
+      {
+        "driver_id": "projector:proj_1774736760658",
+        "group": "projector",
+        "name": "新投影机",
+        "protocol": "pjlink",
+        "comm_mode": "pjlink",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.413626",
+        "data": {}
+      },
+      {
+        "driver_id": "projector:proj_1774515640578",
+        "group": "projector",
+        "name": "猫桌",
+        "protocol": "pjlink",
+        "comm_mode": "pjlink",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.413621",
+        "data": {}
+      }
+    ],
+    "screen": [
+      {
+        "driver_id": "screen:screen_1774322049381",
+        "group": "screen",
+        "name": "一厅-A区-幕布",
+        "protocol": "screen_tcp",
+        "comm_mode": "screen_tcp",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.413632",
+        "data": {}
+      }
+    ],
+    "sequencer": [
+      {
+        "driver_id": "sequencer:sequencer_1774587372602",
+        "group": "sequencer",
+        "name": "hecoos",
+        "protocol": "DGH 8路时序器",
+        "comm_mode": "TCP",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.413600",
+        "data": {
+          "id": "sequencer_1774587372602",
+          "name": "hecoos",
+          "brand": "DGH",
+          "model": "DS-608",
+          "sku": "DS-608",
+          "device_type": "时序电源",
+          "protocol": "DGH 8路时序器",
+          "comm_mode": "TCP",
+          "ip": "192.168.50.54",
+          "port": 8080,
+          "com_port": "COM1",
+          "address": 1,
+          "baudrate": 19200,
+          "data_bits": 8,
+          "stop_bits": 1,
+          "parity": "NONE",
+          "channel_count": 8,
+          "poll_interval_ms": 1200,
+          "sort_order": 999,
+          "online": false,
+          "locked": false,
+          "mode": "时序模式",
+          "startup_mode": "手动",
+          "running": false,
+          "last_action": "待机",
+          "last_command_hex": "",
+          "last_response_hex": "",
+          "error": "",
+          "error_display": "",
+          "updated_at": null,
+          "last_success_at": null,
+          "channel_summary": "开启: 无 | 关闭: 1、2、3、4、5、6、7、8",
+          "channels": [
+            {
+              "channel": 1,
+              "name": "CH1",
+              "visible": true,
+              "state": false
+            },
+            {
+              "channel": 2,
+              "name": "CH2",
+              "visible": true,
+              "state": false
+            },
+            {
+              "channel": 3,
+              "name": "CH3",
+              "visible": true,
+              "state": false
+            },
+            {
+              "channel": 4,
+              "name": "CH4",
+              "visible": true,
+              "state": false
+            },
+            {
+              "channel": 5,
+              "name": "CH5",
+              "visible": true,
+              "state": false
+            },
+            {
+              "channel": 6,
+              "name": "CH6",
+              "visible": true,
+              "state": false
+            },
+            {
+              "channel": 7,
+              "name": "CH7",
+              "visible": true,
+              "state": false
+            },
+            {
+              "channel": 8,
+              "name": "CH8",
+              "visible": true,
+              "state": false
+            }
+          ]
+        }
+      },
+      {
+        "driver_id": "sequencer:sequencer_ds608_1",
+        "group": "sequencer",
+        "name": "中控",
+        "protocol": "DGH 8路时序器",
+        "comm_mode": "TCP",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.413508",
+        "data": {
+          "id": "sequencer_ds608_1",
+          "name": "中控",
+          "brand": "DGH",
+          "model": "DS-608",
+          "sku": "DS-608",
+          "device_type": "时序电源",
+          "protocol": "DGH 8路时序器",
+          "comm_mode": "TCP",
+          "ip": "192.168.50.53",
+          "port": 8080,
+          "com_port": "COM1",
+          "address": 1,
+          "baudrate": 19200,
+          "data_bits": 8,
+          "stop_bits": 1,
+          "parity": "NONE",
+          "channel_count": 8,
+          "poll_interval_ms": 1200,
+          "sort_order": 999,
+          "online": false,
+          "locked": false,
+          "mode": "时序模式",
+          "startup_mode": "手动",
+          "running": false,
+          "last_action": "待机",
+          "last_command_hex": "",
+          "last_response_hex": "",
+          "error": "",
+          "error_display": "",
+          "updated_at": null,
+          "last_success_at": null,
+          "channel_summary": "开启: 无 | 关闭: 1、2、3、4、5、6、7、8",
+          "channels": [
+            {
+              "channel": 1,
+              "name": "CH1",
+              "visible": true,
+              "state": false
+            },
+            {
+              "channel": 2,
+              "name": "CH2",
+              "visible": true,
+              "state": false
+            },
+            {
+              "channel": 3,
+              "name": "CH3",
+              "visible": true,
+              "state": false
+            },
+            {
+              "channel": 4,
+              "name": "CH4",
+              "visible": true,
+              "state": false
+            },
+            {
+              "channel": 5,
+              "name": "CH5",
+              "visible": true,
+              "state": false
+            },
+            {
+              "channel": 6,
+              "name": "CH6",
+              "visible": true,
+              "state": false
+            },
+            {
+              "channel": 7,
+              "name": "CH7",
+              "visible": true,
+              "state": false
+            },
+            {
+              "channel": 8,
+              "name": "CH8",
+              "visible": true,
+              "state": false
+            }
+          ]
+        }
+      }
+    ],
+    "snmp": [
+      {
+        "driver_id": "snmp:snmp_h3c_192_168_99_1",
+        "group": "snmp",
+        "name": "H3C Switch",
+        "protocol": "SNMP",
+        "comm_mode": "v2c",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.413618",
+        "data": {}
+      },
+      {
+        "driver_id": "snmp:snmp_qnap_192_168_30_145",
+        "group": "snmp",
+        "name": "威联通 NAS",
+        "protocol": "SNMP",
+        "comm_mode": "v2c",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.413612",
+        "data": {}
+      },
+      {
+        "driver_id": "snmp:snmp_ikuai_192_168_99_3",
+        "group": "snmp",
+        "name": "爱快网关",
+        "protocol": "SNMP",
+        "comm_mode": "v2c",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.413615",
+        "data": {}
+      },
+      {
+        "driver_id": "snmp:snmp_fnnas_192_168_50_254",
+        "group": "snmp",
+        "name": "飞牛 NAS",
+        "protocol": "SNMP",
+        "comm_mode": "v2c",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.413609",
+        "data": {}
+      }
+    ],
+    "ups": [
+      {
+        "driver_id": "ups:ups_1774600700259",
+        "group": "ups",
+        "name": "山特 UPS",
+        "protocol": "SANTAK Castle RS232",
+        "comm_mode": "TCP",
+        "online": false,
+        "error": "",
+        "updated_at": "2026-04-04T01:14:32.413606",
+        "data": {}
+      }
+    ]
+  },
+  "drivers": [
+    {
+      "driver_id": "custom:dev_1775230252161",
+      "group": "custom",
+      "name": "新泛型设备",
+      "protocol": "tcp",
+      "comm_mode": "tcp",
+      "online": true,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.417985",
+      "data": {
+        "connectivity": "ok",
+        "interface": "tcp"
+      }
+    },
+    {
+      "driver_id": "env:env_1774425123763",
+      "group": "env",
+      "name": "光照温湿度变送器",
+      "protocol": "modbus",
+      "comm_mode": "modbus",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.413629",
+      "data": {}
+    },
+    {
+      "driver_id": "light:1",
+      "group": "light",
+      "name": "一号厅",
+      "protocol": "COXE",
+      "comm_mode": "TCP",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246383",
+      "data": {
+        "online": false,
+        "channels": []
+      }
+    },
+    {
+      "driver_id": "light:2",
+      "group": "light",
+      "name": "二号厅",
+      "protocol": "COXE",
+      "comm_mode": "TCP",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246388",
+      "data": {
+        "online": false,
+        "channels": []
+      }
+    },
+    {
+      "driver_id": "light:3",
+      "group": "light",
+      "name": "新灯光模块",
+      "protocol": "RF_TCP",
+      "comm_mode": "TCP",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246392",
+      "data": {
+        "online": false,
+        "channels": []
+      }
+    },
+    {
+      "driver_id": "m32r:mixer",
+      "group": "m32r",
+      "name": "M32R-OC-FA-99",
+      "protocol": "OSC",
+      "comm_mode": "UDP",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.419115",
+      "data": {
+        "connected": false,
+        "online": false,
+        "mode": "offline",
+        "host": "192.168.80.242",
+        "port": 10023,
+        "name": "M32R-OC-FA-99",
+        "model": "",
+        "firmware": "",
+        "show_position": null,
+        "last_error": "",
+        "updated_at": "",
+        "last_rx_at": "",
+        "auto_connect": false,
+        "auto_sync": false,
+        "sync_direction": "mixer_to_pc",
+        "known_mixers": [],
+        "discovered_mixers": [],
+        "local_ips": [],
+        "feedback_sources": {
+          "channel_name": "live",
+          "channel_on": "live",
+          "channel_fader": "live",
+          "channel_pan": "live",
+          "main_on": "live",
+          "main_fader": "live",
+          "channel_meter": "estimated",
+          "main_meter": "estimated",
+          "channel_scribble": "local",
+          "channel_gate": "local",
+          "channel_eq": "local",
+          "channel_dyn": "local",
+          "channel_sends": "local"
+        },
+        "channels": [
+          {
+            "channel": 1,
+            "name": "CH 01",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 2,
+            "name": "CH 02",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 3,
+            "name": "CH 03",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 4,
+            "name": "CH 04",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 5,
+            "name": "CH 05",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 6,
+            "name": "CH 06",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 7,
+            "name": "CH 07",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 8,
+            "name": "CH 08",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 9,
+            "name": "CH 09",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 10,
+            "name": "CH 10",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 11,
+            "name": "CH 11",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 12,
+            "name": "CH 12",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 13,
+            "name": "CH 13",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 14,
+            "name": "CH 14",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 15,
+            "name": "CH 15",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 16,
+            "name": "CH 16",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 17,
+            "name": "CH 17",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 18,
+            "name": "CH 18",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 19,
+            "name": "CH 19",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 20,
+            "name": "CH 20",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 21,
+            "name": "CH 21",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 22,
+            "name": "CH 22",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 23,
+            "name": "CH 23",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 24,
+            "name": "CH 24",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 25,
+            "name": "CH 25",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 26,
+            "name": "CH 26",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 27,
+            "name": "CH 27",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 28,
+            "name": "CH 28",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 29,
+            "name": "CH 29",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 30,
+            "name": "CH 30",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 31,
+            "name": "CH 31",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 32,
+            "name": "CH 32",
+            "on": true,
+            "fader": 0.0,
+            "level_db": -90.0,
+            "pan": 0.0,
+            "meter_db": -90.0,
+            "scribble": "",
+            "gate": {
+              "enabled": false,
+              "threshold_db": -42.0,
+              "range_db": -18.0,
+              "attack_ms": 10,
+              "hold_ms": 120,
+              "release_ms": 250
+            },
+            "eq": {
+              "enabled": true,
+              "hpf_hz": 100,
+              "low_gain_db": -2.0,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2.0,
+              "high_gain_db": 1.5
+            },
+            "dyn": {
+              "enabled": true,
+              "threshold_db": -18.0,
+              "ratio": 3.0,
+              "attack_ms": 20,
+              "release_ms": 120
+            },
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          }
+        ],
+        "main": {
+          "fader": 0.0,
+          "on": true,
+          "level_db": -90.0,
+          "meter_db": -90.0
+        }
+      }
+    },
+    {
+      "driver_id": "meter:legacy_meter_10",
+      "group": "meter",
+      "name": "2楼小机房",
+      "protocol": "南誉 2P Int Modbus",
+      "comm_mode": "TCP",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246367",
+      "data": {}
+    },
+    {
+      "driver_id": "meter:meter_1774625129670",
+      "group": "meter",
+      "name": "一号厅",
+      "protocol": "Modbus-RTU/TCP",
+      "comm_mode": "TCP",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246371",
+      "data": {}
+    },
+    {
+      "driver_id": "meter:legacy_meter_5",
+      "group": "meter",
+      "name": "中控室",
+      "protocol": "德力西 DTSU6606 直连 Modbus",
+      "comm_mode": "TCP",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246358",
+      "data": {}
+    },
+    {
+      "driver_id": "meter:legacy_meter_3",
+      "group": "meter",
+      "name": "二号厅",
+      "protocol": "南誉三相四线 Modbus",
+      "comm_mode": "TCP",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246356",
+      "data": {}
+    },
+    {
+      "driver_id": "meter:legacy_meter_12",
+      "group": "meter",
+      "name": "办公室",
+      "protocol": "南誉三相四线 Modbus",
+      "comm_mode": "TCP",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246363",
+      "data": {}
+    },
+    {
+      "driver_id": "meter:legacy_meter_9",
+      "group": "meter",
+      "name": "办公室&工作坊",
+      "protocol": "南誉三相四线 Modbus",
+      "comm_mode": "TCP",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246365",
+      "data": {}
+    },
+    {
+      "driver_id": "meter:legacy_meter_11",
+      "group": "meter",
+      "name": "咖啡厅",
+      "protocol": "南誉三相四线 Modbus",
+      "comm_mode": "TCP",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246369",
+      "data": {}
+    },
+    {
+      "driver_id": "meter:legacy_meter_2",
+      "group": "meter",
+      "name": "深澜空间总电表",
+      "protocol": "PD606 Modbus 地址表",
+      "comm_mode": "TCP",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246353",
+      "data": {}
+    },
+    {
+      "driver_id": "meter:legacy_meter_6",
+      "group": "meter",
+      "name": "运营中心",
+      "protocol": "南誉三相四线 Modbus",
+      "comm_mode": "TCP",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246361",
+      "data": {}
+    },
+    {
+      "driver_id": "meter:meter_1774629630399",
+      "group": "meter",
+      "name": "运营中心",
+      "protocol": "Modbus-RTU/TCP",
+      "comm_mode": "TCP",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246373",
+      "data": {}
+    },
+    {
+      "driver_id": "power:0",
+      "group": "power",
+      "name": "中控室",
+      "protocol": "AV-100",
+      "comm_mode": "TCP",
+      "online": true,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246335",
+      "data": {
+        "channels_1_4": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "cabinet_temp": 0,
+        "cabinet_humidity": 0,
+        "voltage_a": 0,
+        "voltage_b": 0,
+        "voltage_c": 0,
+        "current_a": 0,
+        "current_b": 0,
+        "current_c": 0,
+        "electric_energy": 0,
+        "daily_energy": 0.0,
+        "monthly_energy": 0.0,
+        "realtime_power": 0.0,
+        "current_month": 4,
+        "work_mode": "未知",
+        "comm_status": true
+      }
+    },
+    {
+      "driver_id": "power:1",
+      "group": "power",
+      "name": "二号厅LED",
+      "protocol": "AV-100",
+      "comm_mode": "TCP",
+      "online": true,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246342",
+      "data": {
+        "channels_1_4": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "cabinet_temp": 0,
+        "cabinet_humidity": 0,
+        "voltage_a": 0,
+        "voltage_b": 0,
+        "voltage_c": 0,
+        "current_a": 0,
+        "current_b": 0,
+        "current_c": 0,
+        "electric_energy": 0,
+        "daily_energy": 0.0,
+        "monthly_energy": 0.0,
+        "realtime_power": 0.0,
+        "current_month": 4,
+        "work_mode": "未知",
+        "comm_status": true
+      }
+    },
+    {
+      "driver_id": "power:3",
+      "group": "power",
+      "name": "影棚LED配电柜",
+      "protocol": "AV-100",
+      "comm_mode": "TCP",
+      "online": true,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246348",
+      "data": {
+        "channels_1_4": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "cabinet_temp": 0,
+        "cabinet_humidity": 0,
+        "voltage_a": 0,
+        "voltage_b": 0,
+        "voltage_c": 0,
+        "current_a": 0,
+        "current_b": 0,
+        "current_c": 0,
+        "electric_energy": 0,
+        "daily_energy": 0.0,
+        "monthly_energy": 0.0,
+        "realtime_power": 0.0,
+        "current_month": 4,
+        "work_mode": "未知",
+        "comm_status": true
+      }
+    },
+    {
+      "driver_id": "power:2",
+      "group": "power",
+      "name": "影棚配电柜",
+      "protocol": "AV-100",
+      "comm_mode": "TCP",
+      "online": true,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246346",
+      "data": {
+        "channels_1_4": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "cabinet_temp": 0,
+        "cabinet_humidity": 0,
+        "voltage_a": 0,
+        "voltage_b": 0,
+        "voltage_c": 0,
+        "current_a": 0,
+        "current_b": 0,
+        "current_c": 0,
+        "electric_energy": 0,
+        "daily_energy": 0.0,
+        "monthly_energy": 0.0,
+        "realtime_power": 0.0,
+        "current_month": 4,
+        "work_mode": "未知",
+        "comm_status": true
+      }
+    },
+    {
+      "driver_id": "power:4",
+      "group": "power",
+      "name": "门口LED",
+      "protocol": "AV-100",
+      "comm_mode": "TCP",
+      "online": true,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.246350",
+      "data": {
+        "channels_1_4": [
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false,
+          false
+        ],
+        "cabinet_temp": 0,
+        "cabinet_humidity": 0,
+        "voltage_a": 0,
+        "voltage_b": 0,
+        "voltage_c": 0,
+        "current_a": 0,
+        "current_b": 0,
+        "current_c": 0,
+        "electric_energy": 0,
+        "daily_energy": 0.0,
+        "monthly_energy": 0.0,
+        "realtime_power": 0.0,
+        "current_month": 4,
+        "work_mode": "未知",
+        "comm_status": true
+      }
+    },
+    {
+      "driver_id": "projector:proj_1774531663869",
+      "group": "projector",
+      "name": "台球桌",
+      "protocol": "pjlink",
+      "comm_mode": "pjlink",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.413624",
+      "data": {}
+    },
+    {
+      "driver_id": "projector:proj_1774736760658",
+      "group": "projector",
+      "name": "新投影机",
+      "protocol": "pjlink",
+      "comm_mode": "pjlink",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.413626",
+      "data": {}
+    },
+    {
+      "driver_id": "projector:proj_1774515640578",
+      "group": "projector",
+      "name": "猫桌",
+      "protocol": "pjlink",
+      "comm_mode": "pjlink",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.413621",
+      "data": {}
+    },
+    {
+      "driver_id": "screen:screen_1774322049381",
+      "group": "screen",
+      "name": "一厅-A区-幕布",
+      "protocol": "screen_tcp",
+      "comm_mode": "screen_tcp",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.413632",
+      "data": {}
+    },
+    {
+      "driver_id": "sequencer:sequencer_1774587372602",
+      "group": "sequencer",
+      "name": "hecoos",
+      "protocol": "DGH 8路时序器",
+      "comm_mode": "TCP",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.413600",
+      "data": {
+        "id": "sequencer_1774587372602",
+        "name": "hecoos",
+        "brand": "DGH",
+        "model": "DS-608",
+        "sku": "DS-608",
+        "device_type": "时序电源",
+        "protocol": "DGH 8路时序器",
+        "comm_mode": "TCP",
+        "ip": "192.168.50.54",
+        "port": 8080,
+        "com_port": "COM1",
+        "address": 1,
+        "baudrate": 19200,
+        "data_bits": 8,
+        "stop_bits": 1,
+        "parity": "NONE",
+        "channel_count": 8,
+        "poll_interval_ms": 1200,
+        "sort_order": 999,
+        "online": false,
+        "locked": false,
+        "mode": "时序模式",
+        "startup_mode": "手动",
+        "running": false,
+        "last_action": "待机",
+        "last_command_hex": "",
+        "last_response_hex": "",
+        "error": "",
+        "error_display": "",
+        "updated_at": null,
+        "last_success_at": null,
+        "channel_summary": "开启: 无 | 关闭: 1、2、3、4、5、6、7、8",
+        "channels": [
+          {
+            "channel": 1,
+            "name": "CH1",
+            "visible": true,
+            "state": false
+          },
+          {
+            "channel": 2,
+            "name": "CH2",
+            "visible": true,
+            "state": false
+          },
+          {
+            "channel": 3,
+            "name": "CH3",
+            "visible": true,
+            "state": false
+          },
+          {
+            "channel": 4,
+            "name": "CH4",
+            "visible": true,
+            "state": false
+          },
+          {
+            "channel": 5,
+            "name": "CH5",
+            "visible": true,
+            "state": false
+          },
+          {
+            "channel": 6,
+            "name": "CH6",
+            "visible": true,
+            "state": false
+          },
+          {
+            "channel": 7,
+            "name": "CH7",
+            "visible": true,
+            "state": false
+          },
+          {
+            "channel": 8,
+            "name": "CH8",
+            "visible": true,
+            "state": false
+          }
+        ]
+      }
+    },
+    {
+      "driver_id": "sequencer:sequencer_ds608_1",
+      "group": "sequencer",
+      "name": "中控",
+      "protocol": "DGH 8路时序器",
+      "comm_mode": "TCP",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.413508",
+      "data": {
+        "id": "sequencer_ds608_1",
+        "name": "中控",
+        "brand": "DGH",
+        "model": "DS-608",
+        "sku": "DS-608",
+        "device_type": "时序电源",
+        "protocol": "DGH 8路时序器",
+        "comm_mode": "TCP",
+        "ip": "192.168.50.53",
+        "port": 8080,
+        "com_port": "COM1",
+        "address": 1,
+        "baudrate": 19200,
+        "data_bits": 8,
+        "stop_bits": 1,
+        "parity": "NONE",
+        "channel_count": 8,
+        "poll_interval_ms": 1200,
+        "sort_order": 999,
+        "online": false,
+        "locked": false,
+        "mode": "时序模式",
+        "startup_mode": "手动",
+        "running": false,
+        "last_action": "待机",
+        "last_command_hex": "",
+        "last_response_hex": "",
+        "error": "",
+        "error_display": "",
+        "updated_at": null,
+        "last_success_at": null,
+        "channel_summary": "开启: 无 | 关闭: 1、2、3、4、5、6、7、8",
+        "channels": [
+          {
+            "channel": 1,
+            "name": "CH1",
+            "visible": true,
+            "state": false
+          },
+          {
+            "channel": 2,
+            "name": "CH2",
+            "visible": true,
+            "state": false
+          },
+          {
+            "channel": 3,
+            "name": "CH3",
+            "visible": true,
+            "state": false
+          },
+          {
+            "channel": 4,
+            "name": "CH4",
+            "visible": true,
+            "state": false
+          },
+          {
+            "channel": 5,
+            "name": "CH5",
+            "visible": true,
+            "state": false
+          },
+          {
+            "channel": 6,
+            "name": "CH6",
+            "visible": true,
+            "state": false
+          },
+          {
+            "channel": 7,
+            "name": "CH7",
+            "visible": true,
+            "state": false
+          },
+          {
+            "channel": 8,
+            "name": "CH8",
+            "visible": true,
+            "state": false
+          }
+        ]
+      }
+    },
+    {
+      "driver_id": "snmp:snmp_h3c_192_168_99_1",
+      "group": "snmp",
+      "name": "H3C Switch",
+      "protocol": "SNMP",
+      "comm_mode": "v2c",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.413618",
+      "data": {}
+    },
+    {
+      "driver_id": "snmp:snmp_qnap_192_168_30_145",
+      "group": "snmp",
+      "name": "威联通 NAS",
+      "protocol": "SNMP",
+      "comm_mode": "v2c",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.413612",
+      "data": {}
+    },
+    {
+      "driver_id": "snmp:snmp_ikuai_192_168_99_3",
+      "group": "snmp",
+      "name": "爱快网关",
+      "protocol": "SNMP",
+      "comm_mode": "v2c",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.413615",
+      "data": {}
+    },
+    {
+      "driver_id": "snmp:snmp_fnnas_192_168_50_254",
+      "group": "snmp",
+      "name": "飞牛 NAS",
+      "protocol": "SNMP",
+      "comm_mode": "v2c",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.413609",
+      "data": {}
+    },
+    {
+      "driver_id": "ups:ups_1774600700259",
+      "group": "ups",
+      "name": "山特 UPS",
+      "protocol": "SANTAK Castle RS232",
+      "comm_mode": "TCP",
+      "online": false,
+      "error": "",
+      "updated_at": "2026-04-04T01:14:32.413606",
+      "data": {}
+    }
+  ]
+}

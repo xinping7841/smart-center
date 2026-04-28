@@ -1,0 +1,5306 @@
+{
+  "cabinets": [
+    {
+      "cabinet_name": "中控室",
+      "channel_count": 8,
+      "channels_config": [
+        {
+          "channel": 1,
+          "name": "回路 1",
+          "sort": 1,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 2,
+          "name": "回路 2",
+          "sort": 2,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 3,
+          "name": "回路 3",
+          "sort": 3,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 4,
+          "name": "回路 4",
+          "sort": 4,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 5,
+          "name": "回路 5",
+          "sort": 5,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 6,
+          "name": "回路 6",
+          "sort": 6,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 7,
+          "name": "回路 7",
+          "sort": 7,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 8,
+          "name": "回路 8",
+          "sort": 8,
+          "span": 1,
+          "visible": true
+        }
+      ],
+      "comm_type": "以太网",
+      "ct_ratio": 1,
+      "ip": "192.168.50.6",
+      "meter_area_name": "",
+      "meter_display_name": "中控室",
+      "meter_include_in_reports": true,
+      "meter_include_in_totals": false,
+      "meter_mode": "type1",
+      "meter_sort_order": 1,
+      "meter_visible_in_center": false,
+      "plc_type": "AV-100",
+      "port": 502,
+      "station_id": 50,
+      "ui_text": {
+        "alert_control_fail": "控制失败，请检查通讯！",
+        "back_to_home": "返回主页",
+        "cabinet_info": "电柜信息",
+        "comm_status_error": "异常",
+        "comm_status_normal": "正常",
+        "confirm_single_off": "确定要关闭此通道吗？",
+        "confirm_stop": "确定要停止该电柜所有通道吗？",
+        "label_cabinet_name": "电柜名称",
+        "label_channel": "通道",
+        "label_comm_status_title": "通讯状态：",
+        "label_comm_type": "通讯方式",
+        "label_day": "日期",
+        "label_energy": "累计电能统计",
+        "label_energy_chart": "近7日用电量统计",
+        "label_energy_consume": "用电量(kWh)",
+        "label_humidity": "柜体湿度",
+        "label_kwh": "kWh",
+        "label_local_ip_port": "本机地址",
+        "label_mode_external": "外控模式",
+        "label_mode_manual": "手动模式",
+        "label_mode_remote": "远程模式",
+        "label_mode_unknown": "未知模式",
+        "label_month_energy_suffix": "月累计电能统计：",
+        "label_off": "断开",
+        "label_on": "合闸",
+        "label_phase": "实时三相电参数",
+        "label_phase_a": "A：",
+        "label_phase_b": "B：",
+        "label_phase_c": "C：",
+        "label_realtime_power": "实时功率(kW)：",
+        "label_relay_title": "输出通道状态",
+        "label_station_id": "站号",
+        "label_temp": "柜体温度",
+        "label_today_energy": "今日累计：",
+        "onekey_start": "一键启动",
+        "onekey_stop": "一键停止",
+        "operation_log": "操作日志",
+        "save_config": "保存配置",
+        "system_config": "系统配置",
+        "title_main": "演播中控调度引擎",
+        "ui_text_config": "界面文字配置"
+      }
+    },
+    {
+      "cabinet_name": "二号厅LED",
+      "channel_count": 3,
+      "channels_config": [
+        {
+          "channel": 1,
+          "name": "第1路",
+          "sort": 1,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 2,
+          "name": "第2路",
+          "sort": 2,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 3,
+          "name": "第3路",
+          "sort": 3,
+          "span": 1,
+          "visible": true
+        }
+      ],
+      "comm_type": "以太网",
+      "ct_ratio": 20,
+      "ip": "192.168.80.243",
+      "meter_area_name": "",
+      "meter_display_name": "二号厅LED",
+      "meter_include_in_reports": true,
+      "meter_include_in_totals": true,
+      "meter_mode": "type4",
+      "meter_sort_order": 2,
+      "meter_visible_in_center": true,
+      "plc_type": "AV-100",
+      "port": 502,
+      "station_id": 50,
+      "ui_text": {
+        "alert_control_fail": "控制失败，请检查通讯！",
+        "back_to_home": "返回主页",
+        "cabinet_info": "电柜信息",
+        "comm_status_error": "异常",
+        "comm_status_normal": "正常",
+        "confirm_single_off": "确定要关闭此通道吗？",
+        "confirm_stop": "确定要停止该电柜所有通道吗？",
+        "label_cabinet_name": "电柜名称",
+        "label_channel": "通道",
+        "label_comm_status_title": "通讯状态：",
+        "label_comm_type": "通讯方式",
+        "label_day": "日期",
+        "label_energy": "累计电能统计",
+        "label_energy_chart": "近7日用电量统计",
+        "label_energy_consume": "用电量(kWh)",
+        "label_humidity": "柜体湿度",
+        "label_kwh": "kWh",
+        "label_local_ip_port": "本机地址",
+        "label_mode_external": "外控模式",
+        "label_mode_manual": "手动模式",
+        "label_mode_remote": "远程模式",
+        "label_mode_unknown": "未知模式",
+        "label_month_energy_suffix": "月累计电能统计：",
+        "label_off": "断开",
+        "label_on": "合闸",
+        "label_phase": "实时三相电参数",
+        "label_phase_a": "A：",
+        "label_phase_b": "B：",
+        "label_phase_c": "C：",
+        "label_realtime_power": "实时功率(kW)：",
+        "label_relay_title": "输出通道状态",
+        "label_station_id": "站号",
+        "label_temp": "柜体温度",
+        "label_today_energy": "今日累计：",
+        "onekey_start": "一键启动",
+        "onekey_stop": "一键停止",
+        "operation_log": "操作日志",
+        "save_config": "保存配置",
+        "system_config": "系统配置",
+        "title_main": "演播中控调度引擎",
+        "ui_text_config": "界面文字配置"
+      }
+    },
+    {
+      "cabinet_name": "影棚配电柜",
+      "channel_count": 3,
+      "channels_config": [
+        {
+          "channel": 1,
+          "name": "第1路",
+          "sort": 1,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 2,
+          "name": "第2路",
+          "sort": 2,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 3,
+          "name": "第3路",
+          "sort": 3,
+          "span": 1,
+          "visible": true
+        }
+      ],
+      "comm_type": "以太网",
+      "ct_ratio": 1,
+      "ip": "192.168.50.60",
+      "meter_area_name": "",
+      "meter_display_name": "影棚配电柜",
+      "meter_include_in_reports": true,
+      "meter_include_in_totals": true,
+      "meter_mode": "type4",
+      "meter_sort_order": 3,
+      "meter_visible_in_center": true,
+      "plc_type": "AV-100",
+      "port": 502,
+      "station_id": 50,
+      "ui_text": {
+        "alert_control_fail": "控制失败，请检查通讯！",
+        "back_to_home": "返回主页",
+        "cabinet_info": "电柜信息",
+        "comm_status_error": "异常",
+        "comm_status_normal": "正常",
+        "confirm_single_off": "确定要关闭此通道吗？",
+        "confirm_stop": "确定要停止该电柜所有通道吗？",
+        "label_cabinet_name": "电柜名称",
+        "label_channel": "通道",
+        "label_comm_status_title": "通讯状态：",
+        "label_comm_type": "通讯方式",
+        "label_day": "日期",
+        "label_energy": "累计电能统计",
+        "label_energy_chart": "近7日用电量统计",
+        "label_energy_consume": "用电量(kWh)",
+        "label_humidity": "柜体湿度",
+        "label_kwh": "kWh",
+        "label_local_ip_port": "本机地址",
+        "label_mode_external": "外控模式",
+        "label_mode_manual": "手动模式",
+        "label_mode_remote": "远程模式",
+        "label_mode_unknown": "未知模式",
+        "label_month_energy_suffix": "月累计电能统计：",
+        "label_off": "断开",
+        "label_on": "合闸",
+        "label_phase": "实时三相电参数",
+        "label_phase_a": "A：",
+        "label_phase_b": "B：",
+        "label_phase_c": "C：",
+        "label_realtime_power": "实时功率(kW)：",
+        "label_relay_title": "输出通道状态",
+        "label_station_id": "站号",
+        "label_temp": "柜体温度",
+        "label_today_energy": "今日累计：",
+        "onekey_start": "一键启动",
+        "onekey_stop": "一键停止",
+        "operation_log": "操作日志",
+        "save_config": "保存配置",
+        "system_config": "系统配置",
+        "title_main": "演播中控调度引擎",
+        "ui_text_config": "界面文字配置"
+      }
+    },
+    {
+      "cabinet_name": "影棚LED配电柜",
+      "channel_count": 6,
+      "channels_config": [
+        {
+          "channel": 1,
+          "name": "第1路",
+          "sort": 1,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 2,
+          "name": "第2路",
+          "sort": 2,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 3,
+          "name": "第3路",
+          "sort": 3,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 4,
+          "name": "第4路",
+          "sort": 4,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 5,
+          "name": "第5路",
+          "sort": 5,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 6,
+          "name": "第6路",
+          "sort": 6,
+          "span": 1,
+          "visible": true
+        }
+      ],
+      "comm_type": "以太网",
+      "ct_ratio": 1,
+      "ip": "192.168.50.61",
+      "meter_area_name": "",
+      "meter_display_name": "影棚LED配电柜",
+      "meter_include_in_reports": true,
+      "meter_include_in_totals": true,
+      "meter_mode": "type4",
+      "meter_sort_order": 4,
+      "meter_visible_in_center": true,
+      "plc_type": "AV-100",
+      "port": 5061,
+      "station_id": 50,
+      "ui_text": {
+        "alert_control_fail": "控制失败，请检查通讯！",
+        "back_to_home": "返回主页",
+        "cabinet_info": "电柜信息",
+        "comm_status_error": "异常",
+        "comm_status_normal": "正常",
+        "confirm_single_off": "确定要关闭此通道吗？",
+        "confirm_stop": "确定要停止该电柜所有通道吗？",
+        "label_cabinet_name": "电柜名称",
+        "label_channel": "通道",
+        "label_comm_status_title": "通讯状态：",
+        "label_comm_type": "通讯方式",
+        "label_day": "日期",
+        "label_energy": "累计电能统计",
+        "label_energy_chart": "近7日用电量统计",
+        "label_energy_consume": "用电量(kWh)",
+        "label_humidity": "柜体湿度",
+        "label_kwh": "kWh",
+        "label_local_ip_port": "本机地址",
+        "label_mode_external": "外控模式",
+        "label_mode_manual": "手动模式",
+        "label_mode_remote": "远程模式",
+        "label_mode_unknown": "未知模式",
+        "label_month_energy_suffix": "月累计电能统计：",
+        "label_off": "断开",
+        "label_on": "合闸",
+        "label_phase": "实时三相电参数",
+        "label_phase_a": "A：",
+        "label_phase_b": "B：",
+        "label_phase_c": "C：",
+        "label_realtime_power": "实时功率(kW)：",
+        "label_relay_title": "输出通道状态",
+        "label_station_id": "站号",
+        "label_temp": "柜体温度",
+        "label_today_energy": "今日累计：",
+        "onekey_start": "一键启动",
+        "onekey_stop": "一键停止",
+        "operation_log": "操作日志",
+        "save_config": "保存配置",
+        "system_config": "系统配置",
+        "title_main": "演播中控调度引擎",
+        "ui_text_config": "界面文字配置"
+      }
+    },
+    {
+      "cabinet_name": "门口LED",
+      "channel_count": 2,
+      "channels_config": [
+        {
+          "channel": 1,
+          "name": "第1路",
+          "sort": 1,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 2,
+          "name": "第2路",
+          "sort": 2,
+          "span": 1,
+          "visible": true
+        }
+      ],
+      "comm_type": "以太网",
+      "ct_ratio": 20,
+      "ip": "192.168.50.59",
+      "meter_area_name": "",
+      "meter_display_name": "门口LED",
+      "meter_include_in_reports": true,
+      "meter_include_in_totals": true,
+      "meter_mode": "type1",
+      "meter_sort_order": 5,
+      "meter_visible_in_center": true,
+      "plc_type": "AV-100",
+      "port": 5059,
+      "station_id": 50,
+      "ui_text": {
+        "alert_control_fail": "控制失败，请检查通讯！",
+        "back_to_home": "返回主页",
+        "cabinet_info": "电柜信息",
+        "comm_status_error": "异常",
+        "comm_status_normal": "正常",
+        "confirm_single_off": "确定要关闭此通道吗？",
+        "confirm_stop": "确定要停止该电柜所有通道吗？",
+        "label_cabinet_name": "电柜名称",
+        "label_channel": "通道",
+        "label_comm_status_title": "通讯状态：",
+        "label_comm_type": "通讯方式",
+        "label_day": "日期",
+        "label_energy": "累计电能统计",
+        "label_energy_chart": "近7日用电量统计",
+        "label_energy_consume": "用电量(kWh)",
+        "label_humidity": "柜体湿度",
+        "label_kwh": "kWh",
+        "label_local_ip_port": "本机地址",
+        "label_mode_external": "外控模式",
+        "label_mode_manual": "手动模式",
+        "label_mode_remote": "远程模式",
+        "label_mode_unknown": "未知模式",
+        "label_month_energy_suffix": "月累计电能统计：",
+        "label_off": "断开",
+        "label_on": "合闸",
+        "label_phase": "实时三相电参数",
+        "label_phase_a": "A：",
+        "label_phase_b": "B：",
+        "label_phase_c": "C：",
+        "label_realtime_power": "实时功率(kW)：",
+        "label_relay_title": "输出通道状态",
+        "label_station_id": "站号",
+        "label_temp": "柜体温度",
+        "label_today_energy": "今日累计：",
+        "onekey_start": "一键启动",
+        "onekey_stop": "一键停止",
+        "operation_log": "操作日志",
+        "save_config": "保存配置",
+        "system_config": "系统配置",
+        "title_main": "演播中控调度引擎",
+        "ui_text_config": "界面文字配置"
+      }
+    }
+  ],
+  "meters": [
+    {
+      "area_name": "",
+      "baudrate": 9600,
+      "bind_cabinet_idx": -1,
+      "brand": "DELIXI",
+      "calc_left_source_id": "",
+      "calc_note": "",
+      "calc_operator": "subtract",
+      "calc_right_source_id": "",
+      "com_port": "COM1",
+      "comm_mode": "TCP",
+      "ct_ratio": 60,
+      "data_bits": 8,
+      "enabled": true,
+      "energy_format_preset": "legacy_fmt2",
+      "features": {
+        "voltage": true,
+        "current": true,
+        "power": true,
+        "energy_total": true,
+        "energy_daily": true,
+        "energy_monthly": true,
+        "temperature": false,
+        "humidity": false
+      },
+      "id": "legacy_meter_2",
+      "include_in_reports": true,
+      "include_in_totals": false,
+      "ip": "192.168.50.103",
+      "meter_kind": "独立电表",
+      "meter_type": "ct",
+      "model": "PD606",
+      "multiplier": 1,
+      "name": "深澜空间总电表",
+      "parity": "NONE",
+      "poll_interval_ms": 2000,
+      "port": 502,
+      "protocol": "PD606 Modbus 地址表",
+      "register_map": {
+        "voltage_a": {
+          "enabled": true,
+          "fc": 3,
+          "address": 37,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_b": {
+          "enabled": true,
+          "fc": 3,
+          "address": 38,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_c": {
+          "enabled": true,
+          "fc": 3,
+          "address": 39,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_ab": {
+          "enabled": false,
+          "fc": 3,
+          "address": 40,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_bc": {
+          "enabled": false,
+          "fc": 3,
+          "address": 41,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_ca": {
+          "enabled": false,
+          "fc": 3,
+          "address": 42,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "current_a": {
+          "enabled": true,
+          "fc": 3,
+          "address": 43,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.01,
+          "byte_order": "AB"
+        },
+        "current_b": {
+          "enabled": true,
+          "fc": 3,
+          "address": 44,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.01,
+          "byte_order": "AB"
+        },
+        "current_c": {
+          "enabled": true,
+          "fc": 3,
+          "address": 45,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.01,
+          "byte_order": "AB"
+        },
+        "realtime_power": {
+          "enabled": true,
+          "fc": 3,
+          "address": 49,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.01,
+          "byte_order": "AB"
+        },
+        "reactive_power": {
+          "enabled": false,
+          "fc": 3,
+          "address": 53,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.001,
+          "byte_order": "AB"
+        },
+        "apparent_power": {
+          "enabled": false,
+          "fc": 3,
+          "address": 61,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.001,
+          "byte_order": "AB"
+        },
+        "power_factor": {
+          "enabled": false,
+          "fc": 3,
+          "address": 57,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.001,
+          "byte_order": "AB"
+        },
+        "frequency": {
+          "enabled": false,
+          "fc": 3,
+          "address": 62,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.01,
+          "byte_order": "AB"
+        },
+        "electric_energy": {
+          "enabled": true,
+          "fc": 4,
+          "address": 71,
+          "count": 2,
+          "data_type": "f32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "cabinet_temp": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "s16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "cabinet_humidity": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        }
+      },
+      "sort_order": 101,
+      "source_mode": "standalone",
+      "station_id": 1,
+      "stop_bits": 1,
+      "visible": true,
+      "visible_in_meter_center": false
+    },
+    {
+      "area_name": "",
+      "baudrate": 9600,
+      "bind_cabinet_idx": -1,
+      "brand": "南誉",
+      "calc_left_source_id": "",
+      "calc_note": "",
+      "calc_operator": "subtract",
+      "calc_right_source_id": "",
+      "com_port": "COM1",
+      "comm_mode": "TCP",
+      "ct_ratio": 1,
+      "data_bits": 8,
+      "enabled": true,
+      "energy_format_preset": "nanyu_three_phase",
+      "features": {
+        "voltage": true,
+        "current": true,
+        "power": true,
+        "energy_total": true,
+        "energy_daily": true,
+        "energy_monthly": true,
+        "temperature": false,
+        "humidity": false
+      },
+      "id": "legacy_meter_3",
+      "include_in_reports": true,
+      "include_in_totals": true,
+      "ip": "192.168.50.105",
+      "meter_kind": "独立电表",
+      "meter_type": "direct",
+      "model": "三相四线电表",
+      "multiplier": 1,
+      "name": "二号厅",
+      "parity": "NONE",
+      "poll_interval_ms": 2000,
+      "port": 502,
+      "protocol": "南誉三相四线 Modbus",
+      "register_map": {
+        "voltage_a": {
+          "enabled": true,
+          "fc": 4,
+          "address": 256,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.1,
+          "byte_order": "ABCD"
+        },
+        "voltage_b": {
+          "enabled": true,
+          "fc": 4,
+          "address": 258,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.1,
+          "byte_order": "ABCD"
+        },
+        "voltage_c": {
+          "enabled": true,
+          "fc": 4,
+          "address": 260,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.1,
+          "byte_order": "ABCD"
+        },
+        "voltage_ab": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_bc": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_ca": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "current_a": {
+          "enabled": true,
+          "fc": 4,
+          "address": 262,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "current_b": {
+          "enabled": true,
+          "fc": 4,
+          "address": 264,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "current_c": {
+          "enabled": true,
+          "fc": 4,
+          "address": 266,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "realtime_power": {
+          "enabled": true,
+          "fc": 4,
+          "address": 270,
+          "count": 2,
+          "data_type": "s32",
+          "scale": 0.0001,
+          "byte_order": "ABCD"
+        },
+        "reactive_power": {
+          "enabled": false,
+          "fc": 4,
+          "address": 278,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.0001,
+          "byte_order": "ABCD"
+        },
+        "apparent_power": {
+          "enabled": false,
+          "fc": 4,
+          "address": 286,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "power_factor": {
+          "enabled": false,
+          "fc": 4,
+          "address": 294,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "frequency": {
+          "enabled": false,
+          "fc": 4,
+          "address": 308,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.01,
+          "byte_order": "ABCD"
+        },
+        "electric_energy": {
+          "enabled": true,
+          "fc": 4,
+          "address": 29,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.01,
+          "byte_order": "ABCD"
+        },
+        "cabinet_temp": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "s16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "cabinet_humidity": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        }
+      },
+      "sort_order": 102,
+      "source_mode": "standalone",
+      "station_id": 1,
+      "stop_bits": 1,
+      "visible": true,
+      "visible_in_meter_center": true
+    },
+    {
+      "area_name": "",
+      "baudrate": 9600,
+      "bind_cabinet_idx": -1,
+      "brand": "德力西",
+      "calc_left_source_id": "",
+      "calc_note": "",
+      "calc_operator": "subtract",
+      "calc_right_source_id": "",
+      "com_port": "COM1",
+      "comm_mode": "TCP",
+      "ct_ratio": 1,
+      "data_bits": 8,
+      "enabled": true,
+      "energy_format_preset": "delixi_dtsu6606_direct",
+      "features": {
+        "voltage": true,
+        "current": true,
+        "power": true,
+        "energy_total": true,
+        "energy_daily": true,
+        "energy_monthly": true,
+        "temperature": false,
+        "humidity": false
+      },
+      "id": "legacy_meter_5",
+      "include_in_reports": true,
+      "include_in_totals": true,
+      "ip": "192.168.50.101",
+      "meter_kind": "独立电表",
+      "meter_type": "direct",
+      "model": "DTSU6606vcrf",
+      "multiplier": 1,
+      "name": "中控室",
+      "parity": "NONE",
+      "poll_interval_ms": 2000,
+      "port": 502,
+      "protocol": "德力西 DTSU6606 直连 Modbus",
+      "register_map": {
+        "voltage_a": {
+          "enabled": true,
+          "fc": 4,
+          "address": 768,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_b": {
+          "enabled": true,
+          "fc": 4,
+          "address": 769,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_c": {
+          "enabled": true,
+          "fc": 4,
+          "address": 770,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_ab": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_bc": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_ca": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "current_a": {
+          "enabled": true,
+          "fc": 4,
+          "address": 771,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.01,
+          "byte_order": "AB"
+        },
+        "current_b": {
+          "enabled": true,
+          "fc": 4,
+          "address": 772,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.01,
+          "byte_order": "AB"
+        },
+        "current_c": {
+          "enabled": true,
+          "fc": 4,
+          "address": 773,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.01,
+          "byte_order": "AB"
+        },
+        "realtime_power": {
+          "enabled": true,
+          "fc": 4,
+          "address": 777,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.01,
+          "byte_order": "AB"
+        },
+        "reactive_power": {
+          "enabled": false,
+          "fc": 4,
+          "address": 781,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.01,
+          "byte_order": "AB"
+        },
+        "apparent_power": {
+          "enabled": false,
+          "fc": 4,
+          "address": 785,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.01,
+          "byte_order": "AB"
+        },
+        "power_factor": {
+          "enabled": false,
+          "fc": 4,
+          "address": 789,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.001,
+          "byte_order": "AB"
+        },
+        "frequency": {
+          "enabled": false,
+          "fc": 4,
+          "address": 790,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.01,
+          "byte_order": "AB"
+        },
+        "electric_energy": {
+          "enabled": true,
+          "fc": 4,
+          "address": 0,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.01,
+          "byte_order": "ABCD"
+        },
+        "cabinet_temp": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "s16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "cabinet_humidity": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        }
+      },
+      "sort_order": 103,
+      "source_mode": "standalone",
+      "station_id": 1,
+      "stop_bits": 1,
+      "visible": true,
+      "visible_in_meter_center": true
+    },
+    {
+      "area_name": "",
+      "baudrate": 9600,
+      "bind_cabinet_idx": -1,
+      "brand": "南誉",
+      "calc_left_source_id": "",
+      "calc_note": "",
+      "calc_operator": "subtract",
+      "calc_right_source_id": "",
+      "com_port": "COM1",
+      "comm_mode": "TCP",
+      "ct_ratio": 1,
+      "data_bits": 8,
+      "enabled": true,
+      "energy_format_preset": "nanyu_three_phase",
+      "features": {
+        "voltage": true,
+        "current": true,
+        "power": true,
+        "energy_total": true,
+        "energy_daily": true,
+        "energy_monthly": true,
+        "temperature": false,
+        "humidity": false
+      },
+      "id": "legacy_meter_6",
+      "include_in_reports": true,
+      "include_in_totals": false,
+      "ip": "192.168.50.104",
+      "meter_kind": "独立电表",
+      "meter_type": "direct",
+      "model": "三相四线电表",
+      "multiplier": 1,
+      "name": "运营中心",
+      "parity": "NONE",
+      "poll_interval_ms": 2000,
+      "port": 502,
+      "protocol": "南誉三相四线 Modbus",
+      "register_map": {
+        "voltage_a": {
+          "enabled": true,
+          "fc": 4,
+          "address": 256,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.1,
+          "byte_order": "ABCD"
+        },
+        "voltage_b": {
+          "enabled": true,
+          "fc": 4,
+          "address": 258,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.1,
+          "byte_order": "ABCD"
+        },
+        "voltage_c": {
+          "enabled": true,
+          "fc": 4,
+          "address": 260,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.1,
+          "byte_order": "ABCD"
+        },
+        "voltage_ab": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_bc": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_ca": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "current_a": {
+          "enabled": true,
+          "fc": 4,
+          "address": 262,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "current_b": {
+          "enabled": true,
+          "fc": 4,
+          "address": 264,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "current_c": {
+          "enabled": true,
+          "fc": 4,
+          "address": 266,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "realtime_power": {
+          "enabled": true,
+          "fc": 4,
+          "address": 270,
+          "count": 2,
+          "data_type": "s32",
+          "scale": 0.0001,
+          "byte_order": "ABCD"
+        },
+        "reactive_power": {
+          "enabled": false,
+          "fc": 4,
+          "address": 278,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.0001,
+          "byte_order": "ABCD"
+        },
+        "apparent_power": {
+          "enabled": false,
+          "fc": 4,
+          "address": 286,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "power_factor": {
+          "enabled": false,
+          "fc": 4,
+          "address": 294,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "frequency": {
+          "enabled": false,
+          "fc": 4,
+          "address": 308,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.01,
+          "byte_order": "ABCD"
+        },
+        "electric_energy": {
+          "enabled": true,
+          "fc": 4,
+          "address": 29,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.01,
+          "byte_order": "ABCD"
+        },
+        "cabinet_temp": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "s16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "cabinet_humidity": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        }
+      },
+      "sort_order": 104,
+      "source_mode": "standalone",
+      "station_id": 10,
+      "stop_bits": 1,
+      "visible": true,
+      "visible_in_meter_center": false
+    },
+    {
+      "area_name": "",
+      "baudrate": 9600,
+      "bind_cabinet_idx": -1,
+      "brand": "南誉",
+      "calc_left_source_id": "",
+      "calc_note": "",
+      "calc_operator": "subtract",
+      "calc_right_source_id": "",
+      "com_port": "COM1",
+      "comm_mode": "TCP",
+      "ct_ratio": 1,
+      "data_bits": 8,
+      "enabled": true,
+      "energy_format_preset": "nanyu_three_phase",
+      "features": {
+        "voltage": true,
+        "current": true,
+        "power": true,
+        "energy_total": true,
+        "energy_daily": true,
+        "energy_monthly": true,
+        "temperature": false,
+        "humidity": false
+      },
+      "id": "legacy_meter_12",
+      "include_in_reports": false,
+      "include_in_totals": false,
+      "ip": "192.168.50.106",
+      "meter_kind": "独立电表",
+      "meter_type": "direct",
+      "model": "三相四线电表",
+      "multiplier": 1,
+      "name": "办公室",
+      "parity": "NONE",
+      "poll_interval_ms": 2000,
+      "port": 502,
+      "protocol": "南誉三相四线 Modbus",
+      "register_map": {
+        "voltage_a": {
+          "enabled": true,
+          "fc": 4,
+          "address": 256,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.1,
+          "byte_order": "ABCD"
+        },
+        "voltage_b": {
+          "enabled": true,
+          "fc": 4,
+          "address": 258,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.1,
+          "byte_order": "ABCD"
+        },
+        "voltage_c": {
+          "enabled": true,
+          "fc": 4,
+          "address": 260,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.1,
+          "byte_order": "ABCD"
+        },
+        "voltage_ab": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_bc": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_ca": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "current_a": {
+          "enabled": true,
+          "fc": 4,
+          "address": 262,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "current_b": {
+          "enabled": true,
+          "fc": 4,
+          "address": 264,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "current_c": {
+          "enabled": true,
+          "fc": 4,
+          "address": 266,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "realtime_power": {
+          "enabled": true,
+          "fc": 4,
+          "address": 270,
+          "count": 2,
+          "data_type": "s32",
+          "scale": 0.0001,
+          "byte_order": "ABCD"
+        },
+        "reactive_power": {
+          "enabled": false,
+          "fc": 4,
+          "address": 278,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.0001,
+          "byte_order": "ABCD"
+        },
+        "apparent_power": {
+          "enabled": false,
+          "fc": 4,
+          "address": 286,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "power_factor": {
+          "enabled": false,
+          "fc": 4,
+          "address": 294,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "frequency": {
+          "enabled": false,
+          "fc": 4,
+          "address": 308,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.01,
+          "byte_order": "ABCD"
+        },
+        "electric_energy": {
+          "enabled": true,
+          "fc": 4,
+          "address": 29,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.01,
+          "byte_order": "ABCD"
+        },
+        "cabinet_temp": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "s16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "cabinet_humidity": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        }
+      },
+      "sort_order": 105,
+      "source_mode": "standalone",
+      "station_id": 1,
+      "stop_bits": 1,
+      "visible": true,
+      "visible_in_meter_center": false
+    },
+    {
+      "area_name": "",
+      "baudrate": 9600,
+      "bind_cabinet_idx": -1,
+      "brand": "南誉",
+      "calc_left_source_id": "",
+      "calc_note": "",
+      "calc_operator": "subtract",
+      "calc_right_source_id": "",
+      "com_port": "COM1",
+      "comm_mode": "TCP",
+      "ct_ratio": 1,
+      "data_bits": 8,
+      "enabled": true,
+      "energy_format_preset": "nanyu_three_phase",
+      "features": {
+        "voltage": true,
+        "current": true,
+        "power": true,
+        "energy_total": true,
+        "energy_daily": true,
+        "energy_monthly": true,
+        "temperature": false,
+        "humidity": false
+      },
+      "id": "legacy_meter_9",
+      "include_in_reports": true,
+      "include_in_totals": true,
+      "ip": "192.168.50.104",
+      "meter_kind": "独立电表",
+      "meter_type": "direct",
+      "model": "三相四线电表",
+      "multiplier": 1,
+      "name": "办公室&工作坊",
+      "parity": "NONE",
+      "poll_interval_ms": 2000,
+      "port": 502,
+      "protocol": "南誉三相四线 Modbus",
+      "register_map": {
+        "voltage_a": {
+          "enabled": true,
+          "fc": 4,
+          "address": 256,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.1,
+          "byte_order": "ABCD"
+        },
+        "voltage_b": {
+          "enabled": true,
+          "fc": 4,
+          "address": 258,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.1,
+          "byte_order": "ABCD"
+        },
+        "voltage_c": {
+          "enabled": true,
+          "fc": 4,
+          "address": 260,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.1,
+          "byte_order": "ABCD"
+        },
+        "voltage_ab": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_bc": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_ca": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "current_a": {
+          "enabled": true,
+          "fc": 4,
+          "address": 262,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "current_b": {
+          "enabled": true,
+          "fc": 4,
+          "address": 264,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "current_c": {
+          "enabled": true,
+          "fc": 4,
+          "address": 266,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "realtime_power": {
+          "enabled": true,
+          "fc": 4,
+          "address": 270,
+          "count": 2,
+          "data_type": "s32",
+          "scale": 0.0001,
+          "byte_order": "ABCD"
+        },
+        "reactive_power": {
+          "enabled": false,
+          "fc": 4,
+          "address": 278,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.0001,
+          "byte_order": "ABCD"
+        },
+        "apparent_power": {
+          "enabled": false,
+          "fc": 4,
+          "address": 286,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "power_factor": {
+          "enabled": false,
+          "fc": 4,
+          "address": 294,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "frequency": {
+          "enabled": false,
+          "fc": 4,
+          "address": 308,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.01,
+          "byte_order": "ABCD"
+        },
+        "electric_energy": {
+          "enabled": true,
+          "fc": 4,
+          "address": 29,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.01,
+          "byte_order": "ABCD"
+        },
+        "cabinet_temp": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "s16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "cabinet_humidity": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        }
+      },
+      "sort_order": 106,
+      "source_mode": "standalone",
+      "station_id": 9,
+      "stop_bits": 1,
+      "visible": true,
+      "visible_in_meter_center": true
+    },
+    {
+      "area_name": "",
+      "baudrate": 9600,
+      "bind_cabinet_idx": -1,
+      "brand": "南誉",
+      "calc_left_source_id": "",
+      "calc_note": "",
+      "calc_operator": "subtract",
+      "calc_right_source_id": "",
+      "com_port": "COM1",
+      "comm_mode": "TCP",
+      "ct_ratio": 1,
+      "data_bits": 8,
+      "enabled": true,
+      "energy_format_preset": "nanyu_2p_int",
+      "features": {
+        "voltage": true,
+        "current": true,
+        "power": true,
+        "energy_total": true,
+        "energy_daily": true,
+        "energy_monthly": true,
+        "temperature": false,
+        "humidity": false
+      },
+      "id": "legacy_meter_10",
+      "include_in_reports": true,
+      "include_in_totals": true,
+      "ip": "192.168.50.102",
+      "meter_kind": "独立电表",
+      "meter_type": "direct",
+      "model": "2P 电表",
+      "multiplier": 1,
+      "name": "2楼小机房",
+      "parity": "NONE",
+      "poll_interval_ms": 2000,
+      "port": 502,
+      "protocol": "南誉 2P Int Modbus",
+      "register_map": {
+        "voltage_a": {
+          "enabled": true,
+          "fc": 4,
+          "address": 400,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_b": {
+          "enabled": false,
+          "fc": 4,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_c": {
+          "enabled": false,
+          "fc": 4,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_ab": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_bc": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_ca": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "current_a": {
+          "enabled": true,
+          "fc": 4,
+          "address": 401,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.01,
+          "byte_order": "AB"
+        },
+        "current_b": {
+          "enabled": false,
+          "fc": 4,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "current_c": {
+          "enabled": false,
+          "fc": 4,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "realtime_power": {
+          "enabled": true,
+          "fc": 4,
+          "address": 402,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.001,
+          "byte_order": "AB"
+        },
+        "reactive_power": {
+          "enabled": false,
+          "fc": 4,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.001,
+          "byte_order": "AB"
+        },
+        "apparent_power": {
+          "enabled": false,
+          "fc": 4,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.001,
+          "byte_order": "AB"
+        },
+        "power_factor": {
+          "enabled": false,
+          "fc": 4,
+          "address": 403,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.001,
+          "byte_order": "AB"
+        },
+        "frequency": {
+          "enabled": false,
+          "fc": 4,
+          "address": 404,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.01,
+          "byte_order": "AB"
+        },
+        "electric_energy": {
+          "enabled": true,
+          "fc": 4,
+          "address": 405,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.01,
+          "byte_order": "ABCD"
+        },
+        "cabinet_temp": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "s16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "cabinet_humidity": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        }
+      },
+      "sort_order": 107,
+      "source_mode": "standalone",
+      "station_id": 11,
+      "stop_bits": 1,
+      "visible": true,
+      "visible_in_meter_center": true
+    },
+    {
+      "area_name": "",
+      "baudrate": 9600,
+      "bind_cabinet_idx": -1,
+      "brand": "南誉",
+      "calc_left_source_id": "",
+      "calc_note": "",
+      "calc_operator": "subtract",
+      "calc_right_source_id": "",
+      "com_port": "COM1",
+      "comm_mode": "TCP",
+      "ct_ratio": 1,
+      "data_bits": 8,
+      "enabled": true,
+      "energy_format_preset": "nanyu_three_phase",
+      "features": {
+        "voltage": true,
+        "current": true,
+        "power": true,
+        "energy_total": true,
+        "energy_daily": true,
+        "energy_monthly": true,
+        "temperature": false,
+        "humidity": false
+      },
+      "id": "legacy_meter_11",
+      "include_in_reports": true,
+      "include_in_totals": true,
+      "ip": "192.168.50.104",
+      "meter_kind": "独立电表",
+      "meter_type": "direct",
+      "model": "三相四线电表",
+      "multiplier": 1,
+      "name": "咖啡厅",
+      "parity": "NONE",
+      "poll_interval_ms": 2000,
+      "port": 502,
+      "protocol": "南誉三相四线 Modbus",
+      "register_map": {
+        "voltage_a": {
+          "enabled": true,
+          "fc": 4,
+          "address": 256,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.1,
+          "byte_order": "ABCD"
+        },
+        "voltage_b": {
+          "enabled": true,
+          "fc": 4,
+          "address": 258,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.1,
+          "byte_order": "ABCD"
+        },
+        "voltage_c": {
+          "enabled": true,
+          "fc": 4,
+          "address": 260,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.1,
+          "byte_order": "ABCD"
+        },
+        "voltage_ab": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_bc": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_ca": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "current_a": {
+          "enabled": true,
+          "fc": 4,
+          "address": 262,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "current_b": {
+          "enabled": true,
+          "fc": 4,
+          "address": 264,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "current_c": {
+          "enabled": true,
+          "fc": 4,
+          "address": 266,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "realtime_power": {
+          "enabled": true,
+          "fc": 4,
+          "address": 270,
+          "count": 2,
+          "data_type": "s32",
+          "scale": 0.0001,
+          "byte_order": "ABCD"
+        },
+        "reactive_power": {
+          "enabled": false,
+          "fc": 4,
+          "address": 278,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.0001,
+          "byte_order": "ABCD"
+        },
+        "apparent_power": {
+          "enabled": false,
+          "fc": 4,
+          "address": 286,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "power_factor": {
+          "enabled": false,
+          "fc": 4,
+          "address": 294,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "frequency": {
+          "enabled": false,
+          "fc": 4,
+          "address": 308,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.01,
+          "byte_order": "ABCD"
+        },
+        "electric_energy": {
+          "enabled": true,
+          "fc": 4,
+          "address": 29,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.01,
+          "byte_order": "ABCD"
+        },
+        "cabinet_temp": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "s16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "cabinet_humidity": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        }
+      },
+      "sort_order": 108,
+      "source_mode": "standalone",
+      "station_id": 8,
+      "stop_bits": 1,
+      "visible": true,
+      "visible_in_meter_center": true
+    },
+    {
+      "area_name": "一号厅",
+      "baudrate": 9600,
+      "bind_cabinet_idx": -1,
+      "brand": "",
+      "calc_left_source_id": "cabinet_meter_0",
+      "calc_note": "",
+      "calc_operator": "subtract",
+      "calc_right_source_id": "legacy_meter_5",
+      "com_port": "COM1",
+      "comm_mode": "TCP",
+      "ct_ratio": 1,
+      "data_bits": 8,
+      "enabled": true,
+      "energy_format_preset": "custom",
+      "features": {
+        "voltage": true,
+        "current": true,
+        "power": true,
+        "energy_total": true,
+        "energy_daily": true,
+        "energy_monthly": true,
+        "temperature": false,
+        "humidity": false
+      },
+      "id": "meter_1774625129670",
+      "include_in_reports": true,
+      "include_in_totals": true,
+      "ip": "192.168.1.200",
+      "meter_kind": "独立电表",
+      "meter_type": "cabinet_inner",
+      "model": "",
+      "multiplier": 1,
+      "name": "一号厅",
+      "parity": "NONE",
+      "poll_interval_ms": 2000,
+      "port": 502,
+      "protocol": "Modbus-RTU/TCP",
+      "register_map": {
+        "voltage_a": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_b": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_c": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_ab": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_bc": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_ca": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "current_a": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "current_b": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "current_c": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "realtime_power": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "reactive_power": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.001,
+          "byte_order": "AB"
+        },
+        "apparent_power": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.001,
+          "byte_order": "AB"
+        },
+        "power_factor": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.001,
+          "byte_order": "AB"
+        },
+        "frequency": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.01,
+          "byte_order": "AB"
+        },
+        "electric_energy": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.01,
+          "byte_order": "ABCD"
+        },
+        "cabinet_temp": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "s16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "cabinet_humidity": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        }
+      },
+      "sort_order": 109,
+      "source_mode": "calculated",
+      "station_id": 1,
+      "stop_bits": 1,
+      "visible": true,
+      "visible_in_meter_center": true
+    },
+    {
+      "area_name": "",
+      "baudrate": 9600,
+      "bind_cabinet_idx": -1,
+      "brand": "",
+      "calc_left_source_id": "legacy_meter_6",
+      "calc_note": "",
+      "calc_operator": "subtract",
+      "calc_right_source_id": "cabinet_meter_4",
+      "com_port": "COM1",
+      "comm_mode": "TCP",
+      "ct_ratio": 1,
+      "data_bits": 8,
+      "enabled": true,
+      "energy_format_preset": "custom",
+      "features": {
+        "voltage": true,
+        "current": true,
+        "power": true,
+        "energy_total": true,
+        "energy_daily": true,
+        "energy_monthly": true,
+        "temperature": false,
+        "humidity": false
+      },
+      "id": "meter_1774629630399",
+      "include_in_reports": true,
+      "include_in_totals": true,
+      "ip": "192.168.1.200",
+      "meter_kind": "独立电表",
+      "meter_type": "direct",
+      "model": "",
+      "multiplier": 1,
+      "name": "运营中心",
+      "parity": "NONE",
+      "poll_interval_ms": 2000,
+      "port": 502,
+      "protocol": "Modbus-RTU/TCP",
+      "register_map": {
+        "voltage_a": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_b": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_c": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_ab": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_bc": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "voltage_ca": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "current_a": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "current_b": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "current_c": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "realtime_power": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.001,
+          "byte_order": "ABCD"
+        },
+        "reactive_power": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.001,
+          "byte_order": "AB"
+        },
+        "apparent_power": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.001,
+          "byte_order": "AB"
+        },
+        "power_factor": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.001,
+          "byte_order": "AB"
+        },
+        "frequency": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.01,
+          "byte_order": "AB"
+        },
+        "electric_energy": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 2,
+          "data_type": "u32",
+          "scale": 0.01,
+          "byte_order": "ABCD"
+        },
+        "cabinet_temp": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "s16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        },
+        "cabinet_humidity": {
+          "enabled": false,
+          "fc": 3,
+          "address": 0,
+          "count": 1,
+          "data_type": "u16",
+          "scale": 0.1,
+          "byte_order": "AB"
+        }
+      },
+      "sort_order": 110,
+      "source_mode": "calculated",
+      "station_id": 1,
+      "stop_bits": 1,
+      "visible": true,
+      "visible_in_meter_center": true
+    }
+  ],
+  "ups_devices": [
+    {
+      "baudrate": 2400,
+      "brand": "SANTAK",
+      "com_port": "COM1",
+      "comm_mode": "TCP",
+      "data_bits": 8,
+      "id": "ups_1774600700259",
+      "ip": "192.168.51.13",
+      "model": "C1K",
+      "name": "山特 UPS",
+      "parity": "NONE",
+      "poll_interval_ms": 3000,
+      "port": 45113,
+      "protocol": "SANTAK Castle RS232",
+      "shutdown_delay": ".3",
+      "stop_bits": 1,
+      "timeout_sec": 2.0,
+      "visible": true,
+      "query_retries": 4,
+      "retry_backoff_ms": 200,
+      "frame_settle_ms": 120,
+      "response_window_ms": 1300,
+      "require_parenthesized_frame": true,
+      "command_gap_ms": 80,
+      "fallback_cache_ttl_sec": 600.0
+    }
+  ],
+  "snmp_devices": [
+    {
+      "auth_password": "",
+      "auth_protocol": "SHA",
+      "brand": "飞牛",
+      "community": "MyMonitor2026!",
+      "context_name": "",
+      "custom_oids": [
+        {
+          "name": "hr_memory_size_kb",
+          "oid": "1.3.6.1.2.1.25.2.2.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "KB",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "hr_system_processes",
+          "oid": "1.3.6.1.2.1.25.1.6.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "hr_system_users",
+          "oid": "1.3.6.1.2.1.25.1.5.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "ucd_load_1",
+          "oid": "1.3.6.1.4.1.2021.10.1.3.1",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "",
+          "precision": 2,
+          "enabled": true
+        },
+        {
+          "name": "ucd_load_5",
+          "oid": "1.3.6.1.4.1.2021.10.1.3.2",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "",
+          "precision": 2,
+          "enabled": true
+        },
+        {
+          "name": "ucd_load_15",
+          "oid": "1.3.6.1.4.1.2021.10.1.3.3",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "",
+          "precision": 2,
+          "enabled": true
+        },
+        {
+          "name": "ucd_mem_total_kb",
+          "oid": "1.3.6.1.4.1.2021.4.5.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "KB",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "ucd_mem_available_kb",
+          "oid": "1.3.6.1.4.1.2021.4.6.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "KB",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "ucd_mem_buffer_kb",
+          "oid": "1.3.6.1.4.1.2021.4.14.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "KB",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "ucd_mem_cached_kb",
+          "oid": "1.3.6.1.4.1.2021.4.15.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "KB",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "cpu_user_percent",
+          "oid": "1.3.6.1.4.1.2021.11.9.0",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "%",
+          "precision": 1,
+          "enabled": true
+        },
+        {
+          "name": "cpu_system_percent",
+          "oid": "1.3.6.1.4.1.2021.11.10.0",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "%",
+          "precision": 1,
+          "enabled": true
+        },
+        {
+          "name": "cpu_idle_percent",
+          "oid": "1.3.6.1.4.1.2021.11.11.0",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "%",
+          "precision": 1,
+          "enabled": true
+        }
+      ],
+      "device_type": "nas",
+      "enabled": true,
+      "host": "192.168.50.254",
+      "id": "snmp_fnnas_192_168_50_254",
+      "model": "fnOS",
+      "name": "飞牛 NAS",
+      "oid_map": {
+        "sys_descr": "1.3.6.1.2.1.1.1.0",
+        "sys_object_id": "1.3.6.1.2.1.1.2.0",
+        "sys_uptime": "1.3.6.1.2.1.1.3.0",
+        "sys_contact": "1.3.6.1.2.1.1.4.0",
+        "sys_name": "1.3.6.1.2.1.1.5.0",
+        "sys_location": "1.3.6.1.2.1.1.6.0",
+        "if_number": "1.3.6.1.2.1.2.1.0"
+      },
+      "poll_interval_ms": 4000,
+      "port": 161,
+      "priv_password": "",
+      "priv_protocol": "AES",
+      "protocol": "SNMP",
+      "retries": 1,
+      "security_level": "noAuthNoPriv",
+      "source_ip": "",
+      "timeout_sec": 2,
+      "username": "",
+      "version": "v2c",
+      "visible": true,
+      "walk_enabled": true,
+      "walk_interval_ms": 20000,
+      "walk_max_oids": 256,
+      "walk_roots": [
+        "1.3.6.1.2.1.1",
+        "1.3.6.1.2.1.25.3.3.1.2",
+        "1.3.6.1.2.1.25.2.3.1.3",
+        "1.3.6.1.2.1.25.2.3.1.4",
+        "1.3.6.1.2.1.25.2.3.1.5",
+        "1.3.6.1.2.1.25.2.3.1.6",
+        "1.3.6.1.2.1.31.1.1.1.1",
+        "1.3.6.1.2.1.31.1.1.1.6",
+        "1.3.6.1.2.1.31.1.1.1.10",
+        "1.3.6.1.2.1.31.1.1.1.18",
+        "1.3.6.1.2.1.2.2.1.5",
+        "1.3.6.1.2.1.2.2.1.7",
+        "1.3.6.1.2.1.2.2.1.8",
+        "1.3.6.1.4.1.2021.4",
+        "1.3.6.1.4.1.2021.10",
+        "1.3.6.1.4.1.2021.11",
+        "1.3.6.1.4.1.2021.13",
+        "1.3.6.1.4.1.8072"
+      ],
+      "walk_sample_limit": 12,
+      "walk_roots_per_cycle": 0
+    },
+    {
+      "auth_password": "",
+      "auth_protocol": "SHA",
+      "brand": "QNAP",
+      "community": "admin123",
+      "context_name": "",
+      "custom_oids": [
+        {
+          "name": "hr_memory_size_kb",
+          "oid": "1.3.6.1.2.1.25.2.2.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "KB",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "hr_system_processes",
+          "oid": "1.3.6.1.2.1.25.1.6.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "hr_system_users",
+          "oid": "1.3.6.1.2.1.25.1.5.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "ucd_load_1",
+          "oid": "1.3.6.1.4.1.2021.10.1.3.1",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "",
+          "precision": 2,
+          "enabled": true
+        },
+        {
+          "name": "ucd_load_5",
+          "oid": "1.3.6.1.4.1.2021.10.1.3.2",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "",
+          "precision": 2,
+          "enabled": true
+        },
+        {
+          "name": "ucd_load_15",
+          "oid": "1.3.6.1.4.1.2021.10.1.3.3",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "",
+          "precision": 2,
+          "enabled": true
+        },
+        {
+          "name": "ucd_mem_total_kb",
+          "oid": "1.3.6.1.4.1.2021.4.5.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "KB",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "ucd_mem_available_kb",
+          "oid": "1.3.6.1.4.1.2021.4.6.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "KB",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "ucd_mem_buffer_kb",
+          "oid": "1.3.6.1.4.1.2021.4.14.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "KB",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "ucd_mem_cached_kb",
+          "oid": "1.3.6.1.4.1.2021.4.15.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "KB",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "cpu_user_percent",
+          "oid": "1.3.6.1.4.1.2021.11.9.0",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "%",
+          "precision": 1,
+          "enabled": true
+        },
+        {
+          "name": "cpu_system_percent",
+          "oid": "1.3.6.1.4.1.2021.11.10.0",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "%",
+          "precision": 1,
+          "enabled": true
+        },
+        {
+          "name": "cpu_idle_percent",
+          "oid": "1.3.6.1.4.1.2021.11.11.0",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "%",
+          "precision": 1,
+          "enabled": true
+        },
+        {
+          "name": "vendor_memory_total",
+          "oid": "1.3.6.1.4.1.24681.1.2.2.0",
+          "value_type": "auto",
+          "scale": 1,
+          "unit": "",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "vendor_memory_free",
+          "oid": "1.3.6.1.4.1.24681.1.2.3.0",
+          "value_type": "auto",
+          "scale": 1,
+          "unit": "",
+          "precision": 0,
+          "enabled": true
+        }
+      ],
+      "device_type": "nas",
+      "enabled": true,
+      "host": "192.168.30.145",
+      "id": "snmp_qnap_192_168_30_145",
+      "model": "TS-X73A",
+      "name": "威联通 NAS",
+      "oid_map": {
+        "sys_descr": "1.3.6.1.2.1.1.1.0",
+        "sys_object_id": "1.3.6.1.2.1.1.2.0",
+        "sys_uptime": "1.3.6.1.2.1.1.3.0",
+        "sys_contact": "1.3.6.1.2.1.1.4.0",
+        "sys_name": "1.3.6.1.2.1.1.5.0",
+        "sys_location": "1.3.6.1.2.1.1.6.0",
+        "if_number": "1.3.6.1.2.1.2.1.0"
+      },
+      "poll_interval_ms": 4000,
+      "port": 161,
+      "priv_password": "",
+      "priv_protocol": "AES",
+      "protocol": "SNMP",
+      "retries": 1,
+      "security_level": "noAuthNoPriv",
+      "source_ip": "",
+      "timeout_sec": 2,
+      "username": "",
+      "version": "v2c",
+      "visible": true,
+      "walk_enabled": true,
+      "walk_interval_ms": 20000,
+      "walk_max_oids": 256,
+      "walk_roots": [
+        "1.3.6.1.2.1.1",
+        "1.3.6.1.2.1.25.3.3.1.2",
+        "1.3.6.1.2.1.25.2.3.1.3",
+        "1.3.6.1.2.1.25.2.3.1.4",
+        "1.3.6.1.2.1.25.2.3.1.5",
+        "1.3.6.1.2.1.25.2.3.1.6",
+        "1.3.6.1.2.1.31.1.1.1.1",
+        "1.3.6.1.2.1.31.1.1.1.6",
+        "1.3.6.1.2.1.31.1.1.1.10",
+        "1.3.6.1.2.1.31.1.1.1.18",
+        "1.3.6.1.2.1.2.2.1.5",
+        "1.3.6.1.2.1.2.2.1.7",
+        "1.3.6.1.2.1.2.2.1.8",
+        "1.3.6.1.4.1.24681.1.2.2",
+        "1.3.6.1.4.1.24681.1.2.3",
+        "1.3.6.1.4.1.24681.1.2.11",
+        "1.3.6.1.4.1.55062.2.10.2.1",
+        "1.3.6.1.4.1.55062.2.12.9.1"
+      ],
+      "walk_sample_limit": 12,
+      "walk_roots_per_cycle": 0
+    },
+    {
+      "auth_password": "",
+      "auth_protocol": "SHA",
+      "brand": "iKuai",
+      "community": "iKuai",
+      "context_name": "",
+      "custom_oids": [
+        {
+          "name": "hr_memory_size_kb",
+          "oid": "1.3.6.1.2.1.25.2.2.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "KB",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "hr_system_processes",
+          "oid": "1.3.6.1.2.1.25.1.6.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "hr_system_users",
+          "oid": "1.3.6.1.2.1.25.1.5.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "ucd_load_1",
+          "oid": "1.3.6.1.4.1.2021.10.1.3.1",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "",
+          "precision": 2,
+          "enabled": true
+        },
+        {
+          "name": "ucd_load_5",
+          "oid": "1.3.6.1.4.1.2021.10.1.3.2",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "",
+          "precision": 2,
+          "enabled": true
+        },
+        {
+          "name": "ucd_load_15",
+          "oid": "1.3.6.1.4.1.2021.10.1.3.3",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "",
+          "precision": 2,
+          "enabled": true
+        },
+        {
+          "name": "cpu_user_percent",
+          "oid": "1.3.6.1.4.1.2021.11.9.0",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "%",
+          "precision": 1,
+          "enabled": true
+        },
+        {
+          "name": "cpu_system_percent",
+          "oid": "1.3.6.1.4.1.2021.11.10.0",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "%",
+          "precision": 1,
+          "enabled": true
+        },
+        {
+          "name": "cpu_idle_percent",
+          "oid": "1.3.6.1.4.1.2021.11.11.0",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "%",
+          "precision": 1,
+          "enabled": true
+        },
+        {
+          "name": "temperature_c",
+          "oid": "1.3.6.1.4.1.2021.13.16.2.1.3.1",
+          "value_type": "float",
+          "scale": 0.1,
+          "unit": "°C",
+          "precision": 1,
+          "enabled": true
+        },
+        {
+          "name": "cpu_temperature_c",
+          "oid": "1.3.6.1.4.1.2021.13.16.2.1.3.1",
+          "value_type": "float",
+          "scale": 0.1,
+          "unit": "°C",
+          "precision": 1,
+          "enabled": true
+        },
+        {
+          "name": "session_count",
+          "oid": "1.3.6.1.4.1.2021.255.1.1.1.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "network_connections",
+          "oid": "1.3.6.1.4.1.2021.255.1.1.1.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "nat_sessions",
+          "oid": "1.3.6.1.4.1.2021.255.1.1.2.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "online_clients",
+          "oid": "1.3.6.1.4.1.2021.255.1.1.3.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "ap_count",
+          "oid": "1.3.6.1.4.1.2021.255.1.1.4.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "",
+          "precision": 0,
+          "enabled": true
+        },
+        {
+          "name": "if_number",
+          "oid": "1.3.6.1.2.1.2.1.0",
+          "value_type": "int",
+          "scale": 1,
+          "unit": "",
+          "precision": 0,
+          "enabled": true
+        }
+      ],
+      "device_type": "router",
+      "enabled": true,
+      "host": "192.168.99.3",
+      "id": "snmp_ikuai_192_168_99_3",
+      "model": "3.7.21",
+      "name": "爱快网关",
+      "oid_map": {
+        "sys_descr": "1.3.6.1.2.1.1.1.0",
+        "sys_object_id": "1.3.6.1.2.1.1.2.0",
+        "sys_uptime": "1.3.6.1.2.1.1.3.0",
+        "sys_contact": "1.3.6.1.2.1.1.4.0",
+        "sys_name": "1.3.6.1.2.1.1.5.0",
+        "sys_location": "1.3.6.1.2.1.1.6.0",
+        "if_number": "1.3.6.1.2.1.2.1.0"
+      },
+      "poll_interval_ms": 4000,
+      "port": 161,
+      "priv_password": "",
+      "priv_protocol": "AES",
+      "protocol": "SNMP",
+      "retries": 1,
+      "security_level": "noAuthNoPriv",
+      "source_ip": "",
+      "timeout_sec": 2,
+      "username": "",
+      "version": "v2c",
+      "visible": true,
+      "walk_enabled": true,
+      "walk_interval_ms": 20000,
+      "walk_max_oids": 256,
+      "walk_roots": [
+        "1.3.6.1.2.1.1",
+        "1.3.6.1.2.1.25.3.3.1.2",
+        "1.3.6.1.2.1.25.2.3.1.3",
+        "1.3.6.1.2.1.25.2.3.1.4",
+        "1.3.6.1.2.1.25.2.3.1.5",
+        "1.3.6.1.2.1.25.2.3.1.6",
+        "1.3.6.1.2.1.31.1.1.1.1",
+        "1.3.6.1.2.1.31.1.1.1.6",
+        "1.3.6.1.2.1.31.1.1.1.10",
+        "1.3.6.1.2.1.31.1.1.1.18",
+        "1.3.6.1.2.1.2.2.1.5",
+        "1.3.6.1.2.1.2.2.1.7",
+        "1.3.6.1.2.1.2.2.1.8",
+        "1.3.6.1.2.1.2.2.1.10",
+        "1.3.6.1.2.1.2.2.1.13",
+        "1.3.6.1.2.1.2.2.1.14",
+        "1.3.6.1.2.1.2.2.1.16",
+        "1.3.6.1.2.1.2.2.1.19",
+        "1.3.6.1.2.1.2.2.1.20",
+        "1.3.6.1.4.1.2021.4",
+        "1.3.6.1.4.1.2021.9",
+        "1.3.6.1.4.1.2021.10",
+        "1.3.6.1.4.1.2021.11",
+        "1.3.6.1.4.1.7375.1.2.1"
+      ],
+      "walk_sample_limit": 12,
+      "walk_roots_per_cycle": 0
+    },
+    {
+      "auth_password": "",
+      "auth_protocol": "SHA",
+      "brand": "H3C",
+      "community": "H3C",
+      "context_name": "",
+      "custom_oids": [],
+      "device_type": "switch",
+      "enabled": true,
+      "host": "192.168.99.1",
+      "id": "snmp_h3c_192_168_99_1",
+      "model": "S5130V2-28S-LI",
+      "name": "H3C Switch",
+      "oid_map": {
+        "sys_descr": "1.3.6.1.2.1.1.1.0",
+        "sys_object_id": "1.3.6.1.2.1.1.2.0",
+        "sys_uptime": "1.3.6.1.2.1.1.3.0",
+        "sys_contact": "1.3.6.1.2.1.1.4.0",
+        "sys_name": "1.3.6.1.2.1.1.5.0",
+        "sys_location": "1.3.6.1.2.1.1.6.0",
+        "if_number": "1.3.6.1.2.1.2.1.0"
+      },
+      "poll_interval_ms": 4000,
+      "port": 161,
+      "priv_password": "",
+      "priv_protocol": "AES",
+      "protocol": "SNMP",
+      "retries": 1,
+      "security_level": "noAuthNoPriv",
+      "source_ip": "",
+      "timeout_sec": 2,
+      "username": "",
+      "version": "v2c",
+      "visible": true,
+      "walk_enabled": true,
+      "walk_interval_ms": 20000,
+      "walk_max_oids": 400,
+      "walk_roots": [
+        "1.3.6.1.2.1.1",
+        "1.3.6.1.2.1.2.2.1.2",
+        "1.3.6.1.2.1.2.2.1.5",
+        "1.3.6.1.2.1.2.2.1.7",
+        "1.3.6.1.2.1.2.2.1.8",
+        "1.3.6.1.2.1.31.1.1.1.1",
+        "1.3.6.1.2.1.31.1.1.1.18",
+        "1.3.6.1.2.1.31.1.1.1.6",
+        "1.3.6.1.2.1.31.1.1.1.15",
+        "1.3.6.1.2.1.31.1.1.1.10",
+        "1.3.6.1.2.1.2.2.1.10",
+        "1.3.6.1.2.1.2.2.1.13",
+        "1.3.6.1.2.1.2.2.1.14",
+        "1.3.6.1.2.1.2.2.1.16",
+        "1.3.6.1.2.1.2.2.1.19",
+        "1.3.6.1.2.1.2.2.1.20",
+        "1.3.6.1.2.1.17.1.4.1.2",
+        "1.3.6.1.2.1.17.4.3.1.2",
+        "1.3.6.1.2.1.17.4.3.1.3",
+        "1.3.6.1.2.1.17.7.1.2.2.1.2",
+        "1.3.6.1.2.1.17.7.1.2.2.1.3",
+        "1.3.6.1.2.1.17.7.1.4.3.1.1",
+        "1.3.6.1.2.1.17.7.1.4.5.1.1"
+      ],
+      "walk_sample_limit": 12,
+      "walk_roots_per_cycle": 0
+    }
+  ],
+  "light_devices": [
+    {
+      "brand": "COXE",
+      "channels": 4,
+      "channels_config": [
+        {
+          "channel": 1,
+          "name": "A区",
+          "sort": 1,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 2,
+          "name": "B区",
+          "sort": 2,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 3,
+          "name": "沉浸厅",
+          "sort": 3,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 4,
+          "name": "前言墙",
+          "sort": 4,
+          "span": 1,
+          "visible": true
+        }
+      ],
+      "command_off": "off",
+      "command_off3": "off3",
+      "command_on": "on",
+      "dashboard_action_buttons": [],
+      "id": 1,
+      "ip": "192.168.50.8",
+      "name": "一号厅",
+      "ping_command": "ping",
+      "port": 44448,
+      "post_command_delay_ms": 500,
+      "slave_id": 1,
+      "status_cache_ttl_ms": 250,
+      "status_command": "status",
+      "status_read_mode": "coil",
+      "status_start_address": 0,
+      "timeout_sec": 2,
+      "type": "light",
+      "write_start_address": 0
+    },
+    {
+      "brand": "COXE",
+      "channels": 8,
+      "channels_config": [
+        {
+          "channel": 1,
+          "name": "大厅-1",
+          "sort": 1,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 2,
+          "name": "大厅-2",
+          "sort": 2,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 3,
+          "name": "大厅-门口",
+          "sort": 3,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 4,
+          "name": "仓库",
+          "sort": 4,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 5,
+          "name": "包间-常开",
+          "sort": 5,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 6,
+          "name": "第6路",
+          "sort": 6,
+          "span": 1,
+          "visible": false
+        },
+        {
+          "channel": 7,
+          "name": "应急-常开",
+          "sort": 7,
+          "span": 1,
+          "visible": true
+        },
+        {
+          "channel": 8,
+          "name": "应急-常开",
+          "sort": 8,
+          "span": 1,
+          "visible": true
+        }
+      ],
+      "command_off": "off",
+      "command_off3": "off3",
+      "command_on": "on",
+      "dashboard_action_buttons": [],
+      "id": 2,
+      "ip": "192.168.80.119",
+      "name": "二号厅",
+      "ping_command": "ping",
+      "port": 44119,
+      "post_command_delay_ms": 500,
+      "slave_id": 1,
+      "status_cache_ttl_ms": 250,
+      "status_command": "status",
+      "status_read_mode": "coil",
+      "status_start_address": 0,
+      "timeout_sec": 2,
+      "type": "light",
+      "write_start_address": 0
+    },
+    {
+      "id": 3,
+      "name": "新灯光模块",
+      "brand": "RF_TCP",
+      "slave_id": 1,
+      "ip": "192.168.50.254",
+      "port": 1881,
+      "channels": 1,
+      "channels_config": [
+        {
+          "channel": 1,
+          "name": "第1路",
+          "sort": 1,
+          "visible": true,
+          "span": 1
+        }
+      ],
+      "status_command": "status",
+      "command_on": "on",
+      "command_off": "off",
+      "command_off3": "off3",
+      "timeout_sec": 2,
+      "post_command_delay_ms": 500,
+      "status_cache_ttl_ms": 250,
+      "dashboard_action_buttons": [],
+      "status_read_mode": "coil",
+      "status_start_address": 0,
+      "write_start_address": 0,
+      "ping_command": "ping",
+      "type": "light"
+    }
+  ],
+  "scenes": [
+    {
+      "id": "scene_outdoor_light_on",
+      "name": "户外灯自动开灯",
+      "sort": 1,
+      "visible": false,
+      "auto_generated": true,
+      "auto_generated_key": "outdoor_light",
+      "actions": [
+        {
+          "sub_system": "universal",
+          "device_id": "dev_1775230252161",
+          "action_type": "command",
+          "payload": "99 03 8D 66 34 58 99",
+          "format": "hex",
+          "wait_ms": 0,
+          "delay_ms": 0
+        }
+      ]
+    },
+    {
+      "id": "scene_outdoor_light_off",
+      "name": "户外灯自动关灯",
+      "sort": 2,
+      "visible": false,
+      "auto_generated": true,
+      "auto_generated_key": "outdoor_light",
+      "actions": [
+        {
+          "sub_system": "universal",
+          "device_id": "dev_1775230252161",
+          "action_type": "command",
+          "payload": "99 03 8D 66 32 58 99",
+          "format": "hex",
+          "wait_ms": 0,
+          "delay_ms": 0
+        }
+      ]
+    }
+  ],
+  "door_config": {
+    "rtsp_url": "rtsp://admin:lanjingkeji798@192.168.40.11:554/Streaming/Channels/101",
+    "match_threshold": 1500,
+    "match_thresholds": {
+      "main": 1500,
+      "aux": 1500
+    },
+    "ip": "192.168.50.51",
+    "port": 50000,
+    "preferred_detection_camera": "main",
+    "camera_probe_timeout_sec": 4,
+    "camera_reconnect_delay_sec": 2,
+    "cameras": [
+      {
+        "key": "main",
+        "name": "大门内",
+        "rtsp_url": "rtsp://admin:lanjingkeji798@192.168.40.11:554/Streaming/Channels/101",
+        "enabled": true,
+        "host": "192.168.40.11"
+      },
+      {
+        "key": "aux",
+        "name": "大门外",
+        "rtsp_url": "rtsp://admin:lanjingkeji798@192.168.40.41:554/Streaming/Channels/101",
+        "enabled": true,
+        "host": "192.168.40.41"
+      }
+    ],
+    "view_slots": {
+      "left": "main",
+      "right": "aux"
+    },
+    "regions": {
+      "main": {
+        "p_x1": 0.2,
+        "p_y1": 0.2,
+        "p_x2": 0.8,
+        "p_y2": 0.8
+      },
+      "aux": {
+        "p_x1": 0.2,
+        "p_y1": 0.2,
+        "p_x2": 0.8,
+        "p_y2": 0.8
+      }
+    },
+    "region_pct": {
+      "p_x1": 0.2,
+      "p_y1": 0.2,
+      "p_x2": 0.8,
+      "p_y2": 0.8
+    },
+    "vision": {
+      "enabled": false,
+      "provider": "legacy",
+      "http_url": "http://127.0.0.1:18080/infer/door_state",
+      "request_timeout_ms": 700,
+      "poll_interval_sec": 0.5,
+      "fusion_enabled": true,
+      "fusion_settle_frames": 3,
+      "fusion_history_size": 8,
+      "fusion_min_confidence": 0.55,
+      "fusion_margin": 0.15,
+      "allow_shared_reference": false,
+      "camera_weights": {
+        "main": 1.0,
+        "aux": 1.0
+      },
+      "people_count_enabled": false,
+      "zone_count_enabled": false,
+      "zones": {
+        "main": {},
+        "aux": {}
+      },
+      "http_send_full_frame": false
+    }
+  },
+  "sequencers": [
+    {
+      "id": "sequencer_ds608_1",
+      "name": "中控",
+      "brand": "DGH",
+      "model": "DS-608",
+      "sku": "DS-608",
+      "device_type": "时序电源",
+      "material": "铝合金",
+      "color": "图片色",
+      "protocol": "DGH 8路时序器",
+      "comm_mode": "TCP",
+      "ip": "192.168.50.53",
+      "port": 8080,
+      "com_port": "COM1",
+      "address": 1,
+      "baudrate": 19200,
+      "data_bits": 8,
+      "stop_bits": 1,
+      "parity": "NONE",
+      "channel_count": 8,
+      "sequence_delay_ms": 500,
+      "poll_interval_ms": 1200,
+      "sort_order": 999,
+      "visible": true,
+      "channels_config": [
+        {
+          "channel": 1,
+          "name": "CH1",
+          "sort": 1,
+          "visible": true
+        },
+        {
+          "channel": 2,
+          "name": "CH2",
+          "sort": 2,
+          "visible": true
+        },
+        {
+          "channel": 3,
+          "name": "CH3",
+          "sort": 3,
+          "visible": true
+        },
+        {
+          "channel": 4,
+          "name": "CH4",
+          "sort": 4,
+          "visible": true
+        },
+        {
+          "channel": 5,
+          "name": "CH5",
+          "sort": 5,
+          "visible": true
+        },
+        {
+          "channel": 6,
+          "name": "CH6",
+          "sort": 6,
+          "visible": true
+        },
+        {
+          "channel": 7,
+          "name": "CH7",
+          "sort": 7,
+          "visible": true
+        },
+        {
+          "channel": 8,
+          "name": "CH8",
+          "sort": 8,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "id": "sequencer_1774587372602",
+      "name": "hecoos",
+      "brand": "DGH",
+      "model": "DS-608",
+      "sku": "DS-608",
+      "device_type": "时序电源",
+      "material": "铝合金",
+      "color": "图片色",
+      "protocol": "DGH 8路时序器",
+      "comm_mode": "TCP",
+      "ip": "192.168.50.54",
+      "port": 8080,
+      "com_port": "COM1",
+      "address": 1,
+      "baudrate": 19200,
+      "data_bits": 8,
+      "stop_bits": 1,
+      "parity": "NONE",
+      "channel_count": 8,
+      "sequence_delay_ms": 500,
+      "poll_interval_ms": 1200,
+      "sort_order": 999,
+      "visible": true,
+      "channels_config": [
+        {
+          "channel": 1,
+          "name": "CH1",
+          "sort": 1,
+          "visible": true
+        },
+        {
+          "channel": 2,
+          "name": "CH2",
+          "sort": 2,
+          "visible": true
+        },
+        {
+          "channel": 3,
+          "name": "CH3",
+          "sort": 3,
+          "visible": true
+        },
+        {
+          "channel": 4,
+          "name": "CH4",
+          "sort": 4,
+          "visible": true
+        },
+        {
+          "channel": 5,
+          "name": "CH5",
+          "sort": 5,
+          "visible": true
+        },
+        {
+          "channel": 6,
+          "name": "CH6",
+          "sort": 6,
+          "visible": true
+        },
+        {
+          "channel": 7,
+          "name": "CH7",
+          "sort": 7,
+          "visible": true
+        },
+        {
+          "channel": 8,
+          "name": "CH8",
+          "sort": 8,
+          "visible": true
+        }
+      ]
+    }
+  ],
+  "global_text": {
+    "alert_control_fail": "控制失败，请检查通讯！",
+    "back_to_home": "返回主页",
+    "cabinet_info": "电柜信息",
+    "comm_status_error": "异常",
+    "comm_status_normal": "正常",
+    "confirm_single_off": "确定要关闭此通道吗？",
+    "confirm_stop": "确定要停止该电柜所有通道吗？",
+    "label_cabinet_name": "电柜名称",
+    "label_channel": "通道",
+    "label_comm_status_title": "通讯状态：",
+    "label_comm_type": "通讯方式",
+    "label_day": "日期",
+    "label_energy": "累计电能统计",
+    "label_energy_chart": "近7日用电量统计",
+    "label_energy_consume": "用电量(kWh)",
+    "label_humidity": "柜体湿度",
+    "label_kwh": "kWh",
+    "label_local_ip_port": "本机地址",
+    "label_mode_external": "外控模式",
+    "label_mode_manual": "手动模式",
+    "label_mode_remote": "远程模式",
+    "label_mode_unknown": "未知模式",
+    "label_month_energy_suffix": "月累计电能统计：",
+    "label_off": "断开",
+    "label_on": "合闸",
+    "label_phase": "实时三相电参数",
+    "label_phase_a": "A：",
+    "label_phase_b": "B：",
+    "label_phase_c": "C：",
+    "label_realtime_power": "实时功率(kW)：",
+    "label_relay_title": "输出通道状态",
+    "label_station_id": "站号",
+    "label_temp": "柜体温度",
+    "label_today_energy": "今日累计：",
+    "onekey_start": "一键启动",
+    "onekey_stop": "一键停止",
+    "operation_log": "操作日志",
+    "save_config": "保存配置",
+    "system_config": "系统配置",
+    "title_main": "演播中控调度引擎",
+    "ui_text_config": "界面文字配置"
+  },
+  "projectors": [
+    {
+      "baudrate": 19200,
+      "brand_id": "smile",
+      "brand_loaded": true,
+      "commands": [
+        {
+          "format": "hex",
+          "icon": "电源",
+          "id": "power_on",
+          "name": "开机",
+          "payload": "25 31 50 4F 57 52 20 31",
+          "show_on_home": true,
+          "sort": 1
+        },
+        {
+          "format": "hex",
+          "icon": "电源",
+          "id": "power_off",
+          "name": "关机",
+          "payload": "25 31 50 4F 57 52 20 30",
+          "show_on_home": true,
+          "sort": 2
+        },
+        {
+          "format": "hex",
+          "icon": "状态",
+          "id": "power_status",
+          "name": "查询开关机状态",
+          "payload": "25 31 50 4F 57 52 20 3F",
+          "show_on_home": false,
+          "sort": 10
+        },
+        {
+          "format": "hex",
+          "icon": "输入",
+          "id": "input_hdmi1",
+          "name": "切换 HDMI1",
+          "payload": "25 31 49 4E 50 54 20 33 31",
+          "show_on_home": true,
+          "sort": 20
+        },
+        {
+          "format": "hex",
+          "icon": "输入",
+          "id": "input_hdmi2",
+          "name": "切换 HDMI2",
+          "payload": "25 31 49 4E 50 54 20 33 32",
+          "show_on_home": true,
+          "sort": 21
+        },
+        {
+          "format": "hex",
+          "icon": "输入",
+          "id": "input_rgb1",
+          "name": "切换 RGB1",
+          "payload": "25 31 49 4E 50 54 20 31 31",
+          "show_on_home": false,
+          "sort": 22
+        },
+        {
+          "format": "hex",
+          "icon": "输入",
+          "id": "input_video1",
+          "name": "切换 VIDEO1",
+          "payload": "25 31 49 4E 50 54 20 32 31",
+          "show_on_home": false,
+          "sort": 23
+        },
+        {
+          "format": "hex",
+          "icon": "输入",
+          "id": "input_status",
+          "name": "查询信号源",
+          "payload": "25 31 49 4E 50 54 20 3F",
+          "show_on_home": false,
+          "sort": 24
+        },
+        {
+          "format": "hex",
+          "icon": "静音",
+          "id": "mute_av_on",
+          "name": "静音黑屏开启",
+          "payload": "25 31 41 56 4D 54 20 33 31",
+          "show_on_home": false,
+          "sort": 30
+        },
+        {
+          "format": "hex",
+          "icon": "静音",
+          "id": "mute_av_off",
+          "name": "静音黑屏关闭",
+          "payload": "25 31 41 56 4D 54 20 33 30",
+          "show_on_home": false,
+          "sort": 31
+        },
+        {
+          "format": "hex",
+          "icon": "静音",
+          "id": "mute_status",
+          "name": "查询静音黑屏状态",
+          "payload": "25 31 41 56 4D 54 20 3F",
+          "show_on_home": false,
+          "sort": 32
+        },
+        {
+          "format": "hex",
+          "icon": "冻结",
+          "id": "freeze_on",
+          "name": "冻结画面开启",
+          "payload": "25 31 46 52 45 5A 20 31",
+          "show_on_home": false,
+          "sort": 40
+        },
+        {
+          "format": "hex",
+          "icon": "冻结",
+          "id": "freeze_off",
+          "name": "冻结画面关闭",
+          "payload": "25 31 46 52 45 5A 20 30",
+          "show_on_home": false,
+          "sort": 41
+        },
+        {
+          "format": "hex",
+          "icon": "冻结",
+          "id": "freeze_status",
+          "name": "查询冻结状态",
+          "payload": "25 31 46 52 45 5A 20 3F",
+          "show_on_home": false,
+          "sort": 42
+        },
+        {
+          "format": "hex",
+          "icon": "灯泡",
+          "id": "lamp_status",
+          "name": "查询灯泡时长",
+          "payload": "25 31 4C 41 4D 50 20 3F",
+          "show_on_home": false,
+          "sort": 50
+        },
+        {
+          "format": "hex",
+          "icon": "故障",
+          "id": "error_status",
+          "name": "查询故障状态",
+          "payload": "25 31 45 52 53 54 20 3F",
+          "show_on_home": false,
+          "sort": 51
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "device_name",
+          "name": "查询设备名称",
+          "payload": "25 31 4E 41 4D 45 20 3F",
+          "show_on_home": false,
+          "sort": 60
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "manufacturer_name",
+          "name": "查询厂商名称",
+          "payload": "25 31 49 4E 46 31 20 3F",
+          "show_on_home": false,
+          "sort": 61
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "product_name",
+          "name": "查询产品型号",
+          "payload": "25 31 49 4E 46 32 20 3F",
+          "show_on_home": false,
+          "sort": 62
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "other_info",
+          "name": "查询扩展信息",
+          "payload": "25 31 49 4E 46 4F 20 3F",
+          "show_on_home": false,
+          "sort": 63
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "class_info",
+          "name": "查询协议等级",
+          "payload": "25 31 43 4C 53 53 20 3F",
+          "show_on_home": false,
+          "sort": 64
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "serial_number",
+          "name": "查询序列号",
+          "payload": "%2SNUM ?",
+          "show_on_home": false,
+          "sort": 65
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "software_version",
+          "name": "查询软件版本",
+          "payload": "%2SVER ?",
+          "show_on_home": false,
+          "sort": 66
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "input_resolution",
+          "name": "查询输入分辨率",
+          "payload": "%2IRES ?",
+          "show_on_home": false,
+          "sort": 67
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "recommended_resolution",
+          "name": "查询推荐分辨率",
+          "payload": "%2RRES ?",
+          "show_on_home": false,
+          "sort": 68
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "filter_hours",
+          "name": "查询滤网时长",
+          "payload": "%2FILT ?",
+          "show_on_home": false,
+          "sort": 69
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "lamp_model",
+          "name": "查询灯泡型号",
+          "payload": "%2RLMP ?",
+          "show_on_home": false,
+          "sort": 70
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "filter_model",
+          "name": "查询滤网型号",
+          "payload": "%2RFIL ?",
+          "show_on_home": false,
+          "sort": 71
+        },
+        {
+          "format": "str",
+          "icon": "音量",
+          "id": "speaker_volume_up",
+          "name": "扬声器音量加",
+          "payload": "%2SVOL 1",
+          "show_on_home": false,
+          "sort": 73
+        },
+        {
+          "format": "str",
+          "icon": "音量",
+          "id": "microphone_volume_up",
+          "name": "麦克风音量加",
+          "payload": "%2MVOL 1",
+          "show_on_home": false,
+          "sort": 74
+        }
+      ],
+      "control_type": "pjlink",
+      "custom_protocol": "smile",
+      "device_id": "0",
+      "fid": "0",
+      "id": "proj_1774515640578",
+      "ip": "192.168.50.36",
+      "name": "猫桌",
+      "password": "",
+      "pjlink_version": "2",
+      "port": 4352,
+      "series_id": "ek"
+    },
+    {
+      "baudrate": 19200,
+      "brand_id": "smile",
+      "brand_loaded": true,
+      "commands": [
+        {
+          "format": "hex",
+          "icon": "电源",
+          "id": "power_on",
+          "name": "开机",
+          "payload": "25 31 50 4F 57 52 20 31",
+          "show_on_home": true,
+          "sort": 1
+        },
+        {
+          "format": "hex",
+          "icon": "电源",
+          "id": "power_off",
+          "name": "关机",
+          "payload": "25 31 50 4F 57 52 20 30",
+          "show_on_home": true,
+          "sort": 2
+        },
+        {
+          "format": "hex",
+          "icon": "状态",
+          "id": "power_status",
+          "name": "查询开关机状态",
+          "payload": "25 31 50 4F 57 52 20 3F",
+          "show_on_home": false,
+          "sort": 10
+        },
+        {
+          "format": "hex",
+          "icon": "输入",
+          "id": "input_hdmi1",
+          "name": "切换 HDMI1",
+          "payload": "25 31 49 4E 50 54 20 33 31",
+          "show_on_home": true,
+          "sort": 20
+        },
+        {
+          "format": "hex",
+          "icon": "输入",
+          "id": "input_hdmi2",
+          "name": "切换 HDMI2",
+          "payload": "25 31 49 4E 50 54 20 33 32",
+          "show_on_home": true,
+          "sort": 21
+        },
+        {
+          "format": "hex",
+          "icon": "输入",
+          "id": "input_rgb1",
+          "name": "切换 RGB1",
+          "payload": "25 31 49 4E 50 54 20 31 31",
+          "show_on_home": false,
+          "sort": 22
+        },
+        {
+          "format": "hex",
+          "icon": "输入",
+          "id": "input_video1",
+          "name": "切换 VIDEO1",
+          "payload": "25 31 49 4E 50 54 20 32 31",
+          "show_on_home": false,
+          "sort": 23
+        },
+        {
+          "format": "hex",
+          "icon": "输入",
+          "id": "input_status",
+          "name": "查询信号源",
+          "payload": "25 31 49 4E 50 54 20 3F",
+          "show_on_home": false,
+          "sort": 24
+        },
+        {
+          "format": "hex",
+          "icon": "静音",
+          "id": "mute_av_on",
+          "name": "静音黑屏开启",
+          "payload": "25 31 41 56 4D 54 20 33 31",
+          "show_on_home": false,
+          "sort": 30
+        },
+        {
+          "format": "hex",
+          "icon": "静音",
+          "id": "mute_av_off",
+          "name": "静音黑屏关闭",
+          "payload": "25 31 41 56 4D 54 20 33 30",
+          "show_on_home": false,
+          "sort": 31
+        },
+        {
+          "format": "hex",
+          "icon": "静音",
+          "id": "mute_status",
+          "name": "查询静音黑屏状态",
+          "payload": "25 31 41 56 4D 54 20 3F",
+          "show_on_home": false,
+          "sort": 32
+        },
+        {
+          "format": "hex",
+          "icon": "冻结",
+          "id": "freeze_on",
+          "name": "冻结画面开启",
+          "payload": "25 31 46 52 45 5A 20 31",
+          "show_on_home": false,
+          "sort": 40
+        },
+        {
+          "format": "hex",
+          "icon": "冻结",
+          "id": "freeze_off",
+          "name": "冻结画面关闭",
+          "payload": "25 31 46 52 45 5A 20 30",
+          "show_on_home": false,
+          "sort": 41
+        },
+        {
+          "format": "hex",
+          "icon": "冻结",
+          "id": "freeze_status",
+          "name": "查询冻结状态",
+          "payload": "25 31 46 52 45 5A 20 3F",
+          "show_on_home": false,
+          "sort": 42
+        },
+        {
+          "format": "hex",
+          "icon": "灯泡",
+          "id": "lamp_status",
+          "name": "查询灯泡时长",
+          "payload": "25 31 4C 41 4D 50 20 3F",
+          "show_on_home": false,
+          "sort": 50
+        },
+        {
+          "format": "hex",
+          "icon": "故障",
+          "id": "error_status",
+          "name": "查询故障状态",
+          "payload": "25 31 45 52 53 54 20 3F",
+          "show_on_home": false,
+          "sort": 51
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "device_name",
+          "name": "查询设备名称",
+          "payload": "25 31 4E 41 4D 45 20 3F",
+          "show_on_home": false,
+          "sort": 60
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "manufacturer_name",
+          "name": "查询厂商名称",
+          "payload": "25 31 49 4E 46 31 20 3F",
+          "show_on_home": false,
+          "sort": 61
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "product_name",
+          "name": "查询产品型号",
+          "payload": "25 31 49 4E 46 32 20 3F",
+          "show_on_home": false,
+          "sort": 62
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "other_info",
+          "name": "查询扩展信息",
+          "payload": "25 31 49 4E 46 4F 20 3F",
+          "show_on_home": false,
+          "sort": 63
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "class_info",
+          "name": "查询协议等级",
+          "payload": "25 31 43 4C 53 53 20 3F",
+          "show_on_home": false,
+          "sort": 64
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "serial_number",
+          "name": "查询序列号",
+          "payload": "25 32 53 4E 55 4D 20 3F",
+          "show_on_home": false,
+          "sort": 65
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "software_version",
+          "name": "查询软件版本",
+          "payload": "25 32 53 56 45 52 20 3F",
+          "show_on_home": false,
+          "sort": 66
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "input_resolution",
+          "name": "查询输入分辨率",
+          "payload": "25 32 49 52 45 53 20 3F",
+          "show_on_home": false,
+          "sort": 67
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "recommended_resolution",
+          "name": "查询推荐分辨率",
+          "payload": "25 32 52 52 45 53 20 3F",
+          "show_on_home": false,
+          "sort": 68
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "filter_hours",
+          "name": "查询滤网时长",
+          "payload": "25 32 46 49 4C 54 20 3F",
+          "show_on_home": false,
+          "sort": 69
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "lamp_model",
+          "name": "查询灯泡型号",
+          "payload": "25 32 52 4C 4D 50 20 3F",
+          "show_on_home": false,
+          "sort": 70
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "filter_model",
+          "name": "查询滤网型号",
+          "payload": "25 32 52 46 49 4C 20 3F",
+          "show_on_home": false,
+          "sort": 71
+        },
+        {
+          "format": "hex",
+          "icon": "信息",
+          "id": "freeze_status",
+          "name": "查询冻结状态",
+          "payload": "25 32 46 52 45 5A 20 3F",
+          "show_on_home": false,
+          "sort": 72
+        },
+        {
+          "format": "str",
+          "icon": "音量",
+          "id": "speaker_volume_up",
+          "name": "扬声器音量加",
+          "payload": "%2SVOL 1",
+          "show_on_home": false,
+          "sort": 73
+        },
+        {
+          "format": "str",
+          "icon": "音量",
+          "id": "microphone_volume_up",
+          "name": "麦克风音量加",
+          "payload": "%2MVOL 1",
+          "show_on_home": false,
+          "sort": 74
+        }
+      ],
+      "control_type": "pjlink",
+      "custom_protocol": "smile",
+      "device_id": "0",
+      "fid": "0",
+      "id": "proj_1774531663869",
+      "ip": "192.168.50.35",
+      "name": "台球桌",
+      "password": "",
+      "pjlink_version": "2",
+      "port": 4352,
+      "series_id": "ek"
+    },
+    {
+      "brand_id": "appotronics",
+      "brand_loaded": false,
+      "commands": [
+        {
+          "format": "str",
+          "icon": "电源",
+          "id": "power_on",
+          "name": "开机",
+          "payload": "%1POWR 1",
+          "show_on_home": true,
+          "sort": 1
+        },
+        {
+          "format": "str",
+          "icon": "电源",
+          "id": "power_off",
+          "name": "关机",
+          "payload": "%1POWR 0",
+          "show_on_home": true,
+          "sort": 2
+        },
+        {
+          "format": "str",
+          "icon": "状态",
+          "id": "power_status",
+          "name": "查询开关机状态",
+          "payload": "%1POWR ?",
+          "show_on_home": false,
+          "sort": 10
+        },
+        {
+          "format": "str",
+          "icon": "输入",
+          "id": "input_hdmi1",
+          "name": "切换 HDMI1",
+          "payload": "%1INPT 31",
+          "show_on_home": true,
+          "sort": 20
+        },
+        {
+          "format": "str",
+          "icon": "输入",
+          "id": "input_hdmi2",
+          "name": "切换 HDMI2",
+          "payload": "%1INPT 32",
+          "show_on_home": true,
+          "sort": 21
+        },
+        {
+          "format": "str",
+          "icon": "输入",
+          "id": "input_rgb1",
+          "name": "切换 RGB1",
+          "payload": "%1INPT 11",
+          "show_on_home": false,
+          "sort": 22
+        },
+        {
+          "format": "str",
+          "icon": "输入",
+          "id": "input_video1",
+          "name": "切换 VIDEO1",
+          "payload": "%1INPT 21",
+          "show_on_home": false,
+          "sort": 23
+        },
+        {
+          "format": "str",
+          "icon": "输入",
+          "id": "input_status",
+          "name": "查询信号源",
+          "payload": "%1INPT ?",
+          "show_on_home": false,
+          "sort": 24
+        },
+        {
+          "format": "str",
+          "icon": "静音",
+          "id": "mute_av_on",
+          "name": "静音黑屏开启",
+          "payload": "%1AVMT 31",
+          "show_on_home": false,
+          "sort": 30
+        },
+        {
+          "format": "str",
+          "icon": "静音",
+          "id": "mute_av_off",
+          "name": "静音黑屏关闭",
+          "payload": "%1AVMT 30",
+          "show_on_home": false,
+          "sort": 31
+        },
+        {
+          "format": "str",
+          "icon": "静音",
+          "id": "mute_status",
+          "name": "查询静音黑屏状态",
+          "payload": "%1AVMT ?",
+          "show_on_home": false,
+          "sort": 32
+        },
+        {
+          "format": "str",
+          "icon": "冻结",
+          "id": "freeze_on",
+          "name": "冻结画面开启",
+          "payload": "%1FREZ 1",
+          "show_on_home": false,
+          "sort": 40
+        },
+        {
+          "format": "str",
+          "icon": "冻结",
+          "id": "freeze_off",
+          "name": "冻结画面关闭",
+          "payload": "%1FREZ 0",
+          "show_on_home": false,
+          "sort": 41
+        },
+        {
+          "format": "str",
+          "icon": "冻结",
+          "id": "freeze_status",
+          "name": "查询冻结状态",
+          "payload": "%1FREZ ?",
+          "show_on_home": false,
+          "sort": 42
+        },
+        {
+          "format": "str",
+          "icon": "灯泡",
+          "id": "lamp_status",
+          "name": "查询灯泡时长",
+          "payload": "%1LAMP ?",
+          "show_on_home": false,
+          "sort": 50
+        },
+        {
+          "format": "str",
+          "icon": "故障",
+          "id": "error_status",
+          "name": "查询故障状态",
+          "payload": "%1ERST ?",
+          "show_on_home": false,
+          "sort": 51
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "device_name",
+          "name": "查询设备名称",
+          "payload": "%1NAME ?",
+          "show_on_home": false,
+          "sort": 60
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "manufacturer_name",
+          "name": "查询厂商名称",
+          "payload": "%1INF1 ?",
+          "show_on_home": false,
+          "sort": 61
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "product_name",
+          "name": "查询产品型号",
+          "payload": "%1INF2 ?",
+          "show_on_home": false,
+          "sort": 62
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "other_info",
+          "name": "查询扩展信息",
+          "payload": "%1INFO ?",
+          "show_on_home": false,
+          "sort": 63
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "class_info",
+          "name": "查询协议等级",
+          "payload": "%1CLSS ?",
+          "show_on_home": false,
+          "sort": 64
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "serial_number",
+          "name": "查询序列号",
+          "payload": "%2SNUM ?",
+          "show_on_home": false,
+          "sort": 65
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "software_version",
+          "name": "查询软件版本",
+          "payload": "%2SVER ?",
+          "show_on_home": false,
+          "sort": 66
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "input_resolution",
+          "name": "查询输入分辨率",
+          "payload": "%2IRES ?",
+          "show_on_home": false,
+          "sort": 67
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "recommended_resolution",
+          "name": "查询推荐分辨率",
+          "payload": "%2RRES ?",
+          "show_on_home": false,
+          "sort": 68
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "filter_hours",
+          "name": "查询滤网时长",
+          "payload": "%2FILT ?",
+          "show_on_home": false,
+          "sort": 69
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "lamp_model",
+          "name": "查询灯泡型号",
+          "payload": "%2RLMP ?",
+          "show_on_home": false,
+          "sort": 70
+        },
+        {
+          "format": "str",
+          "icon": "信息",
+          "id": "filter_model",
+          "name": "查询滤网型号",
+          "payload": "%2RFIL ?",
+          "show_on_home": false,
+          "sort": 71
+        },
+        {
+          "format": "str",
+          "icon": "音量",
+          "id": "speaker_volume_up",
+          "name": "扬声器音量加",
+          "payload": "%2SVOL 1",
+          "show_on_home": false,
+          "sort": 73
+        },
+        {
+          "format": "str",
+          "icon": "音量",
+          "id": "microphone_volume_up",
+          "name": "麦克风音量加",
+          "payload": "%2MVOL 1",
+          "show_on_home": false,
+          "sort": 74
+        }
+      ],
+      "control_type": "pjlink",
+      "custom_protocol": "appotronics",
+      "id": "proj_1774736760658",
+      "ip": "192.168.50.254",
+      "name": "新投影机",
+      "password": "",
+      "pjlink_version": "2",
+      "port": 4352,
+      "series_id": "s"
+    }
+  ],
+  "custom_devices": [
+    {
+      "commands": [
+        {
+          "format": "hex",
+          "name": "开-户外灯",
+          "payload": "99 03 8D 66 34 58 99",
+          "show_on_home": true,
+          "type": "click",
+          "wait_ms": 0
+        },
+        {
+          "format": "hex",
+          "name": "关-户外灯",
+          "payload": "99 03 8D 66 32 58 99",
+          "show_on_home": true,
+          "type": "click",
+          "wait_ms": 0
+        }
+      ],
+      "id": "dev_1775230252161",
+      "interface": "tcp",
+      "ip": "192.168.50.254",
+      "name": "新泛型设备",
+      "port": 1882
+    }
+  ],
+  "env_sensors": [
+    {
+      "features": {
+        "temperature": true,
+        "humidity": true,
+        "illuminance": true,
+        "noise": false,
+        "pm25": false,
+        "pm10": false,
+        "pressure": false
+      },
+      "id": "env_1774425123763",
+      "ip": "192.168.51.10",
+      "mqtt": {
+        "host": "127.0.0.1",
+        "port": 1883,
+        "username": "",
+        "password": "",
+        "topic": "",
+        "availability_topic": "",
+        "client_id": "",
+        "keepalive": 60,
+        "qos": 0,
+        "stale_after_sec": 7200,
+        "tls": false,
+        "field_map": {
+          "temp": "temperature",
+          "hum": "humidity",
+          "pressure": "pressure",
+          "lux": "illuminance",
+          "noise": "noise",
+          "pm25": "pm25",
+          "pm10": "pm10"
+        }
+      },
+      "name": "光照温湿度变送器",
+      "port": 5110,
+      "push": {
+        "stale_after_sec": 1200
+      },
+      "register_count": 8,
+      "register_start": 500,
+      "source_type": "modbus",
+      "station_id": 1
+    },
+    {
+      "id": "env_xiaomi_ble_21767c",
+      "name": "深澜空间机房",
+      "source_type": "push",
+      "features": {
+        "temperature": true,
+        "humidity": true,
+        "illuminance": false,
+        "noise": false,
+        "pm25": false,
+        "pm10": false,
+        "pressure": false
+      },
+      "push": {
+        "stale_after_sec": 600
+      },
+      "note": "LYWSD03MMC via BLE bridge on 192.168.50.121, MAC A4:C1:38:21:76:7C",
+      "model": "LYWSD03MMC",
+      "mac_address": "A4:C1:38:21:76:7C",
+      "bridge_host": "192.168.50.121"
+    },
+    {
+      "id": "env_xiaomi_door_087452",
+      "name": "深澜空间门窗传感器",
+      "source_type": "push",
+      "features": {
+        "temperature": false,
+        "humidity": false,
+        "illuminance": false,
+        "noise": false,
+        "pm25": false,
+        "pm10": false,
+        "pressure": false
+      },
+      "push": {
+        "stale_after_sec": 1800
+      },
+      "model": "MCCGQ02HL",
+      "mac_address": "18:50:73:08:74:52",
+      "bridge_host": "192.168.50.121",
+      "note": "小米门窗传感器2 via BLE bridge on 192.168.50.121, MAC 18:50:73:08:74:52, supports contact and light-state telemetry"
+    }
+  ],
+  "automations": [
+    {
+      "action_scene_id": "scene_outdoor_light_on",
+      "condition": {
+        "source_type": "env",
+        "device_id": "env_1774425123763",
+        "prop": "lux",
+        "op": "<",
+        "value": 300,
+        "debounce_sec": 120,
+        "hysteresis": 60,
+        "consecutive_hits": 1,
+        "crossing_mode": "cross_down",
+        "rearm_value": 360,
+        "window_bootstrap_sec": 180
+      },
+      "enabled": true,
+      "id": "auto_outdoor_light_low_lux_on",
+      "name": "户外灯低照度自动开灯",
+      "schedule": {
+        "day_type": "everyday",
+        "time": "08:00",
+        "time_start": "16:00",
+        "time_end": "19:59"
+      },
+      "trigger_type": "mixed"
+    },
+    {
+      "action_scene_id": "scene_outdoor_light_off",
+      "condition": {
+        "source_type": "env",
+        "device_id": "",
+        "prop": "lux",
+        "op": "<",
+        "value": 0,
+        "debounce_sec": 0,
+        "hysteresis": 0,
+        "consecutive_hits": 1,
+        "crossing_mode": "none",
+        "rearm_value": "",
+        "window_bootstrap_sec": 0
+      },
+      "enabled": true,
+      "id": "auto_outdoor_light_20_off",
+      "name": "户外灯晚八点自动关灯",
+      "schedule": {
+        "day_type": "everyday",
+        "time": "20:00",
+        "time_start": "20:00",
+        "time_end": "20:30"
+      },
+      "trigger_type": "schedule"
+    },
+    {
+      "action_scene_id": "scene_outdoor_light_off",
+      "condition": {
+        "source_type": "env",
+        "device_id": "",
+        "prop": "lux",
+        "op": "<",
+        "value": 0,
+        "debounce_sec": 0,
+        "hysteresis": 0,
+        "consecutive_hits": 1,
+        "crossing_mode": "none",
+        "rearm_value": "",
+        "window_bootstrap_sec": 0
+      },
+      "enabled": true,
+      "id": "auto_outdoor_light_24_off",
+      "name": "户外灯午夜兜底关灯",
+      "schedule": {
+        "day_type": "everyday",
+        "time": "00:00",
+        "time_start": "00:00",
+        "time_end": "00:30"
+      },
+      "trigger_type": "schedule"
+    }
+  ],
+  "sidebar": [
+    {
+      "icon": "📊",
+      "id": "dashboard",
+      "name": "场馆总览",
+      "sort": 1,
+      "visible": true
+    },
+    {
+      "icon": "⚡",
+      "id": "power",
+      "name": "强电控制",
+      "sort": 2,
+      "visible": true
+    },
+    {
+      "icon": "💡",
+      "id": "light",
+      "name": "场馆灯光",
+      "sort": 3,
+      "visible": true
+    },
+    {
+      "icon": "🔌",
+      "id": "sequencer",
+      "name": "时序电源",
+      "sort": 3,
+      "visible": true
+    },
+    {
+      "icon": "🔋",
+      "id": "meter",
+      "name": "电表中心",
+      "sort": 3,
+      "visible": true
+    },
+    {
+      "icon": "🎛",
+      "id": "m32r",
+      "name": "M32R 控台",
+      "sort": 3,
+      "visible": true
+    },
+    {
+      "icon": "🚪",
+      "id": "door",
+      "name": "门禁与监控",
+      "sort": 4,
+      "visible": true
+    },
+    {
+      "icon": "🔌",
+      "id": "ups",
+      "name": "UPS监测",
+      "sort": 4,
+      "visible": true
+    },
+    {
+      "icon": "📡",
+      "id": "snmp",
+      "name": "SNMP监测",
+      "sort": 4.2,
+      "visible": true
+    },
+    {
+      "icon": "🎬",
+      "id": "scene",
+      "name": "场景联动",
+      "sort": 5,
+      "visible": true
+    },
+    {
+      "icon": "🖥️",
+      "id": "server",
+      "name": "服务器看板",
+      "sort": 6,
+      "visible": true
+    },
+    {
+      "icon": "🎥",
+      "id": "projector",
+      "name": "投影机集群",
+      "sort": 7,
+      "visible": true
+    },
+    {
+      "id": "universal",
+      "icon": "🎛️",
+      "name": "泛型控制",
+      "sort": 8,
+      "visible": true
+    },
+    {
+      "id": "env",
+      "icon": "🌡️",
+      "name": "环境监测",
+      "sort": 9,
+      "visible": true
+    },
+    {
+      "id": "auto",
+      "icon": "🤖",
+      "name": "自动化运行",
+      "sort": 10,
+      "visible": true
+    }
+  ],
+  "screens": [
+    {
+      "brand_id": "screen_control",
+      "brand_loaded": true,
+      "commands": [
+        {
+          "action": "up",
+          "format": "hex",
+          "name": "上升",
+          "payload": "FF AA EE EE DD",
+          "show_on_home": true
+        },
+        {
+          "action": "stop",
+          "format": "hex",
+          "name": "停止",
+          "payload": "FF AA EE EE CC",
+          "show_on_home": true
+        },
+        {
+          "action": "down",
+          "format": "hex",
+          "name": "下降",
+          "payload": "FF AA EE EE EE",
+          "show_on_home": true
+        }
+      ],
+      "control_type": "screen_tcp",
+      "current_height": 3.5066299090909085,
+      "current_position": 77.92510909090909,
+      "id": "screen_1774322049381",
+      "ip": "192.168.50.76",
+      "is_moving": true,
+      "last_action": "down",
+      "last_action_time": "2026-03-26T21:47:31.263579",
+      "move_start_position": 77.92510909090909,
+      "move_start_time": "2026-03-26T21:47:31.263579",
+      "moving_direction": "down",
+      "name": "一厅-A区-幕布",
+      "port": 1234,
+      "screen_config": {
+        "total_height": 4.5,
+        "total_time": 110
+      },
+      "series_id": "screen"
+    }
+  ],
+  "server_monitor": {
+    "agent_host": "192.168.50.120",
+    "agent_port": 6899,
+    "scan_networks": [],
+    "scan_workers": 8
+  },
+  "dashboard_sections": {
+    "stats": {
+      "title": "顶部统计",
+      "visible": true,
+      "sort": 10
+    },
+    "projector": {
+      "title": "投影机总览",
+      "visible": true,
+      "sort": 20
+    },
+    "ups": {
+      "title": "UPS状态",
+      "visible": true,
+      "sort": 26
+    },
+    "snmp": {
+      "title": "SNMP设备",
+      "visible": true,
+      "sort": 27
+    },
+    "screen": {
+      "title": "幕布状态",
+      "visible": true,
+      "sort": 30
+    },
+    "power_quick": {
+      "title": "强电快捷控制",
+      "visible": false,
+      "sort": 40
+    },
+    "light_quick": {
+      "title": "灯光快捷控制",
+      "visible": false,
+      "sort": 50
+    },
+    "system_logs": {
+      "title": "系统操作日志",
+      "visible": true,
+      "sort": 60
+    }
+  },
+  "meter_statistics": {
+    "summary_mode": "include_flag",
+    "display_reset_enabled": true,
+    "display_reset_from": "2026-03-29 00:00:00",
+    "energy_display_mode": "display",
+    "report_dir": "reports\\energy",
+    "auto_export_enabled": true,
+    "history_keep_days": 365,
+    "default_trend_mode": "total",
+    "remote_service_enabled": true,
+    "remote_service_mode": "remote_only",
+    "remote_service_url": "http://192.168.50.121:6901",
+    "remote_service_timeout_sec": 15,
+    "remote_sync_on_save": true,
+    "reference_total_meter_source_key": "legacy_meter_2",
+    "cabinet_gateway_enabled": true,
+    "cabinet_gateway_url": "http://192.168.50.121:6901",
+    "cabinet_gateway_timeout_sec": 15,
+    "cabinet_gateway_sync_on_save": false,
+    "display_reset": {
+      "enabled": true,
+      "from": "2026-03-29 00:00:00",
+      "value": 0.0
+    }
+  },
+  "m32r": {
+    "enabled": true,
+    "host": "192.168.80.242",
+    "port": 10023,
+    "name": "M32R-OC-FA-99",
+    "channel_count": 8,
+    "bank_start": 17,
+    "poll_interval_ms": 1200,
+    "keepalive_sec": 5,
+    "auto_connect": false,
+    "auto_sync": false,
+    "sync_direction": "mixer_to_pc",
+    "known_mixers": [
+      {
+        "host": "192.168.80.242",
+        "name": "M32R-OC-FA-99",
+        "model": "M32R-0C-FA-99",
+        "firmware": "M32R",
+        "last_seen_at": "2026-04-05T23:57:00.047803"
+      }
+    ],
+    "templates": [
+      {
+        "bank_start": 9,
+        "captured_at": "2026-03-28T01:44:38.800220",
+        "channel_count": 8,
+        "channels": [
+          {
+            "channel": 9,
+            "dyn": {
+              "attack_ms": 20,
+              "enabled": true,
+              "ratio": 3,
+              "release_ms": 120,
+              "threshold_db": -18
+            },
+            "eq": {
+              "enabled": true,
+              "high_gain_db": 1.5,
+              "hpf_hz": 100,
+              "low_gain_db": -2,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2
+            },
+            "fader": 0.75,
+            "level_db": 0,
+            "meter_db": -60,
+            "name": "CH 09",
+            "on": true,
+            "pan": 0,
+            "scribble": "",
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 10,
+            "dyn": {
+              "attack_ms": 20,
+              "enabled": true,
+              "ratio": 3,
+              "release_ms": 120,
+              "threshold_db": -18
+            },
+            "eq": {
+              "enabled": true,
+              "high_gain_db": 1.5,
+              "hpf_hz": 100,
+              "low_gain_db": -2,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2
+            },
+            "fader": 0.75,
+            "level_db": 0,
+            "meter_db": -60,
+            "name": "CH 10",
+            "on": true,
+            "pan": 0,
+            "scribble": "",
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 11,
+            "dyn": {
+              "attack_ms": 20,
+              "enabled": true,
+              "ratio": 3,
+              "release_ms": 120,
+              "threshold_db": -18
+            },
+            "eq": {
+              "enabled": true,
+              "high_gain_db": 1.5,
+              "hpf_hz": 100,
+              "low_gain_db": -2,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2
+            },
+            "fader": 0.75,
+            "level_db": 0,
+            "meter_db": -60,
+            "name": "CH 11",
+            "on": true,
+            "pan": 0,
+            "scribble": "",
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 12,
+            "dyn": {
+              "attack_ms": 20,
+              "enabled": true,
+              "ratio": 3,
+              "release_ms": 120,
+              "threshold_db": -18
+            },
+            "eq": {
+              "enabled": true,
+              "high_gain_db": 1.5,
+              "hpf_hz": 100,
+              "low_gain_db": -2,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2
+            },
+            "fader": 0.75,
+            "level_db": 0,
+            "meter_db": -60,
+            "name": "CH 12",
+            "on": true,
+            "pan": 0,
+            "scribble": "",
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 13,
+            "dyn": {
+              "attack_ms": 20,
+              "enabled": true,
+              "ratio": 3,
+              "release_ms": 120,
+              "threshold_db": -18
+            },
+            "eq": {
+              "enabled": true,
+              "high_gain_db": 1.5,
+              "hpf_hz": 100,
+              "low_gain_db": -2,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2
+            },
+            "fader": 0.75,
+            "level_db": 0,
+            "meter_db": -60,
+            "name": "CH 13",
+            "on": true,
+            "pan": 0,
+            "scribble": "",
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 14,
+            "dyn": {
+              "attack_ms": 20,
+              "enabled": true,
+              "ratio": 3,
+              "release_ms": 120,
+              "threshold_db": -18
+            },
+            "eq": {
+              "enabled": true,
+              "high_gain_db": 1.5,
+              "hpf_hz": 100,
+              "low_gain_db": -2,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2
+            },
+            "fader": 0.75,
+            "level_db": 0,
+            "meter_db": -60,
+            "name": "CH 14",
+            "on": true,
+            "pan": 0,
+            "scribble": "",
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 15,
+            "dyn": {
+              "attack_ms": 20,
+              "enabled": true,
+              "ratio": 3,
+              "release_ms": 120,
+              "threshold_db": -18
+            },
+            "eq": {
+              "enabled": true,
+              "high_gain_db": 1.5,
+              "hpf_hz": 100,
+              "low_gain_db": -2,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2
+            },
+            "fader": 0.75,
+            "level_db": 0,
+            "meter_db": -60,
+            "name": "CH 15",
+            "on": true,
+            "pan": 0,
+            "scribble": "",
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          },
+          {
+            "channel": 16,
+            "dyn": {
+              "attack_ms": 20,
+              "enabled": true,
+              "ratio": 3,
+              "release_ms": 120,
+              "threshold_db": -18
+            },
+            "eq": {
+              "enabled": true,
+              "high_gain_db": 1.5,
+              "hpf_hz": 100,
+              "low_gain_db": -2,
+              "mid_freq_hz": 3200,
+              "mid_gain_db": 2
+            },
+            "fader": 0.75,
+            "level_db": 0,
+            "meter_db": -60,
+            "name": "CH 16",
+            "on": true,
+            "pan": 0,
+            "scribble": "",
+            "sends": {
+              "bus_1": 0.55,
+              "bus_2": 0.45,
+              "bus_3": 0.4,
+              "bus_4": 0.35
+            }
+          }
+        ],
+        "main": {
+          "fader": 0.75,
+          "level_db": 0,
+          "meter_db": -60,
+          "on": true
+        },
+        "name": "demo_bank"
+      }
+    ]
+  },
+  "hvac_devices": [],
+  "login_page_text": {
+    "browser_title": "中控系统登录",
+    "badge_text": "Smart Power Monitor",
+    "hero_title": "场馆中控系统登录",
+    "hero_description": "统一管理强电、灯光、时序电源、UPS、电表统计与服务器看板。登录后根据账号权限展示可查看和可操作的模块。",
+    "feature_1_title": "访问控制",
+    "feature_1_body": "按账号精细控制可见模块与操作权限",
+    "feature_2_title": "设备保护",
+    "feature_2_body": "核心控制接口支持服务端占用锁，避免多人同时误操作",
+    "feature_3_title": "运行方式",
+    "feature_3_body": "本地中控界面与 NAS 电力服务可独立部署",
+    "form_title": "登录账号",
+    "form_description": "首次会进入登录页。勾选“记住我”后，本机会记住用户名和密码，方便值班人员快速进入。",
+    "username_label": "用户名",
+    "username_placeholder": "例如 local-admin",
+    "password_label": "密码",
+    "password_placeholder": "请输入密码",
+    "remember_label": "记住我",
+    "remember_hint": "登录后自动跳转到中控主页",
+    "submit_text": "进入中控系统"
+  },
+  "_display_reset_last_snapshot": "2026-03-29 00:00:00|0.0",
+  "apple_audio": {
+    "enabled": true,
+    "provider": "nas_music_tag",
+    "player_mode": "nas_http",
+    "player_host": "",
+    "output_mode": "system_default",
+    "auth_state": "NAS ready",
+    "outputs": [],
+    "nas_music_roots": [
+      "Y:\\"
+    ],
+    "nas_music_exclude_dirs": [
+      "$RECYCLE.BIN",
+      "System Volume Information",
+      "@eaDir",
+      ".AppleDouble"
+    ],
+    "nas_auto_scan_on_start": true,
+    "m32_channel_mode": "stereo_pair",
+    "m32_channel_left": 17,
+    "m32_channel_right": 18,
+    "m32_label": "Music Player",
+    "m32_prepare_level": 0.68,
+    "m32_prepare_main": false
+  },
+  "auth_settings": {
+    "auto_login_default_admin": true,
+    "default_admin_username": "local-admin"
+  },
+  "control_center": {
+    "enabled": true,
+    "version": 1,
+    "transports": [],
+    "target_groups": [],
+    "command_library": [],
+    "devices": [],
+    "panels": [
+      {
+        "id": "main",
+        "name": "协议控制面板",
+        "visible": true,
+        "sort": 1,
+        "controls": []
+      }
+    ]
+  },
+  "proxy_monitor": {
+    "enabled": true,
+    "host": "192.168.50.121",
+    "port": 3128,
+    "timeout_sec": 6.0,
+    "poll_interval_sec": 20.0,
+    "check_urls": [
+      "https://www.google.com",
+      "https://chatgpt.com"
+    ]
+  },
+  "home_assistant": {
+    "enabled": true,
+    "base_url": "http://192.168.50.121:8123",
+    "token": "",
+    "timeout_sec": 5,
+    "verify_ssl": true,
+    "stale_after_sec": 7200,
+    "entities": {},
+    "attribute_map": {}
+  }
+}

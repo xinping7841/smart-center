@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M32R Console</title>
+    <style>
+        :root {
+            --bg-top: #061121;
+            --bg-mid: #09182e;
+            --bg-bottom: #040912;
+            --panel: rgba(10, 20, 36, 0.95);
+            --panel-soft: rgba(16, 29, 49, 0.95);
+            --panel-border: rgba(148, 163, 184, 0.2);
+            --text-main: #e2e8f0;
+            --text-sub: #94a3b8;
+            --brand: #38bdf8;
+            --ok: #16a34a;
+            --warn: #f59e0b;
+            --danger: #dc2626;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+            color: var(--text-main);
+            background: radial-gradient(circle at 20% 0%, rgba(56, 189, 248, 0.14), transparent 26%),
+                        linear-gradient(160deg, var(--bg-top) 0%, var(--bg-mid) 52%, var(--bg-bottom) 100%);
+        }
+        .page { max-width: 1680px; margin: 0 auto; padding: 20px; }
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .title-wrap h1 { margin: 0; font-size: 28px; letter-spacing: 0.2px; }
+        .title-wrap p { margin: 6px 0 0; color: var(--text-sub); font-size: 14px; }
+        .head-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .lang-box {
+            display: inline-flex;
+            gap: 6px;
+            padding: 4px;
+            border-radius: 999px;
+            border: 1px solid var(--panel-border);
+            background: rgba(2, 6, 23, 0.55);
+        }
+        .lang-btn {
+            border: none;
+            border-radius: 999px;
+            padding: 8px 12px;
+            background: transparent;
+            color: var(--text-sub);
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .lang-btn.active { background: rgba(37, 99, 235, 0.9); color: #fff; }
+        .btn {
+            border: none;
+            border-radius: 11px;
+            padding: 10px 14px;
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+        .btn:hover { transform: translateY(-1px); }
+        .btn-blue { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+        .btn-green { background: linear-gradient(135deg, #16a34a, #15803d); }
+        .btn-orange { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .btn-red { background: linear-gradient(135deg, #dc2626, #b91c1c); }
+        .btn-dark { background: linear-gradient(135deg, #334155, #1e293b); border: 1px solid rgba(148, 163, 184, 0.22); }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .card {
+            border-radius: 14px;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            box-shadow: 0 14px 30px rgba(2, 6, 23, 0.3);
+            padding: 12px 14px;
+        }
+        .card .label { font-size: 12px; color: var(--text-sub); margin-bottom: 8px; }
+        .card .value { font-size: 21px; font-weight: 800; }
+        .view-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+        .tab-btn {
+            border: 1px solid var(--panel-border);
+            border-radius: 999px;
+            padding: 9px 13px;
+            background: rgba(15, 23, 42, 0.85);
+            color: var(--text-sub);
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .tab-btn.active {
+            background: rgba(37, 99, 235, 0.9);
+            color: #fff;
+            border-color: rgba(96, 165, 250, 0.7);
+        }
+        .view { display: none; animation: fadeIn 0.2s ease; }
+        .view.active { display: block; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .layout-2 { display: grid; grid-template-columns: 1fr 340px; gap: 12px; }
+        .panel {
+            border-radius: 14px;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            padding: 12px;
+            box-shadow: 0 14px 30px rgba(2, 6, 23, 0.3);
+        }
+        .panel h2, .panel h3 { margin: 0 0 10px; font-size: 18px; }
+        .sub { color: var(--text-sub); font-size: 12px; line-height: 1.6; margin-bottom: 10px; }
+        .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        .field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--text-sub); }
+        .field input, .field select, .field textarea {
+            width: 100%;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 10px;
+            background: var(--panel-soft);
+            color: var(--text-main);
+            padding: 9px 10px;
+            outline: none;
+        }
+        .field textarea { resize: vertical; min-height: 70px; }
+        .field.checkbox { flex-direction: row; align-items: center; gap: 8px; margin-top: 4px; }
+        .field.checkbox input { width: auto; }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            padding: 6px 9px;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.26);
+            background: rgba(2, 6, 23, 0.44);
+            color: #cbd5e1;
+            font-size: 12px;
+        }
+        .chip.ok { border-color: rgba(22, 163, 74, 0.45); color: #bbf7d0; }
+        .chip.warn { border-color: rgba(245, 158, 11, 0.5); color: #fde68a; }
+        .quick-count {
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-radius: 999px;
+            padding: 8px 10px;
+            background: rgba(15, 23, 42, 0.85);
+            color: #cbd5e1;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .quick-count.active {
+            background: rgba(37, 99, 235, 0.9);
+            color: #fff;
+            border-color: rgba(96, 165, 250, 0.7);
+        }
+        .mixer-tools {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        .channel-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+            gap: 8px;
+        }
+        .strip {
+            border-radius: 12px;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(5, 12, 24, 0.96));
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            padding: 10px 8px;
+            min-height: 398px;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            align-items: center;
+            cursor: pointer;
+        }
+        .strip.active {
+            border-color: rgba(56, 189, 248, 0.8);
+            box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.3) inset;
+        }
+        .strip-name { font-size: 13px; font-weight: 800; text-align: center; }
+        .strip-scribble { min-height: 16px; color: #7dd3fc; font-size: 11px; text-align: center; }
+        .meter {
+            width: 14px;
+            height: 150px;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            background: rgba(2, 6, 23, 0.8);
+            position: relative;
+            overflow: hidden;
+        }
+        .meter-fill {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 0%;
+            background: linear-gradient(180deg, #ef4444 0%, #f59e0b 36%, #22c55e 100%);
+            transition: height 0.2s ease;
+        }
+        .fader {
+            writing-mode: bt-lr;
+            -webkit-appearance: slider-vertical;
+            width: 24px;
+            height: 128px;
+            accent-color: var(--brand);
+            background: transparent;
+        }
+        .mini-meter { font-size: 11px; color: var(--text-sub); font-family: Consolas, monospace; }
+        .table-wrap { overflow: auto; border-radius: 10px; border: 1px solid rgba(148, 163, 184, 0.2); }
+        table { width: 100%; border-collapse: collapse; min-width: 560px; }
+        th, td {
+            border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+            padding: 8px;
+            font-size: 12px;
+            text-align: left;
+            white-space: nowrap;
+        }
+        th { color: #cbd5e1; background: rgba(15, 23, 42, 0.85); }
+        .meter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+        .meter-card {
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            padding: 10px 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+        .meter-card .name { font-size: 12px; font-weight: 700; }
+        .meter-card .bar {
+            width: 12px;
+            height: 130px;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            background: rgba(2, 6, 23, 0.9);
+            overflow: hidden;
+            position: relative;
+        }
+        .meter-card .bar > div {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 0%;
+            background: linear-gradient(180deg, #ef4444 0%, #f59e0b 35%, #22c55e 100%);
+        }
+        .queue-list, .search-list { display: grid; gap: 8px; }
+        .music-item {
+            border-radius: 10px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            padding: 8px;
+        }
+        .music-item .name { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+        .music-item .meta { font-size: 12px; color: var(--text-sub); margin-bottom: 6px; }
+        .note {
+            border-radius: 11px;
+            background: rgba(15, 23, 42, 0.84);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            color: #cbd5e1;
+            font-size: 12px;
+            line-height: 1.7;
+            padding: 10px;
+        }
+        .toast {
+            position: fixed;
+            top: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 11px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            background: rgba(15, 23, 42, 0.95);
+            color: #fff;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1000;
+        }
+        .toast.show { opacity: 1; }
+        .toast.error { border-color: rgba(220, 38, 38, 0.45); }
+        @media (max-width: 1280px) {
+            .layout-2 { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 860px) {
+            .status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="topbar">
+            <div class="title-wrap">
+                <h1 data-i18n="title">M32R Virtual Console</h1>
+                <p data-i18n="subtitle">Official-style setup, channel strips, status readback, and music player integration.</p>
+            </div>
+            <div class="head-actions">
+                <div class="lang-box">
+                    <button class="lang-btn" id="langZh" type="button">中文</button>
+                    <button class="lang-btn" id="langEn" type="button">EN</button>
+                </div>
+                <button class="btn btn-dark" type="button" id="backBtn" data-i18n="back">Back</button>
+                <button class="btn btn-blue" type="button" id="refreshBtn" data-i18n="refresh">Refresh</button>
+            </div>
+        </div>
+
+        <div class="status-grid">
+            <div class="card"><div class="label" data-i18n="conn">Connection</div><div class="value" id="statusConn">-</div></div>
+            <div class="card"><div class="label" data-i18n="mode">Mode</div><div class="value" id="statusMode">-</div></div>
+            <div class="card"><div class="label" data-i18n="mixerHost">Host</div><div class="value" id="statusHost">-</div></div>
+            <div class="card"><div class="label" data-i18n="lastRx">Last RX</div><div class="value" id="statusRx">-</div></div>
+        </div>
+
+        <div class="view-tabs">
+            <button class="tab-btn active" type="button" data-view="mixer" data-i18n="tabMixer">Mixer</button>
+            <button class="tab-btn" type="button" data-view="setup" data-i18n="tabSetup">Setup</button>
+            <button class="tab-btn" type="button" data-view="routing" data-i18n="tabRouting">Routing</button>
+            <button class="tab-btn" type="button" data-view="meter" data-i18n="tabMeter">Meter</button>
+            <button class="tab-btn" type="button" data-view="apple" data-i18n="tabApple">Music Player</button>
+        </div>
+
+        <section class="view active" id="view-mixer">
+            <div class="layout-2">
+                <div class="panel">
+                    <div class="mixer-tools">
+                        <div class="row">
+                            <button class="btn btn-dark" type="button" id="bankPrevBtn" data-i18n="prev">Prev</button>
+                            <button class="btn btn-dark" type="button" id="bankNextBtn" data-i18n="next">Next</button>
+                            <button class="btn btn-dark" type="button" id="jump1Btn">1-8</button>
+                            <button class="btn btn-dark" type="button" id="jump2Btn">9-16</button>
+                            <button class="btn btn-dark" type="button" id="jump3Btn">17-24</button>
+                            <button class="btn btn-dark" type="button" id="jump4Btn">25-32</button>
+                        </div>
+                        <div class="row">
+                            <button class="quick-count" type="button" id="count8Btn">8</button>
+                            <button class="quick-count" type="button" id="count16Btn">16</button>
+                            <button class="quick-count" type="button" id="count24Btn">24</button>
+                            <button class="quick-count" type="button" id="count32Btn">32</button>
+                        </div>
+                        <div class="chip" id="bankRange">CH 01-08</div>
+                    </div>
+                    <div class="channel-grid" id="channelGrid"></div>
+                </div>
+
+                <div class="panel">
+                    <h3 data-i18n="mainBus">Main Bus</h3>
+                    <div class="grid">
+                        <label class="field">
+                            <span data-i18n="mainFader">Main Fader</span>
+                            <input type="range" id="mainFader" min="0" max="1" step="0.01">
+                        </label>
+                        <div class="field">
+                            <span data-i18n="mainState">Main State</span>
+                            <button class="btn btn-green" type="button" id="mainToggleBtn">ON</button>
+                        </div>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <div class="chip" id="mainDb">0.0 dB</div>
+                        <div class="chip" id="mainMeterDb">-60.0 dB</div>
+                    </div>
+                    <div class="meter" style="margin-top:10px;">
+                        <div class="meter-fill" id="mainMeterFill"></div>
+                    </div>
+                    <div class="sub" style="margin-top:10px;" data-i18n="detailHint">Select a strip to edit label and tone details.</div>
+
+                    <h3 style="margin-top:14px;" data-i18n="channelDetail">Channel Detail</h3>
+                    <div class="chip" id="detailCh">CH --</div>
+                    <div class="grid" style="margin-top:8px;">
+                        <label class="field"><span data-i18n="name">Name</span><input id="detailName"></label>
+                        <label class="field"><span data-i18n="scribble">Scribble</span><input id="detailScribble"></label>
+                        <label class="field"><span data-i18n="chFader">Fader</span><input id="detailFader" type="range" min="0" max="1" step="0.01"></label>
+                        <label class="field"><span data-i18n="chPan">Pan</span><input id="detailPan" type="range" min="0" max="1" step="0.01"></label>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <label class="field checkbox"><input id="detailOn" type="checkbox"><span data-i18n="channelOn">Channel On</span></label>
+                        <button class="btn btn-blue" type="button" id="saveLabelBtn" data-i18n="saveLabel">Save Label</button>
+                        <button class="btn btn-dark" type="button" id="applyBasicBtn" data-i18n="applyBasic">Apply Basic</button>
+                    </div>
+
+                    <h3 style="margin-top:14px;">Gate / EQ / Dyn / Sends</h3>
+                    <div class="grid">
+                        <label class="field"><span data-i18n="gateEnabled">Gate Enabled</span><select id="gateEnabled"><option value="true">true</option><option value="false">false</option></select></label>
+                        <label class="field"><span data-i18n="gateThreshold">Gate Threshold dB</span><input id="gateThreshold" type="number" step="0.1"></label>
+                        <label class="field"><span data-i18n="eqEnabled">EQ Enabled</span><select id="eqEnabled"><option value="true">true</option><option value="false">false</option></select></label>
+                        <label class="field"><span data-i18n="eqMidFreq">EQ Mid Freq Hz</span><input id="eqMidFreq" type="number"></label>
+                        <label class="field"><span data-i18n="dynEnabled">Dyn Enabled</span><select id="dynEnabled"><option value="true">true</option><option value="false">false</option></select></label>
+                        <label class="field"><span data-i18n="dynThreshold">Dyn Threshold dB</span><input id="dynThreshold" type="number" step="0.1"></label>
+                        <label class="field"><span data-i18n="send1">Send Bus1</span><input id="send1" type="number" step="0.01" min="0" max="1"></label>
+                        <label class="field"><span data-i18n="send2">Send Bus2</span><input id="send2" type="number" step="0.01" min="0" max="1"></label>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <button class="btn btn-blue" type="button" id="applyToneBtn" data-i18n="applyTone">Apply Tone</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="view" id="view-setup">
+            <div class="layout-2">
+                <div class="panel">
+                    <h2 data-i18n="connectCfg">Connection Config</h2>
+                    <div class="grid">
+                        <label class="field"><span data-i18n="mixerName">Mixer Name</span><input id="setupName" value="{{ config.m32r.name if config.m32r else 'Midas M32R' }}"></label>
+                        <label class="field"><span data-i18n="mixerHost">Host</span><input id="setupHost" value="{{ config.m32r.host if config.m32r else '192.168.50.32' }}"></label>
+                        <label class="field"><span data-i18n="udpPort">UDP Port</span><input id="setupPort" type="number" value="{{ config.m32r.port if config.m32r else 10023 }}"></label>
+                        <label class="field"><span data-i18n="visibleChannels">Visible Channels</span><input id="setupChannelCount" type="number" min="1" max="32" value="{{ config.m32r.channel_count if config.m32r else 8 }}"></label>
+                        <label class="field"><span data-i18n="bankStart">Bank Start</span><input id="setupBankStart" type="number" min="1" max="32" value="{{ config.m32r.bank_start if config.m32r else 1 }}"></label>
+                        <label class="field"><span data-i18n="pollMs">Poll Interval ms</span><input id="setupPollMs" type="number" min="300" value="{{ config.m32r.poll_interval_ms if config.m32r else 1200 }}"></label>
+                        <label class="field"><span data-i18n="keepaliveSec">Keepalive sec</span><input id="setupKeepaliveSec" type="number" min="2" max="9" value="{{ config.m32r.keepalive_sec if config.m32r else 5 }}"></label>
+                        <label class="field"><span data-i18n="syncDirection">Sync Direction</span><select id="setupSyncDirection"><option value="mixer_to_pc">Mixer -> PC</option><option value="pc_to_mixer">PC -> Mixer</option></select></label>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <label class="field checkbox"><input id="setupAutoConnect" type="checkbox"><span data-i18n="autoConnect">Auto Connect</span></label>
+                        <label class="field checkbox"><input id="setupAutoSync" type="checkbox"><span data-i18n="autoSync">Auto Sync</span></label>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <button class="btn btn-green" type="button" id="connectBtn" data-i18n="connect">Connect</button>
+                        <button class="btn btn-orange" type="button" id="demoBtn" data-i18n="demo">Demo</button>
+                        <button class="btn btn-red" type="button" id="disconnectBtn" data-i18n="disconnect">Disconnect</button>
+                        <button class="btn btn-blue" type="button" id="saveCfgBtn" data-i18n="saveCfg">Save Config</button>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <button class="btn btn-dark" type="button" id="discoverBtn" data-i18n="discover">Discover</button>
+                        <button class="btn btn-dark" type="button" id="syncBtn" data-i18n="syncNow">Sync Now</button>
+                        <button class="btn btn-dark" type="button" id="refreshChBtn" data-i18n="refreshChannels">Refresh Channels</button>
+                    </div>
+                    <div class="note" id="setupNote" style="margin-top:10px;" data-i18n="setupNote">Configuration readback source labels: live / estimated / local.</div>
+                </div>
+
+                <div class="panel">
+                    <h3 data-i18n="localIps">Local IPs</h3>
+                    <div class="chip-list" id="localIps"></div>
+                    <h3 style="margin-top:12px;" data-i18n="feedbackSource">Feedback Sources</h3>
+                    <div class="chip-list" id="feedbackSources"></div>
+                    <h3 style="margin-top:12px;" data-i18n="templateOps">Templates</h3>
+                    <div class="grid">
+                        <label class="field"><span data-i18n="templateName">Template Name</span><input id="tplName" value="speech_custom"></label>
+                        <label class="field"><span data-i18n="templateList">Template List</span><select id="tplSelect"></select></label>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <button class="btn btn-blue" type="button" id="tplSaveBtn" data-i18n="saveTemplate">Save</button>
+                        <button class="btn btn-dark" type="button" id="tplApplyBtn" data-i18n="loadTemplate">Load</button>
+                        <button class="btn btn-orange" type="button" id="tplRenameBtn" data-i18n="renameTemplate">Rename</button>
+                        <button class="btn btn-red" type="button" id="tplDeleteBtn" data-i18n="deleteTemplate">Delete</button>
+                    </div>
+                    <div class="note" id="templateMeta">-</div>
+                </div>
+            </div>
+
+            <div class="panel" style="margin-top:12px;">
+                <h2 data-i18n="discoveredMixers">Discovered / Known Mixers</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th data-i18n="mixerName">Name</th>
+                                <th data-i18n="mixerHost">Host</th>
+                                <th data-i18n="model">Model</th>
+                                <th data-i18n="firmware">Firmware</th>
+                                <th data-i18n="online">Online</th>
+                                <th data-i18n="action">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mixerRows"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section class="view" id="view-routing">
+            <div class="layout-2">
+                <div class="panel">
+                    <h2 data-i18n="routeAppleToM32">Music Player -> M32 Mapping</h2>
+                    <div class="grid">
+                        <label class="field"><span data-i18n="provider">Provider</span><input id="routeProvider" value="{{ config.apple_audio.provider if config.apple_audio else 'demo' }}"></label>
+                        <label class="field"><span data-i18n="playerMode">Player Mode</span><input id="routePlayerMode" value="{{ config.apple_audio.player_mode if config.apple_audio else 'browser' }}"></label>
+                        <label class="field"><span data-i18n="playerHost">Player Host</span><input id="routePlayerHost" value="{{ config.apple_audio.player_host if config.apple_audio else '' }}"></label>
+                        <label class="field"><span data-i18n="outputMode">Output Mode</span><input id="routeOutputMode" value="{{ config.apple_audio.output_mode if config.apple_audio else 'system_default' }}"></label>
+                        <label class="field"><span data-i18n="routeLeftCh">Left CH</span><input id="routeLeft" type="number" min="1" max="32" value="{{ config.apple_audio.m32_channel_left if config.apple_audio else 17 }}"></label>
+                        <label class="field"><span data-i18n="routeRightCh">Right CH</span><input id="routeRight" type="number" min="1" max="32" value="{{ config.apple_audio.m32_channel_right if config.apple_audio else 18 }}"></label>
+                        <label class="field"><span data-i18n="routeLabel">Label</span><input id="routeLabel" value="{{ config.apple_audio.m32_label if config.apple_audio else 'Music Player' }}"></label>
+                        <label class="field"><span data-i18n="prepareLevel">Prepare Level</span><input id="routePrepareLevel" type="number" step="0.01" min="0" max="1" value="{{ config.apple_audio.m32_prepare_level if config.apple_audio else 0.68 }}"></label>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <label class="field checkbox"><input id="routePrepareMain" type="checkbox"><span data-i18n="prepareMainOn">Prepare Main ON</span></label>
+                        <button class="btn btn-blue" type="button" id="routeSaveBtn" data-i18n="saveAppleCfg">Save Mapping</button>
+                        <button class="btn btn-green" type="button" id="routePrepareBtn" data-i18n="prepareM32">Prepare M32 Channels</button>
+                    </div>
+                </div>
+                <div class="panel">
+                    <h2 data-i18n="syncAndReadback">Sync And Readback</h2>
+                    <div class="field">
+                        <span data-i18n="syncDirection">Sync Direction</span>
+                        <select id="routeSyncDirection">
+                            <option value="mixer_to_pc">Mixer -> PC</option>
+                            <option value="pc_to_mixer">PC -> Mixer</option>
+                        </select>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <button class="btn btn-dark" type="button" id="routeSyncBtn" data-i18n="syncNow">Sync Now</button>
+                    </div>
+                    <div class="note" style="margin-top:10px;" data-i18n="routeNote">
+                        OSC controls and reads mixer parameters. Audio stream must still be routed via USB/Dante/Line-In.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="view" id="view-meter">
+            <div class="panel">
+                <h2 data-i18n="meterOverview">Meter Overview</h2>
+                <div class="meter-grid" id="meterGrid"></div>
+            </div>
+        </section>
+
+        <section class="view" id="view-apple">
+            <div class="layout-2">
+                <div class="panel">
+                    <h2 data-i18n="appleStatus">Music Player Status</h2>
+                    <div class="row">
+                        <div class="chip" id="appleNow">-</div>
+                        <div class="chip" id="appleElapsed">0:00</div>
+                        <div class="chip" id="appleAuth">-</div>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <button class="btn btn-dark" type="button" id="appleToggleBtn" data-i18n="playPause">Play/Pause</button>
+                        <button class="btn btn-dark" type="button" id="applePrevBtn" data-i18n="prevTrack">Prev</button>
+                        <button class="btn btn-dark" type="button" id="appleNextBtn" data-i18n="nextTrack">Next</button>
+                        <button class="btn btn-dark" type="button" id="appleFavBtn" data-i18n="favorite">Favorite</button>
+                    </div>
+                    <h3 style="margin-top:12px;" data-i18n="outputs">Outputs</h3>
+                    <div class="chip-list" id="appleOutputs"></div>
+                    <h3 style="margin-top:12px;" data-i18n="queue">Queue</h3>
+                    <div class="row" style="margin-bottom:8px;">
+                        <button class="btn btn-red" type="button" id="appleClearQueueBtn" data-i18n="clearQueue">Clear Queue</button>
+                    </div>
+                    <div class="queue-list" id="appleQueue"></div>
+                </div>
+
+                <div class="panel">
+                    <h2 data-i18n="searchLibrary">Search Library</h2>
+                    <div class="row">
+                        <input id="appleSearchInput" style="flex:1; min-width:180px;" placeholder="keyword">
+                        <button class="btn btn-blue" type="button" id="appleSearchBtn" data-i18n="search">Search</button>
+                    </div>
+                    <div class="search-list" style="margin-top:10px;" id="appleSearchResults"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+    <div class="toast" id="toast"></div>
+    <script>
+        const I18N = {
+            zh: {
+                title: "M32R 虚拟控台",
+                subtitle: "官方风格 Setup + Mixer + 回读状态 + 音乐播放器联动。",
+                back: "返回主页",
+                refresh: "刷新",
+                conn: "连接状态",
+                mode: "模式",
+                mixerHost: "目标地址",
+                lastRx: "最后回读",
+                tabMixer: "调音台",
+                tabSetup: "设置",
+                tabRouting: "路由",
+                tabMeter: "电平",
+                tabApple: "音乐播放器",
+                prev: "上一组",
+                next: "下一组",
+                mainBus: "主输出",
+                mainFader: "主推子",
+                mainState: "主状态",
+                detailHint: "点击通道条后可编辑名称、推子、Pan 及 Tone 参数。",
+                channelDetail: "通道详情",
+                name: "名称",
+                scribble: "标记",
+                chFader: "通道推子",
+                chPan: "通道 Pan",
+                channelOn: "通道开启",
+                saveLabel: "保存名称",
+                applyBasic: "应用基础参数",
+                gateEnabled: "门限启用",
+                gateThreshold: "门限阈值 dB",
+                eqEnabled: "均衡启用",
+                eqMidFreq: "均衡中频 Hz",
+                dynEnabled: "压缩启用",
+                dynThreshold: "压缩阈值 dB",
+                send1: "发送 Bus1",
+                send2: "发送 Bus2",
+                applyTone: "应用 Tone 参数",
+                connectCfg: "连接配置",
+                mixerName: "控台名称",
+                udpPort: "UDP 端口",
+                visibleChannels: "显示通道数",
+                bankStart: "起始通道",
+                pollMs: "轮询间隔 ms",
+                keepaliveSec: "保活秒",
+                syncDirection: "同步方向",
+                autoConnect: "自动连接",
+                autoSync: "自动同步",
+                connect: "连接",
+                demo: "演示模式",
+                disconnect: "断开",
+                saveCfg: "保存配置",
+                discover: "发现设备",
+                syncNow: "立即同步",
+                refreshChannels: "刷新通道",
+                setupNote: "回读来源标记: live(真机), estimated(估算), local(本地模板)。",
+                localIps: "本机 IP",
+                feedbackSource: "反馈来源",
+                templateOps: "模板操作",
+                templateName: "模板名",
+                templateList: "模板列表",
+                saveTemplate: "保存",
+                loadTemplate: "加载",
+                renameTemplate: "重命名",
+                deleteTemplate: "删除",
+                discoveredMixers: "已发现/已记录控台",
+                model: "型号",
+                firmware: "固件",
+                online: "在线",
+                action: "操作",
+                routeAppleToM32: "音乐播放器到 M32 映射",
+                provider: "Provider",
+                playerMode: "Player 模式",
+                playerHost: "Player 主机",
+                outputMode: "输出模式",
+                routeLeftCh: "左声道 CH",
+                routeRightCh: "右声道 CH",
+                routeLabel: "标签",
+                prepareLevel: "预设电平",
+                prepareMainOn: "同时打开 Main",
+                saveAppleCfg: "保存映射",
+                prepareM32: "准备 M32 通道",
+                syncAndReadback: "同步与回读",
+                routeNote: "OSC 只负责参数控制与状态回读，不承载音频流。音频需通过 USB / Dante / 线路输入到 M32。",
+                meterOverview: "电平总览",
+                appleStatus: "音乐播放器状态",
+                playPause: "播放/暂停",
+                prevTrack: "上一首",
+                nextTrack: "下一首",
+                favorite: "收藏",
+                outputs: "输出设备",
+                queue: "播放队列",
+                clearQueue: "清空队列",
+                searchLibrary: "搜索曲库",
+                search: "搜索",
+                quickCount: "显示推子数",
+                using: "使用中",
+                offline: "离线",
+                onlineText: "在线",
+                connected: "已连接",
+                disconnected: "未连接",
+                modeLive: "真机",
+                modeDemo: "演示",
+                modeOffline: "离线"
+            },
+            en: {
+                title: "M32R Virtual Console",
+                subtitle: "Official-style Setup + Mixer + readback status + music player integration.",
+                back: "Back",
+                refresh: "Refresh",
+                conn: "Connection",
+                mode: "Mode",
+                mixerHost: "Host",
+                lastRx: "Last RX",
+                tabMixer: "Mixer",
+                tabSetup: "Setup",
+                tabRouting: "Routing",
+                tabMeter: "Meter",
+                tabApple: "Music Player",
+                prev: "Prev",
+                next: "Next",
+                mainBus: "Main Bus",
+                mainFader: "Main Fader",
+                mainState: "Main State",
+                detailHint: "Select a strip to edit name, fader, pan, and tone parameters.",
+                channelDetail: "Channel Detail",
+                name: "Name",
+                scribble: "Scribble",
+                chFader: "Channel Fader",
+                chPan: "Channel Pan",
+                channelOn: "Channel On",
+                saveLabel: "Save Label",
+                applyBasic: "Apply Basic",
+                gateEnabled: "Gate Enabled",
+                gateThreshold: "Gate Threshold dB",
+                eqEnabled: "EQ Enabled",
+                eqMidFreq: "EQ Mid Freq Hz",
+                dynEnabled: "Dyn Enabled",
+                dynThreshold: "Dyn Threshold dB",
+                send1: "Send Bus1",
+                send2: "Send Bus2",
+                applyTone: "Apply Tone",
+                connectCfg: "Connection Config",
+                mixerName: "Mixer Name",
+                udpPort: "UDP Port",
+                visibleChannels: "Visible Channels",
+                bankStart: "Bank Start",
+                pollMs: "Poll Interval ms",
+                keepaliveSec: "Keepalive sec",
+                syncDirection: "Sync Direction",
+                autoConnect: "Auto Connect",
+                autoSync: "Auto Sync",
+                connect: "Connect",
+                demo: "Demo",
+                disconnect: "Disconnect",
+                saveCfg: "Save Config",
+                discover: "Discover",
+                syncNow: "Sync Now",
+                refreshChannels: "Refresh Channels",
+                setupNote: "Feedback source labels: live, estimated, local.",
+                localIps: "Local IPs",
+                feedbackSource: "Feedback Sources",
+                templateOps: "Template Ops",
+                templateName: "Template Name",
+                templateList: "Template List",
+                saveTemplate: "Save",
+                loadTemplate: "Load",
+                renameTemplate: "Rename",
+                deleteTemplate: "Delete",
+                discoveredMixers: "Discovered / Known Mixers",
+                model: "Model",
+                firmware: "Firmware",
+                online: "Online",
+                action: "Action",
+                routeAppleToM32: "Music Player -> M32 Mapping",
+                provider: "Provider",
+                playerMode: "Player Mode",
+                playerHost: "Player Host",
+                outputMode: "Output Mode",
+                routeLeftCh: "Left CH",
+                routeRightCh: "Right CH",
+                routeLabel: "Label",
+                prepareLevel: "Prepare Level",
+                prepareMainOn: "Prepare Main ON",
+                saveAppleCfg: "Save Mapping",
+                prepareM32: "Prepare M32",
+                syncAndReadback: "Sync And Readback",
+                routeNote: "OSC controls and reads parameters only. Audio must still route via USB / Dante / line input.",
+                meterOverview: "Meter Overview",
+                appleStatus: "Music Player Status",
+                playPause: "Play/Pause",
+                prevTrack: "Prev",
+                nextTrack: "Next",
+                favorite: "Favorite",
+                outputs: "Outputs",
+                queue: "Queue",
+                clearQueue: "Clear Queue",
+                searchLibrary: "Search Library",
+                search: "Search",
+                quickCount: "Visible Faders",
+                using: "Using",
+                offline: "Offline",
+                onlineText: "Online",
+                connected: "Connected",
+                disconnected: "Disconnected",
+                modeLive: "Live",
+                modeDemo: "Demo",
+                modeOffline: "Offline"
+            }
+        };
+
+        let currentLang = localStorage.getItem("m32r_lang") || "zh";
+        let m32State = null;
+        let appleState = null;
+        let selectedCh = null;
+        let templateCache = [];
+
+        const el = (id) => document.getElementById(id);
+
+        function t(key) {
+            const bag = I18N[currentLang] || I18N.en;
+            return bag[key] || (I18N.en[key] || key);
+        }
+
+        function applyI18n() {
+            document.querySelectorAll("[data-i18n]").forEach((node) => {
+                const key = node.getAttribute("data-i18n");
+                node.textContent = t(key);
+            });
+            document.documentElement.lang = currentLang === "zh" ? "zh-CN" : "en";
+            el("langZh").classList.toggle("active", currentLang === "zh");
+            el("langEn").classList.toggle("active", currentLang === "en");
+        }
+
+        function setLang(lang) {
+            currentLang = (lang === "en") ? "en" : "zh";
+            localStorage.setItem("m32r_lang", currentLang);
+            applyI18n();
+            if (m32State) renderM32(m32State);
+            if (appleState) renderApple(appleState);
+            renderTemplateMeta();
+        }
+
+        function showToast(msg, isError = false) {
+            const toast = el("toast");
+            toast.textContent = msg;
+            toast.className = "toast show" + (isError ? " error" : "");
+            setTimeout(() => {
+                toast.className = "toast" + (isError ? " error" : "");
+            }, 2200);
+        }
+
+        async function postJson(url, payload) {
+            const res = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload || {})
+            });
+            const data = await res.json();
+            if (!res.ok || data.success === false) {
+                throw new Error(data.msg || data.message || "request failed");
+            }
+            return data;
+        }
+
+        function fmtTs(v) {
+            if (!v) return "-";
+            if (v === "demo") return "demo";
+            return String(v).replace("T", " ").slice(0, 19);
+        }
+
+        function dbToPct(db) {
+            const safe = Math.max(-90, Math.min(10, Number(db || -90)));
+            return ((safe + 90) / 100) * 100;
+        }
+
+        function modeText(mode) {
+            if (mode === "live") return t("modeLive");
+            if (mode === "demo") return t("modeDemo");
+            return t("modeOffline");
+        }
+
+        function secToClock(sec) {
+            const s = Math.max(0, Number(sec || 0));
+            const m = Math.floor(s / 60);
+            const r = Math.floor(s % 60);
+            return `${m}:${String(r).padStart(2, "0")}`;
+        }
+
+        function ensureSelectedChannel(state) {
+            const channels = state.channels || [];
+            if (!channels.length) {
+                selectedCh = null;
+                return;
+            }
+            if (!channels.find((c) => Number(c.channel) === Number(selectedCh))) {
+                selectedCh = channels[0].channel;
+            }
+        }
+
+        function renderTemplateMeta() {
+            const select = el("tplSelect");
+            const name = select ? String(select.value || "") : "";
+            const item = templateCache.find((x) => String(x.name || "") === name);
+            if (!item) {
+                el("templateMeta").textContent = "-";
+                return;
+            }
+            const start = Number(item.bank_start || 1);
+            const count = Number(item.channel_count || 0);
+            const end = count > 0 ? start + count - 1 : start;
+            el("templateMeta").textContent = `${fmtTs(item.captured_at)} | CH ${String(start).padStart(2, "0")}-${String(end).padStart(2, "0")} | ${count}`;
+        }
+
+        function updateQuickCountButtons() {
+            const current = Number(el("setupChannelCount").value || 16);
+            const pairs = [
+                ["count8Btn", 8],
+                ["count16Btn", 16],
+                ["count24Btn", 24],
+                ["count32Btn", 32]
+            ];
+            pairs.forEach(([id, value]) => {
+                const btn = el(id);
+                if (!btn) return;
+                btn.classList.toggle("active", current === value);
+            });
+        }
+
+        function renderLocalIps(state) {
+            const wrap = el("localIps");
+            wrap.innerHTML = "";
+            const ips = state.local_ips || [];
+            if (!ips.length) {
+                wrap.innerHTML = `<span class="chip">${t("offline")}</span>`;
+                return;
+            }
+            ips.forEach((ip) => {
+                const s = document.createElement("span");
+                s.className = "chip";
+                s.textContent = ip;
+                wrap.appendChild(s);
+            });
+        }
+
+        function renderFeedbackSources(state) {
+            const wrap = el("feedbackSources");
+            wrap.innerHTML = "";
+            const src = state.feedback_sources || {};
+            const keys = Object.keys(src);
+            if (!keys.length) {
+                wrap.innerHTML = `<span class="chip">${t("offline")}</span>`;
+                return;
+            }
+            keys.forEach((k) => {
+                const v = String(src[k] || "");
+                const s = document.createElement("span");
+                s.className = "chip" + (v === "live" ? " ok" : (v === "estimated" ? " warn" : ""));
+                s.textContent = `${k}:${v}`;
+                wrap.appendChild(s);
+            });
+        }
+
+        function renderMixerRows(state) {
+            const rows = el("mixerRows");
+            rows.innerHTML = "";
+            const list = state.discovered_mixers || [];
+            if (!list.length) {
+                rows.innerHTML = `<tr><td colspan="7">-</td></tr>`;
+                return;
+            }
+            list.forEach((item, idx) => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>${idx + 1}</td>
+                    <td>${item.name || "-"}</td>
+                    <td>${item.host || "-"}</td>
+                    <td>${item.model || "M32R"}</td>
+                    <td>${item.firmware || "-"}</td>
+                    <td>${item.online ? t("onlineText") : t("offline")}</td>
+                    <td><button class="btn btn-dark" type="button" data-host="${item.host || ""}" data-name="${item.name || ""}">${t("using")}</button></td>
+                `;
+                const btn = tr.querySelector("button");
+                btn.addEventListener("click", async () => {
+                    const host = btn.getAttribute("data-host");
+                    const name = btn.getAttribute("data-name");
+                    if (!host) return;
+                    el("setupHost").value = host;
+                    if (name) el("setupName").value = name;
+                    try {
+                        const payload = readSetupForm();
+                        const data = await postJson("/api/m32r/connect", payload);
+                        renderM32(data.state || data);
+                        showToast("OK");
+                    } catch (err) {
+                        showToast(err.message || "connect failed", true);
+                    }
+                });
+                rows.appendChild(tr);
+            });
+        }
+
+        function renderMain(state) {
+            const main = state.main || {};
+            el("mainFader").value = Number(main.fader || 0.75);
+            el("mainDb").textContent = `${Number(main.level_db || 0).toFixed(1)} dB`;
+            el("mainMeterDb").textContent = `${Number(main.meter_db || -90).toFixed(1)} dB`;
+            el("mainMeterFill").style.height = `${dbToPct(main.meter_db)}%`;
+            const btn = el("mainToggleBtn");
+            const on = !!main.on;
+            btn.textContent = on ? "ON" : "MUTE";
+            btn.className = `btn ${on ? "btn-green" : "btn-red"}`;
+        }
+
+        function renderDetail(channel) {
+            if (!channel) return;
+            el("detailCh").textContent = `CH ${String(channel.channel).padStart(2, "0")} | ${channel.name || ""}`;
+            el("detailName").value = channel.name || "";
+            el("detailScribble").value = channel.scribble || "";
+            el("detailFader").value = Number(channel.fader || 0.75);
+            el("detailPan").value = Number(channel.pan || 0.5);
+            el("detailOn").checked = !!channel.on;
+
+            const gate = channel.gate || {};
+            el("gateEnabled").value = String(gate.enabled !== false);
+            el("gateThreshold").value = Number(gate.threshold_db || -42);
+
+            const eq = channel.eq || {};
+            el("eqEnabled").value = String(eq.enabled !== false);
+            el("eqMidFreq").value = Number(eq.mid_freq_hz || 3200);
+
+            const dyn = channel.dyn || {};
+            el("dynEnabled").value = String(dyn.enabled !== false);
+            el("dynThreshold").value = Number(dyn.threshold_db || -18);
+
+            const sends = channel.sends || {};
+            el("send1").value = Number(sends.bus_1 || 0.55);
+            el("send2").value = Number(sends.bus_2 || 0.45);
+        }
+
+        function renderChannels(state) {
+            const wrap = el("channelGrid");
+            wrap.innerHTML = "";
+            const channels = state.channels || [];
+            if (!channels.length) {
+                wrap.innerHTML = `<div class="chip">${t("offline")}</div>`;
+                return;
+            }
+            const start = channels[0].channel;
+            const end = channels[channels.length - 1].channel;
+            el("bankRange").textContent = `CH ${String(start).padStart(2, "0")}-${String(end).padStart(2, "0")}`;
+            channels.forEach((ch) => {
+                const div = document.createElement("div");
+                div.className = "strip" + (Number(selectedCh) === Number(ch.channel) ? " active" : "");
+                const isOn = !!ch.on;
+                div.innerHTML = `
+                    <div class="strip-name">${ch.name || ("CH " + String(ch.channel).padStart(2, "0"))}</div>
+                    <div class="strip-scribble">${ch.scribble || "&nbsp;"}</div>
+                    <div class="chip">CH ${String(ch.channel).padStart(2, "0")}</div>
+                    <div class="meter"><div class="meter-fill" style="height:${dbToPct(ch.meter_db)}%"></div></div>
+                    <div class="mini-meter">${Number(ch.meter_db || -90).toFixed(1)} dB</div>
+                    <input class="fader" type="range" min="0" max="1" step="0.01" value="${Number(ch.fader || 0.75)}">
+                    <div class="mini-meter">${Number(ch.level_db || 0).toFixed(1)} dB</div>
+                    <button class="btn ${isOn ? "btn-green" : "btn-red"}" type="button">${isOn ? "ON" : "MUTE"}</button>
+                `;
+
+                div.addEventListener("click", (ev) => {
+                    if (ev.target.classList.contains("fader") || ev.target.tagName === "BUTTON") return;
+                    selectedCh = ch.channel;
+                    renderM32(m32State);
+                });
+
+                const fader = div.querySelector(".fader");
+                fader.addEventListener("change", async (ev) => {
+                    try {
+                        const data = await postJson("/api/m32r/channel", {
+                            channel: ch.channel,
+                            action: "set_fader",
+                            value: Number(ev.target.value)
+                        });
+                        renderM32(data.state || data);
+                    } catch (err) {
+                        showToast(err.message || "fader failed", true);
+                    }
+                });
+
+                const btn = div.querySelector("button");
+                btn.addEventListener("click", async (ev) => {
+                    ev.stopPropagation();
+                    try {
+                        const data = await postJson("/api/m32r/channel", {
+                            channel: ch.channel,
+                            action: "mute_toggle"
+                        });
+                        renderM32(data.state || data);
+                    } catch (err) {
+                        showToast(err.message || "toggle failed", true);
+                    }
+                });
+
+                wrap.appendChild(div);
+            });
+            const current = channels.find((x) => Number(x.channel) === Number(selectedCh)) || channels[0];
+            renderDetail(current);
+        }
+
+        function renderMeterView(state) {
+            const wrap = el("meterGrid");
+            wrap.innerHTML = "";
+            const channels = state.channels || [];
+            if (!channels.length) {
+                wrap.innerHTML = `<span class="chip">${t("offline")}</span>`;
+                return;
+            }
+            channels.forEach((ch) => {
+                const div = document.createElement("div");
+                div.className = "meter-card";
+                div.innerHTML = `
+                    <div class="name">${ch.name || ("CH " + String(ch.channel).padStart(2, "0"))}</div>
+                    <div class="chip">CH ${String(ch.channel).padStart(2, "0")}</div>
+                    <div class="bar"><div style="height:${dbToPct(ch.meter_db)}%"></div></div>
+                    <div class="mini-meter">${Number(ch.meter_db || -90).toFixed(1)} dB</div>
+                `;
+                wrap.appendChild(div);
+            });
+        }
+
+        function renderM32(state) {
+            if (!state) return;
+            m32State = state;
+            ensureSelectedChannel(state);
+
+            const conn = state.connected ? t("connected") : t("disconnected");
+            const online = state.online ? t("onlineText") : t("offline");
+            el("statusConn").textContent = `${conn} / ${online}`;
+            el("statusMode").textContent = modeText(state.mode);
+            el("statusHost").textContent = `${state.host || "-"}:${state.port || "-"}`;
+            el("statusRx").textContent = fmtTs(state.last_rx_at);
+
+            el("setupName").value = state.name || "";
+            el("setupHost").value = state.host || "";
+            el("setupPort").value = Number(state.port || 10023);
+            el("setupChannelCount").value = Number((state.channels || []).length || Number(el("setupChannelCount").value || 8));
+            const chs = state.channels || [];
+            if (chs.length) {
+                el("setupBankStart").value = Number(chs[0].channel || 1);
+            }
+            el("setupSyncDirection").value = state.sync_direction || "mixer_to_pc";
+            el("routeSyncDirection").value = state.sync_direction || "mixer_to_pc";
+            el("setupAutoConnect").checked = !!state.auto_connect;
+            el("setupAutoSync").checked = !!state.auto_sync;
+            updateQuickCountButtons();
+
+            renderLocalIps(state);
+            renderFeedbackSources(state);
+            renderMixerRows(state);
+            renderMain(state);
+            renderChannels(state);
+            renderMeterView(state);
+        }
+
+        function renderAppleOutputs(state) {
+            const wrap = el("appleOutputs");
+            wrap.innerHTML = "";
+            const outputs = state.outputs || [];
+            if (!outputs.length) {
+                wrap.innerHTML = `<span class="chip">${t("offline")}</span>`;
+                return;
+            }
+            outputs.forEach((o) => {
+                const span = document.createElement("span");
+                span.className = "chip" + (o.active ? " ok" : "");
+                span.textContent = `${o.name || o.id || "-"} | ${o.level || "-"}`;
+                wrap.appendChild(span);
+            });
+        }
+
+        function renderAppleQueue(state) {
+            const wrap = el("appleQueue");
+            wrap.innerHTML = "";
+            const queue = state.queue || [];
+            if (!queue.length) {
+                wrap.innerHTML = `<div class="chip">-</div>`;
+                return;
+            }
+            queue.forEach((item, idx) => {
+                const div = document.createElement("div");
+                div.className = "music-item";
+                div.innerHTML = `
+                    <div class="name">${item.title || "-"}</div>
+                    <div class="meta">${item.artist || "-"} | ${item.album || "-"}</div>
+                    <div class="row">
+                        <button class="btn btn-dark" type="button" data-promote="${idx}">Top</button>
+                    </div>
+                `;
+                const btn = div.querySelector("button");
+                btn.addEventListener("click", async () => {
+                    try {
+                        const data = await postJson("/api/apple-audio/queue/promote", { index: idx });
+                        renderApple(data.state || data);
+                    } catch (err) {
+                        showToast(err.message || "queue promote failed", true);
+                    }
+                });
+                wrap.appendChild(div);
+            });
+        }
+
+        function renderAppleSearch(results) {
+            const wrap = el("appleSearchResults");
+            wrap.innerHTML = "";
+            const list = results || [];
+            if (!list.length) {
+                wrap.innerHTML = `<div class="chip">-</div>`;
+                return;
+            }
+            list.forEach((item) => {
+                const div = document.createElement("div");
+                div.className = "music-item";
+                div.innerHTML = `
+                    <div class="name">${item.title || "-"}</div>
+                    <div class="meta">${item.artist || "-"} | ${item.album || "-"}</div>
+                    <div class="row">
+                        <button class="btn btn-blue" type="button" data-q="${item.id || ""}">Queue</button>
+                        <button class="btn btn-green" type="button" data-play="${item.id || ""}">Play Now</button>
+                    </div>
+                `;
+                const qBtn = div.querySelector("[data-q]");
+                const pBtn = div.querySelector("[data-play]");
+                qBtn.addEventListener("click", async () => {
+                    try {
+                        const data = await postJson("/api/apple-audio/queue", { track_id: item.id, play_now: false });
+                        renderApple(data.state || data);
+                    } catch (err) {
+                        showToast(err.message || "queue failed", true);
+                    }
+                });
+                pBtn.addEventListener("click", async () => {
+                    try {
+                        const data = await postJson("/api/apple-audio/queue", { track_id: item.id, play_now: true });
+                        renderApple(data.state || data);
+                    } catch (err) {
+                        showToast(err.message || "play failed", true);
+                    }
+                });
+                wrap.appendChild(div);
+            });
+        }
+
+        function renderApple(state) {
+            if (!state) return;
+            appleState = state;
+            const cur = state.current_track || {};
+            el("appleNow").textContent = `${cur.title || "-"} | ${cur.artist || "-"}`;
+            el("appleElapsed").textContent = secToClock(state.elapsed_sec || 0);
+            el("appleAuth").textContent = state.auth_state || "-";
+            renderAppleOutputs(state);
+            renderAppleQueue(state);
+        }
+
+        async function loadTemplates() {
+            try {
+                const res = await fetch("/api/m32r/templates");
+                const data = await res.json();
+                templateCache = data.templates || [];
+                const sel = el("tplSelect");
+                sel.innerHTML = "";
+                if (!templateCache.length) {
+                    const op = document.createElement("option");
+                    op.value = "";
+                    op.textContent = "-";
+                    sel.appendChild(op);
+                } else {
+                    templateCache.forEach((item) => {
+                        const op = document.createElement("option");
+                        op.value = item.name || "";
+                        op.textContent = item.name || "-";
+                        sel.appendChild(op);
+                    });
+                }
+                renderTemplateMeta();
+            } catch (_) {
+            }
+        }
+
+        async function loadM32() {
+            try {
+                const res = await fetch("/api/m32r/status");
+                const data = await res.json();
+                if (data && data.success === false) {
+                    throw new Error(data.msg || data.message || "status failed");
+                }
+                renderM32(data.state || data);
+            } catch (err) {
+                showToast(err.message || "status failed", true);
+            }
+        }
+
+        async function loadApple() {
+            try {
+                const res = await fetch("/api/apple-audio/status");
+                const data = await res.json();
+                renderApple(data.state || data);
+            } catch (_) {
+            }
+        }
+
+        function readSetupForm() {
+            return {
+                name: String(el("setupName").value || "").trim(),
+                host: String(el("setupHost").value || "").trim(),
+                port: Number(el("setupPort").value || 10023),
+                channel_count: Number(el("setupChannelCount").value || 8),
+                bank_start: Number(el("setupBankStart").value || 1),
+                poll_interval_ms: Number(el("setupPollMs").value || 1200),
+                keepalive_sec: Number(el("setupKeepaliveSec").value || 5),
+                auto_connect: !!el("setupAutoConnect").checked,
+                auto_sync: !!el("setupAutoSync").checked,
+                sync_direction: String(el("setupSyncDirection").value || "mixer_to_pc")
+            };
+        }
+
+        async function connectMixer(demo = false) {
+            const payload = readSetupForm();
+            if (demo) payload.demo_mode = true;
+            const data = await postJson("/api/m32r/connect", payload);
+            renderM32(data.state || data);
+        }
+
+        function bindEvents() {
+            el("langZh").addEventListener("click", () => setLang("zh"));
+            el("langEn").addEventListener("click", () => setLang("en"));
+            el("backBtn").addEventListener("click", () => { window.location.href = "/"; });
+            el("refreshBtn").addEventListener("click", async () => {
+                await loadM32();
+                await loadApple();
+                showToast("OK");
+            });
+
+            document.querySelectorAll(".tab-btn").forEach((btn) => {
+                btn.addEventListener("click", () => {
+                    const view = btn.getAttribute("data-view");
+                    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+                    btn.classList.add("active");
+                    document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
+                    const target = document.getElementById(`view-${view}`);
+                    if (target) target.classList.add("active");
+                });
+            });
+
+            el("bankPrevBtn").addEventListener("click", async () => {
+                try {
+                    const data = await postJson("/api/m32r/bank", { direction: "prev" });
+                    renderM32(data.state || data);
+                } catch (err) {
+                    showToast(err.message || "bank prev failed", true);
+                }
+            });
+            el("bankNextBtn").addEventListener("click", async () => {
+                try {
+                    const data = await postJson("/api/m32r/bank", { direction: "next" });
+                    renderM32(data.state || data);
+                } catch (err) {
+                    showToast(err.message || "bank next failed", true);
+                }
+            });
+            el("jump1Btn").addEventListener("click", () => jumpBank(1));
+            el("jump2Btn").addEventListener("click", () => jumpBank(9));
+            el("jump3Btn").addEventListener("click", () => jumpBank(17));
+            el("jump4Btn").addEventListener("click", () => jumpBank(25));
+            el("count8Btn").addEventListener("click", () => setQuickChannelCount(8));
+            el("count16Btn").addEventListener("click", () => setQuickChannelCount(16));
+            el("count24Btn").addEventListener("click", () => setQuickChannelCount(24));
+            el("count32Btn").addEventListener("click", () => setQuickChannelCount(32));
+
+            el("mainFader").addEventListener("change", async (ev) => {
+                try {
+                    const data = await postJson("/api/m32r/main", { action: "set_fader", value: Number(ev.target.value) });
+                    renderM32(data.state || data);
+                } catch (err) {
+                    showToast(err.message || "main fader failed", true);
+                }
+            });
+            el("mainToggleBtn").addEventListener("click", async () => {
+                try {
+                    const on = !(m32State && m32State.main && m32State.main.on);
+                    const data = await postJson("/api/m32r/main", { action: "set_on", on });
+                    renderM32(data.state || data);
+                } catch (err) {
+                    showToast(err.message || "main toggle failed", true);
+                }
+            });
+
+            el("saveLabelBtn").addEventListener("click", async () => {
+                if (!selectedCh) return;
+                try {
+                    const data = await postJson("/api/m32r/channel", {
+                        channel: selectedCh,
+                        action: "set_label",
+                        name: String(el("detailName").value || "").trim(),
+                        scribble: String(el("detailScribble").value || "").trim()
+                    });
+                    renderM32(data.state || data);
+                } catch (err) {
+                    showToast(err.message || "label save failed", true);
+                }
+            });
+
+            el("applyBasicBtn").addEventListener("click", async () => {
+                if (!selectedCh) return;
+                try {
+                    const onData = await postJson("/api/m32r/channel", { channel: selectedCh, action: "set_on", on: !!el("detailOn").checked });
+                    renderM32(onData.state || onData);
+                    const fData = await postJson("/api/m32r/channel", { channel: selectedCh, action: "set_fader", value: Number(el("detailFader").value || 0.75) });
+                    renderM32(fData.state || fData);
+                    const pData = await postJson("/api/m32r/channel", { channel: selectedCh, action: "set_pan", value: Number(el("detailPan").value || 0.5) });
+                    renderM32(pData.state || pData);
+                } catch (err) {
+                    showToast(err.message || "basic apply failed", true);
+                }
+            });
+
+            el("applyToneBtn").addEventListener("click", async () => {
+                if (!selectedCh) return;
+                try {
+                    await postJson("/api/m32r/channel", { channel: selectedCh, action: "set_detail", section: "gate", key: "enabled", value: el("gateEnabled").value === "true" });
+                    await postJson("/api/m32r/channel", { channel: selectedCh, action: "set_detail", section: "gate", key: "threshold_db", value: Number(el("gateThreshold").value || -42) });
+                    await postJson("/api/m32r/channel", { channel: selectedCh, action: "set_detail", section: "eq", key: "enabled", value: el("eqEnabled").value === "true" });
+                    await postJson("/api/m32r/channel", { channel: selectedCh, action: "set_detail", section: "eq", key: "mid_freq_hz", value: Number(el("eqMidFreq").value || 3200) });
+                    await postJson("/api/m32r/channel", { channel: selectedCh, action: "set_detail", section: "dyn", key: "enabled", value: el("dynEnabled").value === "true" });
+                    await postJson("/api/m32r/channel", { channel: selectedCh, action: "set_detail", section: "dyn", key: "threshold_db", value: Number(el("dynThreshold").value || -18) });
+                    await postJson("/api/m32r/channel", { channel: selectedCh, action: "set_detail", section: "sends", key: "bus_1", value: Number(el("send1").value || 0.55) });
+                    await postJson("/api/m32r/channel", { channel: selectedCh, action: "set_detail", section: "sends", key: "bus_2", value: Number(el("send2").value || 0.45) });
+                    await loadM32();
+                } catch (err) {
+                    showToast(err.message || "tone apply failed", true);
+                }
+            });
+
+            el("connectBtn").addEventListener("click", async () => {
+                try {
+                    await connectMixer(false);
+                    showToast("OK");
+                } catch (err) {
+                    showToast(err.message || "connect failed", true);
+                }
+            });
+            el("demoBtn").addEventListener("click", async () => {
+                try {
+                    await connectMixer(true);
+                    showToast("OK");
+                } catch (err) {
+                    showToast(err.message || "demo failed", true);
+                }
+            });
+            el("disconnectBtn").addEventListener("click", async () => {
+                try {
+                    const data = await postJson("/api/m32r/disconnect", {});
+                    renderM32(data.state || data);
+                } catch (err) {
+                    showToast(err.message || "disconnect failed", true);
+                }
+            });
+            el("saveCfgBtn").addEventListener("click", async () => {
+                try {
+                    const data = await postJson("/api/m32r/config", readSetupForm());
+                    renderM32(data.state || data);
+                    showToast("OK");
+                } catch (err) {
+                    showToast(err.message || "save config failed", true);
+                }
+            });
+            el("discoverBtn").addEventListener("click", async () => {
+                try {
+                    const data = await postJson("/api/m32r/discover", {});
+                    renderM32(data.state || data);
+                } catch (err) {
+                    showToast(err.message || "discover failed", true);
+                }
+            });
+            el("syncBtn").addEventListener("click", async () => {
+                try {
+                    const data = await postJson("/api/m32r/sync", { direction: String(el("setupSyncDirection").value || "mixer_to_pc") });
+                    renderM32(data.state || data);
+                } catch (err) {
+                    showToast(err.message || "sync failed", true);
+                }
+            });
+            el("refreshChBtn").addEventListener("click", async () => {
+                try {
+                    const data = await postJson("/api/m32r/refresh", {});
+                    renderM32(data.state || data);
+                } catch (err) {
+                    showToast(err.message || "refresh failed", true);
+                }
+            });
+
+            el("tplSelect").addEventListener("change", renderTemplateMeta);
+            el("tplSaveBtn").addEventListener("click", async () => {
+                const name = String(el("tplName").value || "").trim() || "unnamed_template";
+                try {
+                    const data = await postJson("/api/m32r/template/save", { name });
+                    templateCache = data.templates || [];
+                    await loadTemplates();
+                    el("tplSelect").value = name;
+                    renderTemplateMeta();
+                    renderM32(data.state || data);
+                } catch (err) {
+                    showToast(err.message || "template save failed", true);
+                }
+            });
+            el("tplApplyBtn").addEventListener("click", async () => {
+                const name = String(el("tplSelect").value || "").trim();
+                if (!name) return;
+                try {
+                    const data = await postJson("/api/m32r/template/apply", { name });
+                    renderM32(data.state || data);
+                } catch (err) {
+                    showToast(err.message || "template load failed", true);
+                }
+            });
+            el("tplRenameBtn").addEventListener("click", async () => {
+                const oldName = String(el("tplSelect").value || "").trim();
+                const newName = String(el("tplName").value || "").trim();
+                if (!oldName || !newName) return;
+                try {
+                    const data = await postJson("/api/m32r/template/rename", { old_name: oldName, new_name: newName });
+                    templateCache = data.templates || [];
+                    await loadTemplates();
+                    el("tplSelect").value = newName;
+                    renderTemplateMeta();
+                } catch (err) {
+                    showToast(err.message || "template rename failed", true);
+                }
+            });
+            el("tplDeleteBtn").addEventListener("click", async () => {
+                const name = String(el("tplSelect").value || "").trim();
+                if (!name) return;
+                try {
+                    const data = await postJson("/api/m32r/template/delete", { name });
+                    templateCache = data.templates || [];
+                    await loadTemplates();
+                } catch (err) {
+                    showToast(err.message || "template delete failed", true);
+                }
+            });
+
+            el("routeSyncBtn").addEventListener("click", async () => {
+                try {
+                    const data = await postJson("/api/m32r/sync", { direction: String(el("routeSyncDirection").value || "mixer_to_pc") });
+                    renderM32(data.state || data);
+                } catch (err) {
+                    showToast(err.message || "sync failed", true);
+                }
+            });
+
+            el("routeSaveBtn").addEventListener("click", async () => {
+                try {
+                    await postJson("/api/apple-audio/config", {
+                        provider: String(el("routeProvider").value || "").trim(),
+                        player_mode: String(el("routePlayerMode").value || "").trim(),
+                        player_host: String(el("routePlayerHost").value || "").trim(),
+                        output_mode: String(el("routeOutputMode").value || "").trim(),
+                        m32_channel_left: Number(el("routeLeft").value || 17),
+                        m32_channel_right: Number(el("routeRight").value || 18),
+                        m32_label: String(el("routeLabel").value || "").trim(),
+                        m32_prepare_level: Number(el("routePrepareLevel").value || 0.68),
+                        m32_prepare_main: !!el("routePrepareMain").checked
+                    });
+                    await loadApple();
+                    showToast("OK");
+                } catch (err) {
+                    showToast(err.message || "apple config failed", true);
+                }
+            });
+
+            el("routePrepareBtn").addEventListener("click", async () => {
+                try {
+                    const data = await postJson("/api/apple-audio/m32/prepare", {});
+                    renderApple(data.apple_state || appleState);
+                    renderM32(data.m32_state || m32State);
+                } catch (err) {
+                    showToast(err.message || "prepare failed", true);
+                }
+            });
+
+            el("routeSyncDirection").addEventListener("change", () => {
+                el("setupSyncDirection").value = el("routeSyncDirection").value;
+            });
+            el("setupSyncDirection").addEventListener("change", () => {
+                el("routeSyncDirection").value = el("setupSyncDirection").value;
+            });
+
+            el("appleToggleBtn").addEventListener("click", () => appleTransport("toggle"));
+            el("applePrevBtn").addEventListener("click", () => appleTransport("prev"));
+            el("appleNextBtn").addEventListener("click", () => appleTransport("next"));
+            el("appleFavBtn").addEventListener("click", () => appleTransport("favorite"));
+            el("appleClearQueueBtn").addEventListener("click", async () => {
+                try {
+                    const data = await postJson("/api/apple-audio/queue/clear", {});
+                    renderApple(data.state || data);
+                } catch (err) {
+                    showToast(err.message || "clear queue failed", true);
+                }
+            });
+            el("appleSearchBtn").addEventListener("click", doAppleSearch);
+            el("appleSearchInput").addEventListener("keydown", (ev) => {
+                if (ev.key === "Enter") doAppleSearch();
+            });
+        }
+
+        async function doAppleSearch() {
+            const q = String(el("appleSearchInput").value || "").trim();
+            try {
+                const res = await fetch(`/api/apple-audio/search?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+                renderAppleSearch(data.results || []);
+            } catch (err) {
+                showToast(err.message || "search failed", true);
+            }
+        }
+
+        async function appleTransport(action) {
+            try {
+                const data = await postJson("/api/apple-audio/transport", { action });
+                renderApple(data.state || data);
+            } catch (err) {
+                showToast(err.message || "transport failed", true);
+            }
+        }
+
+        async function jumpBank(start) {
+            try {
+                const data = await postJson("/api/m32r/bank", { direction: "set", bank_start: Number(start) });
+                renderM32(data.state || data);
+            } catch (err) {
+                showToast(err.message || "bank jump failed", true);
+            }
+        }
+
+        async function setQuickChannelCount(count) {
+            try {
+                const safe = Math.max(1, Math.min(32, Number(count || 16)));
+                const currentBank = Number(el("setupBankStart").value || 1);
+                const maxStart = Math.max(1, 33 - safe);
+                el("setupChannelCount").value = safe;
+                el("setupBankStart").value = Math.max(1, Math.min(currentBank, maxStart));
+                updateQuickCountButtons();
+                const data = await postJson("/api/m32r/config", readSetupForm());
+                renderM32(data.state || data);
+                showToast("OK");
+            } catch (err) {
+                showToast(err.message || "set channel count failed", true);
+            }
+        }
+
+        async function bootstrap() {
+            bindEvents();
+            setLang(currentLang);
+            updateQuickCountButtons();
+            await Promise.all([loadM32(), loadApple(), loadTemplates()]);
+            setInterval(loadM32, 1400);
+            setInterval(loadApple, 2200);
+        }
+
+        bootstrap();
+    </script>
+</body>
+</html>

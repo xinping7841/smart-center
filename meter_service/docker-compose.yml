@@ -1,0 +1,23 @@
+services:
+  meter-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: ${METER_SERVICE_BASE_IMAGE:-mcr.microsoft.com/devcontainers/python:1-3.11-bullseye}
+        BUILD_STAMP: ${METER_SERVICE_BUILD_STAMP:-20260328c}
+    container_name: meter-service
+    restart: unless-stopped
+    environment:
+      METER_SERVICE_MAX_WORKERS: ${METER_SERVICE_MAX_WORKERS:-2}
+      METER_SERVICE_POLL_INTERVAL: ${METER_SERVICE_POLL_INTERVAL:-4}
+      METER_CONNECT_RETRIES: ${METER_CONNECT_RETRIES:-5}
+      METER_IO_RETRIES: ${METER_IO_RETRIES:-5}
+      METER_CONNECT_RETRY_DELAY: ${METER_CONNECT_RETRY_DELAY:-0.4}
+      METER_READ_TIMEOUT_SECONDS: ${METER_READ_TIMEOUT_SECONDS:-1.8}
+      METER_READ_WINDOW_SECONDS: ${METER_READ_WINDOW_SECONDS:-3.2}
+    ports:
+      - "6901:6901"
+    volumes:
+      - ./data:/app/meter_service/data
+      - ./reports:/data/reports

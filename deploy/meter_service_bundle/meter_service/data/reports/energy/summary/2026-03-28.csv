@@ -1,0 +1,2 @@
+﻿exported_at,target,target_label,total_meters,online_meters,offline_meters,total_power_kw,total_daily_energy_kwh,total_monthly_energy_kwh,total_energy_kwh,display_total_energy_kwh,effective_total_energy_kwh,energy_display_mode,comparison_delta_kwh,comparison_delta_pct,comparison_trend
+2026-03-28T14:21:29,total,全部统计电表,11,7,4,2.53,4.9,4.9,95937.8,95937.8,95937.8,display,4.94,,up

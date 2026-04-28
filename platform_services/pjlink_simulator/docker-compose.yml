@@ -1,0 +1,16 @@
+services:
+  pjlink-simulator:
+    build: .
+    container_name: pjlink-simulator
+    ports:
+      - "4352:4352"
+      - "8080:8080"
+    environment:
+      DEFAULT_PROFILE: epson_1_0
+      PJLINK_PORT: 4352
+      HTTP_PORT: 8080
+      PJLINK_PASSWORD: ""
+      LOG_LEVEL: INFO
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

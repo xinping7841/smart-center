@@ -1,0 +1,50 @@
+{
+  "meta": {
+    "id": "generic_udp_hex_batch",
+    "name": "UDP十六进制批量样板",
+    "vendor": "Generic",
+    "description": "适合 UDP Hex 协议的同型号批量设备，示例包含单播、IP 列表和范围发送。",
+    "tags": ["template", "udp", "hex", "batch"]
+  },
+  "target_groups": [
+    {
+      "id": "udp_hex_batch_main",
+      "name": "UDP批量设备",
+      "protocol": "udp",
+      "mode": "ip_range",
+      "range_start": "192.168.50.10",
+      "range_end": "192.168.50.20",
+      "port": 6000,
+      "timeout_ms": 1000,
+      "wait_ms": 0,
+      "send_strategy": "parallel",
+      "max_workers": 8,
+      "enabled": true
+    }
+  ],
+  "commands": [
+    {
+      "id": "udp_hex_on",
+      "name": "开启",
+      "category": "基础",
+      "format": "hex",
+      "payload_template": "AA 55 01 01",
+      "wait_ms": 0,
+      "enabled": true
+    },
+    {
+      "id": "udp_hex_off",
+      "name": "关闭",
+      "category": "基础",
+      "format": "hex",
+      "payload_template": "AA 55 01 00",
+      "wait_ms": 0,
+      "enabled": true
+    }
+  ],
+  "generator": {
+    "default_panel_name": "UDP批量控制",
+    "default_control_type": "button",
+    "default_show_on_home": false
+  }
+}
