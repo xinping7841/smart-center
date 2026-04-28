@@ -43,3 +43,17 @@ backups/
 .env
 .env.*
 !.env.example
+
+# Generated reports and bundled runtime data
+reports/
+**/data/reports/
+platform_services/pjlink_simulator/data/state*.json
+*.zip
+
+# Old one-off backup copies kept in full tar backup, not in Git
+*.bak.codex.*
+*.bak.codex_*
+*.bak.rename_*
+*.prune_*.bak
+*.bak_20*
+api/server_new.py
