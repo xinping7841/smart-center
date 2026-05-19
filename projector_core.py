@@ -314,9 +314,11 @@ def infer_rs232_projector_status(projector_cfg):
     cooldown_sec = float(cfg.get("inferred_cooldown_sec", 240) or 240)
     command_trust_sec = float(cfg.get("inferred_command_trust_sec", 180) or 180)
     power_verify_sec = float(cfg.get("inferred_power_verify_sec", 120) or 120)
+    low_power_grace_sec = float(cfg.get("inferred_low_power_grace_sec", min(20, power_verify_sec)) or min(20, power_verify_sec))
     delta_kw = (power_kw - baseline_kw) if (power_kw is not None and baseline_kw is not None) else None
     drop_kw = (baseline_kw - power_kw) if (power_kw is not None and baseline_kw is not None) else None
     command_success = last_command_ok is not False
+    low_power_veto = bool(absolute_power_enabled and power_kw is not None and power_kw < standby_max_kw)
 
     status = {
         "online": bool(tcp_online),
@@ -349,6 +351,27 @@ def infer_rs232_projector_status(projector_cfg):
         "meter_updated_at": meter.get("updated_at"),
         "status_level": "online" if tcp_online else ("stale" if tcp_degraded else "error"),
     }
+
+    def finalize_status():
+        age_text = f"，上次指令 {int(age_sec)} 秒前" if age_sec is not None else "，暂无指令记录"
+        if delta_kw is not None:
+            pwr_text = f"总功率 {power_kw:.2f}kW，变化 {delta_kw:+.2f}kW"
+        elif power_kw is not None:
+            pwr_text = f"总功率 {power_kw:.2f}kW"
+        else:
+            pwr_text = "总功率未知"
+        feed_text = "供电合闸" if power_feed_on else ("供电未知" if power_feed_on is None else "供电断开")
+        target_text = f"串口服务器 {target_online}/{target_total} 在线" if target_total else "串口服务器未配置"
+        status["inference_basis"] = f"{target_text}，{feed_text}，{pwr_text}{age_text}"
+        status["other_info"] = status["inference_basis"]
+        if (
+            status.get("error") == "正常"
+            and status.get("power") not in ["warning", "unknown"]
+            and status.get("status_level") != "stale"
+        ):
+            status["status_level"] = "online"
+        return status
+
     if not tcp_online:
         status["power"] = "unknown"
         status["status_level"] = "stale" if tcp_degraded else "error"
@@ -360,6 +383,23 @@ def infer_rs232_projector_status(projector_cfg):
         status["lamp_state"] = "无供电"
         status["inference_basis"] = f"电柜第 {channel_idx} 路断开"
         return status
+    if low_power_veto:
+        if last_intent == "on" and command_success and age_sec is not None and age_sec <= low_power_grace_sec:
+            status["power"] = "warming"
+            status["lamp_state"] = "启动校验中"
+            status["source_name"] = "121网关指令 + 低功率校验"
+            status["status_level"] = "stale"
+        elif last_intent == "on" and command_success and age_sec is not None and age_sec <= power_verify_sec:
+            status["power"] = "warning"
+            status["lamp_state"] = "疑似未启动"
+            status["error"] = "总功率低于待机阈值"
+            status["source_name"] = "电柜功率优先"
+            status["status_level"] = "stale"
+        else:
+            status["power"] = "off"
+            status["lamp_state"] = "待机"
+            status["source_name"] = "电柜功率优先"
+        return finalize_status()
 
     if absolute_power_enabled and power_kw is not None and power_kw >= on_threshold_kw and last_intent != "off":
         status["power"] = "on"
@@ -439,20 +479,7 @@ def infer_rs232_projector_status(projector_cfg):
             status["power"] = "unknown"
             status["lamp_state"] = "等待控制记录"
 
-    age_text = f"，上次指令 {int(age_sec)} 秒前" if age_sec is not None else "，暂无指令记录"
-    if delta_kw is not None:
-        pwr_text = f"总功率 {power_kw:.2f}kW，变化 {delta_kw:+.2f}kW"
-    elif power_kw is not None:
-        pwr_text = f"总功率 {power_kw:.2f}kW"
-    else:
-        pwr_text = "总功率未知"
-    feed_text = "供电合闸" if power_feed_on else ("供电未知" if power_feed_on is None else "供电断开")
-    target_text = f"串口服务器 {target_online}/{target_total} 在线" if target_total else "串口服务器未配置"
-    status["inference_basis"] = f"{target_text}，{feed_text}，{pwr_text}{age_text}"
-    status["other_info"] = status["inference_basis"]
-    if status.get("error") == "正常" and status.get("power") not in ["warning", "unknown"]:
-        status["status_level"] = "online"
-    return status
+    return finalize_status()
 
 DEFAULT_SERIES_BY_BRAND = {
     "appotronics": "dh",
