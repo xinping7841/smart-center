@@ -15,7 +15,9 @@ bp = Blueprint("hy_edge", __name__)
 _API_CACHE_LOCK = threading.Lock()
 _API_CACHE_DATA = None
 _API_CACHE_TS = 0.0
-_API_CACHE_TTL_SEC = 2.0
+_API_CACHE_REFRESH_SEC = 15.0
+_API_CACHE_STALE_SEC = 90.0
+_API_REFRESHING = False
 
 _DEFAULT_STATUS_URL = "http://100.114.16.16:1880/edge/status"
 
@@ -434,10 +436,78 @@ def _build_payload(status_url, timeout_sec, title, tag):
     }
 
 
+def _with_cache_meta(payload, cache_age_sec=0.0, refreshing=False, stale=False):
+    data = dict(payload or {})
+    summary = dict(data.get("summary") or {})
+    age = max(0.0, float(cache_age_sec or 0.0))
+    summary["local_cache_age_sec"] = round(age, 1)
+    summary["local_cache_age_text"] = _fmt_seconds(int(age))
+    summary["local_cache_refreshing"] = bool(refreshing)
+    summary["local_cache_stale"] = bool(stale)
+    data["summary"] = summary
+    data["local_cache_age_sec"] = round(age, 1)
+    data["local_cache_refreshing"] = bool(refreshing)
+    data["local_cache_stale"] = bool(stale)
+    return data
+
+
+def _warming_payload(cfg):
+    return {
+        "enabled": True,
+        "online": False,
+        "status_level": "stale",
+        "status_label": "刷新中",
+        "error": "",
+        "fetched_at": _now_iso(),
+        "summary": {
+            "title": cfg["title"],
+            "tag": cfg["tag"],
+            "card_total": 0,
+            "online_count": 0,
+            "alert_count": 0,
+            "response_time_ms": None,
+            "site": cfg["tag"],
+            "cache_mode": "warming",
+            "high_age_text": "--",
+            "low_age_text": "--",
+        },
+        "cards": [],
+        "remote": {},
+        "config": {
+            "status_url": cfg["status_url"],
+            "timeout_sec": cfg["timeout_sec"],
+            "title": cfg["title"],
+            "tag": cfg["tag"],
+        },
+    }
+
+
+def _refresh_cache_async(cfg):
+    def _worker():
+        global _API_CACHE_DATA, _API_CACHE_TS, _API_REFRESHING
+        try:
+            payload = _build_payload(cfg["status_url"], cfg["timeout_sec"], cfg["title"], cfg["tag"])
+            payload["config"] = {
+                "status_url": cfg["status_url"],
+                "timeout_sec": cfg["timeout_sec"],
+                "title": cfg["title"],
+                "tag": cfg["tag"],
+            }
+            with _API_CACHE_LOCK:
+                _API_CACHE_DATA = payload
+                _API_CACHE_TS = time.monotonic()
+        finally:
+            with _API_CACHE_LOCK:
+                _API_REFRESHING = False
+
+    thread = threading.Thread(target=_worker, name="hy-edge-refresh", daemon=True)
+    thread.start()
+
+
 @bp.route("/api/hy-edge/status")
 @require_permission("snmp.view")
 def api_hy_edge_status():
-    global _API_CACHE_DATA, _API_CACHE_TS
+    global _API_CACHE_DATA, _API_CACHE_TS, _API_REFRESHING
 
     cfg = _config()
     if not cfg["enabled"]:
@@ -468,19 +538,20 @@ def api_hy_edge_status():
 
     now = time.monotonic()
     with _API_CACHE_LOCK:
-        if _API_CACHE_DATA is not None and (now - _API_CACHE_TS) <= _API_CACHE_TTL_SEC:
-            return jsonify(_API_CACHE_DATA)
+        cached = dict(_API_CACHE_DATA or {}) if _API_CACHE_DATA is not None else None
+        cache_age = (now - _API_CACHE_TS) if cached is not None else 0.0
+        should_refresh = cached is not None and cache_age >= _API_CACHE_REFRESH_SEC
+        if should_refresh and not _API_REFRESHING:
+            _API_REFRESHING = True
+            _refresh_cache_async(cfg)
+        refreshing = _API_REFRESHING
 
-    payload = _build_payload(cfg["status_url"], cfg["timeout_sec"], cfg["title"], cfg["tag"])
-    payload["config"] = {
-        "status_url": cfg["status_url"],
-        "timeout_sec": cfg["timeout_sec"],
-        "title": cfg["title"],
-        "tag": cfg["tag"],
-    }
+    if cached is not None:
+        return jsonify(_with_cache_meta(cached, cache_age, refreshing=refreshing, stale=cache_age >= _API_CACHE_STALE_SEC))
 
     with _API_CACHE_LOCK:
-        _API_CACHE_DATA = payload
-        _API_CACHE_TS = time.monotonic()
+        if not _API_REFRESHING:
+            _API_REFRESHING = True
+            _refresh_cache_async(cfg)
 
-    return jsonify(payload)
+    return jsonify(_with_cache_meta(_warming_payload(cfg), 0.0, refreshing=True, stale=True))

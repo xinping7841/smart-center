@@ -2,6 +2,24 @@ import socket
 import threading
 import time
 import struct
+import os
+
+MODBUS_DEBUG = str(os.environ.get("SMART_CENTER_MODBUS_DEBUG", "")).strip().lower() in {"1", "true", "yes", "on"}
+MODBUS_DEBUG_THROTTLE_SEC = max(1.0, float(os.environ.get("SMART_CENTER_MODBUS_DEBUG_THROTTLE_SEC", "30") or 30))
+_MODBUS_DEBUG_LOCK = threading.Lock()
+_MODBUS_DEBUG_LAST = {}
+
+
+def _debug_log(key, message):
+    if not MODBUS_DEBUG:
+        return
+    now = time.monotonic()
+    with _MODBUS_DEBUG_LOCK:
+        last = float(_MODBUS_DEBUG_LAST.get(key, 0.0) or 0.0)
+        if now - last < MODBUS_DEBUG_THROTTLE_SEC:
+            return
+        _MODBUS_DEBUG_LAST[key] = now
+    print(message, flush=True)
 
 def calc_crc(data):
     crc = 0xFFFF
@@ -33,7 +51,10 @@ class ModbusClient:
                 self.sock.connect((self.ip, self.port))
                 return True
             except Exception as e:
-                print(f"[Modbus DEBUG] 连接失败 -> IP: {self.ip}:{self.port} 协议: {self.protocol} | 错误: {e}")
+                _debug_log(
+                    f"connect:{self.ip}:{self.port}:{self.protocol}",
+                    f"[Modbus DEBUG] 连接失败 -> IP: {self.ip}:{self.port} 协议: {self.protocol} | 错误: {e}",
+                )
                 self.close()
                 return False
         return True
@@ -82,7 +103,10 @@ class ModbusClient:
                         except socket.timeout: break
                     raise ConnectionError("读取响应超时")
                 except Exception as e:
-                    print(f"[Modbus DEBUG] 读写异常，准备重试 -> IP: {self.ip} 错误: {e}")
+                    _debug_log(
+                        f"rw:{self.ip}:{self.port}:{self.protocol}",
+                        f"[Modbus DEBUG] 读写异常，准备重试 -> IP: {self.ip} 错误: {e}",
+                    )
                     self.close()
             return None
 
@@ -180,7 +204,7 @@ def parse_av100_meter(p_env, p_curr, mode="type1", ct_ratio=1.0):
                 ib = int.from_bytes(d[4:8], "big") / 10000.0 * ct
                 ic = int.from_bytes(d[8:12], "big") / 10000.0 * ct
     except Exception as e:
-        print(f"[Modbus DEBUG] 阵列解算报错: {e}")
+        _debug_log("parse_av100_meter", f"[Modbus DEBUG] 阵列解算报错: {e}")
     return round(va,1), round(vb,1), round(vc,1), round(ia,1), round(ib,1), round(ic,1), round(energy,2)
 
 def parse_pdu_smart_env(pdu):

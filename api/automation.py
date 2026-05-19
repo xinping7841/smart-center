@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import Blueprint, jsonify, request
 
 from audit import log_audit_event
@@ -51,9 +53,35 @@ def _normalize_hhmm(value, fallback="00:00"):
     return f"{hour:02d}:{minute:02d}"
 
 
+def _parse_log_time(value):
+    text = str(value or "").strip()
+    if not text:
+        return 0.0
+    normalized = text.replace("Z", "+00:00")
+    try:
+        return datetime.fromisoformat(normalized).timestamp()
+    except Exception:
+        pass
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y/%m/%d %H:%M:%S"):
+        try:
+            return datetime.strptime(text, fmt).timestamp()
+        except Exception:
+            continue
+    return 0.0
+
+
+def _is_automation_log(item):
+    operation = str(item.get("operation") or "")
+    category = str(item.get("category") or "")
+    markers = ("[automation]", "[scene]", "[自动化]", "[场景]")
+    if any(marker in operation for marker in markers):
+        return True
+    return category in {"automation", "scene"}
+
+
 def _sanitize_rule_updates(rule, payload):
     trigger_type = str(payload.get("trigger_type") or rule.get("trigger_type") or "condition").strip().lower()
-    if trigger_type not in {"condition", "schedule", "mixed"}:
+    if trigger_type not in {"condition", "schedule", "mixed", "compound"}:
         trigger_type = "condition"
     rule["trigger_type"] = trigger_type
 
@@ -154,17 +182,17 @@ def api_automation_status():
 @require_permission("automation.view")
 def api_automation_logs():
     rule_name = str(request.args.get("name") or "").strip()
+    limit = _to_int(request.args.get("limit"), 80, 20, 200)
     matched = []
     for item in load_logs(None):
         operation = str(item.get("operation") or "")
-        if "[automation]" not in operation and "[scene]" not in operation and "[自动化]" not in operation:
+        if not _is_automation_log(item):
             continue
         if rule_name and rule_name not in operation:
             continue
         matched.append(item)
-        if len(matched) >= 20:
-            break
-    return jsonify({"ok": True, "items": matched})
+    matched.sort(key=lambda entry: (_parse_log_time(entry.get("time")), str(entry.get("operation") or "")), reverse=True)
+    return jsonify({"ok": True, "items": matched[:limit], "total": len(matched), "limit": limit})
 
 
 @bp.route("/api/automation/update", methods=["POST"])

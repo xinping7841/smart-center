@@ -7,6 +7,7 @@
         {
           "channel": 1,
           "name": "回路 1",
+          "remark": "1号厅空调",
           "sort": 1,
           "span": 1,
           "visible": true
@@ -14,6 +15,7 @@
         {
           "channel": 2,
           "name": "回路 2",
+          "remark": "AB顶部插座",
           "sort": 2,
           "span": 1,
           "visible": true
@@ -21,6 +23,7 @@
         {
           "channel": 3,
           "name": "回路 3",
+          "remark": "灯-墙壁插座",
           "sort": 3,
           "span": 1,
           "visible": true
@@ -28,6 +31,7 @@
         {
           "channel": 4,
           "name": "回路 4",
+          "remark": "C顶部插座",
           "sort": 4,
           "span": 1,
           "visible": true
@@ -35,6 +39,7 @@
         {
           "channel": 5,
           "name": "回路 5",
+          "remark": "1号厅-预留",
           "sort": 5,
           "span": 1,
           "visible": true
@@ -42,6 +47,7 @@
         {
           "channel": 6,
           "name": "回路 6",
+          "remark": "墙壁+机柜",
           "sort": 6,
           "span": 1,
           "visible": true
@@ -49,6 +55,7 @@
         {
           "channel": 7,
           "name": "回路 7",
+          "remark": "灯-空调-外墙",
           "sort": 7,
           "span": 1,
           "visible": true
@@ -56,6 +63,7 @@
         {
           "channel": 8,
           "name": "回路 8",
+          "remark": "充电桩",
           "sort": 8,
           "span": 1,
           "visible": true
@@ -125,6 +133,7 @@
         {
           "channel": 1,
           "name": "第1路",
+          "remark": "LED供电",
           "sort": 1,
           "span": 1,
           "visible": true
@@ -132,6 +141,7 @@
         {
           "channel": 2,
           "name": "第2路",
+          "remark": "机柜供电",
           "sort": 2,
           "span": 1,
           "visible": true
@@ -139,6 +149,7 @@
         {
           "channel": 3,
           "name": "第3路",
+          "remark": "备用",
           "sort": 3,
           "span": 1,
           "visible": true
@@ -208,6 +219,7 @@
         {
           "channel": 1,
           "name": "第1路",
+          "remark": "",
           "sort": 1,
           "span": 1,
           "visible": true
@@ -215,6 +227,7 @@
         {
           "channel": 2,
           "name": "第2路",
+          "remark": "",
           "sort": 2,
           "span": 1,
           "visible": true
@@ -222,6 +235,7 @@
         {
           "channel": 3,
           "name": "第3路",
+          "remark": "",
           "sort": 3,
           "span": 1,
           "visible": true
@@ -285,12 +299,13 @@
       }
     },
     {
-      "cabinet_name": "影棚LED配电柜",
+      "cabinet_name": "影棚LED",
       "channel_count": 6,
       "channels_config": [
         {
           "channel": 1,
           "name": "第1路",
+          "remark": "",
           "sort": 1,
           "span": 1,
           "visible": true
@@ -298,6 +313,7 @@
         {
           "channel": 2,
           "name": "第2路",
+          "remark": "",
           "sort": 2,
           "span": 1,
           "visible": true
@@ -305,6 +321,7 @@
         {
           "channel": 3,
           "name": "第3路",
+          "remark": "",
           "sort": 3,
           "span": 1,
           "visible": true
@@ -312,6 +329,7 @@
         {
           "channel": 4,
           "name": "第4路",
+          "remark": "",
           "sort": 4,
           "span": 1,
           "visible": true
@@ -319,6 +337,7 @@
         {
           "channel": 5,
           "name": "第5路",
+          "remark": "",
           "sort": 5,
           "span": 1,
           "visible": true
@@ -326,6 +345,7 @@
         {
           "channel": 6,
           "name": "第6路",
+          "remark": "",
           "sort": 6,
           "span": 1,
           "visible": true
@@ -395,6 +415,7 @@
         {
           "channel": 1,
           "name": "第1路",
+          "remark": "LED供电",
           "sort": 1,
           "span": 1,
           "visible": true
@@ -402,6 +423,7 @@
         {
           "channel": 2,
           "name": "第2路",
+          "remark": "空闲-备用",
           "sort": 2,
           "span": 1,
           "visible": true
@@ -693,7 +715,7 @@
       },
       "id": "legacy_meter_3",
       "include_in_reports": true,
-      "include_in_totals": true,
+      "include_in_totals": false,
       "ip": "192.168.50.105",
       "meter_kind": "独立电表",
       "meter_type": "direct",
@@ -2471,9 +2493,12 @@
     {
       "baudrate": 2400,
       "brand": "SANTAK",
-      "com_port": "COM1",
-      "comm_mode": "TCP",
+      "com_port": "/dev/ttyS4",
+      "comm_mode": "COM",
+      "command_gap_ms": 80,
       "data_bits": 8,
+      "fallback_cache_ttl_sec": 600.0,
+      "frame_settle_ms": 120,
       "id": "ups_1774600700259",
       "ip": "192.168.51.13",
       "model": "C1K",
@@ -2481,18 +2506,15 @@
       "parity": "NONE",
       "poll_interval_ms": 3000,
       "port": 45113,
-      "protocol": "SANTAK Castle RS232",
+      "protocol": "SANTAK Castle RS232 (120 local RS232)",
+      "query_retries": 4,
+      "require_parenthesized_frame": true,
+      "response_window_ms": 1300,
+      "retry_backoff_ms": 200,
       "shutdown_delay": ".3",
       "stop_bits": 1,
       "timeout_sec": 2.0,
-      "visible": true,
-      "query_retries": 4,
-      "retry_backoff_ms": 200,
-      "frame_settle_ms": 120,
-      "response_window_ms": 1300,
-      "require_parenthesized_frame": true,
-      "command_gap_ms": 80,
-      "fallback_cache_ttl_sec": 600.0
+      "visible": true
     }
   ],
   "snmp_devices": [
@@ -2671,8 +2693,10 @@
         "1.3.6.1.4.1.2021.13",
         "1.3.6.1.4.1.8072"
       ],
+      "walk_roots_per_cycle": 0,
       "walk_sample_limit": 12,
-      "walk_roots_per_cycle": 0
+      "ssh_enrich_enabled": false,
+      "storage_aliases": {}
     },
     {
       "auth_password": "",
@@ -2799,6 +2823,15 @@
           "enabled": true
         },
         {
+          "name": "qnap_cpu_usage_percent",
+          "oid": "1.3.6.1.4.1.24681.1.2.1.0",
+          "value_type": "float",
+          "scale": 1,
+          "unit": "%",
+          "precision": 1,
+          "enabled": true
+        },
+        {
           "name": "vendor_memory_total",
           "oid": "1.3.6.1.4.1.24681.1.2.2.0",
           "value_type": "auto",
@@ -2861,14 +2894,28 @@
         "1.3.6.1.2.1.2.2.1.5",
         "1.3.6.1.2.1.2.2.1.7",
         "1.3.6.1.2.1.2.2.1.8",
+        "1.3.6.1.4.1.24681.1.2.1",
         "1.3.6.1.4.1.24681.1.2.2",
         "1.3.6.1.4.1.24681.1.2.3",
         "1.3.6.1.4.1.24681.1.2.11",
         "1.3.6.1.4.1.55062.2.10.2.1",
         "1.3.6.1.4.1.55062.2.12.9.1"
       ],
+      "walk_roots_per_cycle": 0,
       "walk_sample_limit": 12,
-      "walk_roots_per_cycle": 0
+      "ssh_enrich_enabled": false,
+      "storage_aliases": {
+        "/share/ZFS2_DATA": "Web",
+        "/share/ZFS3_DATA": "Public",
+        "/share/ZFS18_DATA": "市场部",
+        "/share/ZFS19_DATA": "研学部",
+        "/share/ZFS20_DATA": "研学部加密",
+        "/share/ZFS21_DATA": "研学部加密内部研发资料",
+        "/share/ZFS22_DATA": "XR",
+        "/share/ZFS23_DATA": "ubuntu01",
+        "/share/ZFS29_DATA": "技术部",
+        "/share/ZFS530_DATA": "LUN_0"
+      }
     },
     {
       "auth_password": "",
@@ -3053,7 +3100,7 @@
       "protocol": "SNMP",
       "retries": 1,
       "security_level": "noAuthNoPriv",
-      "source_ip": "",
+      "source_ip": "192.168.50.120",
       "timeout_sec": 2,
       "username": "",
       "version": "v2c",
@@ -3087,8 +3134,10 @@
         "1.3.6.1.4.1.2021.11",
         "1.3.6.1.4.1.7375.1.2.1"
       ],
+      "walk_roots_per_cycle": 0,
       "walk_sample_limit": 12,
-      "walk_roots_per_cycle": 0
+      "ssh_enrich_enabled": false,
+      "storage_aliases": {}
     },
     {
       "auth_password": "",
@@ -3119,7 +3168,7 @@
       "protocol": "SNMP",
       "retries": 1,
       "security_level": "noAuthNoPriv",
-      "source_ip": "",
+      "source_ip": "192.168.50.120",
       "timeout_sec": 2,
       "username": "",
       "version": "v2c",
@@ -3152,8 +3201,366 @@
         "1.3.6.1.2.1.17.7.1.4.3.1.1",
         "1.3.6.1.2.1.17.7.1.4.5.1.1"
       ],
+      "walk_roots_per_cycle": 0,
       "walk_sample_limit": 12,
-      "walk_roots_per_cycle": 0
+      "static_config": {
+        "source": "startup (1).cfg exported from H3C switch, sanitized non-secret topology only",
+        "switch_topology": {
+          "source": "startup (1).cfg",
+          "sysname": "H3C",
+          "model": "S5130V2-28S-LI",
+          "software_version": "7.3.28 Release 3507P18",
+          "capabilities": {
+            "snmp_v2c": true,
+            "lldp": true,
+            "ssh": true,
+            "telnet": true,
+            "netconf_soap_http": true
+          },
+          "vlans": [
+            {
+              "id": 1,
+              "name": "默认"
+            },
+            {
+              "id": 10,
+              "name": "办公有线网络"
+            },
+            {
+              "id": 19,
+              "name": "接待厅"
+            },
+            {
+              "id": 20,
+              "name": "无线管理"
+            },
+            {
+              "id": 30,
+              "name": "NAS存储"
+            },
+            {
+              "id": 40,
+              "name": "监控"
+            },
+            {
+              "id": 50,
+              "name": "展厅"
+            },
+            {
+              "id": 60,
+              "name": "无线业务"
+            },
+            {
+              "id": 70,
+              "name": "工作坊"
+            },
+            {
+              "id": 80,
+              "name": "2号展厅"
+            },
+            {
+              "id": 90,
+              "name": "XR影棚"
+            },
+            {
+              "id": 99,
+              "name": "交换机管理网段"
+            },
+            {
+              "id": 110,
+              "name": "110"
+            },
+            {
+              "id": 120,
+              "name": "120"
+            },
+            {
+              "id": 201,
+              "name": "专用外网出口"
+            }
+          ],
+          "vlan_interfaces": [
+            {
+              "id": 10,
+              "name": "办公有线网络",
+              "ip": "192.168.10.1",
+              "mask": "255.255.255.0",
+              "cidr": "192.168.10.1/24"
+            },
+            {
+              "id": 19,
+              "name": "接待厅",
+              "ip": "192.168.19.1",
+              "mask": "255.255.255.0",
+              "cidr": "192.168.19.1/24"
+            },
+            {
+              "id": 20,
+              "name": "无线管理",
+              "ip": "192.168.20.1",
+              "mask": "255.255.255.0",
+              "cidr": "192.168.20.1/24"
+            },
+            {
+              "id": 30,
+              "name": "NAS存储",
+              "ip": "192.168.30.1",
+              "mask": "255.255.255.0",
+              "cidr": "192.168.30.1/24"
+            },
+            {
+              "id": 40,
+              "name": "监控",
+              "ip": "192.168.40.1",
+              "mask": "255.255.255.0",
+              "cidr": "192.168.40.1/24"
+            },
+            {
+              "id": 50,
+              "name": "展厅",
+              "ip": "192.168.50.1",
+              "mask": "255.255.254.0",
+              "cidr": "192.168.50.1/23"
+            },
+            {
+              "id": 60,
+              "name": "无线业务",
+              "ip": "192.168.60.1",
+              "mask": "255.255.254.0",
+              "cidr": "192.168.60.1/23"
+            },
+            {
+              "id": 70,
+              "name": "工作坊",
+              "ip": "192.168.70.1",
+              "mask": "255.255.255.0",
+              "cidr": "192.168.70.1/24"
+            },
+            {
+              "id": 80,
+              "name": "2号展厅",
+              "ip": "192.168.80.1",
+              "mask": "255.255.255.0",
+              "cidr": "192.168.80.1/24"
+            },
+            {
+              "id": 90,
+              "name": "XR影棚",
+              "ip": "192.168.90.1",
+              "mask": "255.255.255.0",
+              "cidr": "192.168.90.1/24"
+            },
+            {
+              "id": 99,
+              "name": "交换机管理网段",
+              "ip": "192.168.99.1",
+              "mask": "255.255.255.0",
+              "cidr": "192.168.99.1/24"
+            },
+            {
+              "id": 110,
+              "name": "110",
+              "ip": "192.168.110.1",
+              "mask": "255.255.255.0",
+              "cidr": "192.168.110.1/24"
+            },
+            {
+              "id": 120,
+              "name": "120",
+              "ip": "192.168.120.1",
+              "mask": "255.255.255.0",
+              "cidr": "192.168.120.1/24"
+            },
+            {
+              "id": 201,
+              "name": "专用外网出口",
+              "ip": "172.16.201.254",
+              "mask": "255.255.255.0",
+              "cidr": "172.16.201.254/24"
+            }
+          ],
+          "ports": [
+            {
+              "name": "GigabitEthernet1/0/1",
+              "link_type": "access",
+              "access_vlan": 99
+            },
+            {
+              "name": "GigabitEthernet1/0/2",
+              "link_type": "trunk",
+              "pvid": 10,
+              "permit_vlans": [
+                10,
+                20,
+                60
+              ]
+            },
+            {
+              "name": "GigabitEthernet1/0/3",
+              "link_type": "trunk",
+              "pvid": 20,
+              "permit_vlans": [
+                20,
+                60
+              ]
+            },
+            {
+              "name": "GigabitEthernet1/0/4",
+              "link_type": "trunk",
+              "pvid": 20,
+              "permit_vlans": [
+                20,
+                60
+              ]
+            },
+            {
+              "name": "GigabitEthernet1/0/5",
+              "link_type": "access",
+              "access_vlan": 40
+            },
+            {
+              "name": "GigabitEthernet1/0/6",
+              "link_type": "access",
+              "access_vlan": 40
+            },
+            {
+              "name": "GigabitEthernet1/0/7",
+              "link_type": "access",
+              "access_vlan": 201
+            },
+            {
+              "name": "GigabitEthernet1/0/8",
+              "link_type": "access",
+              "access_vlan": 19
+            },
+            {
+              "name": "GigabitEthernet1/0/9",
+              "link_type": "access",
+              "access_vlan": 50
+            },
+            {
+              "name": "GigabitEthernet1/0/10",
+              "link_type": "access",
+              "access_vlan": 50
+            },
+            {
+              "name": "GigabitEthernet1/0/11",
+              "link_type": "access",
+              "access_vlan": 50
+            },
+            {
+              "name": "GigabitEthernet1/0/12",
+              "link_type": "access",
+              "access_vlan": 50
+            },
+            {
+              "name": "GigabitEthernet1/0/13",
+              "link_type": "access",
+              "access_vlan": 50
+            },
+            {
+              "name": "GigabitEthernet1/0/14",
+              "link_type": "access",
+              "access_vlan": 50
+            },
+            {
+              "name": "GigabitEthernet1/0/15",
+              "link_type": "access",
+              "access_vlan": 50
+            },
+            {
+              "name": "GigabitEthernet1/0/16",
+              "link_type": "access",
+              "access_vlan": 50
+            },
+            {
+              "name": "GigabitEthernet1/0/17",
+              "link_type": "access",
+              "access_vlan": 70
+            },
+            {
+              "name": "GigabitEthernet1/0/18",
+              "link_type": "access",
+              "access_vlan": 80
+            },
+            {
+              "name": "GigabitEthernet1/0/19",
+              "link_type": "access",
+              "access_vlan": 19
+            },
+            {
+              "name": "GigabitEthernet1/0/20",
+              "link_type": "access",
+              "access_vlan": 19
+            },
+            {
+              "name": "GigabitEthernet1/0/21",
+              "link_type": "access",
+              "access_vlan": 40
+            },
+            {
+              "name": "GigabitEthernet1/0/22",
+              "link_type": "access",
+              "access_vlan": 19
+            },
+            {
+              "name": "GigabitEthernet1/0/23",
+              "link_type": "access",
+              "access_vlan": 99
+            },
+            {
+              "name": "GigabitEthernet1/0/24",
+              "link_type": "access",
+              "access_vlan": 201
+            },
+            {
+              "name": "Ten-GigabitEthernet1/0/25",
+              "link_type": "access",
+              "access_vlan": 10
+            },
+            {
+              "name": "Ten-GigabitEthernet1/0/26",
+              "link_type": "access",
+              "access_vlan": 90
+            },
+            {
+              "name": "Ten-GigabitEthernet1/0/27",
+              "link_type": "access",
+              "access_vlan": 30
+            },
+            {
+              "name": "Ten-GigabitEthernet1/0/28",
+              "link_type": "access",
+              "access_vlan": 30
+            }
+          ]
+        }
+      },
+      "ssh_enrich_enabled": false,
+      "storage_aliases": {}
+    }
+  ],
+  "nvr_devices": [
+    {
+      "brand": "Hikvision",
+      "camera_inventory_path": "/srv/smart-center-data/runtime/camera_inventory_named_from_screenshots.json",
+      "enabled": true,
+      "expected_channel_count": 32,
+      "host": "192.168.40.168",
+      "id": "nvr_hikvision_192_168_40_168",
+      "model": "DS-7932N-R4(C)",
+      "name": "深澜AI NVR",
+      "password": "lanjingkeji798",
+      "poll_interval_ms": 10000,
+      "port": 80,
+      "protocol": "Hikvision ISAPI",
+      "scheme": "http",
+      "snapshot_cache_ttl_sec": 1.5,
+      "snapshot_stream": "2",
+      "snapshot_timeout_sec": 5.0,
+      "timeout_sec": 5.0,
+      "username": "admin",
+      "visible": true
     }
   ],
   "light_devices": [
@@ -3164,6 +3571,7 @@
         {
           "channel": 1,
           "name": "A区",
+          "remark": "",
           "sort": 1,
           "span": 1,
           "visible": true
@@ -3171,6 +3579,7 @@
         {
           "channel": 2,
           "name": "B区",
+          "remark": "",
           "sort": 2,
           "span": 1,
           "visible": true
@@ -3178,6 +3587,7 @@
         {
           "channel": 3,
           "name": "沉浸厅",
+          "remark": "",
           "sort": 3,
           "span": 1,
           "visible": true
@@ -3185,6 +3595,7 @@
         {
           "channel": 4,
           "name": "前言墙",
+          "remark": "",
           "sort": 4,
           "span": 1,
           "visible": true
@@ -3216,6 +3627,7 @@
         {
           "channel": 1,
           "name": "大厅-1",
+          "remark": "",
           "sort": 1,
           "span": 1,
           "visible": true
@@ -3223,6 +3635,7 @@
         {
           "channel": 2,
           "name": "大厅-2",
+          "remark": "",
           "sort": 2,
           "span": 1,
           "visible": true
@@ -3230,6 +3643,7 @@
         {
           "channel": 3,
           "name": "大厅-门口",
+          "remark": "",
           "sort": 3,
           "span": 1,
           "visible": true
@@ -3237,6 +3651,7 @@
         {
           "channel": 4,
           "name": "仓库",
+          "remark": "",
           "sort": 4,
           "span": 1,
           "visible": true
@@ -3244,6 +3659,7 @@
         {
           "channel": 5,
           "name": "包间-常开",
+          "remark": "",
           "sort": 5,
           "span": 1,
           "visible": true
@@ -3251,6 +3667,7 @@
         {
           "channel": 6,
           "name": "第6路",
+          "remark": "",
           "sort": 6,
           "span": 1,
           "visible": false
@@ -3258,6 +3675,7 @@
         {
           "channel": 7,
           "name": "应急-常开",
+          "remark": "",
           "sort": 7,
           "span": 1,
           "visible": true
@@ -3265,6 +3683,7 @@
         {
           "channel": 8,
           "name": "应急-常开",
+          "remark": "",
           "sort": 8,
           "span": 1,
           "visible": true
@@ -3288,84 +3707,116 @@
       "timeout_sec": 2,
       "type": "light",
       "write_start_address": 0
-    },
-    {
-      "id": 3,
-      "name": "新灯光模块",
-      "brand": "RF_TCP",
-      "slave_id": 1,
-      "ip": "192.168.50.254",
-      "port": 1881,
-      "channels": 1,
-      "channels_config": [
-        {
-          "channel": 1,
-          "name": "第1路",
-          "sort": 1,
-          "visible": true,
-          "span": 1
-        }
-      ],
-      "status_command": "status",
-      "command_on": "on",
-      "command_off": "off",
-      "command_off3": "off3",
-      "timeout_sec": 2,
-      "post_command_delay_ms": 500,
-      "status_cache_ttl_ms": 250,
-      "dashboard_action_buttons": [],
-      "status_read_mode": "coil",
-      "status_start_address": 0,
-      "write_start_address": 0,
-      "ping_command": "ping",
-      "type": "light"
     }
   ],
   "scenes": [
     {
+      "actions": [
+        {
+          "action_type": "command",
+          "delay_ms": 0,
+          "device_id": "dev_1775230252161",
+          "format": "hex",
+          "payload": "99 03 8D 66 34 58 99",
+          "sub_system": "universal",
+          "wait_ms": 0
+        }
+      ],
+      "auto_generated": true,
+      "auto_generated_key": "outdoor_light",
       "id": "scene_outdoor_light_on",
       "name": "户外灯自动开灯",
       "sort": 1,
-      "visible": false,
-      "auto_generated": true,
-      "auto_generated_key": "outdoor_light",
-      "actions": [
-        {
-          "sub_system": "universal",
-          "device_id": "dev_1775230252161",
-          "action_type": "command",
-          "payload": "99 03 8D 66 34 58 99",
-          "format": "hex",
-          "wait_ms": 0,
-          "delay_ms": 0
-        }
-      ]
+      "visible": false
     },
     {
+      "actions": [
+        {
+          "action_type": "command",
+          "delay_ms": 0,
+          "device_id": "dev_1775230252161",
+          "format": "hex",
+          "payload": "99 03 8D 66 32 58 99",
+          "sub_system": "universal",
+          "wait_ms": 0
+        }
+      ],
+      "auto_generated": true,
+      "auto_generated_key": "outdoor_light",
       "id": "scene_outdoor_light_off",
       "name": "户外灯自动关灯",
       "sort": 2,
-      "visible": false,
-      "auto_generated": true,
-      "auto_generated_key": "outdoor_light",
+      "visible": false
+    },
+    {
       "actions": [
         {
-          "sub_system": "universal",
-          "device_id": "dev_1775230252161",
-          "action_type": "command",
-          "payload": "99 03 8D 66 32 58 99",
-          "format": "hex",
-          "wait_ms": 0,
-          "delay_ms": 0
+          "action_type": "power_off",
+          "delay_ms": 0,
+          "device_id": "hvac_ha_shenlan_ac_01",
+          "sub_system": "hvac"
         }
-      ]
+      ],
+      "id": "scene_machine_room_hvac_low_temp_off",
+      "name": "机房空调低温保护关闭",
+      "sort": 12,
+      "visible": false
+    },
+    {
+      "actions": [
+        {
+          "action_type": "power_on",
+          "delay_ms": 0,
+          "device_id": "hvac_ha_shenlan_ac_01",
+          "sub_system": "hvac"
+        },
+        {
+          "action_type": "set_mode",
+          "delay_ms": 800,
+          "device_id": "hvac_ha_shenlan_ac_01",
+          "mode": "cool",
+          "sub_system": "hvac"
+        },
+        {
+          "action_type": "set_temp",
+          "delay_ms": 800,
+          "device_id": "hvac_ha_shenlan_ac_01",
+          "sub_system": "hvac",
+          "temperature": 19
+        },
+        {
+          "action_type": "set_fan_mode",
+          "delay_ms": 800,
+          "device_id": "hvac_ha_shenlan_ac_01",
+          "fan_mode": "高",
+          "sub_system": "hvac"
+        }
+      ],
+      "id": "scene_machine_room_hvac_workday_on",
+      "name": "机房空调工作日上班启动",
+      "sort": 10,
+      "visible": false
+    },
+    {
+      "actions": [
+        {
+          "action_type": "power_off",
+          "delay_ms": 0,
+          "device_id": "hvac_ha_shenlan_ac_01",
+          "sub_system": "hvac"
+        }
+      ],
+      "id": "scene_machine_room_hvac_workday_off",
+      "name": "机房空调工作日下班关闭",
+      "sort": 11,
+      "visible": false
     }
   ],
   "door_config": {
     "rtsp_url": "rtsp://admin:lanjingkeji798@192.168.40.11:554/Streaming/Channels/101",
-    "match_threshold": 1500,
+    "match_threshold": 259,
     "match_thresholds": {
-      "main": 1500,
+      "main": 259,
       "aux": 1500
     },
     "ip": "192.168.50.51",
@@ -3395,23 +3846,23 @@
     },
     "regions": {
       "main": {
-        "p_x1": 0.2,
-        "p_y1": 0.2,
-        "p_x2": 0.8,
-        "p_y2": 0.8
+        "p_x1": 0.3631123919308357,
+        "p_y1": 0.03978546269612552,
+        "p_x2": 0.6974063400576369,
+        "p_y2": 0.3010726865193724
       },
       "aux": {
-        "p_x1": 0.2,
-        "p_y1": 0.2,
-        "p_x2": 0.8,
-        "p_y2": 0.8
+        "p_x1": 0.31556195965417866,
+        "p_y1": 0.3523054755043228,
+        "p_x2": 0.4510086455331412,
+        "p_y2": 0.7519212295869356
       }
     },
     "region_pct": {
-      "p_x1": 0.2,
-      "p_y1": 0.2,
-      "p_x2": 0.8,
-      "p_y2": 0.8
+      "p_x1": 0.3631123919308357,
+      "p_y1": 0.03978546269612552,
+      "p_x2": 0.6974063400576369,
+      "p_y2": 0.3010726865193724
     },
     "vision": {
       "enabled": false,
@@ -3426,8 +3877,8 @@
       "fusion_margin": 0.15,
       "allow_shared_reference": false,
       "camera_weights": {
-        "main": 1.0,
-        "aux": 1.0
+        "aux": 1.0,
+        "main": 1.0
       },
       "people_count_enabled": false,
       "zone_count_enabled": false,
@@ -3440,29 +3891,10 @@
   },
   "sequencers": [
     {
-      "id": "sequencer_ds608_1",
-      "name": "中控",
-      "brand": "DGH",
-      "model": "DS-608",
-      "sku": "DS-608",
-      "device_type": "时序电源",
-      "material": "铝合金",
-      "color": "图片色",
-      "protocol": "DGH 8路时序器",
-      "comm_mode": "TCP",
-      "ip": "192.168.50.53",
-      "port": 8080,
-      "com_port": "COM1",
       "address": 1,
       "baudrate": 19200,
-      "data_bits": 8,
-      "stop_bits": 1,
-      "parity": "NONE",
+      "brand": "DGH",
       "channel_count": 8,
-      "sequence_delay_ms": 500,
-      "poll_interval_ms": 1200,
-      "sort_order": 999,
-      "visible": true,
       "channels_config": [
         {
           "channel": 1,
@@ -3512,32 +3944,32 @@
           "sort": 8,
           "visible": true
         }
-      ]
+      ],
+      "color": "图片色",
+      "com_port": "COM1",
+      "comm_mode": "TCP",
+      "data_bits": 8,
+      "device_type": "时序电源",
+      "id": "sequencer_ds608_1",
+      "ip": "192.168.50.53",
+      "material": "铝合金",
+      "model": "DS-608",
+      "name": "中控",
+      "parity": "NONE",
+      "poll_interval_ms": 1200,
+      "port": 8080,
+      "protocol": "DGH 8路时序器",
+      "sequence_delay_ms": 500,
+      "sku": "DS-608",
+      "sort_order": 999,
+      "stop_bits": 1,
+      "visible": true
     },
     {
-      "id": "sequencer_1774587372602",
-      "name": "hecoos",
-      "brand": "DGH",
-      "model": "DS-608",
-      "sku": "DS-608",
-      "device_type": "时序电源",
-      "material": "铝合金",
-      "color": "图片色",
-      "protocol": "DGH 8路时序器",
-      "comm_mode": "TCP",
-      "ip": "192.168.50.54",
-      "port": 8080,
-      "com_port": "COM1",
       "address": 1,
       "baudrate": 19200,
-      "data_bits": 8,
-      "stop_bits": 1,
-      "parity": "NONE",
+      "brand": "DGH",
       "channel_count": 8,
-      "sequence_delay_ms": 500,
-      "poll_interval_ms": 1200,
-      "sort_order": 999,
-      "visible": true,
       "channels_config": [
         {
           "channel": 1,
@@ -3587,7 +4019,176 @@
           "sort": 8,
           "visible": true
         }
-      ]
+      ],
+      "color": "图片色",
+      "com_port": "COM1",
+      "comm_mode": "TCP",
+      "data_bits": 8,
+      "device_type": "时序电源",
+      "id": "sequencer_1774587372602",
+      "ip": "192.168.50.54",
+      "material": "铝合金",
+      "model": "DS-608",
+      "name": "hecoos",
+      "parity": "NONE",
+      "poll_interval_ms": 1200,
+      "port": 8080,
+      "protocol": "DGH 8路时序器",
+      "sequence_delay_ms": 500,
+      "sku": "DS-608",
+      "sort_order": 999,
+      "stop_bits": 1,
+      "visible": true
+    },
+    {
+      "address": 1,
+      "baudrate": 19200,
+      "brand": "DGH",
+      "channel_count": 8,
+      "channels_config": [
+        {
+          "channel": 1,
+          "name": "CH1",
+          "sort": 1,
+          "visible": true
+        },
+        {
+          "channel": 2,
+          "name": "CH2",
+          "sort": 2,
+          "visible": true
+        },
+        {
+          "channel": 3,
+          "name": "CH3",
+          "sort": 3,
+          "visible": true
+        },
+        {
+          "channel": 4,
+          "name": "CH4",
+          "sort": 4,
+          "visible": true
+        },
+        {
+          "channel": 5,
+          "name": "CH5",
+          "sort": 5,
+          "visible": true
+        },
+        {
+          "channel": 6,
+          "name": "CH6",
+          "sort": 6,
+          "visible": true
+        },
+        {
+          "channel": 7,
+          "name": "CH7",
+          "sort": 7,
+          "visible": true
+        },
+        {
+          "channel": 8,
+          "name": "CH8",
+          "sort": 8,
+          "visible": true
+        }
+      ],
+      "color": "图片色",
+      "com_port": "COM1",
+      "comm_mode": "TCP",
+      "data_bits": 8,
+      "device_type": "时序电源",
+      "id": "sequencer_network_cabinet_192_168_50_24",
+      "ip": "192.168.50.24",
+      "material": "铝合金",
+      "model": "DS-608",
+      "name": "网络机柜",
+      "parity": "NONE",
+      "poll_interval_ms": 1200,
+      "port": 8080,
+      "protocol": "DGH 8路时序器",
+      "sequence_delay_ms": 500,
+      "sku": "DS-608",
+      "sort_order": 1000,
+      "stop_bits": 1,
+      "visible": true
+    },
+    {
+      "address": 1,
+      "baudrate": 19200,
+      "brand": "DGH",
+      "channel_count": 8,
+      "channels_config": [
+        {
+          "channel": 1,
+          "name": "CH1",
+          "sort": 1,
+          "visible": true
+        },
+        {
+          "channel": 2,
+          "name": "CH2",
+          "sort": 2,
+          "visible": true
+        },
+        {
+          "channel": 3,
+          "name": "CH3",
+          "sort": 3,
+          "visible": true
+        },
+        {
+          "channel": 4,
+          "name": "CH4",
+          "sort": 4,
+          "visible": true
+        },
+        {
+          "channel": 5,
+          "name": "CH5",
+          "sort": 5,
+          "visible": true
+        },
+        {
+          "channel": 6,
+          "name": "CH6",
+          "sort": 6,
+          "visible": true
+        },
+        {
+          "channel": 7,
+          "name": "CH7",
+          "sort": 7,
+          "visible": true
+        },
+        {
+          "channel": 8,
+          "name": "CH8",
+          "sort": 8,
+          "visible": true
+        }
+      ],
+      "color": "图片色",
+      "com_port": "COM1",
+      "comm_mode": "TCP",
+      "data_bits": 8,
+      "device_type": "时序电源",
+      "id": "sequencer_1775236288646",
+      "ip": "192.168.50.78",
+      "material": "铝合金",
+      "model": "DS-608",
+      "name": "2 厅-LED",
+      "parity": "NONE",
+      "poll_interval_ms": 1200,
+      "port": 8080,
+      "protocol": "DGH 8路时序器",
+      "sequence_delay_ms": 500,
+      "sku": "DS-608",
+      "sort_order": 999,
+      "stop_bits": 1,
+      "visible": true
     }
   ],
   "global_text": {
@@ -3915,7 +4516,7 @@
       "device_id": "0",
       "fid": "0",
       "id": "proj_1774515640578",
-      "ip": "192.168.50.36",
+      "ip": "192.168.50.37",
       "name": "猫桌",
       "password": "",
       "pjlink_version": "2",
@@ -4212,7 +4813,7 @@
       "device_id": "0",
       "fid": "0",
       "id": "proj_1774531663869",
-      "ip": "192.168.50.35",
+      "ip": "192.168.50.36",
       "name": "台球桌",
       "password": "",
       "pjlink_version": "2",
@@ -4220,289 +4821,75 @@
       "series_id": "ek"
     },
     {
-      "brand_id": "appotronics",
-      "brand_loaded": false,
+      "baudrate": 9600,
+      "brand_id": "custom",
+      "brand_loaded": true,
       "commands": [
         {
-          "format": "str",
+          "format": "hex",
           "icon": "电源",
           "id": "power_on",
           "name": "开机",
-          "payload": "%1POWR 1",
+          "payload": "23 50 57 52 30 2C 31 21",
           "show_on_home": true,
           "sort": 1
         },
         {
-          "format": "str",
+          "format": "hex",
           "icon": "电源",
           "id": "power_off",
           "name": "关机",
-          "payload": "%1POWR 0",
+          "payload": "23 50 57 52 30 2C 30 21",
           "show_on_home": true,
           "sort": 2
-        },
-        {
-          "format": "str",
-          "icon": "状态",
-          "id": "power_status",
-          "name": "查询开关机状态",
-          "payload": "%1POWR ?",
-          "show_on_home": false,
-          "sort": 10
-        },
-        {
-          "format": "str",
-          "icon": "输入",
-          "id": "input_hdmi1",
-          "name": "切换 HDMI1",
-          "payload": "%1INPT 31",
-          "show_on_home": true,
-          "sort": 20
-        },
-        {
-          "format": "str",
-          "icon": "输入",
-          "id": "input_hdmi2",
-          "name": "切换 HDMI2",
-          "payload": "%1INPT 32",
-          "show_on_home": true,
-          "sort": 21
-        },
-        {
-          "format": "str",
-          "icon": "输入",
-          "id": "input_rgb1",
-          "name": "切换 RGB1",
-          "payload": "%1INPT 11",
-          "show_on_home": false,
-          "sort": 22
-        },
-        {
-          "format": "str",
-          "icon": "输入",
-          "id": "input_video1",
-          "name": "切换 VIDEO1",
-          "payload": "%1INPT 21",
-          "show_on_home": false,
-          "sort": 23
-        },
-        {
-          "format": "str",
-          "icon": "输入",
-          "id": "input_status",
-          "name": "查询信号源",
-          "payload": "%1INPT ?",
-          "show_on_home": false,
-          "sort": 24
-        },
-        {
-          "format": "str",
-          "icon": "静音",
-          "id": "mute_av_on",
-          "name": "静音黑屏开启",
-          "payload": "%1AVMT 31",
-          "show_on_home": false,
-          "sort": 30
-        },
-        {
-          "format": "str",
-          "icon": "静音",
-          "id": "mute_av_off",
-          "name": "静音黑屏关闭",
-          "payload": "%1AVMT 30",
-          "show_on_home": false,
-          "sort": 31
-        },
-        {
-          "format": "str",
-          "icon": "静音",
-          "id": "mute_status",
-          "name": "查询静音黑屏状态",
-          "payload": "%1AVMT ?",
-          "show_on_home": false,
-          "sort": 32
-        },
-        {
-          "format": "str",
-          "icon": "冻结",
-          "id": "freeze_on",
-          "name": "冻结画面开启",
-          "payload": "%1FREZ 1",
-          "show_on_home": false,
-          "sort": 40
-        },
-        {
-          "format": "str",
-          "icon": "冻结",
-          "id": "freeze_off",
-          "name": "冻结画面关闭",
-          "payload": "%1FREZ 0",
-          "show_on_home": false,
-          "sort": 41
-        },
-        {
-          "format": "str",
-          "icon": "冻结",
-          "id": "freeze_status",
-          "name": "查询冻结状态",
-          "payload": "%1FREZ ?",
-          "show_on_home": false,
-          "sort": 42
-        },
-        {
-          "format": "str",
-          "icon": "灯泡",
-          "id": "lamp_status",
-          "name": "查询灯泡时长",
-          "payload": "%1LAMP ?",
-          "show_on_home": false,
-          "sort": 50
-        },
-        {
-          "format": "str",
-          "icon": "故障",
-          "id": "error_status",
-          "name": "查询故障状态",
-          "payload": "%1ERST ?",
-          "show_on_home": false,
-          "sort": 51
-        },
-        {
-          "format": "str",
-          "icon": "信息",
-          "id": "device_name",
-          "name": "查询设备名称",
-          "payload": "%1NAME ?",
-          "show_on_home": false,
-          "sort": 60
-        },
-        {
-          "format": "str",
-          "icon": "信息",
-          "id": "manufacturer_name",
-          "name": "查询厂商名称",
-          "payload": "%1INF1 ?",
-          "show_on_home": false,
-          "sort": 61
-        },
-        {
-          "format": "str",
-          "icon": "信息",
-          "id": "product_name",
-          "name": "查询产品型号",
-          "payload": "%1INF2 ?",
-          "show_on_home": false,
-          "sort": 62
-        },
-        {
-          "format": "str",
-          "icon": "信息",
-          "id": "other_info",
-          "name": "查询扩展信息",
-          "payload": "%1INFO ?",
-          "show_on_home": false,
-          "sort": 63
-        },
-        {
-          "format": "str",
-          "icon": "信息",
-          "id": "class_info",
-          "name": "查询协议等级",
-          "payload": "%1CLSS ?",
-          "show_on_home": false,
-          "sort": 64
-        },
-        {
-          "format": "str",
-          "icon": "信息",
-          "id": "serial_number",
-          "name": "查询序列号",
-          "payload": "%2SNUM ?",
-          "show_on_home": false,
-          "sort": 65
-        },
-        {
-          "format": "str",
-          "icon": "信息",
-          "id": "software_version",
-          "name": "查询软件版本",
-          "payload": "%2SVER ?",
-          "show_on_home": false,
-          "sort": 66
-        },
-        {
-          "format": "str",
-          "icon": "信息",
-          "id": "input_resolution",
-          "name": "查询输入分辨率",
-          "payload": "%2IRES ?",
-          "show_on_home": false,
-          "sort": 67
-        },
-        {
-          "format": "str",
-          "icon": "信息",
-          "id": "recommended_resolution",
-          "name": "查询推荐分辨率",
-          "payload": "%2RRES ?",
-          "show_on_home": false,
-          "sort": 68
-        },
-        {
-          "format": "str",
-          "icon": "信息",
-          "id": "filter_hours",
-          "name": "查询滤网时长",
-          "payload": "%2FILT ?",
-          "show_on_home": false,
-          "sort": 69
-        },
-        {
-          "format": "str",
-          "icon": "信息",
-          "id": "lamp_model",
-          "name": "查询灯泡型号",
-          "payload": "%2RLMP ?",
-          "show_on_home": false,
-          "sort": 70
-        },
-        {
-          "format": "str",
-          "icon": "信息",
-          "id": "filter_model",
-          "name": "查询滤网型号",
-          "payload": "%2RFIL ?",
-          "show_on_home": false,
-          "sort": 71
-        },
-        {
-          "format": "str",
-          "icon": "音量",
-          "id": "speaker_volume_up",
-          "name": "扬声器音量加",
-          "payload": "%2SVOL 1",
-          "show_on_home": false,
-          "sort": 73
-        },
-        {
-          "format": "str",
-          "icon": "音量",
-          "id": "microphone_volume_up",
-          "name": "麦克风音量加",
-          "payload": "%2MVOL 1",
-          "show_on_home": false,
-          "sort": 74
         }
       ],
-      "control_type": "pjlink",
-      "custom_protocol": "appotronics",
-      "id": "proj_1774736760658",
-      "ip": "192.168.50.254",
-      "name": "新投影机",
-      "password": "",
-      "pjlink_version": "2",
-      "port": 4352,
-      "series_id": "s"
+      "control_type": "inferred_rs232",
+      "custom_protocol": "inferred_rs232_group",
+      "fixed_manufacturer": "RS232 串口服务器组",
+      "fixed_model": "一号厅三区域投影",
+      "fixed_software_version": "121网关 + 功率推断",
+      "id": "proj_infer_hall1",
+      "inferred_absolute_power_enabled": true,
+      "inferred_cabinet_idx": 0,
+      "inferred_command_trust_sec": 180,
+      "inferred_cooldown_sec": 300,
+      "inferred_gateway_control_url": "http://192.168.50.121:1880/projector/hall1/control",
+      "inferred_gateway_status_url": "http://192.168.50.121:1880/projector/hall1/status",
+      "inferred_off_delta_kw": 2.4,
+      "inferred_on_delta_kw": 2.4,
+      "inferred_on_threshold_kw": 10,
+      "inferred_power_channel": 4,
+      "inferred_power_off_payload": "23 50 57 52 30 2C 30 21",
+      "inferred_power_on_payload": "23 50 57 52 30 2C 31 21",
+      "inferred_power_verify_sec": 45,
+      "inferred_standby_max_kw": 4.5,
+      "inferred_targets": [
+        {
+          "id": "immersion",
+          "ip": "192.168.50.72",
+          "name": "沉浸厅",
+          "port": 502
+        },
+        {
+          "id": "zone_a",
+          "ip": "192.168.50.73",
+          "name": "A区",
+          "port": 502
+        },
+        {
+          "id": "zone_b",
+          "ip": "192.168.50.74",
+          "name": "B区",
+          "port": 502
+        }
+      ],
+      "inferred_warmup_sec": 420,
+      "ip": "192.168.50.72",
+      "name": "一号厅",
+      "poll_interval_ms": 2000,
+      "port": 502,
+      "series_id": "inferred_rs232_group"
     }
   ],
   "custom_devices": [
@@ -4538,10 +4925,24 @@
         "temperature": true,
         "humidity": true,
         "illuminance": true,
+        "contact": false,
+        "light": false,
+        "battery": false,
+        "voltage": false,
         "noise": false,
         "pm25": false,
         "pm10": false,
         "pressure": false
+      },
+      "home_assistant": {
+        "enabled": true,
+        "base_url": "http://192.168.50.121:8123",
+        "token": "",
+        "timeout_sec": 5,
+        "verify_ssl": true,
+        "stale_after_sec": 7200,
+        "entities": {},
+        "attribute_map": {}
       },
       "id": "env_1774425123763",
       "ip": "192.168.51.10",
@@ -4567,57 +4968,205 @@
           "pm10": "pm10"
         }
       },
-      "name": "光照温湿度变送器",
+      "name": "户外-光照温湿度",
       "port": 5110,
+      "primary_metric": "illuminance",
       "push": {
         "stale_after_sec": 1200
       },
       "register_count": 8,
       "register_start": 500,
       "source_type": "modbus",
-      "station_id": 1
+      "station_id": 1,
+      "visible": true
     },
     {
-      "id": "env_xiaomi_ble_21767c",
-      "name": "深澜空间机房",
-      "source_type": "push",
       "features": {
         "temperature": true,
         "humidity": true,
         "illuminance": false,
+        "contact": false,
+        "light": false,
+        "battery": true,
+        "voltage": false,
         "noise": false,
         "pm25": false,
         "pm10": false,
         "pressure": false
       },
-      "push": {
-        "stale_after_sec": 600
+      "home_assistant": {
+        "enabled": true,
+        "base_url": "http://192.168.50.121:8123",
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjNGNhNzUwZjkzNzM0MjdhYThiOTA2MTE1Y2M0ZjU4NiIsImlhdCI6MTc3Njg1MjIyNywiZXhwIjoyMDkyMjEyMjI3fQ.qwS7LCXup_4pEieiu2o0GLHD2J47NzFWVVxY5OMOMD4",
+        "timeout_sec": 5,
+        "verify_ssl": true,
+        "stale_after_sec": 7200,
+        "entities": {
+          "battery": "sensor.shenlan_machine_room_battery",
+          "hum": "sensor.shenlan_machine_room_humidity",
+          "temp": "sensor.shenlan_machine_room_temperature",
+          "voltage": "sensor.shenlan_machine_room_voltage"
+        },
+        "attribute_map": {},
+        "entity_id": "sensor.shenlan_machine_room_ble_status"
       },
-      "note": "LYWSD03MMC via BLE bridge on 192.168.50.121, MAC A4:C1:38:21:76:7C",
-      "model": "LYWSD03MMC",
-      "mac_address": "A4:C1:38:21:76:7C",
-      "bridge_host": "192.168.50.121"
+      "id": "env_xiaomi_ha_temp_hum_01",
+      "mqtt": {
+        "host": "127.0.0.1",
+        "port": 1883,
+        "username": "",
+        "password": "",
+        "topic": "",
+        "availability_topic": "",
+        "client_id": "",
+        "keepalive": 60,
+        "qos": 0,
+        "stale_after_sec": 7200,
+        "tls": false,
+        "field_map": {
+          "temp": "temperature",
+          "hum": "humidity",
+          "pressure": "pressure",
+          "lux": "illuminance",
+          "noise": "noise",
+          "pm25": "pm25",
+          "pm10": "pm10"
+        }
+      },
+      "name": "机房温湿度",
+      "primary_metric": "temperature",
+      "push": {
+        "stale_after_sec": 1200
+      },
+      "register_count": 8,
+      "register_start": 500,
+      "source_type": "home_assistant",
+      "type": "ha",
+      "visible": true
     },
     {
-      "id": "env_xiaomi_door_087452",
-      "name": "深澜空间门窗传感器",
-      "source_type": "push",
       "features": {
         "temperature": false,
         "humidity": false,
         "illuminance": false,
+        "contact": true,
+        "light": true,
+        "battery": true,
+        "voltage": false,
         "noise": false,
         "pm25": false,
         "pm10": false,
         "pressure": false
       },
-      "push": {
-        "stale_after_sec": 1800
+      "home_assistant": {
+        "enabled": true,
+        "base_url": "http://192.168.50.121:8123",
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjNGNhNzUwZjkzNzM0MjdhYThiOTA2MTE1Y2M0ZjU4NiIsImlhdCI6MTc3Njg1MjIyNywiZXhwIjoyMDkyMjEyMjI3fQ.qwS7LCXup_4pEieiu2o0GLHD2J47NzFWVVxY5OMOMD4",
+        "timeout_sec": 5,
+        "verify_ssl": true,
+        "stale_after_sec": 604800,
+        "entities": {
+          "battery": "sensor.isa_cn_blt_3_1opvg5c250o01_dw2hl_battery_level_p_3_1",
+          "contact": "binary_sensor.isa_cn_blt_3_1opvg5c250o01_dw2hl_contact_state_p_2_2",
+          "light": "sensor.isa_cn_blt_3_1opvg5c250o01_dw2hl_illumination_p_2_1"
+        },
+        "attribute_map": {}
       },
-      "model": "MCCGQ02HL",
-      "mac_address": "18:50:73:08:74:52",
-      "bridge_host": "192.168.50.121",
-      "note": "小米门窗传感器2 via BLE bridge on 192.168.50.121, MAC 18:50:73:08:74:52, supports contact and light-state telemetry"
+      "id": "env_xiaomi_ha_contact_01",
+      "mqtt": {
+        "host": "127.0.0.1",
+        "port": 1883,
+        "username": "",
+        "password": "",
+        "topic": "",
+        "availability_topic": "",
+        "client_id": "",
+        "keepalive": 60,
+        "qos": 0,
+        "stale_after_sec": 7200,
+        "tls": false,
+        "field_map": {
+          "temp": "temperature",
+          "hum": "humidity",
+          "pressure": "pressure",
+          "lux": "illuminance",
+          "noise": "noise",
+          "pm25": "pm25",
+          "pm10": "pm10"
+        }
+      },
+      "name": "户外大门",
+      "primary_metric": "contact",
+      "push": {
+        "stale_after_sec": 1200
+      },
+      "register_count": 8,
+      "register_start": 500,
+      "source_type": "home_assistant",
+      "visible": true
+    },
+    {
+      "id": "env_xiaomi_ha_temp_hum_02",
+      "name": "温湿度计2",
+      "source_type": "home_assistant",
+      "type": "ha",
+      "visible": true,
+      "primary_metric": "temperature",
+      "features": {
+        "temperature": true,
+        "humidity": true,
+        "illuminance": false,
+        "contact": false,
+        "light": false,
+        "battery": true,
+        "voltage": false,
+        "noise": false,
+        "pm25": false,
+        "pm10": false,
+        "pressure": false
+      },
+      "home_assistant": {
+        "enabled": true,
+        "base_url": "http://192.168.50.121:8123",
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjNGNhNzUwZjkzNzM0MjdhYThiOTA2MTE1Y2M0ZjU4NiIsImlhdCI6MTc3Njg1MjIyNywiZXhwIjoyMDkyMjEyMjI3fQ.qwS7LCXup_4pEieiu2o0GLHD2J47NzFWVVxY5OMOMD4",
+        "timeout_sec": 5,
+        "verify_ssl": true,
+        "stale_after_sec": 7200,
+        "entities": {
+          "temp": "sensor.miaomiaoc_cn_blt_3_14d8f114slk00_t2_temperature_p_2_1",
+          "hum": "sensor.miaomiaoc_cn_blt_3_14d8f114slk00_t2_relative_humidity_p_2_2",
+          "battery": "sensor.miaomiaoc_cn_blt_3_14d8f114slk00_t2_battery_level_p_3_1"
+        },
+        "attribute_map": {},
+        "entity_id": "sensor.miaomiaoc_cn_blt_3_14d8f114slk00_t2_temperature_p_2_1"
+      },
+      "mqtt": {
+        "host": "127.0.0.1",
+        "port": 1883,
+        "username": "",
+        "password": "",
+        "topic": "",
+        "availability_topic": "",
+        "client_id": "",
+        "keepalive": 60,
+        "qos": 0,
+        "stale_after_sec": 7200,
+        "tls": false,
+        "field_map": {
+          "temp": "temperature",
+          "hum": "humidity",
+          "pressure": "pressure",
+          "lux": "illuminance",
+          "noise": "noise",
+          "pm25": "pm25",
+          "pm10": "pm10"
+        }
+      },
+      "push": {
+        "stale_after_sec": 1200
+      },
+      "register_count": 8,
+      "register_start": 500
     }
   ],
   "automations": [
@@ -4645,7 +5194,11 @@
         "time_start": "16:00",
         "time_end": "19:59"
       },
-      "trigger_type": "mixed"
+      "trigger_type": "mixed",
+      "preconditions": [],
+      "precondition_mode": "all",
+      "triggers": [],
+      "trigger_mode": "any"
     },
     {
       "action_scene_id": "scene_outdoor_light_off",
@@ -4671,7 +5224,11 @@
         "time_start": "20:00",
         "time_end": "20:30"
       },
-      "trigger_type": "schedule"
+      "trigger_type": "schedule",
+      "preconditions": [],
+      "precondition_mode": "all",
+      "triggers": [],
+      "trigger_mode": "any"
     },
     {
       "action_scene_id": "scene_outdoor_light_off",
@@ -4697,7 +5254,317 @@
         "time_start": "00:00",
         "time_end": "00:30"
       },
-      "trigger_type": "schedule"
+      "trigger_type": "schedule",
+      "preconditions": [],
+      "precondition_mode": "all",
+      "triggers": [],
+      "trigger_mode": "any"
+    },
+    {
+      "id": "auto_machine_room_hvac_auto_on",
+      "name": "机房空调自动开启",
+      "enabled": true,
+      "trigger_type": "compound",
+      "trigger_mode": "any",
+      "group": "machine_room_hvac",
+      "group_name": "机房空调",
+      "action_scene_id": "scene_machine_room_hvac_workday_on",
+      "precondition_mode": "all",
+      "preconditions": [
+        {
+          "source_type": "hvac",
+          "device_id": "hvac_ha_shenlan_ac_01",
+          "prop": "power",
+          "op": "is_false",
+          "value": false,
+          "debounce_sec": 0,
+          "hysteresis": 0,
+          "consecutive_hits": 1,
+          "crossing_mode": "none",
+          "rearm_value": "",
+          "window_bootstrap_sec": 0,
+          "id": "hvac_power_off",
+          "label": "空调未开启"
+        }
+      ],
+      "triggers": [
+        {
+          "id": "high_temp_29",
+          "label": "机房温度超过29度",
+          "type": "condition",
+          "condition": {
+            "source_type": "env",
+            "device_id": "env_xiaomi_ha_temp_hum_01",
+            "prop": "temp",
+            "op": ">",
+            "value": 29,
+            "debounce_sec": 120,
+            "hysteresis": 0.5,
+            "consecutive_hits": 2,
+            "crossing_mode": "cross_up",
+            "rearm_value": 28.5,
+            "window_bootstrap_sec": 0
+          },
+          "extra_conditions": [
+            {
+              "source_type": "env",
+              "device_id": "env_xiaomi_ha_temp_hum_01",
+              "prop": "online",
+              "op": "is_true",
+              "value": true,
+              "debounce_sec": 0,
+              "hysteresis": 0,
+              "consecutive_hits": 1,
+              "crossing_mode": "none",
+              "rearm_value": "",
+              "window_bootstrap_sec": 0
+            },
+            {
+              "source_type": "env",
+              "device_id": "env_xiaomi_ha_temp_hum_01",
+              "prop": "temp",
+              "op": "<",
+              "value": 80,
+              "debounce_sec": 0,
+              "hysteresis": 0,
+              "consecutive_hits": 1,
+              "crossing_mode": "none",
+              "rearm_value": "",
+              "window_bootstrap_sec": 0
+            }
+          ]
+        },
+        {
+          "id": "weekend_core_sequencers_all_on",
+          "label": "非工作日中控和黑S全开",
+          "type": "mixed",
+          "condition": {
+            "source_type": "sequencer",
+            "device_id": "sequencer_ds608_1",
+            "prop": "all_on",
+            "op": "is_true",
+            "value": true,
+            "debounce_sec": 15,
+            "hysteresis": 0,
+            "consecutive_hits": 2,
+            "crossing_mode": "none",
+            "rearm_value": "",
+            "window_bootstrap_sec": 0
+          },
+          "extra_conditions": [
+            {
+              "source_type": "sequencer",
+              "device_id": "sequencer_ds608_1",
+              "prop": "online",
+              "op": "is_true",
+              "value": true,
+              "debounce_sec": 0,
+              "hysteresis": 0,
+              "consecutive_hits": 1,
+              "crossing_mode": "none",
+              "rearm_value": "",
+              "window_bootstrap_sec": 0
+            },
+            {
+              "source_type": "sequencer",
+              "device_id": "sequencer_1774587372602",
+              "prop": "online",
+              "op": "is_true",
+              "value": true,
+              "debounce_sec": 0,
+              "hysteresis": 0,
+              "consecutive_hits": 1,
+              "crossing_mode": "none",
+              "rearm_value": "",
+              "window_bootstrap_sec": 0
+            },
+            {
+              "source_type": "sequencer",
+              "device_id": "sequencer_1774587372602",
+              "prop": "all_on",
+              "op": "is_true",
+              "value": true,
+              "debounce_sec": 0,
+              "hysteresis": 0,
+              "consecutive_hits": 1,
+              "crossing_mode": "none",
+              "rearm_value": "",
+              "window_bootstrap_sec": 0
+            }
+          ],
+          "schedule": {
+            "day_type": "weekend",
+            "time": "00:00",
+            "time_start": "00:00",
+            "time_end": "23:59",
+            "days": [],
+            "recovery_grace_sec": 0
+          }
+        }
+      ],
+      "condition": {
+        "source_type": "env",
+        "device_id": "env_xiaomi_ha_temp_hum_01",
+        "prop": "temp",
+        "op": ">",
+        "value": 29,
+        "debounce_sec": 120,
+        "hysteresis": 0.5,
+        "consecutive_hits": 2,
+        "crossing_mode": "cross_up",
+        "rearm_value": 28.5,
+        "window_bootstrap_sec": 0
+      },
+      "schedule": {
+        "day_type": "everyday",
+        "time": "00:00",
+        "time_start": "00:00",
+        "time_end": "23:59",
+        "days": [],
+        "recovery_grace_sec": 0
+      }
+    },
+    {
+      "id": "auto_machine_room_hvac_auto_off",
+      "name": "机房空调自动关闭",
+      "enabled": true,
+      "trigger_type": "compound",
+      "trigger_mode": "any",
+      "group": "machine_room_hvac",
+      "group_name": "机房空调",
+      "action_scene_id": "scene_machine_room_hvac_workday_off",
+      "precondition_mode": "all",
+      "preconditions": [
+        {
+          "id": "hvac_power_on",
+          "label": "空调已开启",
+          "source_type": "hvac",
+          "device_id": "hvac_ha_shenlan_ac_01",
+          "prop": "power",
+          "op": "is_true",
+          "value": true,
+          "debounce_sec": 0,
+          "hysteresis": 0,
+          "consecutive_hits": 1,
+          "crossing_mode": "none",
+          "rearm_value": "",
+          "window_bootstrap_sec": 0
+        }
+      ],
+      "triggers": [
+        {
+          "id": "low_temp_26",
+          "label": "低温保护",
+          "type": "condition",
+          "condition": {
+            "source_type": "env",
+            "device_id": "env_xiaomi_ha_temp_hum_01",
+            "prop": "temp",
+            "op": "<",
+            "value": 26,
+            "debounce_sec": 180,
+            "hysteresis": 0.5,
+            "consecutive_hits": 3,
+            "crossing_mode": "cross_down",
+            "rearm_value": 26.5,
+            "window_bootstrap_sec": 0
+          },
+          "extra_conditions": [
+            {
+              "consecutive_hits": 1,
+              "crossing_mode": "none",
+              "debounce_sec": 0,
+              "device_id": "env_xiaomi_ha_temp_hum_01",
+              "hysteresis": 0,
+              "op": "is_true",
+              "prop": "online",
+              "rearm_value": "",
+              "source_type": "env",
+              "value": true,
+              "window_bootstrap_sec": 0
+            },
+            {
+              "consecutive_hits": 1,
+              "crossing_mode": "none",
+              "debounce_sec": 0,
+              "device_id": "env_xiaomi_ha_temp_hum_01",
+              "hysteresis": 0,
+              "op": ">",
+              "prop": "temp",
+              "rearm_value": "",
+              "source_type": "env",
+              "value": 5,
+              "window_bootstrap_sec": 0
+            }
+          ]
+        },
+        {
+          "id": "workday_1800",
+          "label": "工作日18:00",
+          "type": "schedule",
+          "schedule": {
+            "day_type": "workday",
+            "time": "18:00",
+            "time_start": "18:00",
+            "time_end": "18:10",
+            "days": [],
+            "recovery_grace_sec": 600
+          }
+        }
+      ],
+      "condition": {
+        "source_type": "env",
+        "device_id": "env_xiaomi_ha_temp_hum_01",
+        "prop": "temp",
+        "op": "<",
+        "value": 26,
+        "debounce_sec": 180,
+        "hysteresis": 0.5,
+        "consecutive_hits": 3,
+        "crossing_mode": "cross_down",
+        "rearm_value": 26.5,
+        "window_bootstrap_sec": 0
+      },
+      "schedule": {
+        "day_type": "workday",
+        "time": "18:00",
+        "time_start": "18:00",
+        "time_end": "18:10",
+        "days": [],
+        "recovery_grace_sec": 600
+      }
+    },
+    {
+      "action_scene_id": "scene_machine_room_hvac_workday_on",
+      "condition": {
+        "source_type": "env",
+        "device_id": "",
+        "prop": "lux",
+        "op": "<",
+        "value": 0,
+        "debounce_sec": 0,
+        "hysteresis": 0,
+        "consecutive_hits": 1,
+        "crossing_mode": "none",
+        "rearm_value": "",
+        "window_bootstrap_sec": 0
+      },
+      "enabled": true,
+      "id": "auto_machine_room_hvac_workday_0830_on",
+      "name": "工作日 08:30 开启机房空调",
+      "schedule": {
+        "day_type": "workday",
+        "time": "08:30",
+        "time_start": "08:30",
+        "time_end": "08:40",
+        "days": [],
+        "recovery_grace_sec": 600
+      },
+      "trigger_type": "schedule",
+      "preconditions": [],
+      "precondition_mode": "all",
+      "triggers": [],
+      "trigger_mode": "any"
     }
   ],
   "sidebar": [
@@ -4762,6 +5629,20 @@
       "id": "snmp",
       "name": "SNMP监测",
       "sort": 4.2,
+      "visible": true
+    },
+    {
+      "icon": "🎦",
+      "id": "camera_preview",
+      "name": "监控预览",
+      "sort": 4.3,
+      "visible": true
+    },
+    {
+      "icon": "🌐",
+      "id": "proxy",
+      "name": "代理监控",
+      "sort": 4.4,
       "visible": true
     },
     {
@@ -4835,15 +5716,15 @@
         }
       ],
       "control_type": "screen_tcp",
-      "current_height": 3.5066299090909085,
-      "current_position": 77.92510909090909,
+      "current_height": 4.161119072727272,
+      "current_position": 92.46931272727272,
       "id": "screen_1774322049381",
       "ip": "192.168.50.76",
       "is_moving": true,
       "last_action": "down",
-      "last_action_time": "2026-03-26T21:47:31.263579",
-      "move_start_position": 77.92510909090909,
-      "move_start_time": "2026-03-26T21:47:31.263579",
+      "last_action_time": "2026-05-02T21:03:26.306473",
+      "move_start_position": 92.46931272727272,
+      "move_start_time": "2026-05-02T21:03:26.306473",
       "moving_direction": "down",
       "name": "一厅-A区-幕布",
       "port": 1234,
@@ -4858,7 +5739,14 @@
     "agent_host": "192.168.50.120",
     "agent_port": 6899,
     "scan_networks": [],
-    "scan_workers": 8
+    "scan_workers": 8,
+    "asset_groups": [
+      "机房",
+      "Ubuntu",
+      "2号厅",
+      "机房-马勇",
+      "1号厅"
+    ]
   },
   "dashboard_sections": {
     "stats": {
@@ -4870,6 +5758,21 @@
       "title": "投影机总览",
       "visible": true,
       "sort": 20
+    },
+    "hy_edge": {
+      "title": "HY506-异地机房",
+      "visible": true,
+      "sort": 25
+    },
+    "sequencer": {
+      "title": "时序电源",
+      "visible": true,
+      "sort": 25
+    },
+    "ups_compact": {
+      "title": "UPS状态",
+      "visible": true,
+      "sort": 23
     },
     "ups": {
       "title": "UPS状态",
@@ -4885,6 +5788,21 @@
       "title": "幕布状态",
       "visible": true,
       "sort": 30
+    },
+    "light_compact": {
+      "title": "灯光控制显示",
+      "visible": true,
+      "sort": 26
+    },
+    "power_compact": {
+      "title": "强电柜状态",
+      "visible": true,
+      "sort": 27
+    },
+    "server_compact": {
+      "title": "机器状态",
+      "visible": true,
+      "sort": 28
     },
     "power_quick": {
       "title": "强电快捷控制",
@@ -4903,7 +5821,7 @@
     }
   },
   "meter_statistics": {
-    "summary_mode": "include_flag",
+    "summary_mode": "visible_only",
     "display_reset_enabled": true,
     "display_reset_from": "2026-03-29 00:00:00",
     "energy_display_mode": "display",
@@ -4914,17 +5832,20 @@
     "remote_service_enabled": true,
     "remote_service_mode": "remote_only",
     "remote_service_url": "http://192.168.50.121:6901",
-    "remote_service_timeout_sec": 15,
+    "remote_service_timeout_sec": 5,
     "remote_sync_on_save": true,
     "reference_total_meter_source_key": "legacy_meter_2",
     "cabinet_gateway_enabled": true,
     "cabinet_gateway_url": "http://192.168.50.121:6901",
-    "cabinet_gateway_timeout_sec": 15,
-    "cabinet_gateway_sync_on_save": false,
+    "cabinet_gateway_timeout_sec": 5,
+    "cabinet_gateway_sync_on_save": true,
     "display_reset": {
       "enabled": true,
       "from": "2026-03-29 00:00:00",
-      "value": 0.0
+      "value": 0.0,
+      "pending": true,
+      "captured_at": "",
+      "meter_values": {}
     }
   },
   "m32r": {
@@ -4941,11 +5862,11 @@
     "sync_direction": "mixer_to_pc",
     "known_mixers": [
       {
-        "host": "192.168.80.242",
-        "name": "M32R-OC-FA-99",
-        "model": "M32R-0C-FA-99",
         "firmware": "M32R",
-        "last_seen_at": "2026-04-05T23:57:00.047803"
+        "host": "192.168.80.242",
+        "last_seen_at": "2026-04-05T23:57:00.047803",
+        "model": "M32R-0C-FA-99",
+        "name": "M32R-OC-FA-99"
       }
     ],
     "templates": [
@@ -5213,7 +6134,152 @@
       }
     ]
   },
-  "hvac_devices": [],
+  "hvac_devices": [
+    {
+      "id": "hvac_ha_shenlan_ac_01",
+      "name": "机房空调 1.5 挂机",
+      "brand": "Aqara",
+      "model": "lumi.acpartner.mcn02",
+      "protocol": "home_assistant",
+      "ip": "",
+      "token": "",
+      "poll_interval_ms": 5000,
+      "visible": true,
+      "enabled": true,
+      "home_assistant": {
+        "enabled": true,
+        "base_url": "http://192.168.50.121:8123",
+        "token": "",
+        "timeout_sec": 5,
+        "verify_ssl": true,
+        "stale_after_sec": 7200,
+        "entities": {},
+        "attribute_map": {},
+        "entity_id": "climate.lumi_cn_918245814_mcn02"
+      },
+      "power_sensor_entity_id": "sensor.lumi_cn_918245814_mcn02_electric_power_p_5_1"
+    },
+    {
+      "id": "hvac_ha_office_01_ac_01",
+      "name": "办公室 01 空调",
+      "brand": "Aqara",
+      "model": "lumi.acpartner.mcn02",
+      "protocol": "home_assistant",
+      "ip": "",
+      "token": "",
+      "poll_interval_ms": 5000,
+      "visible": true,
+      "enabled": true,
+      "home_assistant": {
+        "enabled": true,
+        "base_url": "http://192.168.50.121:8123",
+        "token": "",
+        "timeout_sec": 5,
+        "verify_ssl": true,
+        "stale_after_sec": 7200,
+        "entities": {},
+        "attribute_map": {},
+        "entity_id": "climate.lumi_cn_827394351_mcn02"
+      },
+      "power_sensor_entity_id": "sensor.lumi_cn_827394351_mcn02_electric_power_p_5_1"
+    },
+    {
+      "id": "hvac_ha_office_02_ac_01",
+      "name": "办公室 02 空调",
+      "brand": "Aqara",
+      "model": "lumi.acpartner.mcn02",
+      "protocol": "home_assistant",
+      "ip": "",
+      "token": "",
+      "poll_interval_ms": 5000,
+      "visible": true,
+      "enabled": true,
+      "home_assistant": {
+        "enabled": true,
+        "base_url": "http://192.168.50.121:8123",
+        "token": "",
+        "timeout_sec": 5,
+        "verify_ssl": true,
+        "stale_after_sec": 7200,
+        "entities": {},
+        "attribute_map": {},
+        "entity_id": "climate.lumi_cn_918237965_mcn02"
+      },
+      "power_sensor_entity_id": "sensor.lumi_cn_918237965_mcn02_electric_power_p_5_1"
+    },
+    {
+      "id": "hvac_ha_office_03_ac_01",
+      "name": "办公室 03 空调",
+      "brand": "Aqara",
+      "model": "lumi.acpartner.mcn02",
+      "protocol": "home_assistant",
+      "ip": "",
+      "token": "",
+      "poll_interval_ms": 5000,
+      "visible": true,
+      "enabled": true,
+      "home_assistant": {
+        "enabled": true,
+        "base_url": "http://192.168.50.121:8123",
+        "token": "",
+        "timeout_sec": 5,
+        "verify_ssl": true,
+        "stale_after_sec": 7200,
+        "entities": {},
+        "attribute_map": {},
+        "entity_id": "climate.lumi_cn_918818812_mcn02"
+      },
+      "power_sensor_entity_id": "sensor.lumi_cn_918818812_mcn02_electric_power_p_5_1"
+    },
+    {
+      "id": "hvac_ha_cafe_1f_ac_01",
+      "name": "咖啡厅1楼空调",
+      "brand": "Aqara",
+      "model": "lumi.acpartner.mcn02",
+      "protocol": "home_assistant",
+      "ip": "",
+      "token": "",
+      "poll_interval_ms": 5000,
+      "visible": true,
+      "enabled": true,
+      "home_assistant": {
+        "enabled": true,
+        "base_url": "http://192.168.50.121:8123",
+        "token": "",
+        "timeout_sec": 5,
+        "verify_ssl": true,
+        "stale_after_sec": 7200,
+        "entities": {},
+        "attribute_map": {},
+        "entity_id": "climate.lumi_cn_918236009_mcn02"
+      },
+      "power_sensor_entity_id": "sensor.lumi_cn_918236009_mcn02_electric_power_p_5_1"
+    },
+    {
+      "id": "hvac_ha_cafe_2f_ac_01",
+      "name": "咖啡厅2楼空调",
+      "brand": "Aqara",
+      "model": "lumi.acpartner.mcn02",
+      "protocol": "home_assistant",
+      "ip": "",
+      "token": "",
+      "poll_interval_ms": 5000,
+      "visible": true,
+      "enabled": true,
+      "home_assistant": {
+        "enabled": true,
+        "base_url": "http://192.168.50.121:8123",
+        "token": "",
+        "timeout_sec": 5,
+        "verify_ssl": true,
+        "stale_after_sec": 7200,
+        "entities": {},
+        "attribute_map": {},
+        "entity_id": "climate.lumi_cn_918356965_mcn02"
+      },
+      "power_sensor_entity_id": "sensor.lumi_cn_918356965_mcn02_electric_power_p_5_1"
+    }
+  ],
   "login_page_text": {
     "browser_title": "中控系统登录",
     "badge_text": "Smart Power Monitor",
@@ -5274,11 +6340,11 @@
     "devices": [],
     "panels": [
       {
+        "controls": [],
         "id": "main",
         "name": "协议控制面板",
-        "visible": true,
         "sort": 1,
-        "controls": []
+        "visible": true
       }
     ]
   },
@@ -5287,16 +6353,33 @@
     "host": "192.168.50.121",
     "port": 3128,
     "timeout_sec": 6.0,
-    "poll_interval_sec": 20.0,
+    "poll_interval_sec": 30.0,
     "check_urls": [
       "https://www.google.com",
-      "https://chatgpt.com"
-    ]
+      "https://chatgpt.com",
+      "https://www.youtube.com/generate_204",
+      "https://github.com"
+    ],
+    "traffic_enabled": true,
+    "traffic_source": "nic_ssh",
+    "traffic_device_id": "",
+    "traffic_host": "172.16.201.169",
+    "traffic_ifindex": 0,
+    "traffic_ifname": "enp1s0",
+    "traffic_ssh_target": "node-121",
+    "traffic_local_user": "xinping",
+    "traffic_timeout_sec": 6.0,
+    "client_monitor_enabled": true,
+    "client_monitor_ssh_target": "node-121",
+    "client_monitor_local_user": "xinping",
+    "client_monitor_recent_seconds": 300,
+    "client_monitor_tail_lines": 2000,
+    "client_monitor_timeout_sec": 6.0
   },
   "home_assistant": {
     "enabled": true,
     "base_url": "http://192.168.50.121:8123",
-    "token": "",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjNGNhNzUwZjkzNzM0MjdhYThiOTA2MTE1Y2M0ZjU4NiIsImlhdCI6MTc3Njg1MjIyNywiZXhwIjoyMDkyMjEyMjI3fQ.qwS7LCXup_4pEieiu2o0GLHD2J47NzFWVVxY5OMOMD4",
     "timeout_sec": 5,
     "verify_ssl": true,
     "stale_after_sec": 7200,

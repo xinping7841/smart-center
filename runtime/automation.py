@@ -16,6 +16,9 @@ _SCENE_RUNNING = {}
 def _new_rule_state():
     return {
         "latched": False,
+        "trigger_states": {},
+        "preconditions": [],
+        "preconditions_met": True,
         "condition_true": False,
         "hits": 0,
         "active_since": None,
@@ -41,6 +44,14 @@ def _new_rule_state():
         "window_entered_at": None,
         "window_bootstrap_fired": False,
     }
+
+
+def _new_trigger_state():
+    state = _new_rule_state()
+    state.pop("trigger_states", None)
+    state.pop("preconditions", None)
+    state.pop("preconditions_met", None)
+    return state
 
 
 def _parse_number(value):
@@ -81,6 +92,12 @@ def _compare_value(current, op, target):
     if op == "contains":
         return target_text in current_text
     return False
+
+
+def _condition_label(condition):
+    if not isinstance(condition, dict):
+        return ""
+    return str(condition.get("label") or condition.get("name") or condition.get("title") or "").strip()
 
 
 def _compare_with_hysteresis(current, op, target, hysteresis, was_true):
@@ -170,10 +187,66 @@ def _do_binary_action(sys_type, action, state):
     return False, f"[自动化] 未知二值控制类型: {sys_type}"
 
 
+def _find_hvac_device(device_id):
+    return next(
+        (item for item in CONFIG.get("hvac_devices", []) if str(item.get("id")) == str(device_id)),
+        None,
+    )
+
+
+def _hvac_protocol(device):
+    return str(device.get("protocol") or device.get("source_type") or "mock").strip().lower()
+
+
+def _control_hvac_device(device, action_type, payload):
+    protocol = _hvac_protocol(device)
+    if protocol == "miio":
+        from services.miio_hvac import miio_hvac_service
+
+        return miio_hvac_service.control(
+            device,
+            action_type,
+            temperature=payload.get("temperature"),
+            mode=payload.get("mode"),
+            fan_mode=payload.get("fan_mode") or payload.get("fan_speed"),
+        )
+    if protocol in {"home_assistant", "homeassistant", "ha"}:
+        from services.home_assistant_bridge import control_hvac as ha_control_hvac
+
+        return ha_control_hvac(
+            device,
+            action_type,
+            CONFIG,
+            temperature=payload.get("temperature"),
+            mode=payload.get("mode"),
+            fan_mode=payload.get("fan_mode") or payload.get("fan_speed"),
+        )
+    return True, "mock_success", "mock"
+
+
+def _execute_hvac_action(action):
+    device = _find_hvac_device(action.get("device_id"))
+    if not device:
+        return False, f"[自动化] 空调未配置: {action.get('device_id')}"
+
+    action_type = str(action.get("action_type") or "").strip().lower()
+    if not action_type:
+        action_type = "power_on" if action.get("is_open", True) else "power_off"
+
+    ok, result, driver_class = _control_hvac_device(device, action_type, action)
+    device_name = str(device.get("name") or action.get("device_id") or "未命名空调")
+    if not ok:
+        return False, f"[自动化] 空调 {device_name} 动作失败: {action_type} -> {result}"
+    return True, f"[自动化] 空调 {device_name} 已执行 {action_type} ({driver_class})"
+
+
 def _execute_scene_action(action):
     sys_type = action.get("sub_system", "light")
     act_type = action.get("action_type", "on" if action.get("is_open", True) else "off")
     jog_ms = int(action.get("jog_time_ms", 1000) or 1000)
+
+    if sys_type == "hvac":
+        return _execute_hvac_action(action)
 
     if sys_type == "server":
         mac = str(action.get("device_id"))
@@ -449,29 +522,73 @@ def _evaluate_condition(cond, state, now):
 
 
 def _evaluate_extra_condition(rule, now):
-    extra = rule.get("extra_condition")
-    if not isinstance(extra, dict):
+    extras = rule.get("extra_conditions")
+    if isinstance(extras, list):
+        conditions = [item for item in extras if isinstance(item, dict)]
+    else:
+        extra = rule.get("extra_condition")
+        conditions = [extra] if isinstance(extra, dict) else []
+    if not conditions:
         return True, None
-    temp_state = {
-        "condition_true": False,
-        "hits": 0,
-        "active_since": None,
-        "crossing_active": False,
-        "crossing_started_at": None,
-        "last_evaluated_at": None,
-        "last_current_value": None,
-        "last_condition_raw": False,
-        "last_condition_stable": False,
-        "last_error": "",
-        "last_skip_reason": "",
-        "crossing_mode": "none",
-        "crossing_ready": True,
-        "rearm_value": None,
-        "previous_value": None,
-        "last_base_match": False,
-    }
-    matched, current_value = _evaluate_condition(extra, temp_state, now)
-    return bool(matched), current_value
+
+    last_value = None
+    for extra in conditions:
+        temp_state = {
+            "condition_true": False,
+            "hits": 0,
+            "active_since": None,
+            "crossing_active": False,
+            "crossing_started_at": None,
+            "last_evaluated_at": None,
+            "last_current_value": None,
+            "last_condition_raw": False,
+            "last_condition_stable": False,
+            "last_error": "",
+            "last_skip_reason": "",
+            "crossing_mode": "none",
+            "crossing_ready": True,
+            "rearm_value": None,
+            "previous_value": None,
+            "last_base_match": False,
+        }
+        matched, current_value = _evaluate_condition(extra, temp_state, now)
+        last_value = current_value
+        if not bool(matched):
+            return False, current_value
+    return True, last_value
+
+
+def _evaluate_preconditions(rule, now):
+    conditions = rule.get("preconditions")
+    if not isinstance(conditions, list):
+        conditions = []
+    conditions = [item for item in conditions if isinstance(item, dict)]
+    if not conditions:
+        return True, []
+
+    mode = str(rule.get("precondition_mode") or "all").strip().lower()
+    if mode not in {"all", "any"}:
+        mode = "all"
+
+    results = []
+    for idx, condition in enumerate(conditions):
+        temp_state = _new_trigger_state()
+        matched, current_value = _evaluate_condition(condition, temp_state, now)
+        results.append(
+            {
+                "id": str(condition.get("id") or f"pre_{idx + 1}"),
+                "label": _condition_label(condition),
+                "condition": condition,
+                "matched": bool(matched),
+                "current_value": current_value,
+                "last_error": temp_state.get("last_error", ""),
+                "last_base_match": bool(temp_state.get("last_base_match", matched)),
+            }
+        )
+
+    if mode == "any":
+        return any(item["matched"] for item in results), results
+    return all(item["matched"] for item in results), results
 
 
 def _ts_to_iso(ts_value):
@@ -633,6 +750,232 @@ def _build_condition_trend(condition, state):
     return trend if isinstance(trend, dict) else {}
 
 
+def _trigger_key(trigger, index):
+    return str(trigger.get("id") or trigger.get("key") or f"trigger_{index + 1}")
+
+
+def _trigger_label(trigger, index):
+    return str(
+        trigger.get("label")
+        or trigger.get("name")
+        or trigger.get("title")
+        or f"触发条件{index + 1}"
+    )
+
+
+def _trigger_type(trigger):
+    trigger_type = str(trigger.get("type") or trigger.get("trigger_type") or "condition").strip().lower()
+    if trigger_type not in {"condition", "schedule", "mixed"}:
+        trigger_type = "condition"
+    return trigger_type
+
+
+def _trigger_condition(trigger):
+    condition = trigger.get("condition")
+    if isinstance(condition, dict):
+        return condition
+    keys = {
+        "source_type",
+        "device_id",
+        "prop",
+        "op",
+        "value",
+        "debounce_sec",
+        "hysteresis",
+        "consecutive_hits",
+        "crossing_mode",
+        "rearm_value",
+        "window_bootstrap_sec",
+        "channel",
+    }
+    if any(key in trigger for key in keys):
+        return {key: trigger.get(key) for key in keys if key in trigger}
+    return {}
+
+
+def _trigger_schedule(trigger):
+    schedule = trigger.get("schedule")
+    if isinstance(schedule, dict):
+        return schedule
+    keys = {"day_type", "time", "time_start", "time_end", "days", "recovery_grace_sec"}
+    if any(key in trigger for key in keys):
+        return {key: trigger.get(key) for key in keys if key in trigger}
+    return {}
+
+
+def _trigger_state_snapshot(trigger, trigger_type, state, now_ts, key="", label=""):
+    condition = _trigger_condition(trigger)
+    schedule = _trigger_schedule(trigger)
+    active_since = state.get("active_since")
+    debounce_sec = max(float(condition.get("debounce_sec", 0) or 0), 0.0)
+    hits_required = max(int(condition.get("consecutive_hits", 1) or 1), 1)
+    stable_for_sec = 0.0
+    if active_since not in (None, "", 0):
+        try:
+            stable_for_sec = max(0.0, now_ts - float(active_since))
+        except Exception:
+            stable_for_sec = 0.0
+    return {
+        "key": str(key or ""),
+        "id": str(trigger.get("id") or trigger.get("key") or ""),
+        "label": str(label or trigger.get("label") or trigger.get("name") or ""),
+        "type": trigger_type,
+        "condition": condition,
+        "schedule": schedule,
+        "matched": bool(state.get("last_trigger_matched", False)),
+        "latched": bool(state.get("latched", False)),
+        "current_value": state.get("last_current_value"),
+        "last_evaluated_at": state.get("last_evaluated_at"),
+        "last_condition_raw": bool(state.get("last_condition_raw", False)),
+        "last_condition_stable": bool(state.get("last_condition_stable", False)),
+        "last_base_match": bool(state.get("last_base_match", False)),
+        "last_day_match": state.get("last_day_match"),
+        "last_in_window": state.get("last_in_window"),
+        "last_schedule_key": state.get("last_schedule_key", ""),
+        "last_schedule_day": state.get("last_schedule_day", ""),
+        "last_schedule_planned_at": _ts_to_iso(state.get("last_schedule_planned_at")),
+        "last_schedule_missed": bool(state.get("last_schedule_missed", False)),
+        "last_schedule_delay_sec": round(float(state.get("last_schedule_delay_sec", 0.0) or 0.0), 1),
+        "last_error": state.get("last_error", ""),
+        "last_skip_reason": state.get("last_skip_reason", ""),
+        "hits": int(state.get("hits", 0) or 0),
+        "hits_required": hits_required,
+        "active_since": _ts_to_iso(active_since),
+        "stable_for_sec": round(stable_for_sec, 1),
+        "debounce_sec": debounce_sec,
+        "debounce_progress": round(min(stable_for_sec / debounce_sec, 1.0), 3)
+        if debounce_sec > 0
+        else (1.0 if bool(state.get("last_condition_stable")) else 0.0),
+        "previous_value": state.get("previous_value"),
+        "crossing_mode": state.get("crossing_mode", "none"),
+        "crossing_ready": bool(state.get("crossing_ready", True)),
+        "crossing_active": bool(state.get("crossing_active", False)),
+        "crossing_started_at": _ts_to_iso(state.get("crossing_started_at")),
+        "rearm_value": state.get("rearm_value"),
+    }
+
+
+def _evaluate_single_trigger(rule, trigger, trigger_state, now, index=0, key=""):
+    trigger_type = _trigger_type(trigger)
+    key = str(key or _trigger_key(trigger, index))
+    label = _trigger_label(trigger, index)
+    condition = _trigger_condition(trigger)
+    schedule = _trigger_schedule(trigger)
+    trigger_state["last_evaluated_at"] = now.isoformat()
+    trigger_state["last_day_match"] = None
+    trigger_state["last_in_window"] = None
+    trigger_state["last_trigger_matched"] = False
+    trigger_state["last_skip_reason"] = ""
+    current_value = trigger_state.get("last_current_value")
+    matched = False
+
+    if trigger_type == "schedule":
+        day_match = _day_match(schedule, now)
+        trigger_state["last_day_match"] = day_match
+        matched = bool(day_match and _build_schedule_trigger(now, schedule, trigger_state))
+        current_value = trigger_state.get("last_schedule_key") or schedule.get("time")
+    else:
+        cond_match, current_value = _evaluate_condition(condition, trigger_state, now)
+        if trigger_type == "condition":
+            matched = bool(cond_match)
+        else:
+            day_match = _day_match(schedule, now)
+            in_window, window_key, _, _ = _is_time_in_window(now, schedule)
+            in_window = bool(day_match and in_window)
+            trigger_state["last_day_match"] = day_match
+            trigger_state["last_in_window"] = in_window
+            _update_window_state(trigger_state, now, in_window, f"{now.strftime('%Y-%m-%d')}|{window_key}")
+            matched = bool(cond_match and in_window)
+            if not matched:
+                pseudo_rule = {"name": f"{rule.get('name')} / {label}", "condition": condition, "schedule": schedule}
+                matched = _maybe_match_window_bootstrap(
+                    pseudo_rule,
+                    trigger_state,
+                    now,
+                    cond_match,
+                    in_window,
+                    current_value,
+                )
+
+        if matched:
+            extra_ok, extra_value = _evaluate_extra_condition(trigger, now)
+            if not extra_ok:
+                matched = False
+                trigger_state["last_skip_reason"] = f"extra_condition_not_met:{extra_value}"
+
+    trigger_state["last_trigger_matched"] = bool(matched)
+    return {
+        "key": key,
+        "label": label,
+        "type": trigger_type,
+        "matched": bool(matched),
+        "current_value": current_value,
+    }
+
+
+def _evaluate_compound_rule(rule, state, now):
+    raw_triggers = rule.get("triggers")
+    if not isinstance(raw_triggers, list):
+        raw_triggers = []
+    triggers = [item for item in raw_triggers if isinstance(item, dict)]
+    trigger_states = state.setdefault("trigger_states", {})
+    mode = str(rule.get("trigger_mode") or "any").strip().lower()
+    if mode not in {"any", "all"}:
+        mode = "any"
+
+    preconditions_met, precondition_results = _evaluate_preconditions(rule, now)
+    state["preconditions_met"] = bool(preconditions_met)
+    state["preconditions"] = precondition_results
+
+    results = []
+    matched_results = []
+    fire_results = []
+    for idx, trigger in enumerate(triggers):
+        key = _trigger_key(trigger, idx)
+        trigger_state = trigger_states.setdefault(key, _new_trigger_state())
+        result = _evaluate_single_trigger(rule, trigger, trigger_state, now, idx, key=key)
+        result["key"] = key
+        result["latched"] = bool(trigger_state.get("latched", False))
+        results.append(result)
+        if result["matched"]:
+            matched_results.append(result)
+
+    if mode == "all":
+        triggers_matched = bool(triggers) and len(matched_results) == len(triggers)
+        if triggers_matched and preconditions_met and not bool(state.get("latched", False)):
+            fire_results = matched_results
+            state["latched"] = True
+        elif not triggers_matched or not preconditions_met:
+            state["latched"] = False
+    else:
+        triggers_matched = bool(matched_results)
+        if preconditions_met:
+            for result in matched_results:
+                trigger_state = trigger_states.get(result["key"], {})
+                if not bool(trigger_state.get("latched", False)):
+                    fire_results.append(result)
+                    trigger_state["latched"] = True
+        for result in results:
+            if not result["matched"]:
+                trigger_state = trigger_states.get(result["key"], {})
+                trigger_state["latched"] = False
+        state["latched"] = bool(matched_results)
+
+    if matched_results and not preconditions_met:
+        state["last_skip_reason"] = "preconditions_not_met"
+    elif not matched_results:
+        state["last_skip_reason"] = ""
+
+    state["trigger_results"] = results
+    state["last_trigger_matched"] = bool(triggers_matched and preconditions_met)
+    state["condition_true"] = bool(matched_results)
+    state["last_condition_raw"] = bool(matched_results)
+    state["last_condition_stable"] = bool(matched_results)
+    state["last_current_value"] = matched_results[0]["current_value"] if matched_results else None
+    state["last_error"] = next((str(trigger_states.get(item["key"], {}).get("last_error") or "") for item in results if str(trigger_states.get(item["key"], {}).get("last_error") or "")), "")
+    return bool(fire_results), fire_results, bool(triggers_matched), state.get("last_current_value")
+
+
 def get_automation_runtime_snapshot():
     now_ts = time.time()
     scenes = {str(scene.get("id")): scene for scene in CONFIG.get("scenes", [])}
@@ -655,19 +998,36 @@ def get_automation_runtime_snapshot():
         scene_id = rule.get("action_scene_id")
         scene = scenes.get(str(scene_id))
         condition_trend = _build_condition_trend(condition, state)
+        trigger_snapshots = []
+        if str(rule.get("trigger_type") or "").strip().lower() == "compound":
+            trigger_states = state.get("trigger_states") if isinstance(state.get("trigger_states"), dict) else {}
+            for idx, trigger in enumerate([item for item in rule.get("triggers", []) if isinstance(item, dict)]):
+                key = _trigger_key(trigger, idx)
+                label = _trigger_label(trigger, idx)
+                trigger_state = trigger_states.get(key) or _new_trigger_state()
+                trigger_snapshots.append(
+                    _trigger_state_snapshot(trigger, _trigger_type(trigger), trigger_state, now_ts, key=key, label=label)
+                )
 
         snapshots.append(
             {
                 "id": str(rule_id),
                 "name": str(rule.get("name") or rule_id or ""),
+                "group": str(rule.get("group") or rule.get("automation_group") or rule.get("group_id") or ""),
+                "group_name": str(rule.get("group_name") or rule.get("group_title") or rule.get("display_group") or ""),
                 "enabled": bool(rule.get("enabled", False)),
                 "trigger_type": rule.get("trigger_type", "condition"),
+                "trigger_mode": rule.get("trigger_mode", "any"),
                 "scene_id": scene_id,
                 "scene_name": scene.get("name") if scene else "",
                 "condition": condition,
                 "schedule": schedule,
+                "triggers": trigger_snapshots,
+                "precondition_mode": rule.get("precondition_mode", "all"),
+                "preconditions": state.get("preconditions", []),
                 "state": {
                     "latched": bool(state.get("latched", False)),
+                    "preconditions_met": bool(state.get("preconditions_met", True)),
                     "condition_true": bool(state.get("condition_true", False)),
                     "hits": int(state.get("hits", 0) or 0),
                     "hits_required": hits_required,
@@ -723,7 +1083,7 @@ def automation_engine_loop():
                 _AUTO_STATE[rid] = _new_rule_state()
                 continue
 
-            trigger_type = rule.get("trigger_type", "condition")
+            trigger_type = str(rule.get("trigger_type", "condition") or "condition").strip().lower()
             schedule = rule.get("schedule", {})
             condition = rule.get("condition", {})
             day_match = _day_match(schedule, now)
@@ -731,6 +1091,20 @@ def automation_engine_loop():
             current_value = state.get("last_current_value")
             state["last_day_match"] = day_match
             state["last_in_window"] = None
+
+            if trigger_type == "compound":
+                should_fire, fire_results, trigger_matched, current_value = _evaluate_compound_rule(rule, state, now)
+                if should_fire:
+                    state["last_triggered_at"] = now.isoformat()
+                    state["last_trigger_value"] = current_value
+                    trigger_names = "、".join(item.get("label") or item.get("key") or "触发条件" for item in fire_results)
+                    add_log(-1, f"[automation] triggered: [{rule['name']}] ({trigger_names})")
+                    scene_id = rule.get("action_scene_id")
+                    scene_exists = any(str(scene.get("id")) == str(scene_id) for scene in CONFIG.get("scenes", []))
+                    if not scene_exists:
+                        add_log(-1, f"[automation] target scene missing: [{rule['name']}] -> {scene_id}")
+                    execute_scene(scene_id)
+                continue
 
             if trigger_type == "schedule":
                 trigger_matched = day_match and _build_schedule_trigger(now, schedule, state)

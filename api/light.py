@@ -14,6 +14,15 @@ from runtime.automation import execute_scene
 bp = Blueprint("light", __name__)
 LIGHT_LOGS_CACHE = {"expires_at": 0.0, "payload": []}
 LIGHT_LOGS_TTL_SEC = 2.0
+LIGHT_LOG_KEYWORDS = (
+    "[灯光]",
+    "[状态变化][灯光]",
+    "灯光",
+    "户外灯",
+    "庭院灯",
+    "开灯",
+    "关灯",
+)
 
 
 def _json_keyed_status_map(status_map):
@@ -34,6 +43,27 @@ def _parse_bool(value, default=False):
         if text in {"0", "false", "off", "close", "closed", "disable", "disabled", "no", "n", "关", "关闭"}:
             return False
     return bool(value)
+
+
+def _is_light_log_entry(item):
+    operation = str((item or {}).get("operation") or "")
+    if not operation:
+        return False
+    lowered = operation.lower()
+    if "skipped stale schedule" in lowered:
+        return False
+    if any(keyword in operation for keyword in LIGHT_LOG_KEYWORDS):
+        return True
+    return "[light]" in lowered or "light." in lowered or "light_" in lowered
+
+
+def _filter_light_logs(rows, limit=120):
+    filtered = [item for item in (rows or []) if _is_light_log_entry(item)]
+    try:
+        limit = max(1, min(int(limit), 300))
+    except Exception:
+        limit = 120
+    return filtered[:limit]
 
 LIGHT_DEBUG_HTML = """
 <!DOCTYPE html>
@@ -357,7 +387,8 @@ def api_light_logs():
     now_ts = time.time()
     if now_ts < float(LIGHT_LOGS_CACHE.get("expires_at", 0.0) or 0.0):
         return jsonify(LIGHT_LOGS_CACHE.get("payload", []))
-    payload = load_logs(-1)
+    limit = request.args.get("limit", default=120, type=int)
+    payload = _filter_light_logs(load_logs(-1), limit=limit)
     LIGHT_LOGS_CACHE["payload"] = payload
     LIGHT_LOGS_CACHE["expires_at"] = now_ts + LIGHT_LOGS_TTL_SEC
     return jsonify(payload)

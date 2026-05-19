@@ -1,59 +1,27 @@
-# Python/cache
+# Runtime/cache
 __pycache__/
 *.py[cod]
-*.pyo
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# Runtime data and logs
 *.log
 *.db
 *.sqlite
 *.sqlite3
-monitor.db
-operation_logs.json
-audit_logs.json
-energy_log.json
-runtime/**/__pycache__/
-runtime/**/logs/
+.pytest_cache/
+.mypy_cache/
+.DS_Store
 
-# Local/debug scratch generated during remote fixes
-_*.html
-_*.js
-_*.json
-_*.txt
-_*.ps1
-_*.py
-index_*.png
-config_page.png
-*_after_fix.png
-*_latest.png
-*_page.png
-*_before.png
-
-# Backups and temporary deployment artifacts
+# Local/runtime backups and generated dumps
 backups/
 *.bak
 *.bak_*
 *.tmp
-.DS_Store
 
-# Secrets/local env
-.env
-.env.*
-!.env.example
+# Local environments
+.venv/
+venv/
+node_modules/
 
-# Generated reports and bundled runtime data
-reports/
-**/data/reports/
-platform_services/pjlink_simulator/data/state*.json
-*.zip
-
-# Old one-off backup copies kept in full tar backup, not in Git
-*.bak.codex.*
-*.bak.codex_*
-*.bak.rename_*
-*.prune_*.bak
-*.bak_20*
-api/server_new.py
+# Large/runtime media snapshots can be backed up outside git
+*.mp4
+*.mov
+*.avi
+*.mkv

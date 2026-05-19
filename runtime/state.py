@@ -6,6 +6,7 @@ PROJECTOR_STATUS = {}
 SCREEN_STATUS = {}
 UPS_STATUS = {}
 SNMP_STATUS = {}
+NVR_STATUS = {}
 PROXY_STATUS = {}
 
 STATUS_SNAPSHOT = {
@@ -14,6 +15,7 @@ STATUS_SNAPSHOT = {
     "meters": METER_STATUS,
     "ups": UPS_STATUS,
     "snmp": SNMP_STATUS,
+    "nvr": NVR_STATUS,
     "proxy": PROXY_STATUS,
 }
 
@@ -118,6 +120,48 @@ def _get_power_state(dev_id, channel=None):
     return state
 
 
+def _get_sequencer_state(dev_id, channel=None):
+    target_id = str(dev_id)
+    try:
+        from api.sequencer import SEQUENCER_STATUS, ensure_config_devices, get_or_init_status
+
+        seq = next((item for item in ensure_config_devices() if str(item.get("id")) == target_id), None)
+        if not seq:
+            return None
+        raw_state = dict(SEQUENCER_STATUS.get(target_id) or get_or_init_status(seq) or {})
+        channel_count = int(seq.get("channel_count", 8) or 8)
+        channels = list(raw_state.get("channels") or [])
+        channels = (channels + [False] * channel_count)[:channel_count]
+        online = bool(raw_state.get("online", False))
+        state = {
+            "id": target_id,
+            "name": seq.get("name") or target_id,
+            "online": online,
+            "channel_count": channel_count,
+            "channels": [bool(item) for item in channels],
+            "on_count": sum(1 for item in channels if bool(item)),
+            "off_count": sum(1 for item in channels if not bool(item)),
+            "all_on": bool(online and channel_count > 0 and all(bool(item) for item in channels)),
+            "all_off": bool(online and channel_count > 0 and not any(bool(item) for item in channels)),
+            "running": bool(raw_state.get("running", False)),
+            "locked": bool(raw_state.get("locked", False)),
+            "mode": raw_state.get("mode"),
+            "last_action": raw_state.get("last_action"),
+            "updated_at": raw_state.get("updated_at"),
+            "last_success_at": raw_state.get("last_success_at"),
+            "error": raw_state.get("error", ""),
+        }
+        for idx, value in enumerate(channels, start=1):
+            state[f"channel_{idx}"] = bool(value)
+        if channel:
+            channel_idx = int(channel)
+            if 1 <= channel_idx <= channel_count:
+                state["channel_state"] = bool(channels[channel_idx - 1])
+        return state
+    except Exception:
+        return None
+
+
 def _get_server_state(dev_id):
     target_id = str(dev_id)
     for machine in _machine_rows():
@@ -172,6 +216,39 @@ def _get_meter_state(dev_id):
     return None
 
 
+def _get_hvac_state(dev_id):
+    target_id = str(dev_id)
+    try:
+        from api.hvac import HVAC_STATUS
+
+        status = HVAC_STATUS.get(target_id)
+        if isinstance(status, dict):
+            state = dict(status)
+            if "fan_mode" not in state and "fan_speed" in state:
+                state["fan_mode"] = state.get("fan_speed")
+            if "fan_speed" not in state and "fan_mode" in state:
+                state["fan_speed"] = state.get("fan_mode")
+            return state
+    except Exception:
+        pass
+
+    for device in CONFIG.get("hvac_devices", []):
+        if str(device.get("id")) == target_id:
+            return {
+                "id": target_id,
+                "name": device.get("name") or target_id,
+                "online": False,
+                "power": False,
+                "mode": "off",
+                "hvac_action": "off",
+                "temp": None,
+                "target_temp": None,
+                "fan_speed": None,
+                "fan_mode": None,
+            }
+    return None
+
+
 def get_state_snapshot(source_type, device_id, prop=None, channel=None):
     source_type = str(source_type or "env")
     if source_type == "env":
@@ -184,6 +261,8 @@ def get_state_snapshot(source_type, device_id, prop=None, channel=None):
         return UPS_STATUS.get(str(device_id))
     if source_type == "snmp":
         return SNMP_STATUS.get(str(device_id))
+    if source_type == "nvr":
+        return NVR_STATUS.get(str(device_id))
     if source_type == "proxy":
         default_state = PROXY_STATUS.get("default")
         if device_id in [None, "", "default"]:
@@ -193,10 +272,14 @@ def get_state_snapshot(source_type, device_id, prop=None, channel=None):
         return _get_server_state(device_id)
     if source_type == "meter":
         return _get_meter_state(device_id)
+    if source_type == "hvac":
+        return _get_hvac_state(device_id)
     if source_type == "light":
         return _get_light_state(device_id, channel=channel)
     if source_type == "power":
         return _get_power_state(device_id, channel=channel)
+    if source_type == "sequencer":
+        return _get_sequencer_state(device_id, channel=channel)
     if source_type == "door":
         return _door_status_snapshot()
     if source_type == "vision":

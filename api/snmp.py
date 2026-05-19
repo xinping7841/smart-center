@@ -21,6 +21,7 @@ _SNMP_COMPACT_SUMMARY_KEYS = {
     "contact_text",
     "cpu_avg_percent",
     "cpu_core_count",
+    "cpu_model",
     "cpu_peak_percent",
     "cpu_temperature_c",
     "device_type",
@@ -29,7 +30,9 @@ _SNMP_COMPACT_SUMMARY_KEYS = {
     "gpu_metrics",
     "health_score",
     "interface_preview",
+    "interface_rows",
     "interface_summary",
+    "ikuai_summary",
     "location_text",
     "memory_alert_level",
     "memory_available_text",
@@ -38,15 +41,22 @@ _SNMP_COMPACT_SUMMARY_KEYS = {
     "memory_used_text",
     "nat_sessions",
     "network_connections",
+    "network_top_rows",
     "online_clients",
+    "physical_top_rows",
     "poll_elapsed_sec",
     "process_count",
+    "qnap_ssh_summary",
     "risk_level",
     "session_count",
     "storage_count",
     "storage_critical_count",
+    "storage_rows",
+    "storage_top_rows",
     "storage_warning_count",
     "sys_descr_text",
+    "system_temperature_c",
+    "temperature_rows",
     "ucd_load_1",
     "ucd_load_15",
     "ucd_load_5",
@@ -54,8 +64,21 @@ _SNMP_COMPACT_SUMMARY_KEYS = {
     "user_count",
     "vendor_memory_free_text",
     "vendor_memory_total_text",
+    "disk_rows",
+    "disk_top_rows",
+    "fan_rows",
+    "wan_top_rows",
+    "lan_top_rows",
 }
 _SNMP_COMPACT_INTERFACE_KEYS = {
+    "active_count",
+    "active_in_rate_bps",
+    "active_in_rate_text",
+    "active_out_rate_bps",
+    "active_out_rate_text",
+    "active_top_rows",
+    "active_total_rate_bps",
+    "active_total_rate_text",
     "aggregate_in_rate_bps",
     "aggregate_in_rate_text",
     "aggregate_out_rate_bps",
@@ -65,26 +88,48 @@ _SNMP_COMPACT_INTERFACE_KEYS = {
     "bond_count",
     "bond_names",
     "bridge_count",
+    "bridge_fdb_rows",
     "bridge_learned_mac_count",
     "bridge_mac_count",
     "bridge_names",
+    "bridge_port_mac_rows",
     "bridge_port_count",
+    "bridge_vlan_rows",
     "bridge_vlan_count",
     "busy_port_count",
+    "configured_access_count",
+    "configured_port_count",
+    "configured_port_rows",
+    "configured_trunk_count",
+    "configured_vlan_count",
+    "configured_vlan_rows",
+    "configured_vlan_traffic_rows",
     "delta_discard_port_count",
     "delta_error_port_count",
     "discard_port_count",
     "down_count",
+    "down_rows",
     "error_port_count",
+    "interface_sample_count",
+    "interface_total_count",
     "lan_count",
     "lan_names",
     "physical_count",
     "physical_down_count",
     "physical_names",
+    "physical_unknown_count",
     "physical_up_count",
+    "port_preview_rows",
+    "switch_port_rows",
+    "top_busy_port_rows",
+    "high_utilization_port_rows",
     "top_names",
+    "unknown_count",
+    "unknown_rows",
     "up_count",
     "uplink_count",
+    "vlan_gateway_rows",
+    "vlan_traffic_rows",
     "virtual_count",
     "virtual_names",
     "wan_count",
@@ -199,6 +244,25 @@ def _compact_interface_summary(interface_summary):
     for key in ("wan_names", "lan_names", "bond_names", "bridge_names", "physical_names", "top_names", "virtual_names"):
         if key in compact:
             compact[key] = _limit_sequence(compact[key], 8)
+    if isinstance(compact.get("active_top_rows"), list):
+        compact["active_top_rows"] = compact["active_top_rows"][:8]
+    for key, limit in (
+        ("switch_port_rows", 28),
+        ("top_busy_port_rows", 12),
+        ("high_utilization_port_rows", 12),
+        ("configured_port_rows", 28),
+        ("configured_vlan_rows", 24),
+        ("configured_vlan_traffic_rows", 24),
+        ("vlan_traffic_rows", 24),
+        ("vlan_gateway_rows", 24),
+        ("port_preview_rows", 8),
+        ("down_rows", 8),
+        ("bridge_port_mac_rows", 12),
+        ("bridge_vlan_rows", 12),
+        ("bridge_fdb_rows", 12),
+    ):
+        if isinstance(compact.get(key), list):
+            compact[key] = compact[key][:limit]
     return compact
 
 
@@ -210,6 +274,21 @@ def _compact_summary(summary):
     compact["interface_summary"] = _compact_interface_summary(summary.get("interface_summary", {}) or {})
     if isinstance(compact.get("gpu_metrics"), list):
         compact["gpu_metrics"] = compact["gpu_metrics"][:4]
+    for key, limit in (
+        ("network_top_rows", 8),
+        ("physical_top_rows", 8),
+        ("wan_top_rows", 8),
+        ("lan_top_rows", 8),
+        ("storage_rows", 24),
+        ("storage_top_rows", 12),
+        ("disk_rows", 16),
+        ("disk_top_rows", 12),
+        ("fan_rows", 12),
+    ):
+        if isinstance(compact.get(key), list):
+            compact[key] = compact[key][:limit]
+    if isinstance(compact.get("interface_rows"), list):
+        compact["interface_rows"] = compact["interface_rows"][:12]
     return compact
 
 

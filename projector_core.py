@@ -7,9 +7,452 @@ import traceback
 import os
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from paths import PROJECTOR_BRANDS_FILE
+from paths import PROJECTOR_BRANDS_FILE, RUNTIME_DIR, ensure_parent_dir
 
 BRANDS_FILE = str(PROJECTOR_BRANDS_FILE)
+
+INFERRED_PROJECTOR_STATE_FILE = str(RUNTIME_DIR / "projector_inferred_state.json")
+INFERRED_PROJECTOR_STATE_LOCK = threading.Lock()
+INFERRED_PROJECTOR_METER_CACHE = {"expires_at": 0.0, "payload": {}}
+
+
+def _utc_ts():
+    return time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime())
+
+
+def _read_inferred_projector_state():
+    try:
+        with open(INFERRED_PROJECTOR_STATE_FILE, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+        return payload if isinstance(payload, dict) else {}
+    except FileNotFoundError:
+        return {}
+    except Exception:
+        return {}
+
+
+def _write_inferred_projector_state(state):
+    from pathlib import Path
+    ensure_parent_dir(Path(INFERRED_PROJECTOR_STATE_FILE))
+    tmp_path = f"{INFERRED_PROJECTOR_STATE_FILE}.tmp"
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(state, f, ensure_ascii=False, indent=2)
+    os.replace(tmp_path, INFERRED_PROJECTOR_STATE_FILE)
+
+
+def _current_inferred_meter_power(cabinet_idx=0):
+    meter = _read_remote_cabinet_meter(cabinet_idx)
+    power_kw = meter.get("stable_realtime_power")
+    if power_kw is None:
+        power_kw = meter.get("effective_realtime_power")
+    if power_kw is None:
+        power_kw = meter.get("realtime_power")
+    try:
+        return float(power_kw), meter
+    except Exception:
+        return None, meter
+
+
+
+def _normalize_projector_hex(value):
+    return "".join(ch for ch in str(value or "").upper() if ch in "0123456789ABCDEF")
+
+
+def _inferred_gateway_status(projector_cfg, timeout=1.8):
+    url = str((projector_cfg or {}).get("inferred_gateway_status_url") or "").strip()
+    if not url:
+        return {}
+    try:
+        import urllib.request
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
+            payload = json.loads(resp.read().decode("utf-8", "ignore"))
+        return payload if isinstance(payload, dict) else {}
+    except Exception as exc:
+        return {"success": False, "error": str(exc)}
+
+
+def _inferred_gateway_control(projector_cfg, action, dry_run=False, timeout=8.0):
+    url = str((projector_cfg or {}).get("inferred_gateway_control_url") or "").strip()
+    if not url:
+        return None
+    try:
+        import urllib.request
+        body = json.dumps({"action": action, "dry_run": bool(dry_run), "source": "smart-center"}, ensure_ascii=False).encode("utf-8")
+        req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"}, method="POST")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            payload = json.loads(resp.read().decode("utf-8", "ignore"))
+        return payload if isinstance(payload, dict) else {"success": False, "error": "invalid gateway response"}
+    except Exception as exc:
+        return {"success": False, "error": str(exc)}
+
+
+def _merge_inferred_gateway_runtime(projector_cfg, runtime):
+    gateway = _inferred_gateway_status(projector_cfg)
+    command_state = gateway.get("command_state") if isinstance(gateway, dict) else None
+    if not isinstance(command_state, dict):
+        return runtime, gateway
+    merged = dict(runtime or {})
+    gateway_ts = _parse_iso_like_ts(command_state.get("last_command_at"))
+    local_ts = _parse_iso_like_ts(merged.get("last_command_at"))
+    if gateway_ts and (not local_ts or gateway_ts >= local_ts):
+        for key in [
+            "last_intent", "last_command_at", "last_command_ok", "last_command_payload",
+            "last_response", "last_command_source", "updated_at"
+        ]:
+            if command_state.get(key) is not None:
+                merged[key] = command_state.get(key)
+        merged["gateway_command_state"] = command_state
+    return merged, gateway
+
+def _inferred_targets(projector_cfg):
+    targets = (projector_cfg or {}).get("inferred_targets")
+    if isinstance(targets, list) and targets:
+        normalized = []
+        for idx, item in enumerate(targets, start=1):
+            if not isinstance(item, dict):
+                continue
+            ip = str(item.get("ip") or "").strip()
+            if not ip:
+                continue
+            normalized.append({
+                "id": str(item.get("id") or f"target_{idx}"),
+                "name": str(item.get("name") or ip),
+                "ip": ip,
+                "port": int(item.get("port", (projector_cfg or {}).get("port", 502)) or 502),
+            })
+        if normalized:
+            return normalized
+    ip = str((projector_cfg or {}).get("ip") or "").strip()
+    if not ip:
+        return []
+    return [{
+        "id": str((projector_cfg or {}).get("id") or "target_1"),
+        "name": str((projector_cfg or {}).get("name") or ip),
+        "ip": ip,
+        "port": int((projector_cfg or {}).get("port", 502) or 502),
+    }]
+
+
+def get_inferred_projector_command_baseline(projector_cfg):
+    if str((projector_cfg or {}).get("control_type") or "") != "inferred_rs232":
+        return None, {}
+    cabinet_idx = int((projector_cfg or {}).get("inferred_cabinet_idx", 0) or 0)
+    return _current_inferred_meter_power(cabinet_idx)
+
+
+def get_inferred_projector_runtime(projector_id=None):
+    with INFERRED_PROJECTOR_STATE_LOCK:
+        state = _read_inferred_projector_state()
+    if projector_id is None:
+        return state
+    return dict((state.get(str(projector_id)) or {}) if isinstance(state.get(str(projector_id)), dict) else {})
+
+
+def record_inferred_projector_command(projector_cfg, command_config, success, response=None, baseline_kw=None, meter=None):
+    if str((projector_cfg or {}).get("control_type") or "") != "inferred_rs232":
+        return
+    proj_id = str(projector_cfg.get("id") or "")
+    if not proj_id:
+        return
+    command = command_config or {}
+    payload = str(command.get("payload") or "").strip().upper()
+    name = str(command.get("name") or command.get("id") or "").strip()
+    intent = None
+    on_payload = str(projector_cfg.get("inferred_power_on_payload") or "23 50 57 52 30 2C 31 21").strip().upper()
+    off_payload = str(projector_cfg.get("inferred_power_off_payload") or "23 50 57 52 30 2C 30 21").strip().upper()
+    if payload.replace(" ", "") == on_payload.replace(" ", "") or name in {"开机", "power_on"} or "开机" in name:
+        intent = "on"
+    elif payload.replace(" ", "") == off_payload.replace(" ", "") or name in {"关机", "power_off"} or "关机" in name:
+        intent = "off"
+    if not intent:
+        return
+    now = _utc_ts()
+    if baseline_kw is None or meter is None:
+        cabinet_idx = int(projector_cfg.get("inferred_cabinet_idx", 0) or 0)
+        baseline_kw, meter = _current_inferred_meter_power(cabinet_idx)
+    with INFERRED_PROJECTOR_STATE_LOCK:
+        state = _read_inferred_projector_state()
+        item = dict(state.get(proj_id) or {})
+        item.update({
+            "last_command_ok": bool(success),
+            "last_command_payload": payload,
+            "last_response": str(response or "")[:500],
+            "command_meter_updated_at": meter.get("updated_at") if isinstance(meter, dict) else None,
+            "name": projector_cfg.get("name") or proj_id,
+            "ip": projector_cfg.get("ip"),
+        })
+        if success:
+            item.update({
+                "last_intent": intent,
+                "last_command_at": now,
+                "command_baseline_kw": baseline_kw,
+            })
+        else:
+            item["last_failed_intent"] = intent
+            item["last_failed_at"] = now
+        state[proj_id] = item
+        _write_inferred_projector_state(state)
+
+
+def _parse_iso_like_ts(value):
+    if not value:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    try:
+        from datetime import datetime
+        normalized = text.replace("Z", "+00:00")
+        if len(normalized) >= 5 and normalized[-5] in ["+", "-"] and normalized[-3] != ":":
+            normalized = normalized[:-2] + ":" + normalized[-2:]
+        return datetime.fromisoformat(normalized).timestamp()
+    except Exception:
+        return None
+
+
+def _tcp_port_open(ip, port, timeout=1.2):
+    try:
+        with socket.create_connection((ip, int(port)), timeout=timeout):
+            return True, ""
+    except Exception as exc:
+        return False, str(exc)
+
+
+def _read_remote_cabinet_meter(cabinet_idx=0, timeout=2.0):
+    now = time.time()
+    cached = INFERRED_PROJECTOR_METER_CACHE.get("payload") or {}
+    if now < float(INFERRED_PROJECTOR_METER_CACHE.get("expires_at") or 0.0) and cached:
+        item = cached.get(cabinet_idx)
+        if item is not None:
+            return dict(item)
+    url = os.environ.get("SMART_CENTER_REMOTE_METER_URL", "http://192.168.50.121:6901/api/diagnostics/meters")
+    try:
+        import urllib.request
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
+            payload = json.loads(resp.read().decode("utf-8", "ignore"))
+        cache_map = {}
+        for item in payload.get("meters") or []:
+            idx = item.get("cabinet_idx")
+            if idx is None and str(item.get("id") or "").startswith("cabinet_meter_"):
+                try:
+                    idx = int(str(item.get("id")).replace("cabinet_meter_", ""))
+                except Exception:
+                    idx = None
+            if idx is not None:
+                try:
+                    cache_map[int(idx)] = dict(item)
+                except Exception:
+                    pass
+        INFERRED_PROJECTOR_METER_CACHE.update({"expires_at": now + 1.5, "payload": cache_map})
+        if cabinet_idx in cache_map:
+            return dict(cache_map[cabinet_idx])
+    except Exception as exc:
+        return {"online": False, "error": str(exc)}
+    return {"online": False, "error": "cabinet meter not found"}
+
+
+def infer_rs232_projector_status(projector_cfg):
+    cfg = dict(projector_cfg or {})
+    proj_id = str(cfg.get("id") or "")
+    runtime = get_inferred_projector_runtime(proj_id)
+    runtime, gateway_status = _merge_inferred_gateway_runtime(cfg, runtime)
+    now = time.time()
+    targets = _inferred_targets(cfg)
+    target_status = []
+    for target in targets:
+        ok, err = _tcp_port_open(target["ip"], target.get("port", 502))
+        target_status.append({
+            "id": target.get("id"),
+            "name": target.get("name"),
+            "ip": target.get("ip"),
+            "port": target.get("port", 502),
+            "online": ok,
+            "error": err,
+        })
+    if isinstance(gateway_status, dict) and gateway_status.get("targets"):
+        gateway_targets = gateway_status.get("targets")
+        if isinstance(gateway_targets, list):
+            target_status = gateway_targets
+    target_total = len(target_status)
+    target_online = sum(1 for item in target_status if item.get("online"))
+    tcp_online = bool(target_total and target_online == target_total)
+    tcp_degraded = bool(target_total and 0 < target_online < target_total)
+    tcp_error = "; ".join(f"{item.get('name') or item.get('ip')}:{item.get('error')}" for item in target_status if not item.get("online")) or "missing targets"
+    cabinet_idx = int(cfg.get("inferred_cabinet_idx", 0) or 0)
+    channel_idx = int(cfg.get("inferred_power_channel", 4) or 4)
+    meter = _read_remote_cabinet_meter(cabinet_idx)
+    channels = meter.get("channels_1_4") if isinstance(meter.get("channels_1_4"), list) else []
+    power_feed_on = None
+    if 1 <= channel_idx <= len(channels):
+        power_feed_on = bool(channels[channel_idx - 1])
+    power_kw = meter.get("stable_realtime_power")
+    if power_kw is None:
+        power_kw = meter.get("effective_realtime_power")
+    if power_kw is None:
+        power_kw = meter.get("realtime_power")
+    try:
+        power_kw = float(power_kw)
+    except Exception:
+        power_kw = None
+
+    last_intent = str(runtime.get("last_intent") or "").lower()
+    last_command_ok = runtime.get("last_command_ok")
+    last_command_at = runtime.get("last_command_at")
+    baseline_kw = runtime.get("command_baseline_kw")
+    try:
+        baseline_kw = float(baseline_kw)
+    except Exception:
+        baseline_kw = None
+    last_ts = _parse_iso_like_ts(last_command_at)
+    age_sec = (now - last_ts) if last_ts else None
+    on_threshold_kw = float(cfg.get("inferred_on_threshold_kw", 7.0) or 7.0)
+    standby_max_kw = float(cfg.get("inferred_standby_max_kw", 3.0) or 3.0)
+    on_delta_kw = float(cfg.get("inferred_on_delta_kw", 1.0) or 1.0)
+    off_delta_kw = float(cfg.get("inferred_off_delta_kw", on_delta_kw) or on_delta_kw)
+    absolute_power_enabled = bool(cfg.get("inferred_absolute_power_enabled", False))
+    warmup_sec = float(cfg.get("inferred_warmup_sec", 300) or 300)
+    cooldown_sec = float(cfg.get("inferred_cooldown_sec", 240) or 240)
+    command_trust_sec = float(cfg.get("inferred_command_trust_sec", 180) or 180)
+    power_verify_sec = float(cfg.get("inferred_power_verify_sec", 120) or 120)
+    delta_kw = (power_kw - baseline_kw) if (power_kw is not None and baseline_kw is not None) else None
+    drop_kw = (baseline_kw - power_kw) if (power_kw is not None and baseline_kw is not None) else None
+    command_success = last_command_ok is not False
+
+    status = {
+        "online": bool(tcp_online),
+        "power": "unknown",
+        "source": "推断状态",
+        "source_name": "串口服务器 + 电柜功率",
+        "lamp_hours": None,
+        "lamp_state": None,
+        "temp_status": "不支持查询",
+        "error": "正常" if tcp_online else (tcp_error or "串口服务器离线"),
+        "manufacturer": cfg.get("fixed_manufacturer") or "RS232 控制",
+        "product_name": cfg.get("fixed_model") or "无反馈投影机",
+        "software_version": cfg.get("fixed_software_version") or "推断型",
+        "class_version": "状态推断",
+        "other_info": "",
+        "error_details": {},
+        "inferred": True,
+        "inference_basis": "",
+        "inferred_targets": target_status,
+        "target_online_count": target_online,
+        "target_total_count": target_total,
+        "last_command_at": last_command_at,
+        "last_intent": last_intent or None,
+        "last_command_source": runtime.get("last_command_source"),
+        "gateway_status": gateway_status if isinstance(gateway_status, dict) else {},
+        "power_feed_on": power_feed_on,
+        "meter_power_kw": power_kw,
+        "command_baseline_kw": baseline_kw,
+        "power_delta_kw": delta_kw,
+        "meter_updated_at": meter.get("updated_at"),
+        "status_level": "online" if tcp_online else ("stale" if tcp_degraded else "error"),
+    }
+    if not tcp_online:
+        status["power"] = "unknown"
+        status["status_level"] = "stale" if tcp_degraded else "error"
+        status["inference_basis"] = f"串口服务器在线 {target_online}/{target_total}，{tcp_error}"
+        if not tcp_degraded:
+            return status
+    if power_feed_on is False:
+        status["power"] = "off"
+        status["lamp_state"] = "无供电"
+        status["inference_basis"] = f"电柜第 {channel_idx} 路断开"
+        return status
+
+    if absolute_power_enabled and power_kw is not None and power_kw >= on_threshold_kw and last_intent != "off":
+        status["power"] = "on"
+        status["lamp_state"] = "疑似运行" if not last_intent else "开启"
+    elif last_intent == "on":
+        if command_success and age_sec is not None and age_sec <= command_trust_sec:
+            status["power"] = "on"
+            status["lamp_state"] = "开启" if delta_kw is not None and delta_kw >= on_delta_kw else "网关已开机"
+            status["source_name"] = "121网关指令 + 电柜校验"
+        elif delta_kw is not None and delta_kw >= on_delta_kw:
+            status["power"] = "on"
+            status["lamp_state"] = "开启"
+        elif baseline_kw is None and absolute_power_enabled and power_kw is not None and power_kw >= on_threshold_kw:
+            status["power"] = "on"
+            status["lamp_state"] = "开启"
+        elif command_success and age_sec is not None and age_sec <= max(warmup_sec, command_trust_sec):
+            status["power"] = "on"
+            status["lamp_state"] = "网关已开机"
+            status["source_name"] = "121网关指令 + 电柜校验"
+        elif age_sec is not None and age_sec <= min(warmup_sec, power_verify_sec):
+            status["power"] = "warming"
+            status["lamp_state"] = "启动中"
+        elif delta_kw is not None and delta_kw < max(on_delta_kw * 0.35, 0.3):
+            status["power"] = "warning"
+            status["lamp_state"] = "疑似未启动"
+            status["error"] = "开机后功率未上升"
+            status["status_level"] = "stale"
+        elif baseline_kw is None and absolute_power_enabled and power_kw is not None and power_kw < standby_max_kw:
+            status["power"] = "warning"
+            status["lamp_state"] = "疑似未启动"
+            status["error"] = "开机后功率未上升"
+            status["status_level"] = "stale"
+        else:
+            status["power"] = "unknown"
+            status["lamp_state"] = "待确认"
+    elif last_intent == "off":
+        if command_success and age_sec is not None and age_sec <= command_trust_sec:
+            status["power"] = "off"
+            status["lamp_state"] = "待机" if drop_kw is not None and drop_kw >= off_delta_kw else "网关已关机"
+            status["source_name"] = "121网关指令 + 电柜校验"
+        elif drop_kw is not None and drop_kw >= off_delta_kw:
+            status["power"] = "off"
+            status["lamp_state"] = "待机"
+        elif baseline_kw is None and absolute_power_enabled and power_kw is not None and power_kw < standby_max_kw:
+            status["power"] = "off"
+            status["lamp_state"] = "待机"
+        elif command_success and age_sec is not None and age_sec <= max(cooldown_sec, command_trust_sec):
+            status["power"] = "off"
+            status["lamp_state"] = "网关已关机"
+            status["source_name"] = "121网关指令 + 电柜校验"
+        elif age_sec is not None and age_sec <= min(cooldown_sec, power_verify_sec) and (
+            drop_kw is None or drop_kw >= max(off_delta_kw * 0.35, 0.3)
+        ):
+            status["power"] = "cooling"
+            status["lamp_state"] = "冷却中"
+        elif drop_kw is not None and drop_kw < max(off_delta_kw * 0.35, 0.3):
+            status["power"] = "warning"
+            status["lamp_state"] = "疑似仍在运行"
+            status["error"] = "关机后功率仍偏高"
+            status["status_level"] = "stale"
+        elif baseline_kw is None and absolute_power_enabled and power_kw is not None and power_kw >= on_threshold_kw:
+            status["power"] = "warning"
+            status["lamp_state"] = "疑似仍在运行"
+            status["error"] = "关机后功率仍偏高"
+            status["status_level"] = "stale"
+        else:
+            status["power"] = "off"
+            status["lamp_state"] = "待机"
+    else:
+        if absolute_power_enabled and power_kw is not None and power_kw >= on_threshold_kw:
+            status["power"] = "on"
+            status["lamp_state"] = "疑似运行"
+        elif absolute_power_enabled and power_kw is not None and power_kw < standby_max_kw:
+            status["power"] = "off"
+            status["lamp_state"] = "待机"
+        else:
+            status["power"] = "unknown"
+            status["lamp_state"] = "等待控制记录"
+
+    age_text = f"，上次指令 {int(age_sec)} 秒前" if age_sec is not None else "，暂无指令记录"
+    if delta_kw is not None:
+        pwr_text = f"总功率 {power_kw:.2f}kW，变化 {delta_kw:+.2f}kW"
+    elif power_kw is not None:
+        pwr_text = f"总功率 {power_kw:.2f}kW"
+    else:
+        pwr_text = "总功率未知"
+    feed_text = "供电合闸" if power_feed_on else ("供电未知" if power_feed_on is None else "供电断开")
+    target_text = f"串口服务器 {target_online}/{target_total} 在线" if target_total else "串口服务器未配置"
+    status["inference_basis"] = f"{target_text}，{feed_text}，{pwr_text}{age_text}"
+    status["other_info"] = status["inference_basis"]
+    if status.get("error") == "正常" and status.get("power") not in ["warning", "unknown"]:
+        status["status_level"] = "online"
+    return status
 
 DEFAULT_SERIES_BY_BRAND = {
     "appotronics": "dh",
@@ -356,6 +799,9 @@ class ProjectorDriver:
 
         print(f"[Projector DEBUG] 最终解析 -> 协议模式：[{self.control_type}], 格式：[{fmt}], Payload: [{payload}]")
 
+        if self.control_type == "inferred_rs232":
+            return self._send_inferred_rs232_group(payload, fmt)
+
         if self.control_type == "pjlink":
             if fmt == "hex":
                 try:
@@ -377,6 +823,66 @@ class ProjectorDriver:
             return self._send_appotronics_dh_tcp(payload, fmt)
 
         return False, f"不支持的控制类型：{self.control_type}"
+
+    def _send_inferred_rs232_group(self, payload_raw, fmt):
+        on_payload = str(self.cfg.get("inferred_power_on_payload") or "23 50 57 52 30 2C 31 21")
+        off_payload = str(self.cfg.get("inferred_power_off_payload") or "23 50 57 52 30 2C 30 21")
+        normalized = _normalize_projector_hex(payload_raw) if fmt == "hex" else _normalize_projector_hex(str(payload_raw or "").encode("utf-8").hex())
+        action = None
+        if normalized == _normalize_projector_hex(on_payload):
+            action = "on"
+        elif normalized == _normalize_projector_hex(off_payload):
+            action = "off"
+        if action and self.cfg.get("inferred_gateway_control_url"):
+            gateway_result = _inferred_gateway_control(self.cfg, action)
+            if isinstance(gateway_result, dict):
+                ok = bool(gateway_result.get("success"))
+                return ok, json.dumps(gateway_result, ensure_ascii=False)[:1000]
+
+        targets = _inferred_targets(self.cfg)
+        if not targets:
+            return False, "未配置串口服务器目标"
+        try:
+            payload = self._build_transport_payload(payload_raw, fmt)
+        except Exception as exc:
+            return False, f"指令格式错误: {exc}"
+
+        results = []
+        all_ok = True
+        for target in targets:
+            ip = target["ip"]
+            port = int(target.get("port", 502) or 502)
+            try:
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    s.settimeout(4.0)
+                    s.connect((ip, port))
+                    s.sendall(payload)
+                    time.sleep(0.15)
+                    s.settimeout(0.6)
+                    try:
+                        resp = s.recv(1024)
+                    except Exception:
+                        resp = b""
+                results.append({
+                    "name": target.get("name") or ip,
+                    "ip": ip,
+                    "ok": True,
+                    "response": resp.hex(" ").upper() if resp else "",
+                })
+            except Exception as exc:
+                all_ok = False
+                results.append({
+                    "name": target.get("name") or ip,
+                    "ip": ip,
+                    "ok": False,
+                    "error": str(exc),
+                })
+        ok_count = sum(1 for item in results if item.get("ok"))
+        detail = "；".join(
+            f"{item.get('name')}:{'成功' if item.get('ok') else item.get('error', '失败')}"
+            for item in results
+        )
+        return all_ok, f"组控完成 {ok_count}/{len(results)}，{detail}"
     
     def _apply_runtime_payload_rules(self, payload, fmt):
         payload = payload or ""
@@ -901,6 +1407,9 @@ class ProjectorDriver:
             "serial_number": None,
             "software_version": None
         }
+
+        if self.control_type == "inferred_rs232":
+            return infer_rs232_projector_status(self.cfg)
 
         if self.control_type == "pjlink":
             power_map = {

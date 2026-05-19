@@ -154,6 +154,11 @@ def _state_age_sec(state):
     return max(0, int((datetime.now() - updated).total_seconds()))
 
 
+def _state_updated_iso(state):
+    updated = _parse_ha_timestamp((state or {}).get("last_updated") or (state or {}).get("last_changed"))
+    return updated.isoformat(timespec="seconds") if updated else None
+
+
 def _state_should_ignore_staleness(entity_id):
     return _entity_domain(entity_id) in {"binary_sensor", "event", "lock"}
 
@@ -180,9 +185,9 @@ def _read_text_from_state(state, attr_name=""):
 
 def _read_bool_like_from_state(state, attr_name=""):
     text = str(_read_text_from_state(state, attr_name) or "").strip().lower()
-    if text in {"on", "open", "opening", "true", "1", "打开", "强", "亮"}:
+    if text in {"on", "open", "opening", "true", "1", "打开", "强", "亮", "光亮", "环境光亮", "有光"}:
         return True
-    if text in {"off", "closed", "close", "false", "0", "关闭", "弱", "暗"}:
+    if text in {"off", "closed", "close", "false", "0", "关闭", "弱", "暗", "光暗", "环境光暗", "无光"}:
         return False
     return None
 
@@ -204,15 +209,19 @@ def _format_contact_text(value, bool_value=None):
 def _format_light_text(value, bool_value=None):
     text = str(value or "").strip()
     lower = text.lower()
-    if lower in {"on", "strong", "high", "bright", "true", "1"}:
-        return "强"
-    if lower in {"off", "weak", "low", "dark", "false", "0"}:
-        return "弱"
+    if lower in {"on", "strong", "high", "bright", "true", "1", "强", "亮", "光亮", "环境光亮", "有光"}:
+        return "亮"
+    if lower in {"off", "weak", "low", "dark", "false", "0", "弱", "暗", "光暗", "环境光暗", "无光"}:
+        return "暗"
+    if "亮" in text:
+        return "亮"
+    if "暗" in text:
+        return "暗"
     if text:
         return text
     if bool_value is None:
         return None
-    return "强" if bool_value else "弱"
+    return "亮" if bool_value else "暗"
 
 
 def get_env_state(sensor_cfg, config=None):
@@ -226,14 +235,16 @@ def get_env_state(sensor_cfg, config=None):
         "pm25": 0,
         "pm10": 0,
         "pressure": 0,
-        "updated_at": _now_iso(),
+        "polled_at": _now_iso(),
     }
     try:
         entities = ha_cfg.get("entities") if isinstance(ha_cfg.get("entities"), dict) else {}
         attribute_map = ha_cfg.get("attribute_map") if isinstance(ha_cfg.get("attribute_map"), dict) else {}
         any_online = False
-        max_age = None
+        core_ages = []
+        core_updated = []
         ignore_staleness = False
+        core_status_keys = {"temp", "hum", "lux", "noise", "pm25", "pm10", "pressure", "contact", "light"}
 
         if entities:
             for status_key, entity_id in entities.items():
@@ -243,11 +254,21 @@ def get_env_state(sensor_cfg, config=None):
                 ha_state = fetch_state(entity_id, ha_cfg)
                 online = _state_is_online(ha_state)
                 any_online = any_online or online
-                if _state_should_ignore_staleness(entity_id):
+                updated_iso = _state_updated_iso(ha_state)
+                if updated_iso:
+                    state[f"{status_key}_updated_at"] = updated_iso
+                if _state_should_ignore_staleness(entity_id) and status_key not in {"battery", "voltage"}:
                     ignore_staleness = True
                 age = _state_age_sec(ha_state)
                 if age is not None:
-                    max_age = age if max_age is None else max(max_age, age)
+                    if status_key in {"battery", "voltage"}:
+                        state[f"{status_key}_age_sec"] = age
+                    else:
+                        state[f"{status_key}_age_sec"] = age
+                        if status_key in core_status_keys:
+                            core_ages.append(age)
+                            if updated_iso:
+                                core_updated.append(updated_iso)
                 if status_key in {"contact", "light"}:
                     bool_value = _read_bool_like_from_state(ha_state, attribute_map.get(status_key, ""))
                     raw_text = _read_text_from_state(ha_state, attribute_map.get(status_key, ""))
@@ -262,10 +283,20 @@ def get_env_state(sensor_cfg, config=None):
                 value = _read_numeric_from_state(ha_state, attribute_map.get(status_key, ""))
                 if value is not None:
                     state[status_key] = value
+                attrs = (ha_state or {}).get("attributes") or {}
+                if status_key == "battery":
+                    voltage = _safe_float(attrs.get("voltage"))
+                    if voltage is not None and "voltage" not in state:
+                        state["voltage"] = voltage
         else:
             ha_state = fetch_state(ha_cfg.get("entity_id"), ha_cfg)
             any_online = _state_is_online(ha_state)
-            max_age = _state_age_sec(ha_state)
+            age = _state_age_sec(ha_state)
+            updated_iso = _state_updated_iso(ha_state)
+            if age is not None:
+                core_ages.append(age)
+            if updated_iso:
+                core_updated.append(updated_iso)
             attrs = (ha_state or {}).get("attributes") or {}
             default_map = {
                 "temp": "temperature",
@@ -276,6 +307,7 @@ def get_env_state(sensor_cfg, config=None):
                 "pm10": "pm10",
                 "pressure": "pressure",
                 "battery": "battery",
+                "voltage": "voltage",
                 "linkquality": "linkquality",
             }
             default_map.update(attribute_map)
@@ -293,11 +325,38 @@ def get_env_state(sensor_cfg, config=None):
         if "contact" in state and "contact_text" not in state:
             state["contact_text"] = "打开" if state.get("contact") else "关闭"
         if "light" in state and "light_text" not in state:
-            state["light_text"] = "强" if state.get("light") else "弱"
-        state["age_sec"] = max_age
-        state["online"] = bool(any_online) and (ignore_staleness or max_age is None or max_age <= int(ha_cfg.get("stale_after_sec") or 7200))
+            state["light_text"] = "亮" if state.get("light") else "暗"
+        state["age_sec"] = min(core_ages) if core_ages else None
+        state["max_age_sec"] = max(core_ages) if core_ages else None
+        if core_updated:
+            state["updated_at"] = max(core_updated)
+        stale_after = int(ha_cfg.get("stale_after_sec") or 7200)
+        if state.get("battery_age_sec") is not None:
+            state["battery_stale"] = bool(state["battery_age_sec"] > stale_after)
+        if state.get("voltage_age_sec") is not None:
+            state["voltage_stale"] = bool(state["voltage_age_sec"] > stale_after)
+        has_fresh_core = bool(core_ages) and min(core_ages) <= stale_after
+        has_any_core = bool(core_ages)
+        state["stale_after_sec"] = stale_after
+        state["stale"] = bool(any_online and has_any_core and not has_fresh_core and not ignore_staleness)
+        state["partial_stale"] = bool(any_online and has_fresh_core and any(age > stale_after for age in core_ages))
+        state["online"] = bool(any_online) and (ignore_staleness or not has_any_core or has_fresh_core)
+        if state["online"] and state.get("partial_stale"):
+            state["status_level"] = "online"
+            state["status_label"] = "在线"
+        elif state["online"]:
+            state["status_level"] = "online"
+            state["status_label"] = "在线"
+        elif state.get("stale"):
+            state["status_level"] = "stale"
+            state["status_label"] = "陈旧"
+        else:
+            state["status_level"] = "offline"
+            state["status_label"] = "离线"
     except Exception as exc:
         state["online"] = False
+        state["status_level"] = "error"
+        state["status_label"] = "异常"
         state["error"] = str(exc)
     return state
 
@@ -390,6 +449,10 @@ def control_hvac(device_cfg, action, config=None, **kwargs):
         service = "set_hvac_mode"
         domain = "climate"
         service_data["hvac_mode"] = kwargs.get("mode")
+    elif action == "set_fan_mode":
+        service = "set_fan_mode"
+        domain = "climate"
+        service_data["fan_mode"] = kwargs.get("fan_mode") or kwargs.get("fan_speed")
     else:
         raise RuntimeError(f"unsupported action: {action}")
 

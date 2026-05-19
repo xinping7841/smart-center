@@ -103,6 +103,23 @@ def _normalize_display_reset_for_save(next_meter_statistics, previous_meter_stat
     previous_enabled = bool(previous.get("display_reset_enabled", False))
     previous_from = str(previous.get("display_reset_from") or "").strip()
     reset_changed = enabled != previous_enabled or from_text != previous_from
+    previous_value = safe_float(previous_reset.get("value", 0.0), 0.0)
+    previous_captured_at = str(previous_reset.get("captured_at") or "").strip()
+    previous_meter_values = previous_reset.get("meter_values", {})
+    if not isinstance(previous_meter_values, dict):
+        previous_meter_values = {}
+    incoming_value = safe_float(current_reset.get("value", 0.0), 0.0)
+    incoming_captured_at = str(current_reset.get("captured_at") or "").strip()
+    incoming_meter_values = current_reset.get("meter_values", {})
+    incoming_has_baseline = incoming_value > 0 or bool(incoming_captured_at) or isinstance(incoming_meter_values, dict) and bool(incoming_meter_values)
+    should_keep_previous_baseline = (
+        enabled
+        and from_text
+        and not reset_changed
+        and previous_value > 0
+        and previous_captured_at
+        and not incoming_has_baseline
+    )
 
     if not enabled or not from_text:
         meter_statistics["display_reset_enabled"] = enabled
@@ -130,10 +147,16 @@ def _normalize_display_reset_for_save(next_meter_statistics, previous_meter_stat
         }
         return meter_statistics
 
-    value = safe_float(current_reset.get("value", previous_reset.get("value", 0.0)), 0.0)
-    captured_at = str(current_reset.get("captured_at") or previous_reset.get("captured_at") or "").strip()
-    pending = bool(current_reset.get("pending", previous_reset.get("pending", False)))
-    meter_values = current_reset.get("meter_values", previous_reset.get("meter_values", {}))
+    if should_keep_previous_baseline:
+        value = previous_value
+        captured_at = previous_captured_at
+        pending = False
+        meter_values = previous_meter_values
+    else:
+        value = safe_float(current_reset.get("value", previous_reset.get("value", 0.0)), 0.0)
+        captured_at = str(current_reset.get("captured_at") or previous_reset.get("captured_at") or "").strip()
+        pending = bool(current_reset.get("pending", previous_reset.get("pending", False)))
+        meter_values = current_reset.get("meter_values", previous_reset.get("meter_values", {}))
     if not isinstance(meter_values, dict):
         meter_values = {}
     if enabled and from_text and not captured_at and value <= 0:
@@ -150,6 +173,75 @@ def _normalize_display_reset_for_save(next_meter_statistics, previous_meter_stat
         "meter_values": meter_values,
     }
     return meter_statistics
+
+
+def _config_item_ids(items):
+    if not isinstance(items, list):
+        return set()
+    ids = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_id = str(item.get("id") or item.get("key") or "").strip()
+        if item_id:
+            ids.add(item_id)
+    return ids
+
+
+def _preserve_critical_config_for_save(new_config, previous_config):
+    """Keep known-good runtime sections when a stale config page submits partial data."""
+    if not isinstance(new_config, dict):
+        return ["request payload is not an object"]
+    previous_config = previous_config if isinstance(previous_config, dict) else {}
+    events = []
+
+    guarded_lists = {
+        "cabinets": {"label": "强电柜"},
+        "meters": {"label": "电表"},
+        "hvac_devices": {"label": "空调设备", "protected_prefixes": ("hvac_ha_",)},
+        "env_sensors": {
+            "label": "环境传感器",
+            "protected_ids": ("env_xiaomi_ha_temp_hum_01", "env_xiaomi_ha_contact_01"),
+        },
+        "automations": {"label": "自动化规则", "protected_prefixes": ("auto_",)},
+        "sequencers": {"label": "时序电源"},
+        "snmp_devices": {"label": "SNMP设备"},
+    }
+    for key, rule in guarded_lists.items():
+        previous_items = previous_config.get(key)
+        if not isinstance(previous_items, list) or not previous_items:
+            continue
+        incoming_items = new_config.get(key)
+        preserve_reason = ""
+        if not isinstance(incoming_items, list):
+            preserve_reason = "missing_or_not_list"
+        elif len(incoming_items) < len(previous_items):
+            preserve_reason = f"shrunk_{len(previous_items)}_to_{len(incoming_items)}"
+        else:
+            previous_ids = _config_item_ids(previous_items)
+            incoming_ids = _config_item_ids(incoming_items)
+            protected_ids = set(rule.get("protected_ids") or ())
+            for item_id in previous_ids:
+                if any(item_id.startswith(prefix) for prefix in (rule.get("protected_prefixes") or ())):
+                    protected_ids.add(item_id)
+            missing_ids = sorted(protected_ids - incoming_ids)
+            if missing_ids:
+                preserve_reason = "missing_protected_ids:" + ",".join(missing_ids[:8])
+        if preserve_reason:
+            new_config[key] = deepcopy(previous_items)
+            events.append(f"{rule.get('label', key)}({key}) {preserve_reason}")
+
+    previous_meter_statistics = previous_config.get("meter_statistics")
+    incoming_meter_statistics = new_config.get("meter_statistics")
+    if isinstance(previous_meter_statistics, dict) and previous_meter_statistics:
+        if not isinstance(incoming_meter_statistics, dict) or not incoming_meter_statistics:
+            new_config["meter_statistics"] = deepcopy(previous_meter_statistics)
+            events.append("电表统计(meter_statistics) missing_or_empty")
+        else:
+            merged_meter_statistics = deepcopy(previous_meter_statistics)
+            merged_meter_statistics.update(incoming_meter_statistics)
+            new_config["meter_statistics"] = merged_meter_statistics
+    return events
 
 
 def _safe_cab_ui_text(cab, key, fallback):
@@ -480,6 +572,9 @@ def config_page():
 def api_config_save():
     try:
         new_config = request.json
+        if not isinstance(new_config, dict):
+            return jsonify(ok=0, msg="配置保存数据格式错误"), 400
+        guard_events = _preserve_critical_config_for_save(new_config, CONFIG)
         previous_meter_statistics = dict(CONFIG.get("meter_statistics", {}) or {})
         for cab in new_config.get("cabinets", []):
             if "ui_text" not in cab:
@@ -550,6 +645,13 @@ def api_config_save():
                 "cabinet_gateway_sync": bool(cabinet_gateway_sync and cabinet_gateway_sync.get("ok")),
             },
         )
+        if guard_events:
+            add_log(-1, "[system] config save guard preserved: " + "; ".join(guard_events))
+            log_audit_event(
+                "config.save.guard",
+                target="system_config",
+                detail={"preserved": guard_events},
+            )
         return jsonify(ok=1, remote_sync=remote_sync_result, cabinet_gateway_sync=cabinet_gateway_sync)
     except Exception as exc:
         log_audit_event("config.save", target="system_config", detail={"error": str(exc)}, status="error")
@@ -886,7 +988,13 @@ def api_set():
             "on": bool(on),
             "result_ok": bool((result or {}).get("ok")),
             "result_ignored": bool((result or {}).get("ignored")),
+            "verified": bool((result or {}).get("verified")),
+            "write_ack": bool((result or {}).get("write_ack")),
+            "fast_write_ack": bool((result or {}).get("fast_write_ack")),
+            "fallback_write_ack": bool((result or {}).get("fallback_write_ack")),
             "result_msg": (result or {}).get("msg", ""),
+            "gateway_source": (result or {}).get("gateway_source", "") or (((result or {}).get("status") or {}).get("gateway_source", "")),
+            "runtime_error": (result or {}).get("runtime_error", "") or (((result or {}).get("status") or {}).get("runtime_error", "")),
             "status_channels": ((result or {}).get("status") or {}).get("channels_1_4"),
         })
         ok = bool((result or {}).get("ok"))
@@ -906,6 +1014,12 @@ def api_set():
             )
         return jsonify(result or {"ok": 1 if ok else 0})
     except Exception as exc:
+        _append_power_control_trace("120_api_set_exception", {
+            "cab": cab,
+            "ch": ch,
+            "on": bool(on),
+            "error": str(exc),
+        })
         return jsonify(ok=0, msg=str(exc))
     finally:
         release_operation_lock(lock_key, current_user.username)

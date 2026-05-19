@@ -4,6 +4,7 @@ import json
 import os
 import sqlite3
 from pathlib import Path
+import threading
 import urllib.request
 import time
 from copy import deepcopy
@@ -64,6 +65,14 @@ METER_ALERT_LOG_CACHE = {}
 METER_ALERT_LOG_TTL_SEC = 12 * 60 * 60
 GARBLED_TOKENS = ("锛", "馃", "寮€", "闂", "鎿", "鍚", "鏂", "鐏", "绯荤粺", "涓€", "閫氶亾")
 POWER_CONTROL_TRACE_FILE = RUNTIME_DIR / "power_control_trace.log"
+CONFIG_SAVE_SYNC_TRACE_FILE = RUNTIME_DIR / "config_save_sync_trace.log"
+CONFIG_SAVE_SYNC_LOCK = threading.Lock()
+CONFIG_SAVE_SYNC_STATE = {
+    "running": False,
+    "last_started_at": "",
+    "last_finished_at": "",
+    "last_result": None,
+}
 
 
 def _append_power_control_trace(stage, payload):
@@ -79,6 +88,69 @@ def _append_power_control_trace(stage, payload):
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
     except Exception:
         pass
+
+
+def _append_config_sync_trace(stage, payload):
+    try:
+        ensure_parent_dir(CONFIG_SAVE_SYNC_TRACE_FILE)
+        row = {
+            "time": datetime.now().isoformat(timespec="seconds"),
+            "stage": str(stage or ""),
+        }
+        if isinstance(payload, dict):
+            row.update(payload)
+        with open(CONFIG_SAVE_SYNC_TRACE_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+
+
+def _run_config_sync_background(sync_payload, *, sync_remote_meter=False, sync_cabinet_gateway=False):
+    def worker():
+        result = {"remote_sync": None, "cabinet_gateway_sync": None}
+        started_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with CONFIG_SAVE_SYNC_LOCK:
+            CONFIG_SAVE_SYNC_STATE.update({
+                "running": True,
+                "last_started_at": started_at,
+                "last_finished_at": "",
+                "last_result": None,
+            })
+        _append_config_sync_trace("start", {
+            "remote_meter": bool(sync_remote_meter),
+            "cabinet_gateway": bool(sync_cabinet_gateway),
+        })
+        try:
+            if sync_remote_meter:
+                try:
+                    result["remote_sync"] = push_remote_meter_config(sync_payload)
+                except Exception as sync_error:
+                    result["remote_sync"] = {"ok": 0, "msg": str(sync_error)}
+            if sync_cabinet_gateway:
+                cabinet_payload = {
+                    "cabinets": sync_payload.get("cabinets", []),
+                    "meter_statistics": sync_payload.get("meter_statistics", {}),
+                    "synced_at": sync_payload.get("synced_at"),
+                }
+                try:
+                    result["cabinet_gateway_sync"] = push_remote_cabinet_config(cabinet_payload)
+                except Exception as sync_error:
+                    result["cabinet_gateway_sync"] = {"ok": 0, "msg": str(sync_error)}
+            _append_config_sync_trace("finish", result)
+        finally:
+            with CONFIG_SAVE_SYNC_LOCK:
+                CONFIG_SAVE_SYNC_STATE.update({
+                    "running": False,
+                    "last_finished_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "last_result": result,
+                })
+
+    with CONFIG_SAVE_SYNC_LOCK:
+        if CONFIG_SAVE_SYNC_STATE.get("running"):
+            return {"ok": 1, "pending": True, "already_running": True, "msg": "已有配置同步任务正在后台执行"}
+    thread = threading.Thread(target=worker, name="config-save-sync", daemon=True)
+    thread.start()
+    return {"ok": 1, "pending": True, "msg": "远程配置同步已转入后台执行"}
 
 
 def _looks_garbled_text(value):
@@ -103,6 +175,23 @@ def _normalize_display_reset_for_save(next_meter_statistics, previous_meter_stat
     previous_enabled = bool(previous.get("display_reset_enabled", False))
     previous_from = str(previous.get("display_reset_from") or "").strip()
     reset_changed = enabled != previous_enabled or from_text != previous_from
+    previous_value = safe_float(previous_reset.get("value", 0.0), 0.0)
+    previous_captured_at = str(previous_reset.get("captured_at") or "").strip()
+    previous_meter_values = previous_reset.get("meter_values", {})
+    if not isinstance(previous_meter_values, dict):
+        previous_meter_values = {}
+    incoming_value = safe_float(current_reset.get("value", 0.0), 0.0)
+    incoming_captured_at = str(current_reset.get("captured_at") or "").strip()
+    incoming_meter_values = current_reset.get("meter_values", {})
+    incoming_has_baseline = incoming_value > 0 or bool(incoming_captured_at) or isinstance(incoming_meter_values, dict) and bool(incoming_meter_values)
+    should_keep_previous_baseline = (
+        enabled
+        and from_text
+        and not reset_changed
+        and previous_value > 0
+        and previous_captured_at
+        and not incoming_has_baseline
+    )
 
     if not enabled or not from_text:
         meter_statistics["display_reset_enabled"] = enabled
@@ -130,10 +219,16 @@ def _normalize_display_reset_for_save(next_meter_statistics, previous_meter_stat
         }
         return meter_statistics
 
-    value = safe_float(current_reset.get("value", previous_reset.get("value", 0.0)), 0.0)
-    captured_at = str(current_reset.get("captured_at") or previous_reset.get("captured_at") or "").strip()
-    pending = bool(current_reset.get("pending", previous_reset.get("pending", False)))
-    meter_values = current_reset.get("meter_values", previous_reset.get("meter_values", {}))
+    if should_keep_previous_baseline:
+        value = previous_value
+        captured_at = previous_captured_at
+        pending = False
+        meter_values = previous_meter_values
+    else:
+        value = safe_float(current_reset.get("value", previous_reset.get("value", 0.0)), 0.0)
+        captured_at = str(current_reset.get("captured_at") or previous_reset.get("captured_at") or "").strip()
+        pending = bool(current_reset.get("pending", previous_reset.get("pending", False)))
+        meter_values = current_reset.get("meter_values", previous_reset.get("meter_values", {}))
     if not isinstance(meter_values, dict):
         meter_values = {}
     if enabled and from_text and not captured_at and value <= 0:
@@ -150,6 +245,75 @@ def _normalize_display_reset_for_save(next_meter_statistics, previous_meter_stat
         "meter_values": meter_values,
     }
     return meter_statistics
+
+
+def _config_item_ids(items):
+    if not isinstance(items, list):
+        return set()
+    ids = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_id = str(item.get("id") or item.get("key") or "").strip()
+        if item_id:
+            ids.add(item_id)
+    return ids
+
+
+def _preserve_critical_config_for_save(new_config, previous_config):
+    """Keep known-good runtime sections when a stale config page submits partial data."""
+    if not isinstance(new_config, dict):
+        return ["request payload is not an object"]
+    previous_config = previous_config if isinstance(previous_config, dict) else {}
+    events = []
+
+    guarded_lists = {
+        "cabinets": {"label": "强电柜"},
+        "meters": {"label": "电表"},
+        "hvac_devices": {"label": "空调设备", "protected_prefixes": ("hvac_ha_",)},
+        "env_sensors": {
+            "label": "环境传感器",
+            "protected_ids": ("env_xiaomi_ha_temp_hum_01", "env_xiaomi_ha_contact_01"),
+        },
+        "automations": {"label": "自动化规则", "protected_prefixes": ("auto_",)},
+        "sequencers": {"label": "时序电源"},
+        "snmp_devices": {"label": "SNMP设备"},
+    }
+    for key, rule in guarded_lists.items():
+        previous_items = previous_config.get(key)
+        if not isinstance(previous_items, list) or not previous_items:
+            continue
+        incoming_items = new_config.get(key)
+        preserve_reason = ""
+        if not isinstance(incoming_items, list):
+            preserve_reason = "missing_or_not_list"
+        elif len(incoming_items) < len(previous_items):
+            preserve_reason = f"shrunk_{len(previous_items)}_to_{len(incoming_items)}"
+        else:
+            previous_ids = _config_item_ids(previous_items)
+            incoming_ids = _config_item_ids(incoming_items)
+            protected_ids = set(rule.get("protected_ids") or ())
+            for item_id in previous_ids:
+                if any(item_id.startswith(prefix) for prefix in (rule.get("protected_prefixes") or ())):
+                    protected_ids.add(item_id)
+            missing_ids = sorted(protected_ids - incoming_ids)
+            if missing_ids:
+                preserve_reason = "missing_protected_ids:" + ",".join(missing_ids[:8])
+        if preserve_reason:
+            new_config[key] = deepcopy(previous_items)
+            events.append(f"{rule.get('label', key)}({key}) {preserve_reason}")
+
+    previous_meter_statistics = previous_config.get("meter_statistics")
+    incoming_meter_statistics = new_config.get("meter_statistics")
+    if isinstance(previous_meter_statistics, dict) and previous_meter_statistics:
+        if not isinstance(incoming_meter_statistics, dict) or not incoming_meter_statistics:
+            new_config["meter_statistics"] = deepcopy(previous_meter_statistics)
+            events.append("电表统计(meter_statistics) missing_or_empty")
+        else:
+            merged_meter_statistics = deepcopy(previous_meter_statistics)
+            merged_meter_statistics.update(incoming_meter_statistics)
+            new_config["meter_statistics"] = merged_meter_statistics
+    return events
 
 
 def _safe_cab_ui_text(cab, key, fallback):
@@ -293,6 +457,21 @@ def _merge_log_payloads(primary_logs, secondary_logs, limit=240):
         reverse=True,
     )
     return merged[: max(int(limit or 0), 1)]
+
+
+def _sort_log_payloads(log_rows, limit=None):
+    rows = [dict(row or {}) for row in list(log_rows or [])]
+    rows.sort(
+        key=lambda row: (
+            _parse_log_time_iso(row.get("time")) is not None,
+            _parse_log_time_iso(row.get("time")) or datetime.min,
+            str(row.get("time") or ""),
+        ),
+        reverse=True,
+    )
+    if limit is None:
+        return rows
+    return rows[: max(int(limit or 0), 1)]
 
 
 def _filter_logs_by_cab(log_rows, cab_idx):
@@ -480,8 +659,12 @@ def config_page():
 def api_config_save():
     try:
         new_config = request.json
+        if not isinstance(new_config, dict):
+            return jsonify(ok=0, msg="配置保存数据格式错误"), 400
+        guard_events = _preserve_critical_config_for_save(new_config, CONFIG)
         previous_meter_statistics = dict(CONFIG.get("meter_statistics", {}) or {})
-        for cab in new_config.get("cabinets", []):
+        previous_cabinets = CONFIG.get("cabinets", []) or []
+        for cab_idx, cab in enumerate(new_config.get("cabinets", [])):
             if "ui_text" not in cab:
                 cab["ui_text"] = DEFAULT_UI_TEXT.copy()
             if "channel_count" not in cab:
@@ -490,6 +673,20 @@ def api_config_save():
                 cab["meter_include_in_totals"] = False
             if "meter_include_in_reports" not in cab:
                 cab["meter_include_in_reports"] = True
+            previous_channels = {}
+            if 0 <= cab_idx < len(previous_cabinets):
+                previous_channels = {
+                    int(item.get("channel") or 0): item
+                    for item in (previous_cabinets[cab_idx].get("channels_config", []) or [])
+                    if isinstance(item, dict)
+                }
+            for channel_cfg in cab.get("channels_config", []) or []:
+                channel_num = int(channel_cfg.get("channel") or 0)
+                previous_remark = str((previous_channels.get(channel_num) or {}).get("remark") or "")
+                if "remark" not in channel_cfg and previous_remark:
+                    channel_cfg["remark"] = previous_remark
+                elif channel_cfg.get("remark") is None:
+                    channel_cfg["remark"] = ""
 
         for meter in new_config.get("meters", []):
             if meter.get("visible_in_meter_center", meter.get("visible", True)) is False:
@@ -514,31 +711,34 @@ def api_config_save():
         remote_sync_result = None
         cabinet_gateway_sync = None
         meter_statistics = CONFIG.get("meter_statistics", {}) or {}
-        if bool(meter_statistics.get("remote_service_enabled", False)) and bool(
+        sync_remote_meter = bool(meter_statistics.get("remote_service_enabled", False)) and bool(
             meter_statistics.get("remote_sync_on_save", False)
-        ):
+        )
+        sync_cabinet_gateway = bool(meter_statistics.get("cabinet_gateway_sync_on_save", False)) and bool(get_cabinet_gateway_base())
+        if sync_remote_meter or sync_cabinet_gateway:
             sync_payload = {
-                "cabinets": new_config.get("cabinets", []),
-                "meters": new_config.get("meters", []),
-                "meter_statistics": new_config.get("meter_statistics", {}),
+                "cabinets": deepcopy(new_config.get("cabinets", [])),
+                "meters": deepcopy(new_config.get("meters", [])),
+                "meter_statistics": deepcopy(new_config.get("meter_statistics", {})),
                 "synced_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
-            try:
-                remote_sync_result = push_remote_meter_config(sync_payload)
-            except Exception as sync_error:
-                remote_sync_result = {"ok": 0, "msg": str(sync_error)}
+            sync_task = _run_config_sync_background(
+                sync_payload,
+                sync_remote_meter=sync_remote_meter,
+                sync_cabinet_gateway=sync_cabinet_gateway,
+            )
+            if sync_remote_meter:
+                remote_sync_result = sync_task
+            if sync_cabinet_gateway:
+                cabinet_gateway_sync = sync_task
 
-        if bool(meter_statistics.get("cabinet_gateway_sync_on_save", False)) and get_cabinet_gateway_base():
-            sync_payload = {
-                "cabinets": new_config.get("cabinets", []),
-                "meter_statistics": new_config.get("meter_statistics", {}),
-                "synced_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            }
-            try:
-                cabinet_gateway_sync = push_remote_cabinet_config(sync_payload)
-            except Exception as sync_error:
-                cabinet_gateway_sync = {"ok": 0, "msg": str(sync_error)}
-
+        if guard_events:
+            add_log(-1, "[system] config save guard preserved: " + "; ".join(guard_events))
+            log_audit_event(
+                "config.save.guard",
+                target="system_config",
+                detail={"preserved": guard_events},
+            )
         add_log(-1, "[system] config saved and hot reloaded")
         log_audit_event(
             "config.save",
@@ -547,13 +747,22 @@ def api_config_save():
                 "cabinet_count": len(new_config.get("cabinets", [])),
                 "meter_count": len(new_config.get("meters", [])),
                 "remote_sync": bool(remote_sync_result and remote_sync_result.get("ok")),
+                "remote_sync_pending": bool(remote_sync_result and remote_sync_result.get("pending")),
                 "cabinet_gateway_sync": bool(cabinet_gateway_sync and cabinet_gateway_sync.get("ok")),
+                "cabinet_gateway_sync_pending": bool(cabinet_gateway_sync and cabinet_gateway_sync.get("pending")),
             },
         )
         return jsonify(ok=1, remote_sync=remote_sync_result, cabinet_gateway_sync=cabinet_gateway_sync)
     except Exception as exc:
         log_audit_event("config.save", target="system_config", detail={"error": str(exc)}, status="error")
         return jsonify(ok=0, msg=str(exc))
+
+
+@bp.route("/api/config/sync_status")
+@require_permission("meter.config")
+def api_config_sync_status():
+    with CONFIG_SAVE_SYNC_LOCK:
+        return jsonify(ok=1, **deepcopy(CONFIG_SAVE_SYNC_STATE))
 
 
 @bp.route("/api/status")
@@ -886,7 +1095,13 @@ def api_set():
             "on": bool(on),
             "result_ok": bool((result or {}).get("ok")),
             "result_ignored": bool((result or {}).get("ignored")),
+            "verified": bool((result or {}).get("verified")),
+            "write_ack": bool((result or {}).get("write_ack")),
+            "fast_write_ack": bool((result or {}).get("fast_write_ack")),
+            "fallback_write_ack": bool((result or {}).get("fallback_write_ack")),
             "result_msg": (result or {}).get("msg", ""),
+            "gateway_source": (result or {}).get("gateway_source", "") or (((result or {}).get("status") or {}).get("gateway_source", "")),
+            "runtime_error": (result or {}).get("runtime_error", "") or (((result or {}).get("status") or {}).get("runtime_error", "")),
             "status_channels": ((result or {}).get("status") or {}).get("channels_1_4"),
         })
         ok = bool((result or {}).get("ok"))
@@ -906,6 +1121,12 @@ def api_set():
             )
         return jsonify(result or {"ok": 1 if ok else 0})
     except Exception as exc:
+        _append_power_control_trace("120_api_set_exception", {
+            "cab": cab,
+            "ch": ch,
+            "on": bool(on),
+            "error": str(exc),
+        })
         return jsonify(ok=0, msg=str(exc))
     finally:
         release_operation_lock(lock_key, current_user.username)
@@ -980,7 +1201,7 @@ def api_logs():
                 _decorate_logs(fetch_remote_cabinet_logs(cab_idx), cab_idx, "remote_cabinet_gateway"),
                 cab_idx,
             )
-            return jsonify(remote_payload)
+            return jsonify(_sort_log_payloads(remote_payload))
         except Exception:
             return jsonify([])
     cache_key = "all" if cab_idx is None else str(cab_idx)
@@ -1006,6 +1227,7 @@ def api_logs():
             payload = None
     if payload is None:
         payload = local_payload
+    payload = _sort_log_payloads(payload, limit=240)
     LOG_RESPONSE_CACHE[cache_key] = {"expires_at": now_ts + LOG_RESPONSE_TTL_SEC, "payload": payload}
     return jsonify(payload)
 

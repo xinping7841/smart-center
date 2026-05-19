@@ -48,6 +48,8 @@ DEFAULT_SEQUENCER_INFO = {
 SEQUENCER_STATUS = {}
 _SERIAL_LOCKS = {}
 _DEVICE_IO_LOCKS = {}
+_STATE_CHANGE_LOG_CACHE = {}
+_STATE_CHANGE_VALUE_CACHE = {}
 
 
 def get_serial_lock(com_port):
@@ -81,6 +83,66 @@ def frame_to_hex(data):
     if not data:
         return ""
     return data.hex(" ").upper()
+
+
+def _display_bool_state(value):
+    return "开" if bool(value) else "关"
+
+
+def _channel_label_from_config(seq, ch_num):
+    for item in (seq or {}).get("channels_config", []) or []:
+        try:
+            if int(item.get("channel", 0) or 0) != int(ch_num):
+                continue
+        except Exception:
+            continue
+        name = str(item.get("name") or "").strip()
+        remark = str(item.get("remark") or item.get("usage") or item.get("description") or "").strip()
+        if name and remark and remark not in name:
+            return f"{name}({remark})"
+        if name:
+            return name
+        if remark:
+            return remark
+    return f"第{ch_num}路"
+
+
+def _changed_channel_text(previous, current, seq):
+    if not isinstance(previous, list) or not isinstance(current, list):
+        return ""
+    if not previous or not current:
+        return ""
+    pieces = []
+    for idx, (old_value, new_value) in enumerate(zip(previous, current), start=1):
+        if old_value is None or new_value is None:
+            continue
+        if bool(old_value) == bool(new_value):
+            continue
+        pieces.append(f"{_channel_label_from_config(seq, idx)} {_display_bool_state(old_value)}->{_display_bool_state(new_value)}")
+    return "、".join(pieces)
+
+
+def _observed_channel_change_text(cache_key, current, seq):
+    if not isinstance(current, list) or not current:
+        return ""
+    normalized = [None if item is None else bool(item) for item in current]
+    previous = _STATE_CHANGE_VALUE_CACHE.get(cache_key)
+    _STATE_CHANGE_VALUE_CACHE[cache_key] = list(normalized)
+    if previous is None:
+        return ""
+    return _changed_channel_text(list(previous), normalized, seq)
+
+
+def _record_detected_change(cache_key, message, min_interval_sec=1.5):
+    text = str(message or "").strip()
+    if not text:
+        return
+    now_ts = time.time()
+    previous = _STATE_CHANGE_LOG_CACHE.get(cache_key) or {}
+    if previous.get("message") == text and (now_ts - float(previous.get("ts", 0.0) or 0.0)) < min_interval_sec:
+        return
+    _STATE_CHANGE_LOG_CACHE[cache_key] = {"message": text, "ts": now_ts}
+    add_log(-1, text)
 
 
 def extract_status_frame(response):
@@ -381,6 +443,14 @@ def poll_sequencer_once(seq, retries=2, retry_delay=0.12):
                 state["locked"] = parsed["locked"]
                 state["running"] = parsed["running"]
                 state["channels"] = parsed["channels"]
+                seq_id = str(seq.get("id") or seq.get("ip") or seq.get("name") or "")
+                changed_text = _observed_channel_change_text(f"sequencer:{seq_id}:channels:observed", parsed["channels"], seq)
+                if changed_text:
+                    seq_name = str(seq.get("name") or seq_id or "时序电源")
+                    _record_detected_change(
+                        f"sequencer:{seq_id}:channels",
+                        f"[状态变化][时序电源] {seq_name} {changed_text}（外部/轮询识别）",
+                    )
                 state["mode"] = "时序模式"
                 state["error"] = ""
                 state["last_action"] = "轮询更新"
@@ -413,61 +483,212 @@ def poll_sequencer_once(seq, retries=2, retry_delay=0.12):
             return state
 
 
+def channels_match(channels, expected):
+    if not isinstance(channels, list) or not isinstance(expected, list):
+        return False
+    if len(channels) < len(expected):
+        return False
+    return all(bool(channels[idx]) == bool(value) for idx, value in enumerate(expected))
+
+
+def channel_matches(channels, channel, expected_on):
+    if not isinstance(channels, list):
+        return False
+    index = int(channel) - 1
+    if index < 0 or index >= len(channels):
+        return False
+    return bool(channels[index]) == bool(expected_on)
+
+
+def poll_until_confirmed(seq, expected_channels=None, channel=None, expected_on=None, attempts=3, retry_delay=0.16):
+    state = get_or_init_status(seq)
+    for attempt in range(max(1, int(attempts))):
+        if attempt > 0:
+            time.sleep(retry_delay * attempt)
+        state = poll_sequencer_once(seq, retries=1, retry_delay=0.1)
+        channels = state.get("channels") or []
+        if expected_channels is not None and channels_match(channels, expected_channels):
+            return True, state
+        if channel is not None and channel_matches(channels, channel, expected_on):
+            return True, state
+        if expected_channels is None and channel is None and state.get("online"):
+            return True, state
+    return False, state
+
+
+def set_control_state_fields(state, command, response, action_text):
+    state["last_command_hex"] = frame_to_hex(command)
+    state["last_response_hex"] = frame_to_hex(response)
+    state["last_action"] = action_text
+    state["updated_at"] = datetime.now().isoformat()
+
+
 def control_sequencer(seq, action, channel=None):
     address = int(seq.get("address", 1))
+    channel_count = int(seq.get("channel_count", 8))
+    step_delay = max(0.12, min(1.5, float(int(seq.get("sequence_delay_ms", 500) or 500)) / 1000.0))
+    settle_delay = max(0.18, min(0.65, step_delay * 0.5))
+    retry_delay = max(0.16, min(0.5, step_delay * 0.45))
+    confirm_attempts = 3 if action in ("sequence_on", "sequence_off", "all_on", "all_off") else 2
+    state = get_or_init_status(seq)
+    # Refresh before control so toggle actions use the real device state, not a stale cache.
+    if action in ("toggle_channel", "toggle_lock", "sequence_on", "sequence_off", "all_on", "all_off"):
+        poll_sequencer_once(seq, retries=2, retry_delay=0.12)
+    current_channels = list((state.get("channels") or [False] * channel_count)[:channel_count])
+    if len(current_channels) < channel_count:
+        current_channels += [False] * (channel_count - len(current_channels))
+
+    steps = []
     if action == "toggle_channel":
         if not channel:
             raise ValueError("缺少通道号")
-        current = get_or_init_status(seq)["channels"]
-        is_on = not bool(current[channel - 1])
+        is_on = not bool(current_channels[channel - 1])
         frame = build_short_frame(address, 0xA0 if is_on else 0xA1, 0x00, int(channel))
         action_text = f"第{channel}路{'开启' if is_on else '关闭'}"
+        steps = [{"frame": frame, "channel": int(channel), "expected_on": is_on, "label": action_text}]
     elif action == "channel_on":
         if not channel:
             raise ValueError("缺少通道号")
         frame = build_short_frame(address, 0xA0, 0x00, int(channel))
         action_text = f"第{channel}路开启"
+        steps = [{"frame": frame, "channel": int(channel), "expected_on": True, "label": action_text}]
     elif action == "channel_off":
         if not channel:
             raise ValueError("缺少通道号")
         frame = build_short_frame(address, 0xA1, 0x00, int(channel))
         action_text = f"第{channel}路关闭"
+        steps = [{"frame": frame, "channel": int(channel), "expected_on": False, "label": action_text}]
     elif action == "sequence_on":
-        frame = build_short_frame(address, 0xA4, 0x00, 0x00)
+        repair_steps = [
+            {"frame": build_short_frame(address, 0xA0, 0x00, ch), "channel": ch, "expected_on": True, "label": f"第{ch}路开启"}
+            for ch in range(1, channel_count + 1)
+        ]
+        steps = [{
+            "frame": build_short_frame(address, 0xA4, 0x00, 0x00),
+            "expected_channels": [True] * channel_count,
+            "label": "顺序开启",
+            "post_delay": max(step_delay * channel_count + 0.35, 1.2),
+            "max_attempts": 1,
+            "repair_steps": repair_steps,
+        }]
         action_text = "顺序开启"
     elif action == "sequence_off":
-        frame = build_short_frame(address, 0xA5, 0x00, 0x00)
-        action_text = "逆序关闭"
+        repair_steps = [
+            {"frame": build_short_frame(address, 0xA1, 0x00, ch), "channel": ch, "expected_on": False, "label": f"第{ch}路关闭"}
+            for ch in range(channel_count, 0, -1)
+        ]
+        steps = [{
+            "frame": build_short_frame(address, 0xA5, 0x00, 0x00),
+            "expected_channels": [False] * channel_count,
+            "label": "顺序关闭",
+            "post_delay": max(step_delay * channel_count + 0.35, 1.2),
+            "max_attempts": 1,
+            "repair_steps": repair_steps,
+        }]
+        action_text = "顺序关闭"
     elif action == "all_on":
-        frame = build_short_frame(address, 0xA2, 0x00, 0x00)
+        # DS-608 all-channel immediate command uses broadcast address 00.
+        frame = build_short_frame(0x00, 0xAC, 0x00, 0x00)
         action_text = "全部开启"
+        steps = [{"frame": frame, "expected_channels": [True] * channel_count, "label": action_text}]
     elif action == "all_off":
-        frame = build_short_frame(address, 0xA3, 0x00, 0x00)
+        # DS-608 all-channel immediate command uses broadcast address 00.
+        frame = build_short_frame(0x00, 0xAD, 0x00, 0x00)
         action_text = "全部关闭"
+        steps = [{"frame": frame, "expected_channels": [False] * channel_count, "label": action_text}]
     elif action == "toggle_lock":
-        state = get_or_init_status(seq)
         lock_on = not bool(state.get("locked", False))
         frame = bytes.fromhex(f"55 {address:02X} AE {'AA 00 05' if lock_on else '55 00 FA'}")
         action_text = "锁定设备" if lock_on else "解除锁定"
+        steps = [{"frame": frame, "label": action_text}]
     else:
         raise ValueError("不支持的操作")
 
-    state = get_or_init_status(seq)
-    settle_delay = max(0.18, min(0.65, float(int(seq.get("sequence_delay_ms", 500) or 500)) / 1000.0 * 0.5))
+    ok_all = True
+    failed_steps = []
+    commands = []
+    responses = []
     with get_device_io_lock(seq):
-        ok, response = send_frame(seq, frame, expect_reply=True, timeout=0.45)
-        state["last_command_hex"] = frame_to_hex(frame)
-        state["last_response_hex"] = frame_to_hex(response)
+        if action == "sequence_on" and not any(current_channels):
+            time.sleep(max(0.75, step_delay))
+        def execute_step(step, idx=0, total=1):
+            step_ok = False
+            frame = step["frame"]
+            last_response = b""
+            step_attempts = int(step.get("max_attempts", confirm_attempts) or confirm_attempts)
+            for attempt in range(step_attempts):
+                ok, response = send_frame(seq, frame, expect_reply=True, timeout=0.95)
+                last_response = response
+                commands.append(frame)
+                responses.append(response)
+                set_control_state_fields(state, frame, response, action_text)
+                time.sleep(float(step.get("post_delay", settle_delay) or settle_delay))
+
+                if "expected_channels" in step:
+                    confirmed, _ = poll_until_confirmed(
+                        seq,
+                        expected_channels=step["expected_channels"],
+                        attempts=2,
+                        retry_delay=retry_delay,
+                    )
+                elif "channel" in step:
+                    confirmed, _ = poll_until_confirmed(
+                        seq,
+                        channel=step["channel"],
+                        expected_on=step["expected_on"],
+                        attempts=2,
+                        retry_delay=retry_delay,
+                    )
+                else:
+                    confirmed = bool(ok and (is_ack_response(response) or response))
+
+                if confirmed:
+                    step_ok = True
+                    break
+                if attempt < step_attempts - 1:
+                    time.sleep(retry_delay * (attempt + 1))
+
+            if not step_ok and step.get("repair_steps"):
+                repair_ok = True
+                for repair_idx, repair_step in enumerate(step.get("repair_steps") or []):
+                    if not execute_step(repair_step, repair_idx, len(step.get("repair_steps") or [])):
+                        repair_ok = False
+                if repair_ok:
+                    if "expected_channels" in step:
+                        step_ok, _ = poll_until_confirmed(
+                            seq,
+                            expected_channels=step["expected_channels"],
+                            attempts=3,
+                            retry_delay=retry_delay,
+                        )
+                    else:
+                        step_ok = True
+
+            if not step_ok:
+                failed_steps.append(step.get("label") or frame_to_hex(frame))
+            set_control_state_fields(state, frame, last_response, action_text)
+            if idx < total - 1:
+                time.sleep(step_delay)
+            return step_ok
+
+        for idx, step in enumerate(steps):
+            step_ok = execute_step(step, idx, len(steps))
+            ok_all = ok_all and step_ok
         state["last_action"] = action_text
         state["updated_at"] = datetime.now().isoformat()
         if settle_delay > 0:
             time.sleep(settle_delay)
         poll_sequencer_once(seq, retries=3, retry_delay=0.14)
+        state["last_action"] = action_text if ok_all else f"{action_text}未完全确认"
+        state["error"] = "" if ok_all else f"未确认: {'、'.join(failed_steps)}"
     add_log(-1, build_log_message(seq, action_text))
+    command_text = " ; ".join(frame_to_hex(item) for item in commands)
+    response_text = " ; ".join(frame_to_hex(item) for item in responses)
     return {
-        "success": ok,
-        "command": frame_to_hex(frame),
-        "response": frame_to_hex(response),
+        "success": ok_all,
+        "command": command_text,
+        "response": response_text,
+        "message": "执行完成并已确认状态" if ok_all else f"部分动作未确认: {'、'.join(failed_steps)}",
         "state": get_or_init_status(seq),
     }
 
@@ -584,7 +805,14 @@ def api_sequencer_control():
             target=seq_id,
             detail={"id": seq_id, "action": action, "channel": channel, "command": result["command"]},
         )
-        return jsonify({"success": True, "command": result["command"], "response": result["response"], "device": snapshot(seq)})
+        status_code = 200 if result.get("success") else 409
+        return jsonify({
+            "success": bool(result.get("success")),
+            "message": result.get("message", ""),
+            "command": result["command"],
+            "response": result["response"],
+            "device": snapshot(seq),
+        }), status_code
     except Exception as exc:
         log_audit_event(
             "sequencer.control",
@@ -627,13 +855,13 @@ def api_sequencer_test():
             result = control_sequencer(seq, test_type, channel)
             device = snapshot(seq)
             return jsonify({
-                "success": True,
+                "success": bool(result.get("success")),
                 "message": f"已执行第{channel}路{'开启' if test_type == 'channel_on' else '关闭'}测试",
                 "command": result["command"],
                 "response": result["response"],
                 "device": device,
                 "channel_summary": summarize_channels([item.get("state") for item in (device.get("channels") or [])]),
-            })
+            }), 200 if result.get("success") else 409
 
         result = run_connectivity_test(seq)
         return jsonify(result)

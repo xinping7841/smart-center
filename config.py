@@ -1,5 +1,6 @@
 import json
 import os
+import tempfile
 from datetime import datetime
 from copy import deepcopy
 from urllib.parse import urlsplit, urlunsplit
@@ -351,11 +352,17 @@ DEFAULT_ENV_FEATURES = {
     "temperature": True,
     "humidity": True,
     "illuminance": True,
+    "contact": True,
+    "light": True,
+    "battery": True,
+    "voltage": True,
     "noise": False,
     "pm25": False,
     "pm10": False,
     "pressure": False
 }
+
+DEFAULT_ENV_PRIMARY_METRIC = "auto"
 
 DEFAULT_ENV_MQTT = {
     "host": "127.0.0.1",
@@ -398,6 +405,8 @@ DEFAULT_HOME_ASSISTANT = {
 DEFAULT_HVAC_DEVICE = {
     "id": "hvac_miio_1",
     "name": "米家空调伴侣2",
+    "room_name": "",
+    "sort_order": 999,
     "brand": "Xiaomi",
     "model": "",
     "protocol": "miio",
@@ -477,8 +486,28 @@ DEFAULT_PROXY_MONITOR = {
     "host": "192.168.50.121",
     "port": 3128,
     "timeout_sec": 6.0,
-    "poll_interval_sec": 20.0,
-    "check_urls": ["https://www.google.com", "https://chatgpt.com"],
+    "poll_interval_sec": 30.0,
+    "check_urls": [
+        "https://www.google.com/generate_204",
+        "https://www.youtube.com/generate_204",
+        "https://chatgpt.com",
+        "https://github.com",
+    ],
+    "traffic_enabled": True,
+    "traffic_source": "nic_ssh",
+    "traffic_device_id": "",
+    "traffic_host": "172.16.201.169",
+    "traffic_ifindex": 0,
+    "traffic_ifname": "enp1s0",
+    "traffic_ssh_target": "node-121",
+    "traffic_local_user": "xinping",
+    "traffic_timeout_sec": 6.0,
+    "client_monitor_enabled": True,
+    "client_monitor_ssh_target": "node-121",
+    "client_monitor_local_user": "xinping",
+    "client_monitor_recent_seconds": 300,
+    "client_monitor_tail_lines": 2000,
+    "client_monitor_timeout_sec": 6.0,
 }
 
 DEFAULT_SNMP_OID_MAP = {
@@ -511,6 +540,7 @@ DEFAULT_SNMP_CUSTOM_OIDS_NAS = DEFAULT_SNMP_CUSTOM_OIDS + [
 ]
 
 DEFAULT_SNMP_CUSTOM_OIDS_QNAP = DEFAULT_SNMP_CUSTOM_OIDS_NAS + [
+    {"name": "qnap_cpu_usage_percent", "oid": "1.3.6.1.4.1.24681.1.2.1.0", "value_type": "float", "scale": 1, "unit": "%", "precision": 1, "enabled": True},
     {"name": "vendor_memory_total", "oid": "1.3.6.1.4.1.24681.1.2.2.0", "value_type": "auto", "scale": 1, "unit": "", "precision": 0, "enabled": True},
     {"name": "vendor_memory_free", "oid": "1.3.6.1.4.1.24681.1.2.3.0", "value_type": "auto", "scale": 1, "unit": "", "precision": 0, "enabled": True},
 ]
@@ -607,6 +637,32 @@ DEFAULT_SNMP_WALK_ROOTS = [
     "1.3.6.1.2.1.2.2.1.8"
 ]
 
+DEFAULT_QNAP_STORAGE_ALIASES = {
+    "/share/ZFS2_DATA": "Web",
+    "/share/ZFS3_DATA": "Public",
+    "/share/ZFS18_DATA": "市场部",
+    "/share/ZFS19_DATA": "研学部",
+    "/share/ZFS20_DATA": "研学部加密",
+    "/share/ZFS21_DATA": "研学部加密内部研发资料",
+    "/share/ZFS22_DATA": "XR",
+    "/share/ZFS23_DATA": "ubuntu01",
+    "/share/ZFS29_DATA": "技术部",
+    "/share/ZFS530_DATA": "LUN_0",
+}
+
+
+def _is_qnap_snmp_device(snmp):
+    brand_text = str((snmp or {}).get("brand") or "").strip().lower()
+    model_text = str((snmp or {}).get("model") or "").strip().lower()
+    host_text = str((snmp or {}).get("host") or "").strip()
+    name_text = str((snmp or {}).get("name") or "").strip().lower()
+    return (
+        "qnap" in brand_text
+        or "ts-" in model_text
+        or host_text == "192.168.30.145"
+        or "威联通" in name_text
+    )
+
 DEFAULT_M32R = {
     "enabled": False,
     "host": "192.168.50.32",
@@ -678,11 +734,16 @@ DEFAULT_DASHBOARD_SECTIONS = {
     "stats": {"title": "顶部统计", "visible": True, "sort": 10},
     "projector": {"title": "投影机总览", "visible": True, "sort": 20},
     "hy_edge": {"title": "HY506-异地机房", "visible": True, "sort": 25},
+    "sequencer": {"title": "时序电源", "visible": True, "sort": 25},
+    "ups_compact": {"title": "UPS状态", "visible": True, "sort": 23},
     "ups": {"title": "UPS状态", "visible": True, "sort": 26},
-    "snmp": {"title": "SNMP设备", "visible": True, "sort": 27},
+    "snmp": {"title": "SNMP设备", "visible": True, "sort": 27.2},
     "screen": {"title": "幕布状态", "visible": True, "sort": 30},
-    "power_quick": {"title": "强电快捷控制", "visible": True, "sort": 40},
-    "light_quick": {"title": "灯光快捷控制", "visible": True, "sort": 50},
+    "light_compact": {"title": "灯光控制显示", "visible": True, "sort": 26},
+    "power_compact": {"title": "强电柜状态", "visible": True, "sort": 27},
+    "server_compact": {"title": "机器状态", "visible": True, "sort": 28},
+    "power_quick": {"title": "强电快捷控制", "visible": False, "sort": 40},
+    "light_quick": {"title": "灯光快捷控制", "visible": False, "sort": 50},
     "system_logs": {"title": "系统操作日志", "visible": True, "sort": 60}
 }
 
@@ -848,8 +909,25 @@ def _sanitize_login_page_text(login_page_text):
 
 def _write_config_file(config_data):
     ensure_parent_dir(CONFIG_FILE_PATH)
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        json.dump(config_data, f, ensure_ascii=False, indent=2)
+    fd, tmp_path = tempfile.mkstemp(
+        prefix=f".{CONFIG_FILE_PATH.name}.",
+        suffix=".tmp",
+        dir=str(CONFIG_FILE_PATH.parent),
+        text=True,
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(config_data, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, CONFIG_FILE)
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 def _sanitize_projector_command_names(projector_cfg):
     if not isinstance(projector_cfg, dict):
@@ -1053,7 +1131,7 @@ def _normalize_automation_rule(rule):
     normalized["name"] = str(normalized.get("name") or normalized["id"])
     normalized["enabled"] = bool(normalized.get("enabled", False))
     trigger_type = str(normalized.get("trigger_type") or "condition").strip().lower()
-    if trigger_type not in {"condition", "schedule", "mixed"}:
+    if trigger_type not in {"condition", "schedule", "mixed", "compound"}:
         trigger_type = "condition"
     normalized["trigger_type"] = trigger_type
     normalized["action_scene_id"] = str(normalized.get("action_scene_id") or "")
@@ -1069,6 +1147,16 @@ def _normalize_automation_rule(rule):
     if isinstance(schedule, dict):
         merged_schedule.update(schedule)
     normalized["schedule"] = merged_schedule
+    if not isinstance(normalized.get("preconditions"), list):
+        normalized["preconditions"] = []
+    normalized["precondition_mode"] = str(normalized.get("precondition_mode") or "all").strip().lower()
+    if normalized["precondition_mode"] not in {"all", "any"}:
+        normalized["precondition_mode"] = "all"
+    if not isinstance(normalized.get("triggers"), list):
+        normalized["triggers"] = []
+    normalized["trigger_mode"] = str(normalized.get("trigger_mode") or "any").strip().lower()
+    if normalized["trigger_mode"] not in {"any", "all"}:
+        normalized["trigger_mode"] = "any"
     return normalized
 
 
@@ -1534,7 +1622,7 @@ def _maybe_restore_outdoor_light_scenes(loaded_config):
 
 
 def load_config():
-    loaded_config = {"cabinets": [], "meters": [], "ups_devices": [], "snmp_devices": [], "light_devices": [], "scenes": [], "door_config": DEFAULT_DOOR_CONFIG.copy(), "sequencers": []}
+    loaded_config = {"cabinets": [], "meters": [], "ups_devices": [], "snmp_devices": [], "nvr_devices": [], "light_devices": [], "scenes": [], "door_config": DEFAULT_DOOR_CONFIG.copy(), "sequencers": []}
     config_file_exists = os.path.exists(CONFIG_FILE)
     config_needs_persist = False
     if config_file_exists:
@@ -1572,6 +1660,7 @@ def load_config():
     if "hvac_devices" not in loaded_config or not isinstance(loaded_config["hvac_devices"], list): loaded_config["hvac_devices"] = []
     if "env_sensors" not in loaded_config: loaded_config["env_sensors"] = []
     if "snmp_devices" not in loaded_config or not isinstance(loaded_config["snmp_devices"], list): loaded_config["snmp_devices"] = []
+    if "nvr_devices" not in loaded_config or not isinstance(loaded_config["nvr_devices"], list): loaded_config["nvr_devices"] = []
     if "ups_devices" not in loaded_config or not isinstance(loaded_config["ups_devices"], list): loaded_config["ups_devices"] = []
     if "meters" not in loaded_config or not isinstance(loaded_config["meters"], list): loaded_config["meters"] = []
     if "automations" not in loaded_config:
@@ -1653,7 +1742,49 @@ def load_config():
                 cleaned_urls.append(url)
         if not cleaned_urls:
             cleaned_urls = list(DEFAULT_PROXY_MONITOR["check_urls"])
-        merged_proxy_monitor["check_urls"] = cleaned_urls[:4]
+        if not any(("google.com" in url.lower()) for url in cleaned_urls):
+            cleaned_urls.insert(0, DEFAULT_PROXY_MONITOR["check_urls"][0])
+        for default_url in DEFAULT_PROXY_MONITOR["check_urls"]:
+            try:
+                default_host = urlsplit(default_url).hostname or ""
+            except Exception:
+                default_host = ""
+            if default_host and not any(default_host in str(urlsplit(url).hostname or "") for url in cleaned_urls):
+                cleaned_urls.append(default_url)
+        merged_proxy_monitor["check_urls"] = cleaned_urls[:6]
+        traffic_source = str(merged_proxy_monitor.get("traffic_source") or DEFAULT_PROXY_MONITOR["traffic_source"]).strip().lower()
+        if traffic_source not in {"auto", "snmp", "server", "nic_ssh", "none"}:
+            traffic_source = DEFAULT_PROXY_MONITOR["traffic_source"]
+        merged_proxy_monitor["traffic_enabled"] = bool(merged_proxy_monitor.get("traffic_enabled", True))
+        merged_proxy_monitor["traffic_source"] = traffic_source
+        merged_proxy_monitor["traffic_device_id"] = str(merged_proxy_monitor.get("traffic_device_id") or "").strip()
+        merged_proxy_monitor["traffic_host"] = str(merged_proxy_monitor.get("traffic_host") or DEFAULT_PROXY_MONITOR["traffic_host"]).strip()
+        merged_proxy_monitor["traffic_ifname"] = str(merged_proxy_monitor.get("traffic_ifname") or DEFAULT_PROXY_MONITOR["traffic_ifname"]).strip()
+        merged_proxy_monitor["traffic_ssh_target"] = str(merged_proxy_monitor.get("traffic_ssh_target") or DEFAULT_PROXY_MONITOR["traffic_ssh_target"]).strip()
+        merged_proxy_monitor["traffic_local_user"] = str(merged_proxy_monitor.get("traffic_local_user") or DEFAULT_PROXY_MONITOR["traffic_local_user"]).strip()
+        try:
+            merged_proxy_monitor["traffic_ifindex"] = max(0, int(merged_proxy_monitor.get("traffic_ifindex", 0) or 0))
+        except Exception:
+            merged_proxy_monitor["traffic_ifindex"] = 0
+        try:
+            merged_proxy_monitor["traffic_timeout_sec"] = max(2.0, min(float(merged_proxy_monitor.get("traffic_timeout_sec", 6.0) or 6.0), 20.0))
+        except Exception:
+            merged_proxy_monitor["traffic_timeout_sec"] = 6.0
+        merged_proxy_monitor["client_monitor_enabled"] = bool(merged_proxy_monitor.get("client_monitor_enabled", True))
+        merged_proxy_monitor["client_monitor_ssh_target"] = str(merged_proxy_monitor.get("client_monitor_ssh_target") or DEFAULT_PROXY_MONITOR["client_monitor_ssh_target"]).strip()
+        merged_proxy_monitor["client_monitor_local_user"] = str(merged_proxy_monitor.get("client_monitor_local_user") or DEFAULT_PROXY_MONITOR["client_monitor_local_user"]).strip()
+        try:
+            merged_proxy_monitor["client_monitor_recent_seconds"] = max(30, min(int(merged_proxy_monitor.get("client_monitor_recent_seconds", 300) or 300), 3600))
+        except Exception:
+            merged_proxy_monitor["client_monitor_recent_seconds"] = 300
+        try:
+            merged_proxy_monitor["client_monitor_tail_lines"] = max(500, min(int(merged_proxy_monitor.get("client_monitor_tail_lines", 8000) or 8000), 50000))
+        except Exception:
+            merged_proxy_monitor["client_monitor_tail_lines"] = 8000
+        try:
+            merged_proxy_monitor["client_monitor_timeout_sec"] = max(2.0, min(float(merged_proxy_monitor.get("client_monitor_timeout_sec", 6.0) or 6.0), 20.0))
+        except Exception:
+            merged_proxy_monitor["client_monitor_timeout_sec"] = 6.0
         loaded_config["proxy_monitor"] = merged_proxy_monitor
     if "m32r" not in loaded_config or not isinstance(loaded_config["m32r"], dict):
         loaded_config["m32r"] = DEFAULT_M32R.copy()
@@ -1713,6 +1844,8 @@ def load_config():
         if not any(nav["id"] == "meter" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "meter", "icon": "🔋", "name": "电表中心", "sort": 3, "visible": True})
         if not any(nav["id"] == "ups" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "ups", "icon": "🔌", "name": "UPS监测", "sort": 4, "visible": True})
         if not any(nav["id"] == "snmp" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "snmp", "icon": "🛰", "name": "SNMP监测", "sort": 4, "visible": True})
+        if not any(nav["id"] == "camera_preview" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "camera_preview", "icon": "🎦", "name": "监控预览", "sort": 4.3, "visible": True})
+        if not any(nav["id"] == "proxy" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "proxy", "icon": "🌐", "name": "代理监控", "sort": 4.4, "visible": True})
         if not any(nav["id"] == "projector" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "projector", "icon": "🎥", "name": "投影机集群", "sort": 7, "visible": True})
         if not any(nav["id"] == "universal" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "universal", "icon": "🎛️", "name": "泛型控制", "sort": 8, "visible": True})
         if not any(nav["id"] == "env" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "env", "icon": "🌡️", "name": "环境监测", "sort": 9, "visible": True})
@@ -1730,7 +1863,10 @@ def load_config():
         if "meter_include_in_reports" not in cab: cab["meter_include_in_reports"] = True
         cab["channel_count"] = int(cab.get("channel_count", 8))
         if "channels_config" not in cab:
-            cab["channels_config"] = [{"channel": i, "name": f"回路 {i}", "sort": i, "visible": True, "span": 1} for i in range(1, cab["channel_count"] + 1)]
+            cab["channels_config"] = [{"channel": i, "name": f"回路 {i}", "remark": "", "sort": i, "visible": True, "span": 1} for i in range(1, cab["channel_count"] + 1)]
+        for channel_cfg in cab.get("channels_config", []) or []:
+            if "remark" not in channel_cfg:
+                channel_cfg["remark"] = ""
 
     for light in loaded_config["light_devices"]:
         light["channels"] = int(light.get("channels", 8))
@@ -1763,6 +1899,23 @@ def load_config():
             merged_features = DEFAULT_ENV_FEATURES.copy()
             merged_features.update(env["features"])
             env["features"] = merged_features
+        primary_metric = str(env.get("primary_metric", DEFAULT_ENV_PRIMARY_METRIC) or DEFAULT_ENV_PRIMARY_METRIC).strip().lower()
+        if primary_metric not in {
+            "auto",
+            "temperature",
+            "humidity",
+            "illuminance",
+            "contact",
+            "light",
+            "battery",
+            "voltage",
+            "noise",
+            "pm25",
+            "pm10",
+            "pressure",
+        }:
+            primary_metric = DEFAULT_ENV_PRIMARY_METRIC
+        env["primary_metric"] = primary_metric
         if "mqtt" not in env or not isinstance(env["mqtt"], dict):
             env["mqtt"] = deepcopy(DEFAULT_ENV_MQTT)
         else:
@@ -1915,6 +2068,52 @@ def load_config():
             ups["fallback_cache_ttl_sec"] = 600.0
         ups["require_parenthesized_frame"] = bool(ups.get("require_parenthesized_frame", True))
 
+    for nvr in loaded_config["nvr_devices"]:
+        if "id" not in nvr or not str(nvr.get("id", "")).strip():
+            nvr["id"] = f"nvr_{int(datetime.now().timestamp() * 1000)}"
+        if "name" not in nvr: nvr["name"] = "录像机"
+        if "brand" not in nvr: nvr["brand"] = "Hikvision"
+        if "model" not in nvr: nvr["model"] = ""
+        if "protocol" not in nvr: nvr["protocol"] = "Hikvision ISAPI"
+        if "scheme" not in nvr: nvr["scheme"] = "http"
+        if "host" not in nvr: nvr["host"] = nvr.get("ip", "")
+        if "port" not in nvr: nvr["port"] = 80
+        if "username" not in nvr: nvr["username"] = ""
+        if "password" not in nvr: nvr["password"] = ""
+        if "expected_channel_count" not in nvr: nvr["expected_channel_count"] = 0
+        if "camera_inventory_path" not in nvr: nvr["camera_inventory_path"] = ""
+        if "timeout_sec" not in nvr: nvr["timeout_sec"] = 5.0
+        if "snapshot_timeout_sec" not in nvr: nvr["snapshot_timeout_sec"] = 5.0
+        if "snapshot_stream" not in nvr: nvr["snapshot_stream"] = "2"
+        if "snapshot_cache_ttl_sec" not in nvr: nvr["snapshot_cache_ttl_sec"] = 1.5
+        if "poll_interval_ms" not in nvr: nvr["poll_interval_ms"] = 10000
+        if "enabled" not in nvr: nvr["enabled"] = True
+        if "visible" not in nvr: nvr["visible"] = True
+        try:
+            nvr["port"] = max(1, min(int(nvr.get("port", 80) or 80), 65535))
+        except Exception:
+            nvr["port"] = 80
+        try:
+            nvr["expected_channel_count"] = max(0, min(int(nvr.get("expected_channel_count", 0) or 0), 256))
+        except Exception:
+            nvr["expected_channel_count"] = 0
+        try:
+            nvr["timeout_sec"] = max(1.0, min(float(nvr.get("timeout_sec", 5.0) or 5.0), 30.0))
+        except Exception:
+            nvr["timeout_sec"] = 5.0
+        try:
+            nvr["snapshot_timeout_sec"] = max(1.0, min(float(nvr.get("snapshot_timeout_sec", 5.0) or 5.0), 30.0))
+        except Exception:
+            nvr["snapshot_timeout_sec"] = 5.0
+        try:
+            nvr["snapshot_cache_ttl_sec"] = max(0.0, min(float(nvr.get("snapshot_cache_ttl_sec", 1.5) or 1.5), 15.0))
+        except Exception:
+            nvr["snapshot_cache_ttl_sec"] = 1.5
+        try:
+            nvr["poll_interval_ms"] = max(2000, min(int(nvr.get("poll_interval_ms", 10000) or 10000), 300000))
+        except Exception:
+            nvr["poll_interval_ms"] = 10000
+
     if not loaded_config["snmp_devices"]:
         loaded_config["snmp_devices"] = [
             {
@@ -1992,6 +2191,8 @@ def load_config():
                 "walk_sample_limit": 12,
                 "walk_interval_ms": 12000,
                 "walk_roots_per_cycle": 4,
+                "ssh_enrich_enabled": False,
+                "storage_aliases": deepcopy(DEFAULT_QNAP_STORAGE_ALIASES),
                 "oid_map": deepcopy(DEFAULT_SNMP_OID_MAP),
                 "custom_oids": build_default_snmp_custom_oids("nas", "QNAP", "TS-X73A")
             },
@@ -2121,6 +2322,17 @@ def load_config():
         if "walk_sample_limit" not in snmp: snmp["walk_sample_limit"] = 12
         if "walk_interval_ms" not in snmp: snmp["walk_interval_ms"] = 20000
         if "walk_roots_per_cycle" not in snmp: snmp["walk_roots_per_cycle"] = 0
+        if "ssh_enrich_enabled" not in snmp: snmp["ssh_enrich_enabled"] = False
+        if "storage_aliases" not in snmp or not isinstance(snmp["storage_aliases"], dict): snmp["storage_aliases"] = {}
+        if _is_qnap_snmp_device(snmp):
+            if snmp.get("ssh_enrich_enabled") is not False:
+                snmp["ssh_enrich_enabled"] = False
+                config_needs_persist = config_file_exists
+            merged_qnap_aliases = deepcopy(DEFAULT_QNAP_STORAGE_ALIASES)
+            merged_qnap_aliases.update(snmp.get("storage_aliases") or {})
+            if snmp.get("storage_aliases") != merged_qnap_aliases:
+                snmp["storage_aliases"] = merged_qnap_aliases
+                config_needs_persist = config_file_exists
         if "oid_map" not in snmp or not isinstance(snmp["oid_map"], dict):
             snmp["oid_map"] = deepcopy(DEFAULT_SNMP_OID_MAP)
         else:

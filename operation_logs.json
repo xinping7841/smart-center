@@ -1,0 +1,2502 @@
+[
+  {
+    "time": "2026-05-07T12:06:16.093263",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [工作日 08:30 开启机房空调] delay=12976.1s"
+  },
+  {
+    "time": "2026-05-07T12:06:16.090731",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=43576.1s"
+  },
+  {
+    "time": "2026-05-03T20:55:20.891569",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=75320.9s"
+  },
+  {
+    "time": "2026-05-03T20:55:20.888644",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=3320.9s"
+  },
+  {
+    "time": "2026-04-28T09:47:08.132738",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=35228.1s"
+  },
+  {
+    "time": "2026-04-27T12:27:48.555923",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=44868.6s"
+  },
+  {
+    "time": "2026-04-05T23:00:12.896471",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=82812.9s"
+  },
+  {
+    "time": "2026-04-05T23:00:12.879058",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=10812.9s"
+  },
+  {
+    "time": "2026-04-05T22:59:05.618130",
+    "cab_idx": -1,
+    "operation": "[MusicPlayer] M32 prepare CH17/18"
+  },
+  {
+    "time": "2026-04-05T22:59:05.604132",
+    "cab_idx": -1,
+    "operation": "[M32R] demo mode enabled"
+  },
+  {
+    "time": "2026-04-05T22:59:05.583129",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=82745.6s"
+  },
+  {
+    "time": "2026-04-05T22:59:05.572469",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=10745.6s"
+  },
+  {
+    "time": "2026-04-05T22:57:49.812980",
+    "cab_idx": -1,
+    "operation": "[MusicPlayer] M32 prepare CH17/18"
+  },
+  {
+    "time": "2026-04-05T22:57:49.800988",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=82669.8s"
+  },
+  {
+    "time": "2026-04-05T22:57:49.789641",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=10669.8s"
+  },
+  {
+    "time": "2026-04-05T22:56:26.228369",
+    "cab_idx": -1,
+    "operation": "[MusicPlayer] M32 prepare CH17/18"
+  },
+  {
+    "time": "2026-04-05T22:56:26.215019",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=10586.2s"
+  },
+  {
+    "time": "2026-04-05T22:54:31.285461",
+    "cab_idx": -1,
+    "operation": "[MusicPlayer] M32 prepare CH17/18"
+  },
+  {
+    "time": "2026-04-05T22:54:31.271399",
+    "cab_idx": -1,
+    "operation": "[M32R] demo mode enabled"
+  },
+  {
+    "time": "2026-04-05T22:54:31.252867",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=82471.2s"
+  },
+  {
+    "time": "2026-04-05T22:54:31.238135",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=10471.2s"
+  },
+  {
+    "time": "2026-04-05T22:53:32.324998",
+    "cab_idx": -1,
+    "operation": "[MusicTag] rescan complete, tracks=0"
+  },
+  {
+    "time": "2026-04-05T22:53:32.311952",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=82412.3s"
+  },
+  {
+    "time": "2026-04-05T22:53:32.292682",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=10412.3s"
+  },
+  {
+    "time": "2026-04-05T22:53:09.127131",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=82389.1s"
+  },
+  {
+    "time": "2026-04-05T22:53:09.107294",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=10389.1s"
+  },
+  {
+    "time": "2026-04-05T22:52:38.661125",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=10358.7s"
+  },
+  {
+    "time": "2026-04-05T22:51:57.752213",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=82317.7s"
+  },
+  {
+    "time": "2026-04-05T22:51:57.740190",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=10317.7s"
+  },
+  {
+    "time": "2026-04-05T22:43:45.981947",
+    "cab_idx": -1,
+    "operation": "[M32R] connect requested 192.0.2.2:10023"
+  },
+  {
+    "time": "2026-04-05T22:43:45.943396",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=81825.9s"
+  },
+  {
+    "time": "2026-04-05T22:43:45.930669",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=9825.9s"
+  },
+  {
+    "time": "2026-04-05T22:38:45.357701",
+    "cab_idx": -1,
+    "operation": "[M32R] disconnected"
+  },
+  {
+    "time": "2026-04-05T22:38:45.341322",
+    "cab_idx": -1,
+    "operation": "[M32R] connect requested 192.0.2.1:10023"
+  },
+  {
+    "time": "2026-04-05T22:38:45.314759",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=81525.3s"
+  },
+  {
+    "time": "2026-04-05T22:38:45.301853",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=9525.3s"
+  },
+  {
+    "time": "2026-04-05T22:38:03.860218",
+    "cab_idx": -1,
+    "operation": "[M32R] demo mode enabled"
+  },
+  {
+    "time": "2026-04-05T22:38:03.838377",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=81483.8s"
+  },
+  {
+    "time": "2026-04-05T22:38:03.826380",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=9483.8s"
+  },
+  {
+    "time": "2026-04-05T22:37:24.727392",
+    "cab_idx": -1,
+    "operation": "[M32R] demo mode enabled"
+  },
+  {
+    "time": "2026-04-05T22:37:24.709369",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=81444.7s"
+  },
+  {
+    "time": "2026-04-05T22:37:24.698439",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=9444.7s"
+  },
+  {
+    "time": "2026-04-05T22:36:47.225443",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=81407.2s"
+  },
+  {
+    "time": "2026-04-05T22:36:47.213386",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=9407.2s"
+  },
+  {
+    "time": "2026-04-05T22:34:12.245046",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=9252.2s"
+  },
+  {
+    "time": "2026-04-05T22:27:53.864998",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=8873.9s"
+  },
+  {
+    "time": "2026-04-05T22:22:51.202102",
+    "cab_idx": -1,
+    "operation": "[MusicTag] rescan complete, tracks=0"
+  },
+  {
+    "time": "2026-04-05T22:22:51.191993",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=80571.2s"
+  },
+  {
+    "time": "2026-04-05T22:22:51.181668",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=8571.2s"
+  },
+  {
+    "time": "2026-04-05T21:44:11.177527",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=78251.2s"
+  },
+  {
+    "time": "2026-04-05T21:44:11.166752",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=6251.2s"
+  },
+  {
+    "time": "2026-04-05T20:00:00.993024",
+    "cab_idx": -1,
+    "operation": "[scene] completed: 户外灯自动关灯"
+  },
+  {
+    "time": "2026-04-05T20:00:00.978743",
+    "cab_idx": -1,
+    "operation": "[scene] start: 户外灯自动关灯"
+  },
+  {
+    "time": "2026-04-05T20:00:00.965837",
+    "cab_idx": -1,
+    "operation": "[automation] triggered: [户外灯晚八点自动关灯] (schedule on time (planned 2026-04-05T20:00:00))"
+  },
+  {
+    "time": "2026-04-05T18:48:01.129229",
+    "cab_idx": -1,
+    "operation": "[scene] completed: 户外灯自动开灯"
+  },
+  {
+    "time": "2026-04-05T18:48:01.089449",
+    "cab_idx": -1,
+    "operation": "[scene] start: 户外灯自动开灯"
+  },
+  {
+    "time": "2026-04-05T18:48:01.063343",
+    "cab_idx": -1,
+    "operation": "[automation] triggered: [户外灯低照度自动开灯]"
+  },
+  {
+    "time": "2026-04-05T18:46:00.471303",
+    "cab_idx": -1,
+    "operation": "[scene] completed: 户外灯自动开灯"
+  },
+  {
+    "time": "2026-04-05T18:46:00.460902",
+    "cab_idx": -1,
+    "operation": "[scene] start: 户外灯自动开灯"
+  },
+  {
+    "time": "2026-04-05T18:46:00.451737",
+    "cab_idx": -1,
+    "operation": "[automation] triggered: [户外灯低照度自动开灯]"
+  },
+  {
+    "time": "2026-04-05T18:46:00.441556",
+    "cab_idx": -1,
+    "operation": "[automation] window bootstrap trigger: [户外灯低照度自动开灯] value=299 held=9959.5s"
+  },
+  {
+    "time": "2026-04-05T00:00:00.048255",
+    "cab_idx": -1,
+    "operation": "[scene] completed: 户外灯自动关灯"
+  },
+  {
+    "time": "2026-04-05T00:00:00.039310",
+    "cab_idx": -1,
+    "operation": "[scene] start: 户外灯自动关灯"
+  },
+  {
+    "time": "2026-04-05T00:00:00.027015",
+    "cab_idx": -1,
+    "operation": "[automation] triggered: [户外灯午夜兜底关灯] (schedule on time (planned 2026-04-05T00:00:00))"
+  },
+  {
+    "time": "2026-04-04T20:00:00.843902",
+    "cab_idx": -1,
+    "operation": "[scene] completed: 户外灯自动关灯"
+  },
+  {
+    "time": "2026-04-04T20:00:00.807511",
+    "cab_idx": -1,
+    "operation": "[scene] start: 户外灯自动关灯"
+  },
+  {
+    "time": "2026-04-04T20:00:00.793387",
+    "cab_idx": -1,
+    "operation": "[automation] triggered: [户外灯晚八点自动关灯] (schedule on time (planned 2026-04-04T20:00:00))"
+  },
+  {
+    "time": "2026-04-04T18:43:03.574896",
+    "cab_idx": -1,
+    "operation": "[scene] completed: 户外灯自动开灯"
+  },
+  {
+    "time": "2026-04-04T18:43:03.538058",
+    "cab_idx": -1,
+    "operation": "[scene] start: 户外灯自动开灯"
+  },
+  {
+    "time": "2026-04-04T18:43:03.438216",
+    "cab_idx": -1,
+    "operation": "[automation] triggered: [户外灯低照度自动开灯]"
+  },
+  {
+    "time": "2026-04-04T18:41:03.364124",
+    "cab_idx": -1,
+    "operation": "[scene] completed: 户外灯自动开灯"
+  },
+  {
+    "time": "2026-04-04T18:41:03.336698",
+    "cab_idx": -1,
+    "operation": "[scene] start: 户外灯自动开灯"
+  },
+  {
+    "time": "2026-04-04T18:41:03.291113",
+    "cab_idx": -1,
+    "operation": "[automation] triggered: [户外灯低照度自动开灯]"
+  },
+  {
+    "time": "2026-04-04T18:41:03.271496",
+    "cab_idx": -1,
+    "operation": "[automation] window bootstrap trigger: [户外灯低照度自动开灯] value=299 held=9662.4s"
+  },
+  {
+    "time": "2026-04-04T11:56:59.236369",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=43019.2s"
+  },
+  {
+    "time": "2026-04-04T01:05:23.245602",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=3923.2s"
+  },
+  {
+    "time": "2026-04-04T01:04:54.710643",
+    "cab_idx": -1,
+    "operation": "[M32R] channel 01 label updated"
+  },
+  {
+    "time": "2026-04-04T01:04:54.681407",
+    "cab_idx": -1,
+    "operation": "[M32R] disconnected"
+  },
+  {
+    "time": "2026-04-04T01:04:54.660165",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=3894.7s"
+  },
+  {
+    "time": "2026-04-04T00:57:47.856455",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=3467.9s"
+  },
+  {
+    "time": "2026-04-04T00:37:24.088587",
+    "cab_idx": -1,
+    "operation": "[M32R] sync applied Mixer -> PC"
+  },
+  {
+    "time": "2026-04-04T00:37:24.051858",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=2244.1s"
+  },
+  {
+    "time": "2026-04-04T00:00:00.353618",
+    "cab_idx": -1,
+    "operation": "[scene] completed: 户外灯自动关灯"
+  },
+  {
+    "time": "2026-04-04T00:00:00.302373",
+    "cab_idx": -1,
+    "operation": "[scene] start: 户外灯自动关灯"
+  },
+  {
+    "time": "2026-04-04T00:00:00.287671",
+    "cab_idx": -1,
+    "operation": "[automation] triggered: [户外灯午夜兜底关灯] (schedule on time (planned 2026-04-04T00:00:00))"
+  },
+  {
+    "time": "2026-04-03T23:31:25.754051",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=84685.7s"
+  },
+  {
+    "time": "2026-04-03T23:31:25.741322",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=12685.7s"
+  },
+  {
+    "time": "2026-04-03T23:27:32.288200",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=84452.3s"
+  },
+  {
+    "time": "2026-04-03T23:27:32.274853",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=12452.3s"
+  },
+  {
+    "time": "2026-04-03T23:24:42.306430",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=84282.3s"
+  },
+  {
+    "time": "2026-04-03T23:24:42.285835",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=12282.3s"
+  },
+  {
+    "time": "2026-04-03T23:22:39.139714",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=84159.1s"
+  },
+  {
+    "time": "2026-04-03T23:22:39.122059",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=12159.1s"
+  },
+  {
+    "time": "2026-04-03T23:17:57.302559",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=83877.3s"
+  },
+  {
+    "time": "2026-04-03T23:17:57.285387",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=11877.3s"
+  },
+  {
+    "time": "2026-04-03T23:00:05.690364",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=82805.7s"
+  },
+  {
+    "time": "2026-04-03T23:00:05.673301",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=10805.7s"
+  },
+  {
+    "time": "2026-04-03T22:55:32.196520",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=82532.2s"
+  },
+  {
+    "time": "2026-04-03T22:55:32.187076",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=10532.2s"
+  },
+  {
+    "time": "2026-04-03T22:53:12.900374",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=82392.9s"
+  },
+  {
+    "time": "2026-04-03T22:53:12.889574",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯晚八点自动关灯] delay=10392.9s"
+  },
+  {
+    "time": "2026-04-03T16:58:11.561250",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=61091.6s"
+  },
+  {
+    "time": "2026-04-03T16:57:42.037795",
+    "cab_idx": -1,
+    "operation": "[automation] skipped stale schedule: [户外灯午夜兜底关灯] delay=61062.0s"
+  },
+  {
+    "time": "2026-03-31T12:53:00.588691",
+    "cab_idx": 0,
+    "operation": "操作: 通道1 断开"
+  },
+  {
+    "time": "2026-03-31T12:52:54.301170",
+    "cab_idx": 0,
+    "operation": "操作: 通道1 合闸"
+  },
+  {
+    "time": "2026-03-31T10:45:59.925956",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 关闭"
+  },
+  {
+    "time": "2026-03-31T10:45:57.442433",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 开启"
+  },
+  {
+    "time": "2026-03-31T01:27:21.167694",
+    "cab_idx": -1,
+    "operation": "[M32R] main on"
+  },
+  {
+    "time": "2026-03-31T01:27:20.401440",
+    "cab_idx": -1,
+    "operation": "[M32R] main mute"
+  },
+  {
+    "time": "2026-03-31T01:27:19.557083",
+    "cab_idx": -1,
+    "operation": "[M32R] main on"
+  },
+  {
+    "time": "2026-03-31T01:27:18.645218",
+    "cab_idx": -1,
+    "operation": "[M32R] main mute"
+  },
+  {
+    "time": "2026-03-31T01:26:58.288777",
+    "cab_idx": -1,
+    "operation": "[M32R] connect requested 192.168.80.242:10023"
+  },
+  {
+    "time": "2026-03-31T01:26:57.219935",
+    "cab_idx": -1,
+    "operation": "[M32R] disconnected"
+  },
+  {
+    "time": "2026-03-31T01:26:55.182597",
+    "cab_idx": -1,
+    "operation": "[M32R] connect requested 192.168.80.242:10023"
+  },
+  {
+    "time": "2026-03-31T01:26:52.257867",
+    "cab_idx": -1,
+    "operation": "[M32R] demo mode enabled"
+  },
+  {
+    "time": "2026-03-31T01:26:49.681045",
+    "cab_idx": -1,
+    "operation": "[M32R] scene applied: speech"
+  },
+  {
+    "time": "2026-03-31T01:26:47.723521",
+    "cab_idx": -1,
+    "operation": "[M32R] scene applied: band"
+  },
+  {
+    "time": "2026-03-31T01:26:46.240578",
+    "cab_idx": -1,
+    "operation": "[M32R] scene applied: vocal"
+  },
+  {
+    "time": "2026-03-31T01:26:44.325407",
+    "cab_idx": -1,
+    "operation": "[M32R] scene applied: speech"
+  },
+  {
+    "time": "2026-03-31T01:26:30.042489",
+    "cab_idx": -1,
+    "operation": "[M32R] channel 04 on"
+  },
+  {
+    "time": "2026-03-31T01:26:29.385706",
+    "cab_idx": -1,
+    "operation": "[M32R] channel 03 on"
+  },
+  {
+    "time": "2026-03-31T01:26:28.794723",
+    "cab_idx": -1,
+    "operation": "[M32R] channel 02 on"
+  },
+  {
+    "time": "2026-03-31T01:26:28.239759",
+    "cab_idx": -1,
+    "operation": "[M32R] channel 01 on"
+  },
+  {
+    "time": "2026-03-31T01:26:22.825042",
+    "cab_idx": -1,
+    "operation": "[M32R] channel 04 mute"
+  },
+  {
+    "time": "2026-03-31T01:26:22.122113",
+    "cab_idx": -1,
+    "operation": "[M32R] channel 02 mute"
+  },
+  {
+    "time": "2026-03-31T01:26:20.325232",
+    "cab_idx": -1,
+    "operation": "[M32R] channel 03 mute"
+  },
+  {
+    "time": "2026-03-31T01:26:18.459507",
+    "cab_idx": -1,
+    "operation": "[M32R] channel 01 mute"
+  },
+  {
+    "time": "2026-03-31T01:26:04.725924",
+    "cab_idx": -1,
+    "operation": "[M32R] connect requested 192.168.80.242:10023"
+  },
+  {
+    "time": "2026-03-31T01:26:02.834167",
+    "cab_idx": -1,
+    "operation": "[M32R] disconnected"
+  },
+  {
+    "time": "2026-03-31T01:25:56.888461",
+    "cab_idx": -1,
+    "operation": "[M32R] connect requested 192.168.80.242:10023"
+  },
+  {
+    "time": "2026-03-31T00:35:46.426212",
+    "cab_idx": -1,
+    "operation": "[时序电源][sequencer_ds608_1] 中控 第1路关闭"
+  },
+  {
+    "time": "2026-03-31T00:35:39.903269",
+    "cab_idx": -1,
+    "operation": "[时序电源][sequencer_ds608_1] 中控 第1路开启"
+  },
+  {
+    "time": "2026-03-31T00:24:50.487224",
+    "cab_idx": -1,
+    "operation": "[system] config saved and hot reloaded"
+  },
+  {
+    "time": "2026-03-30T18:01:15.344984",
+    "cab_idx": -1,
+    "operation": "[M32R] connect requested 192.168.80.242:10023"
+  },
+  {
+    "time": "2026-03-30T17:53:06.973465",
+    "cab_idx": -1,
+    "operation": "[M32R] connect requested 192.168.80.242:10023"
+  },
+  {
+    "time": "2026-03-30T17:45:43.583738",
+    "cab_idx": -1,
+    "operation": "[M32R] connect requested 192.168.80.242:10023"
+  },
+  {
+    "time": "2026-03-30T17:32:15.003706",
+    "cab_idx": -1,
+    "operation": "[M32R] main on"
+  },
+  {
+    "time": "2026-03-30T17:32:12.572639",
+    "cab_idx": -1,
+    "operation": "[M32R] connect requested 192.168.80.242:10023"
+  },
+  {
+    "time": "2026-03-30T17:25:22.694653",
+    "cab_idx": -1,
+    "operation": "[M32R] channel 01 on"
+  },
+  {
+    "time": "2026-03-30T17:25:21.678305",
+    "cab_idx": -1,
+    "operation": "[M32R] channel 01 mute"
+  },
+  {
+    "time": "2026-03-30T17:25:19.230531",
+    "cab_idx": -1,
+    "operation": "[M32R] connect requested 192.168.80.242:10023"
+  },
+  {
+    "time": "2026-03-30T17:23:12.382238",
+    "cab_idx": -1,
+    "operation": "[M32R] connect requested 192.168.80.242:10023"
+  },
+  {
+    "time": "2026-03-30T17:16:18.990223",
+    "cab_idx": -1,
+    "operation": "[M32R] disconnected"
+  },
+  {
+    "time": "2026-03-30T17:16:18.975324",
+    "cab_idx": -1,
+    "operation": "[M32R] demo mode enabled"
+  },
+  {
+    "time": "2026-03-30T17:09:28.384080",
+    "cab_idx": -1,
+    "operation": "[M32R] disconnected"
+  },
+  {
+    "time": "2026-03-30T17:09:22.327635",
+    "cab_idx": -1,
+    "operation": "[M32R] connect requested 192.168.80.242:10023"
+  },
+  {
+    "time": "2026-03-30T16:09:15.962925",
+    "cab_idx": 1,
+    "operation": "操作: 通道3 合闸"
+  },
+  {
+    "time": "2026-03-30T14:54:13.216024",
+    "cab_idx": 0,
+    "operation": "操作: 通道5 断开"
+  },
+  {
+    "time": "2026-03-30T14:54:11.300416",
+    "cab_idx": 0,
+    "operation": "操作: 通道5 合闸"
+  },
+  {
+    "time": "2026-03-30T01:53:21.759843",
+    "cab_idx": -1,
+    "operation": "[system] config saved and hot reloaded"
+  },
+  {
+    "time": "2026-03-29T20:00:29.857015",
+    "cab_idx": 0,
+    "operation": "操作: 通道5 断开"
+  },
+  {
+    "time": "2026-03-29T20:00:04.241502",
+    "cab_idx": 0,
+    "operation": "操作: 通道5 断开"
+  },
+  {
+    "time": "2026-03-29T19:45:51.419494",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道4 关闭"
+  },
+  {
+    "time": "2026-03-29T19:45:49.235001",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道4 开启"
+  },
+  {
+    "time": "2026-03-29T19:45:39.434708",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 关闭"
+  },
+  {
+    "time": "2026-03-29T19:45:38.805976",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道2 关闭"
+  },
+  {
+    "time": "2026-03-29T19:45:38.086281",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道3 关闭"
+  },
+  {
+    "time": "2026-03-29T19:45:34.744661",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 关闭"
+  },
+  {
+    "time": "2026-03-29T19:41:48.251990",
+    "cab_idx": 0,
+    "operation": "操作: 通道5 合闸"
+  },
+  {
+    "time": "2026-03-29T19:41:40.702327",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 开启"
+  },
+  {
+    "time": "2026-03-29T19:41:40.414456",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 关闭"
+  },
+  {
+    "time": "2026-03-29T19:41:40.300454",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 开启"
+  },
+  {
+    "time": "2026-03-29T19:41:40.140754",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 开启"
+  },
+  {
+    "time": "2026-03-29T19:41:40.098129",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 关闭"
+  },
+  {
+    "time": "2026-03-29T19:41:39.835143",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 关闭"
+  },
+  {
+    "time": "2026-03-29T06:26:36.969857",
+    "cab_idx": -1,
+    "operation": "[system] config saved and hot reloaded"
+  },
+  {
+    "time": "2026-03-29T06:26:35.248870",
+    "cab_idx": -1,
+    "operation": "[system] config saved and hot reloaded"
+  },
+  {
+    "time": "2026-03-29T02:13:01.333335",
+    "cab_idx": -1,
+    "operation": "[时序电源][sequencer_ds608_1] 中控 全部关闭"
+  },
+  {
+    "time": "2026-03-28T22:39:29.288205",
+    "cab_idx": 4,
+    "operation": "操作: 通道1 断开"
+  },
+  {
+    "time": "2026-03-28T22:39:24.000420",
+    "cab_idx": 4,
+    "operation": "操作: 通道1 合闸"
+  },
+  {
+    "time": "2026-03-28T22:29:42.229541",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T22:29:41.988645",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T22:29:41.900637",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T21:59:59.917296",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T21:59:59.583442",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T21:59:09.163040",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T21:31:42.412769",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T21:31:26.681959",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T21:31:08.829883",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T19:51:33.269026",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T19:51:10.376738",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T19:50:53.492163",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T19:49:26.197227",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T19:48:49.695471",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-28T19:48:49.672389",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-28T19:48:49.256712",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T19:48:48.818661",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T19:48:48.432867",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T19:48:48.047919",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T19:48:47.637446",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-28T19:48:47.537245",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T19:48:30.507899",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T19:48:29.130955",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T17:47:27.073884",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T17:46:24.812254",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T17:45:59.545458",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T17:31:58.924000",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T17:31:57.058125",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T16:12:27.943433",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T16:04:27.972501",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-28T16:04:27.929321",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T15:21:34.664593",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-28T15:21:34.616091",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T15:21:18.799464",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-28T15:21:18.768948",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T14:33:45.945569",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T14:33:10.221257",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-28T14:33:10.198524",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T14:23:46.150313",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T14:23:45.466364",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T14:23:42.738394",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T14:23:41.147189",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T14:19:31.056332",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-28T14:19:31.020515",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T14:17:55.344339",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-28T14:17:55.316371",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T02:31:19.106229",
+    "cab_idx": -1,
+    "operation": "[服务器] 已向节点 D4-5D-64-D2-C0-74 下发指令: [刷新信息]"
+  },
+  {
+    "time": "2026-03-28T02:23:07.065189",
+    "cab_idx": -1,
+    "operation": "[M32R] disconnected"
+  },
+  {
+    "time": "2026-03-28T02:23:07.052558",
+    "cab_idx": -1,
+    "operation": "[M32R] template deleted: demo_scene_v2"
+  },
+  {
+    "time": "2026-03-28T02:23:07.036007",
+    "cab_idx": -1,
+    "operation": "[M32R] template loaded: demo_scene_v2"
+  },
+  {
+    "time": "2026-03-28T02:23:07.016930",
+    "cab_idx": -1,
+    "operation": "[M32R] template renamed: demo_scene -> demo_scene_v2"
+  },
+  {
+    "time": "2026-03-28T02:23:07.000304",
+    "cab_idx": -1,
+    "operation": "[M32R] template saved: demo_scene"
+  },
+  {
+    "time": "2026-03-28T02:23:06.983901",
+    "cab_idx": -1,
+    "operation": "[M32R] channel 09 label updated"
+  },
+  {
+    "time": "2026-03-28T02:23:06.964013",
+    "cab_idx": -1,
+    "operation": "[M32R] demo mode enabled"
+  },
+  {
+    "time": "2026-03-28T01:53:29.769596",
+    "cab_idx": -1,
+    "operation": "[M32R] 已删除模板: beta"
+  },
+  {
+    "time": "2026-03-28T01:53:29.749723",
+    "cab_idx": -1,
+    "operation": "[M32R] 已重命名模板: alpha -> beta"
+  },
+  {
+    "time": "2026-03-28T01:53:29.729112",
+    "cab_idx": -1,
+    "operation": "[M32R] 已保存模板: alpha"
+  },
+  {
+    "time": "2026-03-28T01:53:29.708203",
+    "cab_idx": -1,
+    "operation": "[M32R] 已进入演示模式"
+  },
+  {
+    "time": "2026-03-28T01:44:38.830108",
+    "cab_idx": -1,
+    "operation": "[M32R] 已加载模板: demo_bank"
+  },
+  {
+    "time": "2026-03-28T01:44:38.817083",
+    "cab_idx": -1,
+    "operation": "[M32R] 已保存模板: demo_bank"
+  },
+  {
+    "time": "2026-03-28T01:44:38.788582",
+    "cab_idx": -1,
+    "operation": "[M32R] 已进入演示模式"
+  },
+  {
+    "time": "2026-03-28T01:40:28.559594",
+    "cab_idx": -1,
+    "operation": "[M32R] 已进入演示模式"
+  },
+  {
+    "time": "2026-03-28T01:09:20.199371",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-28T01:09:20.181404",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T00:41:32.337677",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-28T00:41:32.318852",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-28T00:40:22.608197",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-28T00:40:22.586800",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-27T23:32:07.599252",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-27T23:32:07.499092",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-27T23:31:33.178449",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-27T23:31:33.158793",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-27T23:28:55.013412",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-27T23:28:54.996771",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-27T23:27:45.863954",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-27T23:27:45.843730",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-27T23:14:24.850338",
+    "cab_idx": -1,
+    "operation": "[时序电源][sequencer_ds608_1] 中控 第1路关闭"
+  },
+  {
+    "time": "2026-03-27T23:14:22.490989",
+    "cab_idx": -1,
+    "operation": "[时序电源][sequencer_ds608_1] 中控 第1路开启"
+  },
+  {
+    "time": "2026-03-27T18:51:49.966190",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-27T18:51:49.953106",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-27T18:46:36.565415",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [112] - 未命名命令: 成功 - %1POWR=OK"
+  },
+  {
+    "time": "2026-03-27T18:44:14.280549",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [112] - 未命名命令: 成功 - %1POWR=OK"
+  },
+  {
+    "time": "2026-03-27T18:43:51.186182",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [112] - 未命名命令: 失败 - PJLink 通讯失败：[WinError 10053] 你的主机中的软件中止了一个已建立的连接。"
+  },
+  {
+    "time": "2026-03-27T18:43:14.467056",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [112] - 未命名命令: 成功 -"
+  },
+  {
+    "time": "2026-03-27T18:42:29.253896",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [112] - 未命名命令: 成功 -"
+  },
+  {
+    "time": "2026-03-27T18:38:44.434115",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-27T18:38:44.417301",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-27T18:04:26.828989",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-27T18:04:26.804143",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-27T17:27:29.062660",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-27T17:27:29.047056",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-27T17:26:10.553631",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-27T17:26:10.540092",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-27T17:15:49.508409",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-27T17:15:49.485133",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-27T16:38:56.022266",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-27T16:38:56.001339",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-27T13:21:37.263476",
+    "cab_idx": -1,
+    "operation": "[时序电源] 中控 第1路关闭"
+  },
+  {
+    "time": "2026-03-27T13:09:32.011698",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-27T13:09:31.983224",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-27T13:07:34.039070",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-27T13:07:33.998950",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-27T13:03:52.483267",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-27T13:03:52.453642",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-27T12:59:43.025942",
+    "cab_idx": -1,
+    "operation": "[时序电源] 中控 顺序开启"
+  },
+  {
+    "time": "2026-03-27T12:59:41.247038",
+    "cab_idx": -1,
+    "operation": "[时序电源] hecoos 顺序开启"
+  },
+  {
+    "time": "2026-03-27T12:59:29.521121",
+    "cab_idx": -1,
+    "operation": "[时序电源] 中控 全部关闭"
+  },
+  {
+    "time": "2026-03-27T12:59:26.899644",
+    "cab_idx": -1,
+    "operation": "[时序电源] hecoos 全部关闭"
+  },
+  {
+    "time": "2026-03-27T12:59:09.632651",
+    "cab_idx": -1,
+    "operation": "[时序电源] 中控 解除锁定"
+  },
+  {
+    "time": "2026-03-27T12:59:07.422168",
+    "cab_idx": -1,
+    "operation": "[时序电源] hecoos 解除锁定"
+  },
+  {
+    "time": "2026-03-27T12:58:47.687126",
+    "cab_idx": -1,
+    "operation": "[时序电源] hecoos 锁定设备"
+  },
+  {
+    "time": "2026-03-27T12:58:41.711820",
+    "cab_idx": -1,
+    "operation": "[时序电源] 中控 锁定设备"
+  },
+  {
+    "time": "2026-03-27T12:57:27.093772",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-27T12:57:27.060706",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-27T12:53:50.938069",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第5路开启"
+  },
+  {
+    "time": "2026-03-27T10:12:51.264847",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-27T10:12:51.236790",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-27T00:30:48.055087",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第1路关闭"
+  },
+  {
+    "time": "2026-03-27T00:30:46.381656",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第1路开启"
+  },
+  {
+    "time": "2026-03-27T00:30:45.431009",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第1路关闭"
+  },
+  {
+    "time": "2026-03-27T00:30:44.229215",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第1路开启"
+  },
+  {
+    "time": "2026-03-27T00:30:39.470423",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第1路关闭"
+  },
+  {
+    "time": "2026-03-27T00:30:38.004015",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第2路关闭"
+  },
+  {
+    "time": "2026-03-27T00:30:37.037601",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第3路关闭"
+  },
+  {
+    "time": "2026-03-27T00:30:35.691120",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第1路开启"
+  },
+  {
+    "time": "2026-03-27T00:30:34.477843",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第2路开启"
+  },
+  {
+    "time": "2026-03-27T00:30:33.022356",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第3路开启"
+  },
+  {
+    "time": "2026-03-27T00:30:31.897615",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第2路关闭"
+  },
+  {
+    "time": "2026-03-27T00:30:30.910181",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第1路关闭"
+  },
+  {
+    "time": "2026-03-27T00:30:28.921781",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第2路开启"
+  },
+  {
+    "time": "2026-03-27T00:30:27.549264",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第1路开启"
+  },
+  {
+    "time": "2026-03-27T00:19:34.949037",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 逆序关闭"
+  },
+  {
+    "time": "2026-03-27T00:19:32.994541",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 顺序开启"
+  },
+  {
+    "time": "2026-03-27T00:19:31.677185",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 逆序关闭"
+  },
+  {
+    "time": "2026-03-27T00:19:29.283220",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 顺序开启"
+  },
+  {
+    "time": "2026-03-27T00:19:27.396115",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 所有通道关闭"
+  },
+  {
+    "time": "2026-03-27T00:19:25.632518",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 所有通道开启"
+  },
+  {
+    "time": "2026-03-27T00:19:23.214524",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第1路关闭"
+  },
+  {
+    "time": "2026-03-27T00:19:21.737197",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第4路关闭"
+  },
+  {
+    "time": "2026-03-27T00:19:20.567654",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第3路关闭"
+  },
+  {
+    "time": "2026-03-27T00:19:19.699538",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第2路关闭"
+  },
+  {
+    "time": "2026-03-27T00:18:31.764208",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第4路开启"
+  },
+  {
+    "time": "2026-03-27T00:18:30.555728",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第3路开启"
+  },
+  {
+    "time": "2026-03-27T00:18:28.454688",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第2路开启"
+  },
+  {
+    "time": "2026-03-27T00:18:26.179624",
+    "cab_idx": -1,
+    "operation": "[时序电源] DS-608 时序电源 第1路开启"
+  },
+  {
+    "time": "2026-03-26T23:30:32.960193",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1POWR=OK"
+  },
+  {
+    "time": "2026-03-26T22:25:05.152894",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 失败 - 投影机报错：%2RFIL=ERR1\r\u0000"
+  },
+  {
+    "time": "2026-03-26T22:25:02.752163",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %2RRES=NA\r\u0000"
+  },
+  {
+    "time": "2026-03-26T22:25:01.292238",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 失败 - 投影机报错：%2FILT=ERR1\r\u0000"
+  },
+  {
+    "time": "2026-03-26T22:25:00.262338",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 失败 - 投影机报错：%2RLMP=ERR1\r\u0000"
+  },
+  {
+    "time": "2026-03-26T22:24:59.217445",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %2SVER=7.51/0.08\r\u0000"
+  },
+  {
+    "time": "2026-03-26T22:24:58.312178",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1INFO="
+  },
+  {
+    "time": "2026-03-26T22:24:57.482231",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1NAME="
+  },
+  {
+    "time": "2026-03-26T22:24:56.542625",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1ERST=000000"
+  },
+  {
+    "time": "2026-03-26T22:24:55.682666",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1LAMP=0 1"
+  },
+  {
+    "time": "2026-03-26T22:24:54.511805",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1INF1=Generic"
+  },
+  {
+    "time": "2026-03-26T22:24:53.098570",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1CLSS=2"
+  },
+  {
+    "time": "2026-03-26T22:24:52.162390",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %2SNUM=\r\u0000"
+  },
+  {
+    "time": "2026-03-26T22:24:50.801922",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1INF2="
+  },
+  {
+    "time": "2026-03-26T22:24:49.712273",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 失败 - 投影机报错：%2RFIL=ERR1\r\u0000"
+  },
+  {
+    "time": "2026-03-26T22:23:03.498406",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T22:23:03.477977",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T22:22:39.991114",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1POWR=OK"
+  },
+  {
+    "time": "2026-03-26T22:11:09.429575",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1POWR=OK"
+  },
+  {
+    "time": "2026-03-26T21:50:24.966579",
+    "cab_idx": -1,
+    "operation": "[服务器] 已向节点 D4-5D-64-D2-C0-74 下发指令: [刷新信息]"
+  },
+  {
+    "time": "2026-03-26T21:50:20.356713",
+    "cab_idx": -1,
+    "operation": "[服务器] 已向节点 8C:C5:8C:09:A0:8B 下发指令: [刷新信息]"
+  },
+  {
+    "time": "2026-03-26T21:48:50.030846",
+    "cab_idx": 4,
+    "operation": "操作: 通道2 合闸"
+  },
+  {
+    "time": "2026-03-26T21:47:31.266182",
+    "cab_idx": -1,
+    "operation": "[幕布] 控制 [一厅-A区-幕布] - 未命名命令: 成功 - 幕布控制完成: down"
+  },
+  {
+    "time": "2026-03-26T21:47:24.326432",
+    "cab_idx": -1,
+    "operation": "[幕布] 控制 [一厅-A区-幕布] - 未命名命令: 成功 - 幕布控制完成: stop"
+  },
+  {
+    "time": "2026-03-26T21:47:00.040822",
+    "cab_idx": -1,
+    "operation": "[幕布] 控制 [一厅-A区-幕布] - 未命名命令: 成功 - 幕布控制完成: up"
+  },
+  {
+    "time": "2026-03-26T21:29:47.057985",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [台球桌] - 未命名命令: 失败 - PJLink 通讯失败：[WinError 10061] 由于目标计算机积极拒绝，无法连接。"
+  },
+  {
+    "time": "2026-03-26T21:29:25.742039",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T21:29:25.708063",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T21:28:18.645706",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T21:28:18.626121",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T21:20:16.730291",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T21:20:16.713383",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T21:06:31.912610",
+    "cab_idx": 4,
+    "operation": "操作: 通道2 断开"
+  },
+  {
+    "time": "2026-03-26T21:06:24.670673",
+    "cab_idx": 4,
+    "operation": "操作: 通道2 合闸"
+  },
+  {
+    "time": "2026-03-26T21:06:18.963606",
+    "cab_idx": 4,
+    "operation": "操作: 通道1 断开"
+  },
+  {
+    "time": "2026-03-26T21:06:01.471900",
+    "cab_idx": 4,
+    "operation": "操作: 通道1 合闸"
+  },
+  {
+    "time": "2026-03-26T21:05:10.074716",
+    "cab_idx": -1,
+    "operation": "[幕布] 控制 [一厅-A区-幕布] - 未命名命令: 成功 - 幕布控制完成: down"
+  },
+  {
+    "time": "2026-03-26T21:05:05.710416",
+    "cab_idx": -1,
+    "operation": "[幕布] 控制 [一厅-A区-幕布] - 未命名命令: 成功 - 幕布控制完成: stop"
+  },
+  {
+    "time": "2026-03-26T21:04:59.537708",
+    "cab_idx": -1,
+    "operation": "[幕布] 控制 [一厅-A区-幕布] - 未命名命令: 成功 - 幕布控制完成: up"
+  },
+  {
+    "time": "2026-03-26T21:02:00.584679",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T20:59:30.147362",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T20:39:41.826573",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T20:39:37.393693",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T20:39:35.212981",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T20:38:47.039717",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T20:38:43.134865",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T20:38:28.811615",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T20:29:55.712605",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1POWR=OK"
+  },
+  {
+    "time": "2026-03-26T20:29:12.551720",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T20:28:21.486119",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T20:25:13.557992",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T19:57:03.629103",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T19:57:03.614316",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T19:13:46.674815",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T19:13:46.657701",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T19:12:54.926173",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T19:12:54.904994",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T18:35:01.716778",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T18:35:01.699653",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T18:34:53.545501",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T18:34:14.098335",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T18:34:05.033447",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T18:34:04.994577",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T18:33:52.576289",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T18:33:48.884594",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T18:33:24.792968",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T18:33:11.512459",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T18:33:11.494115",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T18:32:48.064458",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T18:32:38.181853",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T18:31:26.214557",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未命名命令: 成功 - 已发送 (网关无返回)"
+  },
+  {
+    "time": "2026-03-26T18:28:24.880328",
+    "cab_idx": -1,
+    "operation": "[幕布] 控制 [一厅-A区-幕布] - 未命名命令: 成功 - 幕布控制完成: down"
+  },
+  {
+    "time": "2026-03-26T18:20:32.236191",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T18:20:32.199857",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T18:14:04.909813",
+    "cab_idx": -1,
+    "operation": "[幕布] 控制 [新幕布] - 未命名命令: 成功 - 幕布控制完成: up"
+  },
+  {
+    "time": "2026-03-26T17:53:46.877799",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T17:53:46.849057",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T17:16:13.860039",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1INF1=Generic"
+  },
+  {
+    "time": "2026-03-26T17:16:12.485400",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1LAMP=0 1"
+  },
+  {
+    "time": "2026-03-26T17:16:11.442285",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1ERST=000000"
+  },
+  {
+    "time": "2026-03-26T17:16:09.900066",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1NAME="
+  },
+  {
+    "time": "2026-03-26T17:16:06.709225",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1INF2="
+  },
+  {
+    "time": "2026-03-26T17:16:03.569358",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1CLSS=2"
+  },
+  {
+    "time": "2026-03-26T17:15:29.419122",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [猫桌] - 未命名命令: 成功 - %1POWR=OK"
+  },
+  {
+    "time": "2026-03-26T17:14:38.006419",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T17:14:37.988713",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T17:02:12.782731",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T17:02:12.762836",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T17:01:18.275459",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T17:01:18.257522",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T16:16:37.874240",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [爱普生] - 未命名命令: 失败 - PJLink 通讯失败：timed out"
+  },
+  {
+    "time": "2026-03-26T15:05:02.137712",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T15:05:02.102384",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T15:04:06.735364",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T15:04:06.695939",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T15:03:12.333686",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T15:03:12.299102",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T15:01:38.039218",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T15:01:38.024716",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T14:33:08.575697",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T14:33:08.546934",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T14:06:50.293188",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T14:06:50.280526",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T14:05:27.659613",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T14:05:27.627350",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T13:14:13.371892",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未知命令: 成功 - 已发送 (超时无响应)"
+  },
+  {
+    "time": "2026-03-26T12:51:40.888729",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未知命令: 成功 - 已发送 (超时无响应)"
+  },
+  {
+    "time": "2026-03-26T12:24:37.784951",
+    "cab_idx": -1,
+    "operation": "[服务器] 已向节点 24-5A-5F-D6-B3-8E 下发指令: [刷新信息]"
+  },
+  {
+    "time": "2026-03-26T12:24:28.766629",
+    "cab_idx": -1,
+    "operation": "[服务器] 已向节点 24-5A-5F-D6-B3-8E 下发指令: [刷新信息]"
+  },
+  {
+    "time": "2026-03-26T12:23:56.840706",
+    "cab_idx": -1,
+    "operation": "[服务器] 节点配置已更新"
+  },
+  {
+    "time": "2026-03-26T12:23:56.807819",
+    "cab_idx": -1,
+    "operation": "[系统] 配置已保存并完成热重载"
+  },
+  {
+    "time": "2026-03-26T11:58:45.991718",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未知命令: 成功 - %1POWR=OK"
+  },
+  {
+    "time": "2026-03-26T11:58:43.914513",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未知命令: 成功 - %1POWR=OK"
+  },
+  {
+    "time": "2026-03-26T11:34:49.034620",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未知命令: 成功 - %1POWR=OK"
+  },
+  {
+    "time": "2026-03-26T10:30:04.927156",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未知命令: 成功 - 控制完成，响应：EB 90 00 0C 00 00 01 02 00 07 00 91"
+  },
+  {
+    "time": "2026-03-26T10:29:56.950149",
+    "cab_idx": -1,
+    "operation": "[投影机] 控制 [新投影机] - 未知命令: 成功 - %1POWR=OK"
+  },
+  {
+    "time": "2026-03-26T05:51:44.196069",
+    "cab_idx": -1,
+    "operation": "[服务器] 下发指令 [重启] 到节点 D4-5D-64-D2-C0-74"
+  },
+  {
+    "time": "2026-03-26T02:00:37.755067",
+    "cab_idx": -1,
+    "operation": "[服务器] 已从扫描结果导入 1 台机器到分组 [????]"
+  },
+  {
+    "time": "2026-03-26T01:57:37.052354",
+    "cab_idx": -1,
+    "operation": "[服务器] 已从扫描结果导入 0 台机器到分组 [????]"
+  },
+  {
+    "time": "2026-03-25T23:48:08.845038",
+    "cab_idx": -1,
+    "operation": "[幕布] 控制 [新幕布] - 未知命令: 成功 - 执行成功: up"
+  },
+  {
+    "time": "2026-03-25T23:47:09.060007",
+    "cab_idx": -1,
+    "operation": "[幕布] 标定 [新幕布] - 位置: 100%"
+  },
+  {
+    "time": "2026-03-25T23:47:02.198281",
+    "cab_idx": -1,
+    "operation": "[幕布] 标定 [新幕布] - 位置: 100%"
+  },
+  {
+    "time": "2026-03-25T23:46:35.951570",
+    "cab_idx": -1,
+    "operation": "[幕布] 控制 [新幕布] - 未知命令: 成功 - 执行成功: down"
+  },
+  {
+    "time": "2026-03-25T23:46:23.295472",
+    "cab_idx": -1,
+    "operation": "[幕布] 控制 [新幕布] - 未知命令: 成功 - 执行成功: stop"
+  },
+  {
+    "time": "2026-03-25T23:46:10.767276",
+    "cab_idx": -1,
+    "operation": "[幕布] 控制 [新幕布] - 未知命令: 成功 - 执行成功: up"
+  },
+  {
+    "time": "2026-03-25T22:41:26.377440",
+    "cab_idx": -1,
+    "operation": "🎥 控制投影机 [新投影机] - 未知命令: ✅ 成功 - %1POWR=OK"
+  },
+  {
+    "time": "2026-03-25T22:41:19.659832",
+    "cab_idx": -1,
+    "operation": "🎥 控制投影机 [新投影机] - 未知命令: ✅ 成功 - %1POWR=OK"
+  },
+  {
+    "time": "2026-03-25T22:41:06.489885",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T22:35:47.916876",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T22:35:28.001749",
+    "cab_idx": -1,
+    "operation": "[泛型设备] 控制 [dev_1774449248700]: 成功"
+  },
+  {
+    "time": "2026-03-25T22:35:19.589015",
+    "cab_idx": -1,
+    "operation": "[泛型设备] 控制 [dev_1774449248700]: 成功"
+  },
+  {
+    "time": "2026-03-25T22:35:14.983091",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T22:20:20.822925",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道4 关闭"
+  },
+  {
+    "time": "2026-03-25T22:20:20.525622",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道3 关闭"
+  },
+  {
+    "time": "2026-03-25T22:20:20.069585",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道2 关闭"
+  },
+  {
+    "time": "2026-03-25T22:20:19.398227",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 关闭"
+  },
+  {
+    "time": "2026-03-25T22:18:07.245884",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 关闭"
+  },
+  {
+    "time": "2026-03-25T22:18:06.711198",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道2 关闭"
+  },
+  {
+    "time": "2026-03-25T22:18:06.223398",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道3 关闭"
+  },
+  {
+    "time": "2026-03-25T22:18:05.758606",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道4 关闭"
+  },
+  {
+    "time": "2026-03-25T22:18:04.963365",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道3 开启"
+  },
+  {
+    "time": "2026-03-25T22:18:04.121966",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道2 开启"
+  },
+  {
+    "time": "2026-03-25T22:18:02.156965",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 开启"
+  },
+  {
+    "time": "2026-03-25T22:14:14.995420",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道4 开启"
+  },
+  {
+    "time": "2026-03-25T22:14:00.193646",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道3 关闭"
+  },
+  {
+    "time": "2026-03-25T22:13:58.125813",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道4 关闭"
+  },
+  {
+    "time": "2026-03-25T22:13:54.029129",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道4 开启"
+  },
+  {
+    "time": "2026-03-25T22:13:51.966763",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道4 关闭"
+  },
+  {
+    "time": "2026-03-25T22:13:49.897155",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道3 关闭"
+  },
+  {
+    "time": "2026-03-25T22:13:45.757534",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道2 关闭"
+  },
+  {
+    "time": "2026-03-25T22:13:37.678304",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T22:13:24.291557",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道4 开启"
+  },
+  {
+    "time": "2026-03-25T22:13:24.044029",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道3 开启"
+  },
+  {
+    "time": "2026-03-25T22:13:17.509081",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道2 开启"
+  },
+  {
+    "time": "2026-03-25T22:13:11.316303",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 关闭"
+  },
+  {
+    "time": "2026-03-25T22:13:09.224967",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 开启"
+  },
+  {
+    "time": "2026-03-25T22:13:01.700088",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T21:59:38.225934",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T21:58:59.290813",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T21:56:29.953283",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T21:56:06.667653",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T21:55:29.403453",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T21:54:36.448198",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 开启"
+  },
+  {
+    "time": "2026-03-25T21:54:33.417555",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 开启"
+  },
+  {
+    "time": "2026-03-25T21:54:30.705312",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 关闭"
+  },
+  {
+    "time": "2026-03-25T21:54:29.746124",
+    "cab_idx": -1,
+    "operation": "[灯光] 调光控制: 通道1 开启"
+  },
+  {
+    "time": "2026-03-25T21:53:50.910088",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T21:52:31.086212",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T21:52:11.694674",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T21:52:02.813428",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T21:51:32.655324",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T21:51:17.342899",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T21:50:58.858305",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T21:36:29.357588",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T20:46:59.090794",
+    "cab_idx": -1,
+    "operation": "🎥 控制投影机 [新投影机] - 未知命令: ✅ 成功 - 成功 | 响应: EB 90 00 0F 00 00 01 04 00 03 04 07 07 07 AB"
+  },
+  {
+    "time": "2026-03-25T20:46:57.364407",
+    "cab_idx": -1,
+    "operation": "🎥 控制投影机 [新投影机] - 未知命令: ✅ 成功 - 成功 | 响应: EB 90 00 0F 00 00 01 04 00 03 04 07 07 07 AB"
+  },
+  {
+    "time": "2026-03-25T20:46:55.715773",
+    "cab_idx": -1,
+    "operation": "🎥 控制投影机 [新投影机] - 未知命令: ✅ 成功 - 成功 | 响应: EB 90 00 0F 00 00 01 04 00 03 04 07 07 07 AB"
+  },
+  {
+    "time": "2026-03-25T20:36:46.098039",
+    "cab_idx": 0,
+    "operation": "操作: 通道1 断开"
+  },
+  {
+    "time": "2026-03-25T20:36:42.919533",
+    "cab_idx": 0,
+    "operation": "操作: 通道1 合闸"
+  },
+  {
+    "time": "2026-03-25T17:30:52.645325",
+    "cab_idx": -1,
+    "operation": "🕹️ 调光控制: 通道4 关闭"
+  },
+  {
+    "time": "2026-03-25T17:30:50.771383",
+    "cab_idx": -1,
+    "operation": "🕹️ 调光控制: 通道4 开启"
+  },
+  {
+    "time": "2026-03-25T15:57:09.752468",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T15:56:24.226608",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T15:52:26.462710",
+    "cab_idx": -1,
+    "operation": "⚙️ 系统全量配置已更新并热重载"
+  },
+  {
+    "time": "2026-03-25T15:25:45.732489",
+    "cab_idx": -1,
+    "operation": "🎥 控制投影机 [新投影机] - 未知命令: ✅ 成功 - 成功 | 响应: EB 90 00 0F 00 00 01 04 00 03 04 07 07 07 AB"
+  }
+]

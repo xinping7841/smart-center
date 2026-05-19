@@ -70,6 +70,7 @@ door_status_info = {
     "zone_counts": {},
     "updated_at": None,
 }
+_LAST_LOGGED_DOOR_STABLE_STATE = None
 status_lock = threading.Lock()
 frame_lock = threading.Lock()
 camera_state_lock = threading.Lock()
@@ -1609,12 +1610,24 @@ def _update_runtime_stability(fusion_result, vision_cfg):
 
 
 def _update_status_info(merged_state, fusion_result, primary_result, detection_camera, vision_cfg):
+    global _LAST_LOGGED_DOOR_STABLE_STATE
     now_iso = time.strftime("%Y-%m-%dT%H:%M:%S")
     now_ts = time.time()
     stop_thresh_time = float(_get_door_config().get("stop_threshold", 3.0) or 3.0)
+    log_message = ""
     with status_lock:
+        previous_status = door_status_info.get("current_status")
         door_status_info["detection_camera"] = detection_camera
         door_status_info["current_status"] = merged_state
+        if (
+            merged_state in {"open", "closed"}
+            and previous_status in {"open", "closed"}
+            and merged_state != previous_status
+            and _LAST_LOGGED_DOOR_STABLE_STATE != merged_state
+        ):
+            state_text = "打开" if merged_state == "open" else "关闭"
+            log_message = f"[状态变化][门禁] 户外大门识别为{state_text}（视觉/传感器识别）"
+            _LAST_LOGGED_DOOR_STABLE_STATE = merged_state
         if merged_state == "unknown_calibration":
             door_status_info["transition_status"] = None
         if merged_state in {"open", "closed"} and door_status_info.get("transition_status") == "stopped_midway":
@@ -1637,6 +1650,8 @@ def _update_status_info(merged_state, fusion_result, primary_result, detection_c
         ):
             door_status_info["transition_status"] = None
         door_status_info["updated_at"] = now_iso
+    if log_message:
+        add_log(-1, log_message)
 
 
 def _apply_analytics_to_status(results, vision_cfg):

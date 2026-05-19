@@ -846,6 +846,54 @@
         }
         function upd(g, i, k, val, isNum=false) { if (i !== null) { conf[g][i][k] = isNum ? (parseInt(val) || 0) : val; } else { conf[g][k] = isNum ? (parseInt(val) || 0) : val; } renderAll(); }
         function updDeepValue(group, key, val, isNum=false) { conf[group][key] = isNum ? (parseInt(val) || 0) : val; renderAll(); }
+        const ENV_FEATURE_DEFAULTS = {
+            temperature: true,
+            humidity: true,
+            illuminance: true,
+            contact: true,
+            light: true,
+            battery: true,
+            voltage: true,
+            noise: false,
+            pm25: false,
+            pm10: false,
+            pressure: false
+        };
+        const ENV_METRIC_OPTIONS = [
+            { key: 'auto', label: '自动选择最合适指标' },
+            { key: 'temperature', label: '温度' },
+            { key: 'humidity', label: '湿度' },
+            { key: 'illuminance', label: '光照 Lux' },
+            { key: 'contact', label: '开合状态' },
+            { key: 'light', label: '光照状态' },
+            { key: 'battery', label: '电量估算' },
+            { key: 'voltage', label: '电池电压' },
+            { key: 'noise', label: '噪声' },
+            { key: 'pm25', label: 'PM2.5' },
+            { key: 'pm10', label: 'PM10' },
+            { key: 'pressure', label: '大气压' }
+        ];
+        function normalizeEnvSensorConfig(sensor) {
+            if (!sensor || typeof sensor !== 'object') return;
+            sensor.features = Object.assign({}, ENV_FEATURE_DEFAULTS, sensor.features || {});
+            const validMetricKeys = new Set(ENV_METRIC_OPTIONS.map(item => item.key));
+            if (!validMetricKeys.has(String(sensor.primary_metric || 'auto'))) sensor.primary_metric = 'auto';
+        }
+        function renderEnvFeatureToggle(sensorIndex, key, label, hint = '') {
+            const sensor = conf.env_sensors[sensorIndex];
+            const enabled = (sensor.features || {})[key] !== false;
+            return `<div class="item">
+                <label>${escapeHtml(label)}${hint ? `<span style="font-weight:600;color:#94a3b8;margin-left:6px;">${escapeHtml(hint)}</span>` : ''}</label>
+                <select onchange="conf.env_sensors[${sensorIndex}].features.${key}=this.value==='true'; renderAll()">
+                    <option value="true" ${enabled ? 'selected' : ''}>显示</option>
+                    <option value="false" ${!enabled ? 'selected' : ''}>隐藏</option>
+                </select>
+            </div>`;
+        }
+        function renderEnvPrimaryMetricOptions(selectedValue) {
+            const selected = String(selectedValue || 'auto');
+            return ENV_METRIC_OPTIONS.map(item => `<option value="${item.key}" ${selected === item.key ? 'selected' : ''}>${escapeHtml(item.label)}</option>`).join('');
+        }
         function getCabinetMeterSortValue(cab, idx) {
             return parseInt(cab?.meter_sort_order ?? (idx + 1), 10) || (idx + 1);
         }
@@ -3106,7 +3154,8 @@
             let count = obj[countKey] || 8;
             if(!obj.channels_config) obj.channels_config = [];
             let cfgs = obj.channels_config;
-            for(let i=1; i<=count; i++) { if(!cfgs.find(c=>c.channel===i)) cfgs.push({channel:i, name:"第" + i + "路", sort:i, visible:true, span: 1}); }
+            for(let i=1; i<=count; i++) { if(!cfgs.find(c=>c.channel===i)) cfgs.push({channel:i, name:"第" + i + "路", remark:"", sort:i, visible:true, span: 1}); }
+            cfgs.forEach(ch => { if (ch.remark === undefined || ch.remark === null) ch.remark = ''; });
             obj.channels_config = cfgs.filter(c => c.channel <= count);
         }
         function initSequencerChannels(obj) {
@@ -3214,6 +3263,7 @@
                     c.channels_config.forEach((ch, cIdx) => {
                         chHtml += `<div class="action-row" style="background:#f8fafc;">
                             <div class="item"><label>通道 ${ch.channel} 名称</label><input value="${ch.name}" onchange="updCh('cab',${i},${cIdx},'name',this.value)"></div>
+                            <div class="item"><label>用途备注</label><input value="${ch.remark || ''}" placeholder="例如：中控主机 / LED屏 / 功放" onchange="updCh('cab',${i},${cIdx},'remark',this.value)"></div>
                             <div class="item"><label>大屏排序</label><input type="number" value="${ch.sort}" onchange="updCh('cab',${i},${cIdx},'sort',this.value,true)" style="width:70px"></div>
                             <div class="item"><label>宽度排布</label>
                                 <select onchange="updCh('cab',${i},${cIdx},'span',this.value,true)"><option value="1" ${ch.span==1?'selected':''}>标准单列</option><option value="2" ${ch.span==2?'selected':''}>双倍宽</option></select>
@@ -3945,9 +3995,11 @@
                         <div class="grid">
                             <div class="item"><label>设备 ID</label><input value="${escapeHtml(h.id || '')}" onchange="upd('hvac_devices',${i},'id',this.value)"></div>
                             <div class="item"><label>显示名称</label><input value="${escapeHtml(h.name || '')}" onchange="upd('hvac_devices',${i},'name',this.value)"></div>
+                            <div class="item"><label>所属分区</label><input value="${escapeHtml(h.room_name || '')}" onchange="upd('hvac_devices',${i},'room_name',this.value)" placeholder="例如 一号厅 / 二号厅 / 主机房"></div>
+                            <div class="item"><label>显示排序</label><input type="number" value="${h.sort_order || (i + 1)}" onchange="upd('hvac_devices',${i},'sort_order',this.value,true)"></div>
                             <div class="item"><label>品牌</label><input value="${escapeHtml(h.brand || 'Xiaomi')}" onchange="upd('hvac_devices',${i},'brand',this.value)"></div>
                             <div class="item"><label>型号</label><input value="${escapeHtml(h.model || '')}" onchange="upd('hvac_devices',${i},'model',this.value)" placeholder="例如 KTBL02LM"></div>
-                            <div class="item"><label>协议</label><select onchange="upd('hvac_devices',${i},'protocol',this.value)"><option value="miio" ${String(h.protocol||'miio')==='miio'?'selected':''}>miio 本地直连</option><option value="mock" ${String(h.protocol||'miio')==='mock'?'selected':''}>占位/模拟</option></select></div>
+                            <div class="item"><label>协议</label><select onchange="upd('hvac_devices',${i},'protocol',this.value)"><option value="miio" ${String(h.protocol||'miio')==='miio'?'selected':''}>miio 本地直连</option><option value="home_assistant" ${String(h.protocol||'miio')==='home_assistant'?'selected':''}>Home Assistant</option><option value="mock" ${String(h.protocol||'miio')==='mock'?'selected':''}>占位/模拟</option></select></div>
                             <div class="item"><label>设备 IP</label><input value="${escapeHtml(h.ip || '')}" onchange="upd('hvac_devices',${i},'ip',this.value)" placeholder="例如 192.168.60.114"></div>
                             <div class="item"><label>Token</label><input value="${escapeHtml(h.token || '')}" onchange="upd('hvac_devices',${i},'token',this.value)" placeholder="32位 token"></div>
                             <div class="item"><label>轮询间隔(ms)</label><input type="number" value="${h.poll_interval_ms || 5000}" onchange="upd('hvac_devices',${i},'poll_interval_ms',this.value,true)"></div>
@@ -4206,17 +4258,7 @@
 
                 let henv = '';
                 conf.env_sensors.forEach((e, i) => {
-                    if(!e.features) {
-                        e.features = {
-                            temperature: true,
-                            humidity: true,
-                            illuminance: true,
-                            noise: false,
-                            pm25: false,
-                            pm10: false,
-                            pressure: false
-                        };
-                    }
+                    normalizeEnvSensorConfig(e);
                     henv += `<div class="card"><button class="btn btn-red" style="position:absolute;right:20px;top:20px" onclick="if(confirm('确认删除这个环境传感器吗？')){conf.env_sensors.splice(${i},1);renderAll()}">删除</button>
                         <h3 style="color:#8b5cf6">环境传感器: ${e.name}</h3>
                         <div class="grid">
@@ -4229,15 +4271,26 @@
                             <div class="item"><label>寄存器数量</label><input type="number" value="${e.register_count||8}" onchange="upd('env_sensors',${i},'register_count',this.value,true)"></div>
                         </div>
                         <div style="border-top:1px dashed var(--border); padding-top:15px; margin-top:15px;">
-                            <h4 style="margin-bottom:10px; color:#64748b;">功能项启用</h4>
+                            <h4 style="margin-bottom:10px; color:#64748b;">显示策略</h4>
                             <div class="grid">
-                                <div class="item"><label>温度</label><select onchange="conf.env_sensors[${i}].features.temperature=this.value==='true'; renderAll()"><option value="true" ${e.features.temperature?'selected':''}>启用</option><option value="false" ${!e.features.temperature?'selected':''}>禁用</option></select></div>
-                                <div class="item"><label>湿度</label><select onchange="conf.env_sensors[${i}].features.humidity=this.value==='true'; renderAll()"><option value="true" ${e.features.humidity?'selected':''}>启用</option><option value="false" ${!e.features.humidity?'selected':''}>禁用</option></select></div>
-                                <div class="item"><label>光照</label><select onchange="conf.env_sensors[${i}].features.illuminance=this.value==='true'; renderAll()"><option value="true" ${e.features.illuminance?'selected':''}>启用</option><option value="false" ${!e.features.illuminance?'selected':''}>禁用</option></select></div>
-                                <div class="item"><label>噪声</label><select onchange="conf.env_sensors[${i}].features.noise=this.value==='true'; renderAll()"><option value="true" ${e.features.noise?'selected':''}>启用</option><option value="false" ${!e.features.noise?'selected':''}>禁用</option></select></div>
-                                <div class="item"><label>PM2.5</label><select onchange="conf.env_sensors[${i}].features.pm25=this.value==='true'; renderAll()"><option value="true" ${e.features.pm25?'selected':''}>启用</option><option value="false" ${!e.features.pm25?'selected':''}>禁用</option></select></div>
-                                <div class="item"><label>PM10</label><select onchange="conf.env_sensors[${i}].features.pm10=this.value==='true'; renderAll()"><option value="true" ${e.features.pm10?'selected':''}>启用</option><option value="false" ${!e.features.pm10?'selected':''}>禁用</option></select></div>
-                                <div class="item"><label>大气压</label><select onchange="conf.env_sensors[${i}].features.pressure=this.value==='true'; renderAll()"><option value="true" ${e.features.pressure?'selected':''}>启用</option><option value="false" ${!e.features.pressure?'selected':''}>禁用</option></select></div>
+                                <div class="item"><label>核心指标</label><select onchange="conf.env_sensors[${i}].primary_metric=this.value; renderAll()">${renderEnvPrimaryMetricOptions(e.primary_metric)}</select></div>
+                                <div class="item" style="grid-column: span 2;"><label>说明</label><div style="min-height:42px;padding:10px 12px;border:1px solid var(--border);border-radius:12px;background:#f8fafc;color:#64748b;font-size:12px;line-height:1.5;">核心指标用于环境页卡片主读数；下面隐藏的数据项不会出现在卡片中。选择“自动”会优先使用开合/光照/温湿度等可用数据。</div></div>
+                            </div>
+                        </div>
+                        <div style="border-top:1px dashed var(--border); padding-top:15px; margin-top:15px;">
+                            <h4 style="margin-bottom:10px; color:#64748b;">数据项显示</h4>
+                            <div class="grid">
+                                ${renderEnvFeatureToggle(i, 'temperature', '温度')}
+                                ${renderEnvFeatureToggle(i, 'humidity', '湿度')}
+                                ${renderEnvFeatureToggle(i, 'illuminance', '光照 Lux')}
+                                ${renderEnvFeatureToggle(i, 'contact', '开合状态')}
+                                ${renderEnvFeatureToggle(i, 'light', '光照状态')}
+                                ${renderEnvFeatureToggle(i, 'battery', '电量估算', '米家/蓝牙')}
+                                ${renderEnvFeatureToggle(i, 'voltage', '电池电压', '调试用')}
+                                ${renderEnvFeatureToggle(i, 'noise', '噪声')}
+                                ${renderEnvFeatureToggle(i, 'pm25', 'PM2.5')}
+                                ${renderEnvFeatureToggle(i, 'pm10', 'PM10')}
+                                ${renderEnvFeatureToggle(i, 'pressure', '大气压')}
                             </div>
                         </div>
                     </div>`;
@@ -5371,6 +5424,8 @@
             conf.hvac_devices.push({
                 id: "hvac_" + Date.now(),
                 name: "米家空调伴侣2",
+                room_name: "",
+                sort_order: (conf.hvac_devices.length ? Math.max(...conf.hvac_devices.map(h => parseInt(h.sort_order || 0, 10) || 0)) : 0) + 1,
                 brand: "Xiaomi",
                 model: "KTBL02LM",
                 protocol: "miio",
@@ -5519,7 +5574,7 @@
         }
         function addUniv() { if (!guardConfigMutation('meter.config', '新增通用设备')) return; conf.custom_devices.push({id: "dev_" + Date.now(), name:"新泛型设备", interface: "tcp", ip: "192.168.1.100", port: 8080, commands: []}); renderAll(); }
         function addUnivCmd(uIdx) { if (!guardConfigMutation('meter.config', '新增通用设备命令')) return; conf.custom_devices[uIdx].commands.push({name: "指令", type: "click", payload: "play1", format: "str", wait_ms: 0, show_on_home: true}); renderAll(); }
-        function addEnv() { if (!guardConfigMutation('meter.config', '新增环境传感器')) return; conf.env_sensors.push({id: "env_" + Date.now(), name:"光照温湿度变送器", ip: "192.168.1.100", port: 4001, station_id: 1, register_start: 500, register_count: 8, features: {temperature: true, humidity: true, illuminance: true, noise: false, pm25: false, pm10: false, pressure: false}}); renderAll(); }
+        function addEnv() { if (!guardConfigMutation('meter.config', '新增环境传感器')) return; conf.env_sensors.push({id: "env_" + Date.now(), name:"光照温湿度变送器", ip: "192.168.1.100", port: 4001, station_id: 1, register_start: 500, register_count: 8, primary_metric: 'auto', features: Object.assign({}, ENV_FEATURE_DEFAULTS)}); renderAll(); }
         function addAuto() {
             if (!guardConfigMutation('meter.config', '新增自动化规则')) return;
             conf.automations.push({
@@ -6057,7 +6112,7 @@
         saveData = function() {
             if (!ensurePermission('meter.config', '保存系统配置')) return;
             setSaveButtonBusy(true, '正在保存...');
-            setSaveFeedback('loading', '正在保存配置并同步运行服务，请稍候...');
+            setSaveFeedback('loading', '正在保存本机配置并热重载服务，请稍候...');
             conf.cabinets.forEach(c => initChannels(c, 'channel_count'));
             conf.sequencers.forEach(s => initSequencerChannels(s));
             conf.light_devices.forEach(l => initChannels(l, 'channels'));
@@ -6088,14 +6143,18 @@
                     const cabinetGatewaySync = cfgRes.cabinet_gateway_sync;
                     let feedbackType = 'success';
                     let feedbackMessage = '配置已保存并立即生效，服务器节点与资产分组已同步更新。';
-                    if (remoteSync && remoteSync.ok) {
+                    if (remoteSync && remoteSync.pending) {
+                        feedbackMessage = '配置已保存并立即生效，服务器节点与资产分组已同步更新；远程电表服务正在后台同步。';
+                    } else if (remoteSync && remoteSync.ok) {
                         const exportedAt = (remoteSync.export_result || {}).exported_at || '';
                         feedbackMessage = `配置已保存并生效，远程电表服务同步成功。${exportedAt ? ` 报表已刷新：${exportedAt}` : ''}`;
                     } else if (remoteSync && remoteSync.ok === 0) {
                         feedbackType = 'warn';
                         feedbackMessage = `配置已保存，但远程电表服务同步失败：${remoteSync.msg || '未知错误'}`;
                     }
-                    if (cabinetGatewaySync && cabinetGatewaySync.ok) {
+                    if (cabinetGatewaySync && cabinetGatewaySync.pending) {
+                        feedbackMessage += ' 电柜网关正在后台同步。';
+                    } else if (cabinetGatewaySync && cabinetGatewaySync.ok) {
                         feedbackMessage += ' 电柜网关配置已同步。';
                     } else if (cabinetGatewaySync && cabinetGatewaySync.ok === 0) {
                         feedbackType = feedbackType === 'success' ? 'warn' : feedbackType;

@@ -1,5 +1,7 @@
 import json
 import os
+import re
+import subprocess
 import threading
 import time
 import struct
@@ -7,6 +9,7 @@ import sys
 import socket
 import urllib.request
 import urllib.error
+import urllib.parse
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 
@@ -20,6 +23,7 @@ from runtime import state as runtime_state
 from runtime.env_history import record_env_lux_sample
 from runtime.state import (
     LIGHT_DRIVERS,
+    NVR_STATUS,
     PROXY_STATUS,
     PROJECTOR_STATUS,
     SCREEN_STATUS,
@@ -35,7 +39,24 @@ LIGHT_META = {}
 
 SNMP_MAX_WORKERS = int(os.environ.get("SMART_CENTER_SNMP_MAX_WORKERS", "4"))
 SNMP_IDLE_SLEEP_SEC = float(os.environ.get("SMART_CENTER_SNMP_IDLE_SLEEP_SEC", "0.35"))
-PROXY_DEFAULT_CHECK_URLS = ("https://www.google.com", "https://chatgpt.com")
+NVR_MAX_WORKERS = int(os.environ.get("SMART_CENTER_NVR_MAX_WORKERS", "2"))
+NVR_IDLE_SLEEP_SEC = float(os.environ.get("SMART_CENTER_NVR_IDLE_SLEEP_SEC", "0.5"))
+PROXY_REQUIRED_GOOGLE_URL = "https://www.google.com/generate_204"
+PROXY_DEFAULT_CHECK_URLS = (
+    PROXY_REQUIRED_GOOGLE_URL,
+    "https://www.youtube.com/generate_204",
+    "https://chatgpt.com",
+    "https://github.com",
+)
+PROXY_TRAFFIC_EXIT_HOST = "172.16.201.169"
+PROXY_TRAFFIC_EXIT_IFNAME = "enp1s0"
+PROXY_TRAFFIC_EXIT_SSH_TARGET = "node-121"
+PROXY_TRAFFIC_EXIT_LOCAL_USER = "xinping"
+PROXY_CLIENT_RATE_CACHE = {}
+PROXY_TRAFFIC_NIC_CACHE = {}
+PROXY_CLIENT_MONITOR_CACHE = {}
+STATE_CHANGE_LOG_CACHE = {}
+STATE_CHANGE_VALUE_CACHE = {}
 
 
 def _status_label(level):
@@ -134,6 +155,67 @@ def _poll_interval_sec(cfg, default_ms):
     return max(0.5, float(cfg.get("poll_interval_ms", default_ms) or default_ms) / 1000.0)
 
 
+def _display_bool_state(value):
+    return "开" if bool(value) else "关"
+
+
+def _channel_label_from_config(cfg, ch_num, fallback_prefix="第"):
+    for item in (cfg or {}).get("channels_config", []) or []:
+        try:
+            if int(item.get("channel", 0) or 0) != int(ch_num):
+                continue
+        except Exception:
+            continue
+        name = str(item.get("name") or "").strip()
+        remark = str(item.get("remark") or item.get("usage") or item.get("description") or "").strip()
+        if name and remark and remark not in name:
+            return f"{name}({remark})"
+        if name:
+            return name
+        if remark:
+            return remark
+    return f"{fallback_prefix}{ch_num}路"
+
+
+def _changed_channel_text(previous, current, cfg=None):
+    if not isinstance(previous, list) or not isinstance(current, list):
+        return ""
+    if not previous or not current:
+        return ""
+    pieces = []
+    for idx, (old_value, new_value) in enumerate(zip(previous, current), start=1):
+        if old_value is None or new_value is None:
+            continue
+        if bool(old_value) == bool(new_value):
+            continue
+        label = _channel_label_from_config(cfg or {}, idx)
+        pieces.append(f"{label} {_display_bool_state(old_value)}->{_display_bool_state(new_value)}")
+    return "、".join(pieces)
+
+
+def _observed_channel_change_text(cache_key, current, cfg=None):
+    if not isinstance(current, list) or not current:
+        return ""
+    normalized = [None if item is None else bool(item) for item in current]
+    previous = STATE_CHANGE_VALUE_CACHE.get(cache_key)
+    STATE_CHANGE_VALUE_CACHE[cache_key] = list(normalized)
+    if previous is None:
+        return ""
+    return _changed_channel_text(list(previous), normalized, cfg)
+
+
+def _record_detected_change(cache_key, message, *, cab_idx=-1, min_interval_sec=1.5):
+    text = str(message or "").strip()
+    if not text:
+        return
+    now_ts = time.time()
+    previous = STATE_CHANGE_LOG_CACHE.get(cache_key) or {}
+    if previous.get("message") == text and (now_ts - float(previous.get("ts", 0.0) or 0.0)) < min_interval_sec:
+        return
+    STATE_CHANGE_LOG_CACHE[cache_key] = {"message": text, "ts": now_ts}
+    add_log(cab_idx, text)
+
+
 def _record_env_status_sample(device_id):
     state = ENV_STATUS.get(str(device_id), {}) or {}
     record_env_lux_sample(
@@ -142,6 +224,23 @@ def _record_env_status_sample(device_id):
         sampled_at=state.get("updated_at"),
         online=state.get("online"),
     )
+
+
+def _normalize_proxy_exit_traffic_config(cfg):
+    payload = dict(cfg or {})
+    payload["traffic_enabled"] = bool(payload.get("traffic_enabled", True))
+    payload["traffic_source"] = "nic_ssh"
+    payload["traffic_device_id"] = ""
+    payload["traffic_host"] = PROXY_TRAFFIC_EXIT_HOST
+    payload["traffic_ifindex"] = 0
+    payload["traffic_ifname"] = PROXY_TRAFFIC_EXIT_IFNAME
+    payload["traffic_ssh_target"] = str(
+        payload.get("traffic_ssh_target") or PROXY_TRAFFIC_EXIT_SSH_TARGET
+    ).strip() or PROXY_TRAFFIC_EXIT_SSH_TARGET
+    payload["traffic_local_user"] = str(
+        payload.get("traffic_local_user") or PROXY_TRAFFIC_EXIT_LOCAL_USER
+    ).strip() or PROXY_TRAFFIC_EXIT_LOCAL_USER
+    return payload
 
 
 def _read_proxy_monitor_config():
@@ -167,6 +266,7 @@ def _read_proxy_monitor_config():
         poll_interval_sec = max(3.0, min(float(raw_cfg.get("poll_interval_sec", 20.0) or 20.0), 600.0))
     except Exception:
         poll_interval_sec = 20.0
+    poll_interval_sec = max(30.0, poll_interval_sec)
 
     urls = raw_cfg.get("check_urls")
     normalized_urls = []
@@ -177,20 +277,41 @@ def _read_proxy_monitor_config():
                 normalized_urls.append(url)
     if not normalized_urls:
         normalized_urls = list(PROXY_DEFAULT_CHECK_URLS)
+    if not any(_is_proxy_google_check_url(url) for url in normalized_urls):
+        normalized_urls.insert(0, PROXY_REQUIRED_GOOGLE_URL)
 
     traffic_enabled = bool(raw_cfg.get("traffic_enabled", True))
     traffic_source = str(raw_cfg.get("traffic_source") or "auto").strip().lower()
-    if traffic_source not in {"auto", "snmp", "server", "none"}:
+    if traffic_source not in {"auto", "snmp", "server", "nic_ssh", "none"}:
         traffic_source = "auto"
     traffic_device_id = str(raw_cfg.get("traffic_device_id") or "").strip()
     traffic_host = str(raw_cfg.get("traffic_host") or "").strip()
     traffic_ifname = str(raw_cfg.get("traffic_ifname") or "").strip()
+    traffic_ssh_target = str(raw_cfg.get("traffic_ssh_target") or raw_cfg.get("client_monitor_ssh_target") or "node-121").strip()
+    traffic_local_user = str(raw_cfg.get("traffic_local_user") or raw_cfg.get("client_monitor_local_user") or "xinping").strip()
+    try:
+        traffic_timeout_sec = max(2.0, min(float(raw_cfg.get("traffic_timeout_sec", raw_cfg.get("client_monitor_timeout_sec", 6.0)) or 6.0), 20.0))
+    except Exception:
+        traffic_timeout_sec = 6.0
     try:
         traffic_ifindex = max(0, int(raw_cfg.get("traffic_ifindex", 0) or 0))
     except Exception:
         traffic_ifindex = 0
+    try:
+        client_monitor_recent_seconds = max(30, min(int(raw_cfg.get("client_monitor_recent_seconds", 300) or 300), 3600))
+    except Exception:
+        client_monitor_recent_seconds = 300
+    try:
+        client_monitor_tail_lines = max(500, min(int(raw_cfg.get("client_monitor_tail_lines", 8000) or 8000), 50000))
+    except Exception:
+        client_monitor_tail_lines = 8000
+    client_monitor_tail_lines = min(client_monitor_tail_lines, 2000)
+    try:
+        client_monitor_timeout_sec = max(2.0, min(float(raw_cfg.get("client_monitor_timeout_sec", 6.0) or 6.0), 20.0))
+    except Exception:
+        client_monitor_timeout_sec = 6.0
 
-    return {
+    return _normalize_proxy_exit_traffic_config({
         "enabled": enabled,
         "host": host,
         "port": port,
@@ -203,7 +324,42 @@ def _read_proxy_monitor_config():
         "traffic_host": traffic_host,
         "traffic_ifindex": traffic_ifindex,
         "traffic_ifname": traffic_ifname,
-    }
+        "traffic_ssh_target": traffic_ssh_target,
+        "traffic_local_user": traffic_local_user,
+        "traffic_timeout_sec": traffic_timeout_sec,
+        "client_monitor_enabled": bool(raw_cfg.get("client_monitor_enabled", True)),
+        "client_monitor_ssh_target": str(raw_cfg.get("client_monitor_ssh_target") or "node-121").strip(),
+        "client_monitor_local_user": str(raw_cfg.get("client_monitor_local_user") or "xinping").strip(),
+        "client_monitor_recent_seconds": client_monitor_recent_seconds,
+        "client_monitor_tail_lines": client_monitor_tail_lines,
+        "client_monitor_timeout_sec": client_monitor_timeout_sec,
+    })
+
+
+def _is_proxy_google_check_url(url):
+    try:
+        host = urllib.parse.urlparse(str(url or "")).hostname or ""
+    except Exception:
+        host = ""
+    host = host.lower().strip(".")
+    return host == "google.com" or host.endswith(".google.com")
+
+
+def _proxy_check_name(url):
+    try:
+        host = urllib.parse.urlparse(str(url or "")).hostname or ""
+    except Exception:
+        host = ""
+    host = host.lower().strip(".")
+    if host == "google.com" or host.endswith(".google.com"):
+        return "Google"
+    if host == "youtube.com" or host.endswith(".youtube.com"):
+        return "YouTube"
+    if host == "chatgpt.com" or host.endswith(".chatgpt.com") or host.endswith(".openai.com"):
+        return "ChatGPT"
+    if host == "github.com" or host.endswith(".github.com"):
+        return "GitHub"
+    return host or str(url or "")
 
 
 def _proxy_probe_tcp(host, port, timeout_sec):
@@ -252,17 +408,31 @@ def _set_proxy_status(payload):
 
 def _format_rate_text(bits_per_sec):
     try:
-        speed = float(bits_per_sec or 0.0)
+        mbps = float(bits_per_sec or 0.0) / 1000.0 / 1000.0
     except Exception:
-        speed = 0.0
-    if speed <= 0:
-        return "0 bps"
-    units = ["bps", "Kbps", "Mbps", "Gbps", "Tbps"]
+        mbps = 0.0
+    if mbps <= 0:
+        return "0.000 Mbps"
+    if mbps < 1:
+        return f"{mbps:.3f} Mbps"
+    return f"{mbps:.2f} Mbps"
+
+
+def _format_bytes_text(byte_count):
+    try:
+        size = float(byte_count or 0.0)
+    except Exception:
+        size = 0.0
+    if size <= 0:
+        return "0 B"
+    units = ["B", "KB", "MB", "GB", "TB"]
     idx = 0
-    while speed >= 1000.0 and idx < len(units) - 1:
-        speed /= 1000.0
+    while size >= 1024.0 and idx < len(units) - 1:
+        size /= 1024.0
         idx += 1
-    return f"{round(speed, 2)} {units[idx]}"
+    if idx == 0:
+        return f"{int(size)} {units[idx]}"
+    return f"{size:.1f} {units[idx]}"
 
 
 def _safe_float(value, default=0.0):
@@ -287,7 +457,9 @@ def _candidate_proxy_traffic_sources(cfg):
         return ["snmp"]
     if source == "server":
         return ["server"]
-    return ["snmp", "server"]
+    if source == "nic_ssh":
+        return ["nic_ssh"]
+    return ["nic_ssh", "snmp", "server"]
 
 
 def _resolve_proxy_snmp_candidates(cfg):
@@ -451,6 +623,87 @@ def _proxy_traffic_from_server(cfg, now_iso):
     }, ""
 
 
+def _proxy_traffic_from_ssh_nic(cfg, now_iso):
+    ssh_target = str(cfg.get("traffic_ssh_target") or cfg.get("client_monitor_ssh_target") or "").strip()
+    if not ssh_target:
+        return None, "missing traffic ssh target"
+    ifname = str(cfg.get("traffic_ifname") or "enp1s0").strip() or "enp1s0"
+    local_user = str(cfg.get("traffic_local_user") or cfg.get("client_monitor_local_user") or "").strip()
+    timeout_sec = float(cfg.get("traffic_timeout_sec") or cfg.get("client_monitor_timeout_sec") or 6.0)
+    remote_cmd = (
+        f"test -d /sys/class/net/{ifname} || exit 4; "
+        f"printf 'ifname=%s\\n' {ifname}; "
+        f"printf 'rx=%s\\n' $(cat /sys/class/net/{ifname}/statistics/rx_bytes 2>/dev/null); "
+        f"printf 'tx=%s\\n' $(cat /sys/class/net/{ifname}/statistics/tx_bytes 2>/dev/null); "
+        f"printf 'state=%s\\n' $(cat /sys/class/net/{ifname}/operstate 2>/dev/null); "
+        f"ip -4 -br addr show dev {ifname} 2>/dev/null | awk '{{print \"addr=\"$3}}'"
+    )
+    connect_timeout = max(4, min(int(timeout_sec) - 1, 12))
+    ssh_cmd = [
+        "ssh",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        f"ConnectTimeout={connect_timeout}",
+        "-o",
+        "ConnectionAttempts=2",
+        ssh_target,
+        remote_cmd,
+    ]
+    if local_user:
+        ssh_cmd = ["sudo", "-n", "-u", local_user] + ssh_cmd
+    try:
+        proc = subprocess.run(ssh_cmd, text=True, capture_output=True, timeout=timeout_sec)
+    except Exception as exc:
+        return None, str(exc)
+    if proc.returncode != 0:
+        return None, (proc.stderr or f"ssh exited {proc.returncode}").strip()
+    values = {}
+    for line in (proc.stdout or "").splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip()
+    rx_bytes = _safe_int(values.get("rx"), -1)
+    tx_bytes = _safe_int(values.get("tx"), -1)
+    if rx_bytes < 0 or tx_bytes < 0:
+        return None, "invalid nic traffic counters"
+    now_mono = time.monotonic()
+    cache_key = f"{ssh_target}:{ifname}"
+    prev = PROXY_TRAFFIC_NIC_CACHE.get(cache_key)
+    rx_bps = 0.0
+    tx_bps = 0.0
+    if prev:
+        delta_sec = max(0.5, now_mono - float(prev.get("ts") or now_mono))
+        rx_delta = rx_bytes - int(prev.get("rx") or 0)
+        tx_delta = tx_bytes - int(prev.get("tx") or 0)
+        if rx_delta >= 0:
+            rx_bps = rx_delta * 8.0 / delta_sec
+        if tx_delta >= 0:
+            tx_bps = tx_delta * 8.0 / delta_sec
+    PROXY_TRAFFIC_NIC_CACHE[cache_key] = {"ts": now_mono, "rx": rx_bytes, "tx": tx_bytes}
+    return {
+        "enabled": True,
+        "available": True,
+        "rx_bps": round(max(0.0, rx_bps), 2),
+        "tx_bps": round(max(0.0, tx_bps), 2),
+        "rx_mbps": round(max(0.0, rx_bps) / 1000.0 / 1000.0, 3),
+        "tx_mbps": round(max(0.0, tx_bps) / 1000.0 / 1000.0, 3),
+        "rx_text": _format_rate_text(rx_bps),
+        "tx_text": _format_rate_text(tx_bps),
+        "source": "nic_ssh",
+        "device_id": ssh_target,
+        "host": str(values.get("addr") or ""),
+        "ifindex": 0,
+        "ifname": ifname,
+        "operstate": str(values.get("state") or ""),
+        "rx_bytes": rx_bytes,
+        "tx_bytes": tx_bytes,
+        "updated_at": now_iso,
+        "error": "",
+    }, ""
+
+
 def _build_proxy_traffic_payload(cfg, previous_status, now_iso):
     if not bool(cfg.get("traffic_enabled", True)):
         return {
@@ -478,6 +731,8 @@ def _build_proxy_traffic_payload(cfg, previous_status, now_iso):
             payload, err = _proxy_traffic_from_snmp(cfg, now_iso)
         elif source == "server":
             payload, err = _proxy_traffic_from_server(cfg, now_iso)
+        elif source == "nic_ssh":
+            payload, err = _proxy_traffic_from_ssh_nic(cfg, now_iso)
         else:
             payload, err = None, "unsupported traffic source"
         if payload and payload.get("available"):
@@ -504,6 +759,231 @@ def _build_proxy_traffic_payload(cfg, previous_status, now_iso):
     }
 
 
+def _clean_proxy_client_ip(value):
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if text.startswith("[") and "]:" in text:
+        text = text[1:text.rfind("]:")]
+    elif ":" in text:
+        text = text.rsplit(":", 1)[0]
+    if text.startswith("::ffff:"):
+        text = text[7:]
+    text = text.strip("[]")
+    if text in {"127.0.0.1", "::1", "localhost"}:
+        return ""
+    return text
+
+
+def _parse_proxy_ss_clients(text, now_mono):
+    clients = {}
+    current_ip = ""
+    for raw_line in str(text or "").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        if line.startswith(("ESTAB", "FIN-WAIT", "CLOSE-WAIT", "SYN-")):
+            parts = line.split()
+            peer = parts[4] if len(parts) >= 5 else ""
+            current_ip = _clean_proxy_client_ip(peer)
+            if not current_ip:
+                continue
+            item = clients.setdefault(
+                current_ip,
+                {
+                    "ip": current_ip,
+                    "active_connections": 0,
+                    "tcp_sent_bytes": 0,
+                    "tcp_received_bytes": 0,
+                    "tx_bps": 0.0,
+                    "rx_bps": 0.0,
+                    "last_active_monotonic": now_mono,
+                },
+            )
+            item["active_connections"] += 1
+            item["last_active_monotonic"] = now_mono
+            continue
+        if not current_ip:
+            continue
+        item = clients.setdefault(current_ip, {"ip": current_ip, "active_connections": 0, "tcp_sent_bytes": 0, "tcp_received_bytes": 0, "tx_bps": 0.0, "rx_bps": 0.0, "last_active_monotonic": now_mono})
+        sent_match = re.search(r"bytes_sent:(\d+)", line)
+        recv_match = re.search(r"bytes_received:(\d+)", line)
+        if sent_match:
+            item["tcp_sent_bytes"] += int(sent_match.group(1))
+        if recv_match:
+            item["tcp_received_bytes"] += int(recv_match.group(1))
+
+    for ip, item in clients.items():
+        totals = (int(item.get("tcp_sent_bytes") or 0), int(item.get("tcp_received_bytes") or 0))
+        prev = PROXY_CLIENT_RATE_CACHE.get(ip)
+        if prev:
+            delta_sec = max(0.5, now_mono - float(prev.get("ts") or now_mono))
+            sent_delta = max(0, totals[0] - int(prev.get("sent") or 0))
+            recv_delta = max(0, totals[1] - int(prev.get("recv") or 0))
+            item["tx_bps"] = round(sent_delta * 8.0 / delta_sec, 2)
+            item["rx_bps"] = round(recv_delta * 8.0 / delta_sec, 2)
+        PROXY_CLIENT_RATE_CACHE[ip] = {"ts": now_mono, "sent": totals[0], "recv": totals[1]}
+    stale_before = now_mono - 900.0
+    for ip, prev in list(PROXY_CLIENT_RATE_CACHE.items()):
+        if float(prev.get("ts") or 0) < stale_before:
+            PROXY_CLIENT_RATE_CACHE.pop(ip, None)
+    return clients
+
+
+def _parse_proxy_access_clients(text, now_epoch, recent_seconds):
+    clients = {}
+    cutoff = float(now_epoch) - float(recent_seconds)
+    for raw_line in str(text or "").splitlines():
+        parts = raw_line.split()
+        if len(parts) < 5:
+            continue
+        try:
+            ts = float(parts[0])
+        except Exception:
+            continue
+        if ts < cutoff:
+            continue
+        ip = _clean_proxy_client_ip(parts[2])
+        if not ip:
+            continue
+        try:
+            bytes_out = int(parts[4])
+        except Exception:
+            bytes_out = 0
+        item = clients.setdefault(ip, {"ip": ip, "recent_requests": 0, "recent_bytes": 0, "last_seen_epoch": ts})
+        item["recent_requests"] += 1
+        item["recent_bytes"] += max(0, bytes_out)
+        item["last_seen_epoch"] = max(float(item.get("last_seen_epoch") or 0), ts)
+    return clients
+
+
+def _run_proxy_client_monitor_command(cfg):
+    ssh_target = str(cfg.get("client_monitor_ssh_target") or "").strip()
+    if not ssh_target:
+        return "", "missing ssh target"
+    local_user = str(cfg.get("client_monitor_local_user") or "").strip()
+    timeout_sec = float(cfg.get("client_monitor_timeout_sec") or 6.0)
+    tail_lines = int(cfg.get("client_monitor_tail_lines") or 8000)
+    remote_cmd = (
+        "printf '__SS__\\n'; "
+        "ss -Htin sport = :3128 2>/dev/null || true; "
+        "printf '\\n__ACCESS__\\n'; "
+        f"sudo -n tail -n {tail_lines} /var/log/squid/access.log 2>/dev/null || true"
+    )
+    ssh_cmd = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=4", ssh_target, remote_cmd]
+    if local_user:
+        ssh_cmd = ["sudo", "-n", "-u", local_user] + ssh_cmd
+    try:
+        proc = subprocess.run(ssh_cmd, text=True, capture_output=True, timeout=timeout_sec)
+    except Exception as exc:
+        return "", str(exc)
+    if proc.returncode != 0:
+        return proc.stdout or "", (proc.stderr or f"ssh exited {proc.returncode}").strip()
+    return proc.stdout or "", ""
+
+
+def _build_proxy_clients_payload(cfg, now_iso):
+    if not bool(cfg.get("client_monitor_enabled", True)):
+        return {
+            "enabled": False,
+            "available": False,
+            "source": "disabled",
+            "active_client_count": 0,
+            "total_active_connections": 0,
+            "recent_client_count": 0,
+            "recent_seconds": int(cfg.get("client_monitor_recent_seconds") or 300),
+            "clients": [],
+            "updated_at": now_iso,
+            "error": "client monitor disabled",
+        }
+    cache_key = "{}:{}:{}".format(
+        str(cfg.get("client_monitor_ssh_target") or "").strip(),
+        int(cfg.get("client_monitor_recent_seconds") or 300),
+        int(cfg.get("client_monitor_tail_lines") or 8000),
+    )
+    now_mono_for_cache = time.monotonic()
+    cache_ttl = max(10.0, min(float(cfg.get("poll_interval_sec") or 30.0) * 0.75, 30.0))
+    cached_payload = PROXY_CLIENT_MONITOR_CACHE.get(cache_key)
+    if cached_payload and now_mono_for_cache - float(cached_payload.get("monotonic") or 0.0) < cache_ttl:
+        payload = dict(cached_payload.get("payload") or {})
+        payload["cached"] = True
+        payload["updated_at"] = payload.get("updated_at") or now_iso
+        return payload
+    output, error = _run_proxy_client_monitor_command(cfg)
+    if error and not output:
+        payload = {
+            "enabled": True,
+            "available": False,
+            "source": "ssh-ss-squid",
+            "active_client_count": 0,
+            "total_active_connections": 0,
+            "recent_client_count": 0,
+            "recent_seconds": int(cfg.get("client_monitor_recent_seconds") or 300),
+            "clients": [],
+            "updated_at": now_iso,
+            "error": error,
+        }
+        PROXY_CLIENT_MONITOR_CACHE[cache_key] = {"monotonic": now_mono_for_cache, "payload": dict(payload)}
+        return payload
+    ss_text = ""
+    access_text = ""
+    if "__ACCESS__" in output:
+        before_access, access_text = output.split("__ACCESS__", 1)
+        ss_text = before_access.split("__SS__", 1)[-1] if "__SS__" in before_access else before_access
+    else:
+        ss_text = output.split("__SS__", 1)[-1] if "__SS__" in output else output
+    now_mono = time.monotonic()
+    now_epoch = time.time()
+    recent_seconds = int(cfg.get("client_monitor_recent_seconds") or 300)
+    active_map = _parse_proxy_ss_clients(ss_text, now_mono)
+    recent_map = _parse_proxy_access_clients(access_text, now_epoch, recent_seconds)
+    ip_set = set(active_map) | set(recent_map)
+    clients = []
+    for ip in sorted(ip_set):
+        active = active_map.get(ip, {})
+        recent = recent_map.get(ip, {})
+        tx_bps = _safe_float(active.get("tx_bps"), 0.0)
+        rx_bps = _safe_float(active.get("rx_bps"), 0.0)
+        recent_bytes = int(recent.get("recent_bytes") or 0)
+        last_seen_epoch = float(recent.get("last_seen_epoch") or 0.0)
+        clients.append(
+            {
+                "ip": ip,
+                "active": int(active.get("active_connections") or 0) > 0,
+                "active_connections": int(active.get("active_connections") or 0),
+                "tx_bps": round(tx_bps, 2),
+                "rx_bps": round(rx_bps, 2),
+                "tx_text": _format_rate_text(tx_bps),
+                "rx_text": _format_rate_text(rx_bps),
+                "recent_requests": int(recent.get("recent_requests") or 0),
+                "recent_bytes": recent_bytes,
+                "recent_bytes_text": _format_bytes_text(recent_bytes),
+                "last_seen_at": datetime.fromtimestamp(last_seen_epoch).isoformat() if last_seen_epoch > 0 else None,
+            }
+        )
+    clients.sort(key=lambda item: (not item.get("active"), -int(item.get("active_connections") or 0), -int(item.get("recent_bytes") or 0), item.get("ip") or ""))
+    total_download_bps = sum(_safe_float(item.get("tx_bps"), 0.0) for item in clients)
+    total_upload_bps = sum(_safe_float(item.get("rx_bps"), 0.0) for item in clients)
+    payload = {
+        "enabled": True,
+        "available": True,
+        "source": "ssh-ss-squid",
+        "active_client_count": sum(1 for item in clients if item.get("active")),
+        "total_active_connections": sum(int(item.get("active_connections") or 0) for item in clients),
+        "recent_client_count": len([item for item in clients if int(item.get("recent_requests") or 0) > 0]),
+        "recent_seconds": recent_seconds,
+        "download_bps": round(total_download_bps, 2),
+        "upload_bps": round(total_upload_bps, 2),
+        "download_text": _format_rate_text(total_download_bps),
+        "upload_text": _format_rate_text(total_upload_bps),
+        "clients": clients[:80],
+        "updated_at": now_iso,
+        "error": error or "",
+    }
+    PROXY_CLIENT_MONITOR_CACHE[cache_key] = {"monotonic": now_mono_for_cache, "payload": dict(payload)}
+    return payload
+
+
 def proxy_update_loop():
     while True:
         cfg = _read_proxy_monitor_config()
@@ -511,6 +991,7 @@ def proxy_update_loop():
         now_mono = time.monotonic()
         previous_status = dict(PROXY_STATUS.get("default", {}) or {})
         traffic_payload = _build_proxy_traffic_payload(cfg, previous_status, now_iso)
+        clients_payload = _build_proxy_clients_payload(cfg, now_iso)
 
         if not cfg.get("enabled", True):
             _set_proxy_status(
@@ -534,6 +1015,7 @@ def proxy_update_loop():
                     "check_count": 0,
                     "checks": [],
                     "traffic": traffic_payload,
+                    "clients": clients_payload,
                 }
             )
             time.sleep(max(3.0, float(cfg.get("poll_interval_sec", 20.0) or 20.0)))
@@ -561,6 +1043,7 @@ def proxy_update_loop():
                     "healthy_target_count": 0,
                     "check_count": 0,
                     "traffic": traffic_payload,
+                    "clients": clients_payload,
                 },
             )
             _set_proxy_status(failure)
@@ -571,23 +1054,28 @@ def proxy_update_loop():
         proxy_url = f"http://{host}:{port}"
         checks = []
         healthy_targets = 0
+        google_check = None
         for url in check_urls:
             ok, status_code, latency_ms, error_text = _proxy_probe_http_via_proxy(proxy_url, url, timeout_sec)
             is_healthy = bool(ok and _is_http_probe_healthy(status_code))
             if is_healthy:
                 healthy_targets += 1
-            checks.append(
-                {
-                    "url": url,
-                    "ok": bool(ok),
-                    "healthy": is_healthy,
-                    "status_code": int(status_code or 0),
-                    "latency_ms": int(latency_ms or 0),
-                    "error": str(error_text or ""),
-                }
-            )
+            check_item = {
+                "url": url,
+                "ok": bool(ok),
+                "healthy": is_healthy,
+                "required": bool(_is_proxy_google_check_url(url)),
+                "name": _proxy_check_name(url),
+                "status_code": int(status_code or 0),
+                "latency_ms": int(latency_ms or 0),
+                "error": str(error_text or ""),
+            }
+            checks.append(check_item)
+            if check_item["required"] and google_check is None:
+                google_check = check_item
 
-        overall_ok = bool(tcp_ok and checks and healthy_targets >= 1)
+        google_ok = bool(google_check and google_check.get("healthy"))
+        overall_ok = bool(tcp_ok and checks and google_ok)
         if overall_ok:
             success_payload = _build_poll_success(
                 previous_status,
@@ -602,15 +1090,27 @@ def proxy_update_loop():
                     "tcp_latency_ms": int(tcp_latency_ms or 0),
                     "healthy_target_count": int(healthy_targets),
                     "check_count": int(len(checks)),
+                    "required_check": google_check or {},
+                    "google_ok": True,
+                    "google_latency_ms": int((google_check or {}).get("latency_ms") or 0),
+                    "google_status_code": int((google_check or {}).get("status_code") or 0),
                     "checks": checks,
                     "traffic": traffic_payload,
+                    "clients": clients_payload,
                 },
                 now_iso,
                 now_mono,
             )
             _set_proxy_status(success_payload)
         else:
-            combined_error = tcp_error or next((item.get("error") for item in checks if not item.get("healthy")), "proxy check failed")
+            if tcp_error:
+                combined_error = tcp_error
+            elif google_check and not google_check.get("healthy"):
+                combined_error = google_check.get("error") or f"Google check failed ({google_check.get('status_code') or 0})"
+            elif not google_check:
+                combined_error = "Google check missing"
+            else:
+                combined_error = next((item.get("error") for item in checks if not item.get("healthy")), "proxy check failed")
             failure_payload = _build_poll_failure(
                 previous_status,
                 combined_error,
@@ -627,8 +1127,13 @@ def proxy_update_loop():
                     "tcp_latency_ms": int(tcp_latency_ms or 0),
                     "healthy_target_count": int(healthy_targets),
                     "check_count": int(len(checks)),
+                    "required_check": google_check or {},
+                    "google_ok": False,
+                    "google_latency_ms": int((google_check or {}).get("latency_ms") or 0),
+                    "google_status_code": int((google_check or {}).get("status_code") or 0),
                     "checks": checks,
                     "traffic": traffic_payload,
+                    "clients": clients_payload,
                 },
             )
             _set_proxy_status(failure_payload)
@@ -744,6 +1249,13 @@ def poll_single_light(dev_id, light_cfg=None):
         device_status_text = str(res.get("status_text", "unknown") or "unknown")
         if res.get("online"):
             LIGHT_STATUS[dev_id] = channels
+            changed_text = _observed_channel_change_text(f"light:{dev_id}:channels:observed", channels, cfg)
+            if changed_text:
+                device_name = str(cfg.get("name") or cfg.get("id") or dev_id)
+                _record_detected_change(
+                    f"light:{dev_id}:channels",
+                    f"[状态变化][灯光] {device_name} {changed_text}（轮询识别）",
+                )
             next_meta = _build_poll_success(
                 previous_meta,
                 {
@@ -822,7 +1334,23 @@ def poll_single_projector(proj_cfg):
     try:
         from projector_core import ProjectorDriver
         status = dict(ProjectorDriver(proj_cfg).get_status() or {})
-        if status.get("online"):
+        if str(proj_cfg.get("control_type") or "") == "inferred_rs232":
+            merged = dict(previous_status or {})
+            merged.update(status)
+            merged["updated_at"] = now_iso
+            merged["last_checked_at"] = now_iso
+            if status.get("online"):
+                merged["last_success_at"] = now_iso
+                merged["poll_failures"] = 0
+                merged["stale"] = False
+            else:
+                merged["poll_failures"] = int(merged.get("poll_failures", 0) or 0) + 1
+            merged["last_polled_monotonic"] = now_monotonic
+            merged["last_error"] = "" if status.get("error") in [None, "", "正常"] else str(status.get("error"))
+            merged["last_error_at"] = None if not merged["last_error"] else now_iso
+            merged["status_level"] = status.get("status_level") or ("online" if status.get("online") else "error")
+            PROJECTOR_STATUS[proj_id] = _apply_poll_status_level(merged)
+        elif status.get("online"):
             PROJECTOR_STATUS[proj_id] = _build_poll_success(previous_status, status, now_iso, now_monotonic)
         else:
             PROJECTOR_STATUS[proj_id] = _build_poll_failure(
@@ -1073,6 +1601,110 @@ def snmp_update_loop():
                     except Exception:
                         pass
             time.sleep(SNMP_IDLE_SLEEP_SEC)
+    finally:
+        try:
+            executor.shutdown(wait=False, cancel_futures=True)
+        except Exception:
+            pass
+
+
+def poll_single_nvr(nvr_cfg):
+    device_id = str(nvr_cfg.get("id"))
+    previous_status = dict(NVR_STATUS.get(device_id, {}) or {})
+    interval_sec = _poll_interval_sec(nvr_cfg, 10000)
+    try:
+        from services.hikvision_nvr import poll_hikvision_nvr
+
+        status = dict(poll_hikvision_nvr(nvr_cfg) or {})
+        now_monotonic = time.monotonic()
+        now_iso = datetime.now().isoformat()
+        if bool(status.get("online")):
+            merged = _build_poll_success(previous_status, status, now_iso, now_monotonic)
+            status_level = str(status.get("status_level") or "").strip().lower()
+            if status_level in {"online", "stale", "error", "offline"}:
+                merged["status_level"] = status_level
+                merged = _apply_poll_status_level(merged)
+            NVR_STATUS[device_id] = merged
+        else:
+            NVR_STATUS[device_id] = _build_poll_failure(
+                previous_status,
+                status.get("error") or "NVR poll returned offline",
+                now_iso,
+                now_monotonic,
+                interval_sec,
+                defaults={
+                    "summary": dict(status.get("summary", {}) or previous_status.get("summary", {}) or {}),
+                    "channels": list(status.get("channels", []) or previous_status.get("channels", []) or []),
+                    "hdds": list(status.get("hdds", []) or previous_status.get("hdds", []) or []),
+                },
+            )
+    except Exception as e:
+        now_monotonic = time.monotonic()
+        now_iso = datetime.now().isoformat()
+        NVR_STATUS[device_id] = _build_poll_failure(
+            previous_status,
+            e,
+            now_iso,
+            now_monotonic,
+            interval_sec,
+            defaults={
+                "summary": dict(previous_status.get("summary", {}) or {}),
+                "channels": list(previous_status.get("channels", []) or []),
+                "hdds": list(previous_status.get("hdds", []) or []),
+            },
+        )
+
+
+def nvr_update_loop():
+    executor = ThreadPoolExecutor(max_workers=max(1, NVR_MAX_WORKERS), thread_name_prefix="nvr-poll")
+    in_flight = {}
+    try:
+        while True:
+            devices = list(CONFIG.get("nvr_devices", []))
+            active_ids = {str(item.get("id")) for item in devices}
+            for device_id in list(NVR_STATUS.keys()):
+                if device_id not in active_ids:
+                    NVR_STATUS.pop(device_id, None)
+                    in_flight.pop(device_id, None)
+
+            done_ids = []
+            for device_id, future in list(in_flight.items()):
+                if future.done():
+                    try:
+                        future.result()
+                    except Exception:
+                        pass
+                    done_ids.append(device_id)
+            for device_id in done_ids:
+                in_flight.pop(device_id, None)
+
+            due_devices = []
+            now = time.monotonic()
+            for cfg in devices:
+                if cfg.get("enabled", True) is False or cfg.get("visible", True) is False:
+                    continue
+                device_id = str(cfg.get("id"))
+                if device_id in in_flight:
+                    continue
+                state = NVR_STATUS.get(device_id, {}) or {}
+                interval_ms = max(2000, int(cfg.get("poll_interval_ms", 10000) or 10000))
+                last_polled = float(state.get("last_polled_monotonic", 0.0) or 0.0)
+                if (now - last_polled) * 1000 >= interval_ms:
+                    due_devices.append(cfg)
+            if due_devices:
+                due_devices.sort(
+                    key=lambda item: float(
+                        (NVR_STATUS.get(str(item.get("id")), {}) or {}).get("last_polled_monotonic", 0.0) or 0.0
+                    )
+                )
+                available_slots = max(0, max(1, NVR_MAX_WORKERS) - len(in_flight))
+                for cfg in due_devices[:available_slots]:
+                    device_id = str(cfg.get("id"))
+                    try:
+                        in_flight[device_id] = executor.submit(poll_single_nvr, cfg)
+                    except Exception:
+                        pass
+            time.sleep(NVR_IDLE_SLEEP_SEC)
     finally:
         try:
             executor.shutdown(wait=False, cancel_futures=True)
@@ -1580,6 +2212,14 @@ def poll_single_cabinet(idx):
             bits = mc.parse_pdu_relay(p_relay, conf["channel_count"])
             if bits:
                 DEVICE_STATUS[idx]["channels_1_4"] = bits
+                changed_text = _observed_channel_change_text(f"cabinet:{idx}:channels:observed", bits, conf)
+                if changed_text:
+                    cabinet_name = str(conf.get("cabinet_name") or conf.get("name") or f"电柜{idx + 1}")
+                    _record_detected_change(
+                        f"cabinet:{idx}:channels",
+                        f"[状态变化][强电柜] {cabinet_name} {changed_text}（外部/轮询识别）",
+                        cab_idx=idx,
+                    )
 
             hum, temp = mc.parse_av100_env(p_env)
             DEVICE_STATUS[idx].update({"cabinet_humidity": hum, "cabinet_temp": temp})
@@ -1619,6 +2259,14 @@ def poll_single_cabinet(idx):
             bits = mc.parse_pdu_relay(p_relay, conf["channel_count"])
             if bits:
                 DEVICE_STATUS[idx]["channels_1_4"] = bits
+                changed_text = _observed_channel_change_text(f"cabinet:{idx}:channels:observed", bits, conf)
+                if changed_text:
+                    cabinet_name = str(conf.get("cabinet_name") or conf.get("name") or f"电柜{idx + 1}")
+                    _record_detected_change(
+                        f"cabinet:{idx}:channels",
+                        f"[状态变化][强电柜] {cabinet_name} {changed_text}（外部/轮询识别）",
+                        cab_idx=idx,
+                    )
             if p_energy:
                 e = int.from_bytes(p_energy[3:7], "big") * 0.1
                 DEVICE_STATUS[idx]["electric_energy"] = e

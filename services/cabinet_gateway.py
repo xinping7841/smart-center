@@ -9,6 +9,7 @@ from config import CONFIG
 
 REMOTE_CABINET_STATUS_CACHE = {}
 REMOTE_CABINET_STATUS_CACHE_TTL_SEC = 4.0
+REMOTE_CABINET_STATUS_LIVE_READ = True
 
 
 def _safe_int(value, default=0):
@@ -33,10 +34,10 @@ def clear_remote_cabinet_status_cache(cab_idx=None):
             continue
 
 
-def _store_remote_cabinet_status_cache(base, cab_idx, payload):
+def _store_remote_cabinet_status_cache(base, cab_idx, payload, live_read=False):
     if not isinstance(payload, dict):
         return
-    REMOTE_CABINET_STATUS_CACHE[(base, int(cab_idx or 0))] = {
+    REMOTE_CABINET_STATUS_CACHE[(base, int(cab_idx or 0), bool(live_read))] = {
         "ts": time.monotonic(),
         "payload": dict(payload),
     }
@@ -108,16 +109,17 @@ def fetch_remote_cabinet_status(cab_idx):
     base = get_cabinet_gateway_base()
     if not base:
         raise RuntimeError("cabinet gateway disabled")
-    cache_key = (base, int(cab_idx or 0))
+    live_read = REMOTE_CABINET_STATUS_LIVE_READ
+    cache_key = (base, int(cab_idx or 0), bool(live_read))
     cached = REMOTE_CABINET_STATUS_CACHE.get(cache_key)
     now = time.monotonic()
     if cached and now - float(cached.get("ts") or 0.0) < REMOTE_CABINET_STATUS_CACHE_TTL_SEC:
         payload = dict(cached.get("payload") or {})
         payload["cache_hit"] = True
         return payload
-    query = urllib.parse.urlencode({"cab": int(cab_idx or 0)})
+    query = urllib.parse.urlencode({"cab": int(cab_idx or 0), "live": "1"} if live_read else {"cab": int(cab_idx or 0)})
     payload = _request_json(f"{base}/api/cabinet/status?{query}")
-    _store_remote_cabinet_status_cache(base, cab_idx, payload or {})
+    _store_remote_cabinet_status_cache(base, cab_idx, payload or {}, live_read=live_read)
     return payload
 
 

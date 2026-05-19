@@ -1,3 +1,4 @@
+import time
 from datetime import datetime
 
 from flask import Blueprint, jsonify, request
@@ -15,6 +16,8 @@ bp = Blueprint("hvac", __name__)
 
 
 HVAC_STATUS = {}
+_STATE_CHANGE_LOG_CACHE = {}
+_STATE_CHANGE_VALUE_CACHE = {}
 
 
 def _now_iso():
@@ -62,6 +65,7 @@ def _execute_control(device, action, payload):
             action,
             temperature=payload.get("temperature"),
             mode=payload.get("mode"),
+            fan_mode=payload.get("fan_mode") or payload.get("fan_speed"),
         )
     if protocol in {"home_assistant", "homeassistant", "ha"}:
         return ha_control_hvac(
@@ -70,8 +74,68 @@ def _execute_control(device, action, payload):
             CONFIG,
             temperature=payload.get("temperature"),
             mode=payload.get("mode"),
+            fan_mode=payload.get("fan_mode") or payload.get("fan_speed"),
         )
     return True, "mock_success", "mock"
+
+
+def _format_hvac_value(value):
+    if isinstance(value, bool):
+        return "开" if value else "关"
+    if value in (None, ""):
+        return "空"
+    return str(value)
+
+
+def _record_detected_change(cache_key, message, min_interval_sec=1.5):
+    text = str(message or "").strip()
+    if not text:
+        return
+    now_ts = time.time()
+    previous = _STATE_CHANGE_LOG_CACHE.get(cache_key) or {}
+    if previous.get("message") == text and (now_ts - float(previous.get("ts", 0.0) or 0.0)) < min_interval_sec:
+        return
+    _STATE_CHANGE_LOG_CACHE[cache_key] = {"message": text, "ts": now_ts}
+    add_log(-1, text)
+
+
+def _log_hvac_status_change(device, previous, current):
+    if not isinstance(current, dict):
+        return
+    device_id = str(device.get("id") or current.get("id") or "")
+    cache_key = f"hvac:{device_id}:status:observed"
+    previous = _STATE_CHANGE_VALUE_CACHE.get(cache_key)
+    _STATE_CHANGE_VALUE_CACHE[cache_key] = dict(current)
+    if not isinstance(previous, dict) or not previous:
+        return
+    fields = [
+        ("online", "在线"),
+        ("power", "电源"),
+        ("mode", "模式"),
+        ("target_temp", "设定温度"),
+        ("fan_mode", "风速"),
+        ("fan_speed", "风速"),
+    ]
+    changes = []
+    seen_labels = set()
+    for key, label in fields:
+        if label in seen_labels:
+            continue
+        old_value = previous.get(key)
+        new_value = current.get(key)
+        if old_value == new_value:
+            continue
+        if old_value in (None, "") and new_value in (None, ""):
+            continue
+        seen_labels.add(label)
+        changes.append(f"{label} {_format_hvac_value(old_value)}->{_format_hvac_value(new_value)}")
+    if not changes:
+        return
+    device_name = str(device.get("name") or current.get("name") or device_id or "空调")
+    _record_detected_change(
+        f"hvac:{device_id}:status",
+        f"[状态变化][空调] {device_name} {'、'.join(changes)}（外部/轮询识别）",
+    )
 
 
 def refresh_hvac_status():
@@ -83,7 +147,10 @@ def refresh_hvac_status():
 
     for device in devices:
         device_id = str(device.get("id"))
-        HVAC_STATUS[device_id] = _poll_device_status(device)
+        previous = dict(HVAC_STATUS.get(device_id, {}) or {})
+        current = _poll_device_status(device)
+        HVAC_STATUS[device_id] = current
+        _log_hvac_status_change(device, previous, current)
 
 
 @bp.route("/api/hvac/devices")
@@ -163,6 +230,8 @@ def control_hvac():
             detail["temperature"] = data.get("temperature")
         if action == "set_mode":
             detail["mode"] = data.get("mode")
+        if action == "set_fan_mode":
+            detail["fan_mode"] = data.get("fan_mode") or data.get("fan_speed")
 
         add_log(-1, f"[空调] 控制成功 [{device_name}] -> {action}")
         log_audit_event("hvac.control", target=str(device_id), detail=detail)

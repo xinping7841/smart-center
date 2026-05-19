@@ -1,4 +1,4 @@
-﻿import sqlite3, json, socket, time, subprocess, ipaddress, threading
+import sqlite3, json, socket, time, subprocess, ipaddress, threading, base64
 from datetime import datetime, timedelta
 from pathlib import Path
 import os
@@ -6,6 +6,7 @@ import platform
 import shutil
 import hashlib
 import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from flask import Blueprint, jsonify, request, Response
 from audit import log_audit_event
 from auth.decorators import require_permission
@@ -15,13 +16,21 @@ from paths import DB_FILE as DB_FILE_PATH, ensure_parent_dir
 
 bp = Blueprint('server', __name__)
 DB_FILE = str(DB_FILE_PATH)
-AGENT_VERSION = "2026.04.28.12"
-REPORT_MAX_BYTES = 512 * 1024
+AGENT_VERSION = "2026.05.19.01"
+REPORT_MAX_BYTES = 8 * 1024 * 1024
 REPORT_MIN_INTERVAL_SEC = 2.0
 REPORT_CACHE = {}
 REPORT_CACHE_LOCK = threading.Lock()
 MACHINES_CACHE = {"expires_at": 0.0, "payload": None}
 MACHINES_CACHE_TTL_SEC = 2.5
+MACHINE_STATE_LOG_CACHE = {}
+PING_CACHE = {}
+PING_CACHE_LOCK = threading.Lock()
+PING_REFRESH_LOCK = threading.Lock()
+PING_REFRESHING_TARGETS = set()
+PING_CACHE_TTL_SEC = 8.0
+PING_CACHE_STALE_SEC = 20.0
+PING_REFRESH_MAX_WORKERS = 24
 LOCAL_MONITOR_INTERVAL_SEC = 5.0
 LOCAL_MACHINE_STATE_LOCK = threading.Lock()
 LOCAL_MACHINE_CPU_SAMPLE = {"total": None, "idle": None}
@@ -117,14 +126,385 @@ def normalize_machine_mac(raw_mac):
     return text
 
 
+def _read_linux_iface_mac(iface):
+    name = str(iface or "").strip()
+    if not name:
+        return ""
+    mac = normalize_machine_mac(_read_text_file(f"/sys/class/net/{name}/address"))
+    if not mac or mac == "00-00-00-00-00-00":
+        return ""
+    return mac
+
+
+def _linux_iface_for_ip(ip_addr):
+    target = str(ip_addr or "").strip()
+    if not target:
+        return ""
+    try:
+        result = subprocess.run(["ip", "-o", "-4", "addr", "show"], capture_output=True, text=True, timeout=2)
+    except Exception:
+        return ""
+    if result.returncode != 0:
+        return ""
+    for line in result.stdout.splitlines():
+        parts = [item for item in line.split() if item]
+        if len(parts) < 4:
+            continue
+        iface = parts[1]
+        try:
+            inet_index = parts.index("inet")
+        except ValueError:
+            continue
+        cidr = parts[inet_index + 1] if inet_index + 1 < len(parts) else ""
+        if cidr.split("/", 1)[0] == target:
+            return iface
+    return ""
+
+
+def _linux_network_primary(iface_name, ip_addr):
+    iface = str(iface_name or "").strip()
+    ip_value = str(ip_addr or "").strip()
+    if ip_value:
+        ip_iface = _linux_iface_for_ip(ip_value)
+        if ip_iface:
+            iface = ip_iface
+    return {
+        "adapter_name": iface,
+        "adapter_ip": ip_value,
+        "adapter_mac": _read_linux_iface_mac(iface),
+        "sample_scope": "default_route_interface",
+    }
+
+
+def _get_machine_ip_for_wol(normalized_mac):
+    mac = normalize_machine_mac(normalized_mac)
+    if not mac or mac.startswith(("LOCAL-", "TEMP-")):
+        return ""
+    compact_mac = mac.replace("-", "")
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute(
+            "SELECT ip FROM machines WHERE mac=? OR REPLACE(mac, '-', '')=? LIMIT 1",
+            (mac, compact_mac),
+        )
+        row = c.fetchone()
+        return str(row[0] or "").strip() if row else ""
+    except Exception as exc:
+        add_log(-1, f"[服务器] 查询WOL目标IP失败: {mac} {exc}")
+        return ""
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def _get_machine_mac_by_ip(ip):
+    ip_text = str(ip or "").strip()
+    if not ip_text:
+        return ""
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute(
+            "SELECT mac FROM machines WHERE ip=? AND mac NOT LIKE 'TEMP-%' ORDER BY last_online DESC LIMIT 1",
+            (ip_text,),
+        )
+        row = c.fetchone()
+        return normalize_machine_mac(row[0]) if row else ""
+    except Exception as exc:
+        add_log(-1, f"[服务器] 按IP反查机器MAC失败: {ip_text} {exc}")
+        return ""
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def _get_recent_machine_mac_by_remote_addr(remote_addr):
+    ip_text = str(remote_addr or "").strip()
+    if not ip_text:
+        return ""
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute(
+            """
+            SELECT mac FROM machines
+            WHERE ip=? AND mac NOT LIKE 'TEMP-%'
+            ORDER BY last_online DESC
+            LIMIT 1
+            """,
+            (ip_text,),
+        )
+        row = c.fetchone()
+        return normalize_machine_mac(row[0]) if row else ""
+    except Exception as exc:
+        add_log(-1, f"[服务器] 按远端IP兜底反查机器MAC失败: {ip_text} {exc}")
+        return ""
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def _get_machine_mac_by_hostname_or_name(hostname):
+    host_text = str(hostname or "").strip()
+    if not host_text:
+        return ""
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute(
+            """
+            SELECT mac FROM machines
+            WHERE (hostname=? OR custom_name=?) AND mac NOT LIKE 'TEMP-%'
+            ORDER BY last_online DESC
+            LIMIT 1
+            """,
+            (host_text, host_text),
+        )
+        row = c.fetchone()
+        return normalize_machine_mac(row[0]) if row else ""
+    except Exception as exc:
+        add_log(-1, f"[服务器] 按主机名兜底反查机器MAC失败: {host_text} {exc}")
+        return ""
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def _get_machine_mac_by_legacy_report(report_ip="", remote_addr="", hostname="", raw_mac=""):
+    """Recover old agents whose MAC formatter produced an invalid value."""
+    candidates = []
+    for value in (report_ip, remote_addr):
+        value = str(value or "").strip()
+        if value and value not in candidates:
+            candidates.append(("ip", value))
+    host_text = str(hostname or "").strip()
+    if host_text:
+        candidates.append(("hostname", host_text))
+    raw_text = str(raw_mac or "").strip().upper()
+    raw_hex = re.sub(r"[^0-9A-F]", "", raw_text)
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        for field, value in candidates:
+            if field == "ip":
+                c.execute(
+                    """
+                    SELECT mac FROM machines
+                    WHERE ip=? AND mac NOT LIKE 'TEMP-%'
+                    ORDER BY last_online DESC
+                    LIMIT 1
+                    """,
+                    (value,),
+                )
+            else:
+                c.execute(
+                    """
+                    SELECT mac FROM machines
+                    WHERE (hostname=? OR custom_name=?) AND mac NOT LIKE 'TEMP-%'
+                    ORDER BY last_online DESC
+                    LIMIT 1
+                    """,
+                    (value, value),
+                )
+            row = c.fetchone()
+            if row:
+                return normalize_machine_mac(row[0])
+        if raw_hex and len(raw_hex) >= 8:
+            c.execute("SELECT mac FROM machines WHERE mac NOT LIKE 'TEMP-%'")
+            scored = []
+            for (stored_mac,) in c.fetchall():
+                stored_compact = re.sub(r"[^0-9A-F]", "", str(stored_mac or "").upper())
+                if not stored_compact:
+                    continue
+                common = sum(1 for item in (raw_hex[:4], raw_hex[-4:]) if item and item in stored_compact)
+                if common >= 1:
+                    scored.append((common, stored_mac))
+            if len(scored) == 1 or (scored and scored[0][0] > scored[1][0]):
+                scored.sort(reverse=True)
+                return normalize_machine_mac(scored[0][1])
+    except Exception as exc:
+        add_log(-1, f"[服务器] 旧Agent畸形MAC兜底匹配失败: remote={remote_addr} ip={report_ip} host={hostname} mac={raw_mac} {exc}")
+    finally:
+        if conn is not None:
+            conn.close()
+    return ""
+
+
+def _list_local_ipv4_broadcasts():
+    targets = []
+    try:
+        output = subprocess.check_output(
+            ["ip", "-o", "-4", "addr", "show"],
+            text=True,
+            timeout=2,
+            stderr=subprocess.DEVNULL,
+        )
+        for line in output.splitlines():
+            parts = line.split()
+            if "inet" not in parts:
+                continue
+            cidr = parts[parts.index("inet") + 1]
+            address = ipaddress.ip_interface(cidr)
+            if address.ip.is_loopback:
+                continue
+            targets.append(str(address.network.broadcast_address))
+    except Exception:
+        pass
+    return targets
+
+
+def _ipv4_network24(ip_text):
+    try:
+        address = ipaddress.ip_address(str(ip_text or "").strip())
+        if address.version != 4 or address.is_loopback:
+            return None
+        return ipaddress.ip_network(f"{address}/24", strict=False)
+    except Exception:
+        return None
+
+
+def _parse_machine_data_json(raw_value):
+    try:
+        parsed = json.loads(raw_value or "{}")
+        return parsed if isinstance(parsed, dict) else {}
+    except Exception:
+        return {}
+
+
+def _online_window_for_machine_data(status_data):
+    offline_window_sec = 180
+    agent_status = status_data.get("agent", {}) if isinstance(status_data, dict) else {}
+    try:
+        report_interval = int(agent_status.get("report_interval_sec") or 0)
+        if report_interval > 0:
+            offline_window_sec = max(180, int(report_interval * 2 + 30))
+    except Exception:
+        pass
+    return offline_window_sec
+
+
+def _is_machine_recently_online(last_online, status_data):
+    reference_at = status_data.get("server_received_at") if isinstance(status_data, dict) else ""
+    parsed = _parse_machine_timestamp(reference_at or last_online)
+    if not parsed:
+        return False
+    return (datetime.now() - parsed).total_seconds() < _online_window_for_machine_data(status_data)
+
+
+def _find_wol_relay_candidates(target_mac, target_ip):
+    target_network = _ipv4_network24(target_ip)
+    if target_network is None:
+        return []
+    excluded_mac = normalize_machine_mac(target_mac)
+    candidates = []
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("SELECT mac, hostname, custom_name, ip, last_online, data FROM machines")
+        for row in c.fetchall():
+            relay_mac = normalize_machine_mac(row[0])
+            relay_ip = str(row[3] or "").strip()
+            if not relay_mac or relay_mac == excluded_mac or relay_mac.startswith(("LOCAL-", "TEMP-")):
+                continue
+            relay_network = _ipv4_network24(relay_ip)
+            if relay_network != target_network:
+                continue
+            status_data = _parse_machine_data_json(row[5])
+            if not _is_machine_recently_online(row[4], status_data):
+                continue
+            agent = status_data.get("agent", {}) if isinstance(status_data, dict) else {}
+            candidates.append({
+                "mac": relay_mac,
+                "ip": relay_ip,
+                "name": row[2] or row[1] or relay_mac,
+                "agent_version": str(agent.get("version") or ""),
+                "last_online": row[4] or "",
+            })
+    except Exception as exc:
+        add_log(-1, f"[服务器] 查询WOL中继候选失败: {exc}")
+    finally:
+        if conn is not None:
+            conn.close()
+    candidates.sort(key=lambda item: item.get("last_online") or "", reverse=True)
+    return candidates
+
+
+def _wol_broadcast_targets(target_ip):
+    targets = ["255.255.255.255"]
+    ip_text = str(target_ip or "").strip()
+    try:
+        address = ipaddress.ip_address(ip_text)
+        if address.version == 4 and not address.is_loopback:
+            # Most managed VLANs here are /24. Directed broadcast gives WOL a
+            # chance to cross VLANs when the gateway allows it.
+            targets.append(str(ipaddress.ip_network(f"{address}/24", strict=False).broadcast_address))
+    except Exception:
+        pass
+    targets.extend(_list_local_ipv4_broadcasts())
+    for fallback in ("192.168.50.255", "192.168.40.255", "192.168.19.255"):
+        targets.append(fallback)
+    unique_targets = []
+    for target in targets:
+        if target and target not in unique_targets:
+            unique_targets.append(target)
+    return unique_targets
+
+
 def _parse_machine_timestamp(value):
     raw = str(value or "").strip()
     if not raw:
         return None
     try:
-        return datetime.fromisoformat(raw.replace("Z", "+00:00")).replace(tzinfo=None)
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if parsed.tzinfo is not None:
+            return parsed.astimezone().replace(tzinfo=None)
+        return parsed
     except Exception:
         return None
+
+
+def _format_machine_timestamp(value):
+    parsed = _parse_machine_timestamp(value)
+    if parsed:
+        return parsed.isoformat()
+    return str(value or "").strip()
+
+
+def _annotate_report_timing(status_payload, client_reported_at, server_received_at):
+    payload = dict(status_payload or {})
+    server_iso = _format_machine_timestamp(server_received_at) or datetime.now().isoformat()
+    client_iso = _format_machine_timestamp(
+        payload.get("report_generated_at")
+        or payload.get("client_reported_at")
+        or client_reported_at
+    )
+    payload["server_received_at"] = server_iso
+    if client_iso:
+        payload["client_reported_at"] = client_iso
+    client_dt = _parse_machine_timestamp(client_iso)
+    server_dt = _parse_machine_timestamp(server_iso)
+    if client_dt and server_dt:
+        payload["clock_offset_sec"] = round((client_dt - server_dt).total_seconds(), 1)
+    return payload
+
+
+def _payload_is_agent_heartbeat(payload):
+    payload = payload if isinstance(payload, dict) else {}
+    agent = payload.get("agent") if isinstance(payload.get("agent"), dict) else {}
+    return bool(agent.get("heartbeat"))
+
+
+def _payload_is_bootstrap(payload):
+    payload = payload if isinstance(payload, dict) else {}
+    agent = payload.get("agent") if isinstance(payload.get("agent"), dict) else {}
+    return bool(agent.get("bootstrap")) and not _payload_has_runtime_metrics(payload)
 
 
 def _parse_machine_payload(payload_text):
@@ -132,6 +512,51 @@ def _parse_machine_payload(payload_text):
         return json.loads(payload_text) if payload_text else {}
     except Exception:
         return {}
+
+
+def _decode_json_report_body(raw_bytes):
+    if not raw_bytes:
+        return None, "empty"
+    last_error = ""
+    last_context = ""
+    for encoding in ("utf-8", "utf-8-sig", "utf-16", "utf-16-le", "utf-16-be", "gb18030"):
+        try:
+            text = raw_bytes.decode(encoding)
+        except Exception as exc:
+            last_error = f"{encoding}:decode:{exc}"
+            continue
+        text = text.strip("\ufeff\x00\r\n\t ")
+        if not text:
+            continue
+        candidates = [text]
+        starts = [pos for pos in (text.find("{"), text.find("[")) if pos >= 0]
+        ends = [pos for pos in (text.rfind("}"), text.rfind("]")) if pos >= 0]
+        if starts and ends and min(starts) <= max(ends):
+            candidates.append(text[min(starts):max(ends) + 1])
+        for candidate in candidates:
+            try:
+                return json.loads(candidate), ""
+            except Exception as exc:
+                last_error = f"{encoding}:json:{exc}"
+                pos = getattr(exc, "pos", None)
+                if isinstance(pos, int):
+                    start = max(0, pos - 180)
+                    end = min(len(candidate), pos + 180)
+                    context = candidate[start:end]
+                    context = context.replace("\r", "\\r").replace("\n", "\\n").replace("\t", "\\t")
+                    last_context = context[:420]
+    if last_context:
+        return None, f"{last_error or 'unknown_parse_error'} context={last_context}"
+    return None, last_error or "unknown_parse_error"
+
+
+def _load_report_json_payload():
+    parsed = request.get_json(silent=True)
+    if parsed not in (None, ""):
+        return parsed, ""
+    raw = request.get_data(cache=True) or b""
+    parsed, error = _decode_json_report_body(raw)
+    return (parsed if parsed is not None else {}), error
 
 
 def _is_virtual_gpu_name(name):
@@ -183,7 +608,34 @@ def _gpu_row_score(row):
     return score
 
 
+def _gpu_row_has_metrics(row):
+    row = row if isinstance(row, dict) else {}
+    for key in ("temp", "util_percent", "fan_rpm", "power"):
+        try:
+            if float(row.get(key) or 0) > 0:
+                return True
+        except Exception:
+            continue
+    return False
+
+
+def _gpu_vendor_group(row):
+    row = row if isinstance(row, dict) else {}
+    text = f"{row.get('name') or ''} {row.get('source') or ''}".lower()
+    if any(marker in text for marker in ("nvidia", "geforce", "quadro", "rtx", "gtx")):
+        return "nvidia"
+    if any(marker in text for marker in ("amd", "radeon")):
+        return "amd"
+    if "intel" in text:
+        return "intel"
+    if _gpu_row_has_metrics(row):
+        return f"metric-{row.get('source') or row.get('index') or 'gpu'}"
+    return ""
+
+
 def _sanitize_gpu_list(gpu_list):
+    if isinstance(gpu_list, dict):
+        gpu_list = [gpu_list]
     if not isinstance(gpu_list, list):
         return []
     best_by_key = {}
@@ -194,7 +646,7 @@ def _sanitize_gpu_list(gpu_list):
         name = item.get("name")
         if _is_virtual_gpu_name(name):
             continue
-        identity = _normalize_gpu_identity(name) or f"gpu-{idx}"
+        identity = _normalize_gpu_identity(name) or _gpu_vendor_group(item) or f"gpu-{idx}"
         score = _gpu_row_score(item)
         previous = best_by_key.get(identity)
         if not previous:
@@ -203,7 +655,18 @@ def _sanitize_gpu_list(gpu_list):
             continue
         if score > previous["score"]:
             best_by_key[identity] = {"item": item, "score": score, "order": previous["order"]}
-    return [best_by_key[key]["item"] for key in order if key in best_by_key]
+    rows = [best_by_key[key]["item"] for key in order if key in best_by_key]
+    if not any(_gpu_row_has_metrics(row) for row in rows):
+        metric_rows = [
+            item for item in gpu_list
+            if isinstance(item, dict)
+            and not _is_virtual_gpu_name(item.get("name"))
+            and _gpu_row_has_metrics(item)
+        ]
+        for item in metric_rows:
+            if item not in rows:
+                rows.append(item)
+    return rows
 
 
 def _sanitize_machine_payload(payload):
@@ -213,6 +676,166 @@ def _sanitize_machine_payload(payload):
     cleaned = dict(payload)
     cleaned["gpu_list"] = _sanitize_gpu_list(payload.get("gpu_list"))
     return cleaned
+
+
+def _valid_ping_target(ip):
+    text = str(ip or "").strip()
+    if not text:
+        return ""
+    try:
+        addr = ipaddress.ip_address(text)
+        if addr.is_loopback or addr.is_unspecified or addr.is_multicast:
+            return ""
+        return text
+    except Exception:
+        return ""
+
+
+def _ping_command(ip):
+    if platform.system().lower().startswith("win"):
+        return ["ping", "-n", "1", "-w", "800", ip]
+    return ["ping", "-c", "1", "-W", "1", ip]
+
+
+def _cached_ping_host(ip):
+    target = _valid_ping_target(ip)
+    if not target:
+        return None
+    now_ts = time.time()
+    with PING_CACHE_LOCK:
+        cached = PING_CACHE.get(target)
+        if cached and now_ts - float(cached.get("ts") or 0.0) < PING_CACHE_TTL_SEC:
+            return bool(cached.get("online"))
+    online = ping_host(target)
+    with PING_CACHE_LOCK:
+        PING_CACHE[target] = {"ts": now_ts, "online": bool(online)}
+    return bool(online)
+
+
+def _get_ping_cache_entry(target, now_ts=None):
+    now_ts = time.time() if now_ts is None else now_ts
+    with PING_CACHE_LOCK:
+        cached = PING_CACHE.get(target)
+        if not cached:
+            return None
+        age = max(0.0, now_ts - float(cached.get("ts") or 0.0))
+        return {
+            "online": bool(cached.get("online")),
+            "ts": float(cached.get("ts") or 0.0),
+            "age_sec": age,
+            "fresh": age < PING_CACHE_TTL_SEC,
+            "stale": age >= PING_CACHE_TTL_SEC,
+        }
+
+
+def _refresh_ping_targets_async(targets):
+    unique_targets = []
+    seen = set()
+    for ip in targets:
+        target = _valid_ping_target(ip)
+        if target and target not in seen:
+            unique_targets.append(target)
+            seen.add(target)
+    if not unique_targets:
+        return
+    with PING_REFRESH_LOCK:
+        pending = [target for target in unique_targets if target not in PING_REFRESHING_TARGETS]
+        if not pending:
+            return
+        PING_REFRESHING_TARGETS.update(pending)
+
+    def _worker(target_list):
+        try:
+            max_workers = min(PING_REFRESH_MAX_WORKERS, max(1, len(target_list)))
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                future_map = {executor.submit(ping_host, target): target for target in target_list}
+                for future in as_completed(future_map):
+                    target = future_map[future]
+                    try:
+                        online = bool(future.result())
+                    except Exception:
+                        online = False
+                    with PING_CACHE_LOCK:
+                        PING_CACHE[target] = {"ts": time.time(), "online": online}
+        finally:
+            with PING_REFRESH_LOCK:
+                for target in target_list:
+                    PING_REFRESHING_TARGETS.discard(target)
+
+    threading.Thread(target=_worker, args=(pending,), name="server-ping-refresh", daemon=True).start()
+
+
+def _resolve_ping_states(targets):
+    unique_targets = []
+    seen = set()
+    for ip in targets:
+        target = _valid_ping_target(ip)
+        if target and target not in seen:
+            unique_targets.append(target)
+            seen.add(target)
+    if not unique_targets:
+        return {}
+    results = {}
+    now_ts = time.time()
+    pending = []
+    with PING_CACHE_LOCK:
+        for target in unique_targets:
+            cached = PING_CACHE.get(target)
+            if cached and now_ts - float(cached.get("ts") or 0.0) < PING_CACHE_TTL_SEC:
+                results[target] = bool(cached.get("online"))
+            else:
+                pending.append(target)
+    if pending:
+        max_workers = min(12, len(pending))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            future_map = {executor.submit(ping_host, target): target for target in pending}
+            for future in as_completed(future_map):
+                target = future_map[future]
+                try:
+                    online = bool(future.result())
+                except Exception:
+                    online = False
+                results[target] = online
+                with PING_CACHE_LOCK:
+                    PING_CACHE[target] = {"ts": time.time(), "online": online}
+    return results
+
+
+def _resolve_ping_states_cached(targets):
+    unique_targets = []
+    seen = set()
+    for ip in targets:
+        target = _valid_ping_target(ip)
+        if target and target not in seen:
+            unique_targets.append(target)
+            seen.add(target)
+    if not unique_targets:
+        return {}, {}
+
+    now_ts = time.time()
+    results = {}
+    meta = {}
+    refresh_targets = []
+    for target in unique_targets:
+        cached = _get_ping_cache_entry(target, now_ts)
+        if cached is None:
+            meta[target] = {"state": "pending", "age_sec": None, "refreshing": True}
+            refresh_targets.append(target)
+            continue
+        if cached["age_sec"] < PING_CACHE_STALE_SEC:
+            results[target] = cached["online"]
+            meta[target] = {
+                "state": "fresh" if cached["fresh"] else "stale",
+                "age_sec": round(cached["age_sec"], 1),
+                "refreshing": cached["stale"],
+            }
+            if cached["stale"]:
+                refresh_targets.append(target)
+        else:
+            meta[target] = {"state": "pending", "age_sec": round(cached["age_sec"], 1), "refreshing": True}
+            refresh_targets.append(target)
+    _refresh_ping_targets_async(refresh_targets)
+    return results, meta
 
 
 def _machine_command_keys(mac):
@@ -225,9 +848,44 @@ def _machine_command_keys(mac):
     return keys
 
 
-def _pop_machine_command(mac):
+def _compare_version_text(left, right):
+    def parts(value):
+        return [int(item) for item in re.split(r"[^0-9]+", str(value or "")) if item != ""]
+
+    left_parts = parts(left)
+    right_parts = parts(right)
+    max_len = max(len(left_parts), len(right_parts))
+    for index in range(max_len):
+        left_value = left_parts[index] if index < len(left_parts) else 0
+        right_value = right_parts[index] if index < len(right_parts) else 0
+        if left_value > right_value:
+            return 1
+        if left_value < right_value:
+            return -1
+    return 0
+
+
+def _is_agent_version_outdated(agent_version, latest_version=AGENT_VERSION):
+    current = str(agent_version or "").strip()
+    latest = str(latest_version or "").strip()
+    if not current or not latest:
+        return False
+    return _compare_version_text(current, latest) < 0
+
+
+def _command_min_agent_version(command):
+    if isinstance(command, dict):
+        return str(command.get("min_agent_version") or "").strip()
+    return ""
+
+
+def _pop_machine_command(mac, agent_version=""):
     for key in _machine_command_keys(mac):
         if key in SERVER_COMMANDS:
+            command = SERVER_COMMANDS.get(key)
+            min_version = _command_min_agent_version(command)
+            if min_version and _compare_version_text(agent_version, min_version) < 0:
+                return None
             return SERVER_COMMANDS.pop(key, None)
     return None
 
@@ -281,10 +939,17 @@ def build_agent_runtime_config(server_host=None):
         "server_port": port,
         "report_path": "/report",
         "config_path": "/agent/config",
-        "worker_path": "/agent/worker.ps1",
+        "worker_path": "/agent/worker.json",
+        "launcher_path": "/agent/launcher.json",
+        "linux_worker_path": "/agent/linux.py",
+        "linux_service_name": "smart-center-agent.service",
         "report_interval_sec": 60,
         "sync_interval_sec": 60,
         "discovery_retry_sec": 120,
+        "ntp_enabled": True,
+        "ntp_primary": "192.168.50.120",
+        "ntp_fallback": "192.168.50.121",
+        "ntp_check_interval_sec": 3600,
         "candidate_hosts": get_agent_candidate_hosts(chosen_host),
         "scan_networks": get_scan_networks(),
         "updated_at": datetime.now().isoformat()
@@ -342,35 +1007,53 @@ def _read_linux_meminfo():
 
 
 def _read_linux_net_rates():
-    recv_total = 0
-    sent_total = 0
+    default_iface = ""
+    for line in _read_text_file("/proc/net/route").splitlines()[1:]:
+        parts = [item for item in line.split() if item]
+        if len(parts) >= 2 and parts[1] == "00000000":
+            default_iface = parts[0]
+            break
+    rows = []
     for line in _read_text_file("/proc/net/dev").splitlines()[2:]:
         if ":" not in line:
             continue
         name, values = line.split(":", 1)
         iface = name.strip()
-        if iface == "lo":
+        if iface == "lo" or re.match(r"^(docker|veth|br-|virbr|tun|tap|wg|tailscale)", iface):
             continue
         parts = [item for item in values.strip().split() if item]
         if len(parts) < 16:
             continue
         try:
-            recv_total += int(parts[0])
-            sent_total += int(parts[8])
+            rows.append({"iface": iface, "recv": int(parts[0]), "sent": int(parts[8])})
         except Exception:
             continue
+    selected = None
+    if default_iface:
+        selected = next((row for row in rows if row["iface"] == default_iface), None)
+    if selected is None and rows:
+        selected = rows[0]
+    recv_total = int(selected["recv"]) if selected else 0
+    sent_total = int(selected["sent"]) if selected else 0
+    iface_name = selected["iface"] if selected else (default_iface or "")
+    network_primary = _linux_network_primary(iface_name, get_local_ip())
     now_ts = time.time()
     with LOCAL_MACHINE_STATE_LOCK:
         prev_sent = LOCAL_MACHINE_NET_SAMPLE["sent"]
         prev_recv = LOCAL_MACHINE_NET_SAMPLE["recv"]
         prev_ts = LOCAL_MACHINE_NET_SAMPLE["ts"]
-        LOCAL_MACHINE_NET_SAMPLE.update({"sent": sent_total, "recv": recv_total, "ts": now_ts})
+        prev_iface = LOCAL_MACHINE_NET_SAMPLE.get("iface")
+        LOCAL_MACHINE_NET_SAMPLE.update({"sent": sent_total, "recv": recv_total, "ts": now_ts, "iface": iface_name})
     if prev_sent is None or prev_recv is None or prev_ts is None:
-        return {"sent_kb_s": 0.0, "recv_kb_s": 0.0}
+        return {"sent_kb_s": 0.0, "recv_kb_s": 0.0, "network_primary": network_primary}
     delta_ts = max(0.001, now_ts - float(prev_ts))
-    sent_kb_s = max(0.0, (sent_total - int(prev_sent)) / 1024.0 / delta_ts)
-    recv_kb_s = max(0.0, (recv_total - int(prev_recv)) / 1024.0 / delta_ts)
-    return {"sent_kb_s": round(sent_kb_s, 1), "recv_kb_s": round(recv_kb_s, 1)}
+    if prev_iface and prev_iface != iface_name:
+        sent_kb_s = 0.0
+        recv_kb_s = 0.0
+    else:
+        sent_kb_s = max(0.0, (sent_total - int(prev_sent)) / 1024.0 / delta_ts)
+        recv_kb_s = max(0.0, (recv_total - int(prev_recv)) / 1024.0 / delta_ts)
+    return {"sent_kb_s": round(sent_kb_s, 1), "recv_kb_s": round(recv_kb_s, 1), "network_primary": network_primary}
 
 
 def _read_linux_gpu_snapshot():
@@ -410,6 +1093,41 @@ def _read_linux_gpu_snapshot():
                     continue
     except Exception:
         gpu_list = []
+    if not gpu_list:
+        try:
+            for card_path in sorted(Path("/sys/class/drm").glob("card[0-9]")):
+                device_path = card_path / "device"
+                if not device_path.is_dir():
+                    continue
+                vendor_id = _read_text_file(device_path / "vendor").lower()
+                if vendor_id not in ("0x1002", "0x8086"):
+                    continue
+                name = "AMD GPU" if vendor_id == "0x1002" else "Intel GPU"
+                util = 0
+                busy_text = _read_text_file(device_path / "gpu_busy_percent")
+                try:
+                    util = max(0, min(100, int(float(busy_text))))
+                except Exception:
+                    util = 0
+                temp = 0
+                for temp_path in sorted(device_path.glob("hwmon/hwmon*/temp*_input")):
+                    try:
+                        candidate = int(float(_read_text_file(temp_path))) // 1000
+                    except Exception:
+                        continue
+                    if 0 < candidate < 150:
+                        temp = candidate
+                        break
+                source = "amdgpu-hwmon" if vendor_id == "0x1002" else "drm-sysfs"
+                gpu_list.append({
+                    "index": len(gpu_list),
+                    "name": name,
+                    "util_percent": util,
+                    "temp": temp,
+                    "source": source,
+                })
+        except Exception:
+            pass
     with LOCAL_MACHINE_STATE_LOCK:
         LOCAL_MACHINE_GPU_CACHE["payload"] = gpu_list
         LOCAL_MACHINE_GPU_CACHE["expires_at"] = now_ts + 30.0
@@ -752,12 +1470,42 @@ def _invalidate_local_hardware_cache():
         LOCAL_MACHINE_CODEMETER_CACHE["expires_at"] = 0.0
 
 
+def _read_local_ntp_state():
+    payload = {
+        "ntp_enabled": True,
+        "ntp_primary": "192.168.50.120",
+        "ntp_fallback": "192.168.50.121",
+        "last_ntp_check_at": datetime.now().isoformat(),
+        "ntp_service": "chrony",
+        "ntp_last_result": "",
+    }
+    try:
+        result = subprocess.run(["chronyc", "tracking"], capture_output=True, text=True, timeout=4)
+        text = (result.stdout or "") + (result.stderr or "")
+        if result.returncode == 0:
+            match = re.search(r"Reference ID\s*:\s*(.+)", text)
+            source = match.group(1).strip() if match else ""
+            payload["ntp_last_result"] = "ok local_ntp_server" + (f" source={source}" if source else "")
+        else:
+            payload["ntp_last_result"] = "error " + re.sub(r"\s+", " ", text.strip())[:240]
+    except Exception as exc:
+        payload["ntp_last_result"] = "error " + str(exc)
+    return payload
+
+
 def _build_local_machine_status():
     hardware = _read_linux_hardware_profile()
     meminfo = _read_linux_meminfo()
     disk_usage = shutil.disk_usage("/")
     net_rates = _read_linux_net_rates()
     now_iso = datetime.now().isoformat()
+    configured_ip = str(CONFIG.get("server_monitor", {}).get("agent_host", "") or "").strip()
+    network_primary = _linux_network_primary(
+        (net_rates.get("network_primary") or {}).get("adapter_name"),
+        configured_ip or get_local_ip(),
+    )
+    physical_mac = normalize_machine_mac(network_primary.get("adapter_mac"))
+    ntp_state = _read_local_ntp_state()
     return {
         "cpu_name": hardware.get("cpu_name"),
         "motherboard": hardware.get("motherboard"),
@@ -773,10 +1521,14 @@ def _build_local_machine_status():
         "disk_percent": round((disk_usage.used / float(disk_usage.total)) * 100.0, 1) if disk_usage.total else 0,
         "net_sent_kb_s": net_rates["sent_kb_s"],
         "net_recv_kb_s": net_rates["recv_kb_s"],
+        "network_primary": network_primary,
+        "physical_mac": physical_mac,
+        "display_mac": physical_mac,
         "hardware_refreshed_at": now_iso,
         "host_type": "linux_builtin",
         "agent": {
             "version": AGENT_VERSION,
+            "physical_mac": physical_mac,
             "task_exists": True,
             "task_state": "systemd 内置采集",
             "task_user": os.environ.get("USER") or "root",
@@ -784,6 +1536,13 @@ def _build_local_machine_status():
             "service": "smart-center.service",
             "report_interval_sec": LOCAL_MONITOR_INTERVAL_SEC,
             "updated_at": now_iso,
+            "ntp_enabled": ntp_state.get("ntp_enabled"),
+            "ntp_primary": ntp_state.get("ntp_primary"),
+            "ntp_fallback": ntp_state.get("ntp_fallback"),
+            "last_ntp_check_at": ntp_state.get("last_ntp_check_at"),
+            "ntp_configured_at": ntp_state.get("ntp_configured_at"),
+            "ntp_last_result": ntp_state.get("ntp_last_result"),
+            "ntp_service": ntp_state.get("ntp_service"),
         },
     }
 
@@ -811,6 +1570,92 @@ def _payload_has_runtime_metrics(payload):
         "codemeter",
     )
     return any(key in payload for key in metric_keys)
+
+
+def _mark_payload_as_full_report(payload, server_received_at="", prefer_server=True):
+    payload = payload if isinstance(payload, dict) else {}
+    agent = payload.get("agent") if isinstance(payload.get("agent"), dict) else {}
+    if agent:
+        # Heartbeat/bootstrap are transient states. If runtime metrics are
+        # present, keeping these flags makes a healthy full report look stale.
+        for key in ("heartbeat", "bootstrap", "initial_worker_exit_code", "initial_worker_log_tail"):
+            agent.pop(key, None)
+        payload["agent"] = agent
+    full_at = ""
+    if prefer_server and server_received_at:
+        full_at = server_received_at
+    if not full_at:
+        full_at = (
+            payload.get("last_full_report_at")
+            or payload.get("client_reported_at")
+            or payload.get("hardware_refreshed_at")
+            or payload.get("server_received_at")
+            or server_received_at
+            or ""
+        )
+    payload["last_report_kind"] = "full"
+    if full_at:
+        payload["last_full_report_at"] = _format_machine_timestamp(full_at) or str(full_at)
+    return payload
+
+
+def _classify_machine_report(payload, data=None):
+    payload = payload if isinstance(payload, dict) else {}
+    data = data if isinstance(data, dict) else {}
+    if isinstance(data.get("wake_proxy_result"), dict):
+        return "wake_proxy_result"
+    if _payload_has_runtime_metrics(payload):
+        return "full"
+    agent = payload.get("agent") if isinstance(payload.get("agent"), dict) else {}
+    if bool(agent.get("bootstrap")):
+        return "bootstrap"
+    if agent:
+        return "agent_heartbeat"
+    return "partial"
+
+
+def _payload_runtime_freshness(payload, reference_at=None):
+    payload = payload if isinstance(payload, dict) else {}
+    if not _payload_has_runtime_metrics(payload):
+        return {
+            "fresh": False,
+            "age_sec": None,
+            "reference_at": reference_at or "",
+            "runtime_at": "",
+            "source": "",
+        }
+    reference_at = reference_at or datetime.now().isoformat()
+    reference_dt = _parse_machine_timestamp(reference_at)
+    runtime_at = payload.get("last_full_report_at") or ""
+    source = "last_full_report_at" if payload.get("last_full_report_at") else ""
+    runtime_dt = _parse_machine_timestamp(runtime_at)
+    age_sec = None
+    if reference_dt and runtime_dt:
+        age_sec = max(0.0, (reference_dt - runtime_dt).total_seconds())
+    fresh = age_sec is not None and age_sec <= max(300, _online_window_for_machine_data(payload) * 2)
+    return {
+        "fresh": fresh,
+        "age_sec": round(age_sec, 1) if age_sec is not None else None,
+        "reference_at": _format_machine_timestamp(reference_at),
+        "runtime_at": _format_machine_timestamp(runtime_at),
+        "source": source,
+    }
+
+
+def _payload_is_linux_builtin(payload):
+    payload = payload if isinstance(payload, dict) else {}
+    agent = payload.get("agent") if isinstance(payload.get("agent"), dict) else {}
+    return payload.get("host_type") == "linux_builtin" or str(agent.get("service") or "") == "smart-center.service"
+
+
+def _format_age_text(age_sec):
+    if not isinstance(age_sec, (int, float)):
+        return "未知时长"
+    if age_sec < 90:
+        return f"{int(age_sec)} 秒"
+    if age_sec < 7200:
+        return f"{int(age_sec // 60)} 分钟"
+    return f"{round(age_sec / 3600, 1)} 小时"
 
 
 def _trim_diagnostic_text(value, limit=240):
@@ -873,8 +1718,16 @@ def _build_machine_diagnostic(machine):
     status_payload = machine.get("status") if isinstance(machine.get("status"), dict) else {}
     agent = machine.get("agent_status") if isinstance(machine.get("agent_status"), dict) else {}
     is_online = bool(machine.get("is_online"))
+    report_online = bool(machine.get("report_online", is_online))
+    agent_heartbeat_online = bool(machine.get("agent_heartbeat_online"))
+    ping_online = machine.get("ping_online")
+    network_reachable = machine.get("network_reachable")
     has_runtime_metrics = _payload_has_runtime_metrics(status_payload)
+    runtime_freshness = _payload_runtime_freshness(status_payload, machine.get("server_received_at") or machine.get("last_online"))
+    runtime_fresh = bool(runtime_freshness.get("fresh"))
     bootstrap = bool(agent.get("bootstrap"))
+    agent_version = str(agent.get("version") or "").strip()
+    agent_outdated = _is_agent_version_outdated(agent_version)
     task_exists = bool(agent.get("task_exists"))
     exit_code_raw = agent.get("initial_worker_exit_code")
     exit_code = None
@@ -895,9 +1748,66 @@ def _build_machine_diagnostic(machine):
         "needs_attention": True,
         "needs_redeploy": False,
         "has_runtime_metrics": has_runtime_metrics,
+        "runtime_fresh": runtime_fresh,
+        "runtime_age_sec": runtime_freshness.get("age_sec"),
+        "runtime_at": runtime_freshness.get("runtime_at"),
+        "report_online": report_online,
+        "agent_heartbeat_online": agent_heartbeat_online,
+        "latest_agent_version": AGENT_VERSION,
+        "agent_outdated": agent_outdated,
         "bootstrap_only": bootstrap and not has_runtime_metrics,
         "log_excerpt": log_tail,
     }
+
+    if report_online and has_runtime_metrics and not runtime_fresh:
+        age_text = _format_age_text(runtime_freshness.get("age_sec"))
+        self_update = agent.get("self_update") if isinstance(agent.get("self_update"), dict) else {}
+        self_update_action = str(self_update.get("action") or "").strip()
+        self_update_error = str(self_update.get("error") or "").strip()
+        detail_bits = ["120 仍能收到节点心跳，但 CPU / 内存 / GPU 等完整采集指标没有同步刷新。"]
+        if agent_outdated:
+            detail_bits.append(f"节点当前 Agent {agent_version or '未知'}，中控发布 {AGENT_VERSION}。")
+        if self_update_error:
+            detail_bits.append(f"自更新错误: {self_update_error}")
+        diagnostic.update(
+            {
+                "level": "warn",
+                "code": "agent_heartbeat_runtime_stale" if agent_heartbeat_online else "runtime_stale",
+                "summary": f"心跳在线，采集停滞 {age_text}",
+                "detail": " ".join(detail_bits),
+                "root_cause": self_update_error,
+                "suggestion": "不要继续盲目重复覆盖安装；优先查看目标机器 SmartCenterAgent 的 agent.log / deploy.log，确认工作脚本是否卡死、被 400 拒绝或自更新失败。",
+                "needs_attention": True,
+                "needs_redeploy": agent_outdated and self_update_action in ("failed", ""),
+            }
+        )
+        return diagnostic
+
+    if report_online and agent_outdated:
+        self_update = agent.get("self_update") if isinstance(agent.get("self_update"), dict) else {}
+        self_update_action = str(self_update.get("action") or "").strip()
+        self_update_error = str(self_update.get("error") or "").strip()
+        summary = f"Agent 版本落后: {agent_version} -> {AGENT_VERSION}"
+        if self_update_action == "updated":
+            summary = f"已拉取新版 Agent，等待下一轮切换到 {AGENT_VERSION}"
+        elif self_update_action == "failed":
+            summary = "Agent 自更新失败"
+        diagnostic.update(
+            {
+                "level": "warn" if self_update_action != "failed" else "error",
+                "code": "agent_outdated" if self_update_action != "failed" else "agent_update_failed",
+                "summary": summary,
+                "detail": (
+                    f"节点当前上报版本 {agent_version}，中控发布版本 {AGENT_VERSION}。"
+                    + (f" 自更新错误: {self_update_error}" if self_update_error else "")
+                ),
+                "root_cause": self_update_error,
+                "suggestion": "等待下一轮自动更新；如果仍未变化，先查看 agent.log / deploy.log 里的自更新错误，再决定是否覆盖安装。",
+                "needs_attention": True,
+                "needs_redeploy": self_update_action in ("failed", "") or not self_update,
+            }
+        )
+        return diagnostic
 
     if is_online and has_runtime_metrics:
         diagnostic.update(
@@ -909,6 +1819,49 @@ def _build_machine_diagnostic(machine):
                 "root_cause": "",
                 "suggestion": "如需校验最新硬件信息，可执行“刷新信息”。",
                 "needs_attention": False,
+            }
+        )
+        return diagnostic
+
+    if not report_online:
+        if ping_online is False:
+            diagnostic.update(
+                {
+                    "level": "error",
+                    "code": "offline_unreachable",
+                    "summary": "节点离线",
+                    "detail": "节点超过上报窗口，且当前 IP ping 不通，判断为关机、断网或网络不可达。",
+                    "root_cause": _detect_bootstrap_root_cause(log_tail).get("root_cause", "") if log_tail else "",
+                    "suggestion": "先确认机器电源与网络；如需要远程恢复，可尝试网络唤醒，开机后再观察 Agent 是否恢复上报。",
+                    "needs_attention": True,
+                    "needs_redeploy": False,
+                }
+            )
+            return diagnostic
+        if ping_online is True:
+            diagnostic.update(
+                {
+                    "level": "warn",
+                    "code": "agent_offline_host_reachable",
+                    "summary": "主机可达，Agent 未上报",
+                    "detail": "节点超过上报窗口，但当前 IP ping 可达，说明机器大概率开机，采集服务可能未运行或上报链路异常。",
+                    "root_cause": _detect_bootstrap_root_cause(log_tail).get("root_cause", "") if log_tail else "",
+                    "suggestion": "优先检查目标机器的 Smart Center Agent 计划任务/服务；必要时运行最新版覆盖安装命令。",
+                    "needs_attention": True,
+                    "needs_redeploy": True,
+                }
+            )
+            return diagnostic
+        diagnostic.update(
+            {
+                "level": "warn",
+                "code": "offline",
+                "summary": "节点当前离线",
+                "detail": "节点最近没有按预期继续上报，当前未获得可用 ping 判定，可能是机器关机、网络中断或 agent 未正常拉起。",
+                "root_cause": _detect_bootstrap_root_cause(log_tail).get("root_cause", "") if log_tail else "",
+                "suggestion": "先检查机器是否开机、网络是否可达；如仍不恢复，可重新运行 deploy_agent.bat 或执行网络唤醒后再观察。",
+                "needs_attention": True,
+                "needs_redeploy": bool(log_tail or network_reachable is not False),
             }
         )
         return diagnostic
@@ -962,22 +1915,7 @@ def _build_machine_diagnostic(machine):
         )
         return diagnostic
 
-    if not is_online:
-        diagnostic.update(
-            {
-                "level": "warn",
-                "code": "offline",
-                "summary": "节点当前离线",
-                "detail": "节点最近没有按预期继续上报，可能是机器关机、网络中断或 agent 未正常拉起。",
-                "root_cause": _detect_bootstrap_root_cause(log_tail).get("root_cause", "") if log_tail else "",
-                "suggestion": "先检查机器是否开机、网络是否可达；如仍不恢复，可重新运行 deploy_agent.bat 或执行网络唤醒后再观察。",
-                "needs_attention": True,
-                "needs_redeploy": bool(log_tail),
-            }
-        )
-        return diagnostic
-
-    if is_online and not has_runtime_metrics:
+    if report_online and not has_runtime_metrics:
         diagnostic.update(
             {
                 "level": "warn",
@@ -997,24 +1935,84 @@ def _merge_machine_payload(existing_payload, incoming_payload):
     existing_payload = existing_payload if isinstance(existing_payload, dict) else {}
     incoming_payload = incoming_payload if isinstance(incoming_payload, dict) else {}
     incoming_payload = _sanitize_machine_payload(incoming_payload)
+    incoming_has_runtime = _payload_has_runtime_metrics(incoming_payload)
+    incoming_agent = incoming_payload.get("agent")
+    if isinstance(incoming_agent, dict):
+        if incoming_has_runtime:
+            _mark_payload_as_full_report(incoming_payload, incoming_payload.get("server_received_at"), prefer_server=True)
+        if incoming_agent.get("heartbeat"):
+            incoming_agent.pop("bootstrap", None)
     if not existing_payload:
+        if incoming_has_runtime:
+            _mark_payload_as_full_report(incoming_payload, incoming_payload.get("server_received_at"), prefer_server=True)
         return incoming_payload
     existing_payload = _sanitize_machine_payload(existing_payload)
-    if _payload_has_runtime_metrics(incoming_payload):
-        return incoming_payload
-    if not _payload_has_runtime_metrics(existing_payload):
+    existing_has_runtime = _payload_has_runtime_metrics(existing_payload)
+    if incoming_has_runtime:
+        _mark_payload_as_full_report(incoming_payload, incoming_payload.get("server_received_at"), prefer_server=True)
         return incoming_payload
     merged = dict(existing_payload)
     incoming_agent = incoming_payload.get("agent")
     if isinstance(incoming_agent, dict):
         merged_agent = dict(existing_payload.get("agent") or {}) if isinstance(existing_payload.get("agent"), dict) else {}
         merged_agent.update(incoming_agent)
+        if existing_has_runtime:
+            for key in ("heartbeat", "bootstrap", "initial_worker_exit_code", "initial_worker_log_tail"):
+                merged_agent.pop(key, None)
         merged["agent"] = merged_agent
+    existing_runtime_at = existing_payload.get("client_reported_at") or existing_payload.get("hardware_refreshed_at") or ""
+    merged.setdefault("last_runtime_report_at", existing_runtime_at)
+    incoming_server_at = incoming_payload.get("server_received_at")
+    report_kind = _classify_machine_report(incoming_payload)
+    downgrade_only_kinds = {"agent_heartbeat", "partial", "bootstrap"}
+    if report_kind in downgrade_only_kinds and existing_has_runtime:
+        _mark_payload_as_full_report(merged, prefer_server=False)
+    else:
+        merged["last_report_kind"] = report_kind
+    if incoming_server_at:
+        merged["last_agent_heartbeat_at"] = incoming_server_at
+        if report_kind == "bootstrap":
+            merged["last_bootstrap_report_at"] = incoming_server_at
+        elif report_kind == "wake_proxy_result":
+            merged["last_wake_proxy_report_at"] = incoming_server_at
+    runtime_keys = {
+        "cpu_name",
+        "cpu_percent",
+        "motherboard",
+        "mem_speed",
+        "mem_total",
+        "mem_used",
+        "mem_percent",
+        "disk_percent",
+        "disk_total",
+        "disk_used",
+        "net_sent_kb_s",
+        "net_recv_kb_s",
+        "gpu_list",
+        "gpu_diagnostics",
+        "codemeter",
+        "os_caption",
+        "os_version",
+        "hardware_refreshed_at",
+        "report_generated_at",
+        "client_reported_at",
+        "clock_offset_sec",
+        "last_report_kind",
+        "last_full_report_at",
+        "last_runtime_report_at",
+        "last_agent_heartbeat_at",
+        "last_bootstrap_report_at",
+        "last_wake_proxy_report_at",
+    }
     for key, value in incoming_payload.items():
         if key == "agent":
             continue
+        if key in runtime_keys:
+            continue
         if value not in (None, "", [], {}):
             merged[key] = value
+    if report_kind in downgrade_only_kinds and existing_has_runtime:
+        _mark_payload_as_full_report(merged, prefer_server=False)
     return merged
 
 
@@ -1122,6 +2120,27 @@ def _merge_machine_rows(cursor, target_mac, target_row, source_mac):
         SERVER_COMMANDS.pop(key, None)
 
 
+def _is_test_machine_report(mac, hostname="", ip="", status_payload=None):
+    normalized_mac = normalize_machine_mac(mac)
+    normalized_ip = str(ip or "").strip()
+    normalized_hostname = str(hostname or "").strip().lower()
+    payload = status_payload if isinstance(status_payload, dict) else {}
+    agent_payload = payload.get("agent") if isinstance(payload.get("agent"), dict) else {}
+    agent_version = str(agent_payload.get("version") or "").strip().lower()
+    cpu_name = str(payload.get("cpu_name") or "").strip().lower()
+    if normalized_mac.startswith("AA-BB-CC-DD-EE-"):
+        return True
+    if normalized_mac.startswith("TEMP-TIMECHECK"):
+        return True
+    if normalized_hostname in {"test", "test2", "time-check-test", "codex-test-full-report"}:
+        return True
+    if normalized_ip in {"1.1.1.1", "1.1.1.2", "127.0.0.1"} and agent_version in {"test", "time-test"}:
+        return True
+    if "codex test" in cpu_name or agent_version in {"test", "time-test"}:
+        return True
+    return False
+
+
 def _store_machine_status(mac, hostname, ip, timestamp, status_payload):
     mac = normalize_machine_mac(mac)
     status_payload = status_payload if isinstance(status_payload, dict) else {}
@@ -1204,6 +2223,29 @@ def _handle_local_machine_command(local_mac):
             add_log(-1, f"[服务器] 本机 Ubuntu [{action_name}] 指令执行失败")
 
 
+def _record_machine_wake_proxy_result(relay_mac, result):
+    relay_mac = normalize_machine_mac(relay_mac)
+    if not relay_mac:
+        return
+    result_payload = result if isinstance(result, dict) else {}
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("SELECT data FROM machines WHERE mac=? LIMIT 1", (relay_mac,))
+        row = c.fetchone()
+        payload = _parse_machine_payload(row[0]) if row else {}
+        payload["wake_proxy_result"] = result_payload
+        c.execute("UPDATE machines SET data=? WHERE mac=?", (json.dumps(payload, ensure_ascii=False, separators=(",", ":")), relay_mac))
+        conn.commit()
+        invalidate_machines_cache()
+    except Exception as exc:
+        add_log(-1, f"[服务器] 记录WOL中继结果失败: {relay_mac} {exc}")
+    finally:
+        if conn is not None:
+            conn.close()
+
+
 def local_server_monitor_loop():
     if platform.system().lower() != "linux":
         return
@@ -1211,13 +2253,15 @@ def local_server_monitor_loop():
     while True:
         try:
             configured_ip = str(CONFIG.get("server_monitor", {}).get("agent_host", "") or "").strip()
+            report_ip = configured_ip or get_local_ip()
             _handle_local_machine_command(local_mac)
+            now_iso = datetime.now().isoformat()
             _store_machine_status(
                 local_mac,
                 socket.gethostname() or "zhongkong",
-                configured_ip or get_local_ip(),
-                datetime.now().isoformat(),
-                _build_local_machine_status(),
+                report_ip,
+                now_iso,
+                _annotate_report_timing(_build_local_machine_status(), now_iso, now_iso),
             )
         except Exception:
             pass
@@ -1240,17 +2284,23 @@ $TaskName = 'SmartCenterAgent'
 $AgentDir = Join-Path $env:ProgramData 'SmartCenterAgent'
 $ConfigPath = Join-Path $AgentDir 'agent_config.json'
 $LogPath = Join-Path $AgentDir 'agent.log'
+$NetSamplePath = Join-Path $AgentDir 'net_sample.json'
 $WorkerPath = if ($PSCommandPath) {{ $PSCommandPath }} else {{ Join-Path $AgentDir 'agent_worker.ps1' }}
+$LauncherPath = Join-Path $AgentDir 'agent_launcher.ps1'
 $lastNetBytesSent = $null
 $lastNetBytesRecv = $null
 $lastNetSampleTime = $null
 $script:HardwareCache = $null
 $script:LastTaskInfoAt = $null
-$script:TaskInfoCache = $null
-$script:ConsecutiveFailures = 0
-$script:LastSuccessfulReportAt = $null
-$script:GpuProbeDiagnostic = @{{}}
-$Utf8Encoding = New-Object System.Text.UTF8Encoding($true)
+	$script:TaskInfoCache = $null
+	$script:ConsecutiveFailures = 0
+	$script:LastSuccessfulReportAt = $null
+	$script:GpuProbeDiagnostic = @{{}}
+	$script:WakeProxyResult = $null
+	$script:SelfUpdateStatus = @{{}}
+	$script:AgentRunMutex = $null
+	$script:AgentRunMutexAcquired = $false
+	$Utf8Encoding = New-Object System.Text.UTF8Encoding($true)
 
 function Write-TextFile([string]$path, [string]$content) {{
     $parent = [System.IO.Path]::GetDirectoryName($path)
@@ -1287,6 +2337,37 @@ function Write-AgentLog([string]$msg) {{
     Append-TextFile $LogPath ("[" + (Get-Date).ToString('yyyy-MM-dd HH:mm:ss') + "] " + $msg)
 }}
 
+function Write-StageLog([string]$stage, [string]$status = 'start') {{
+    Write-AgentLog ('stage ' + $stage + ' ' + $status)
+}}
+
+function Enter-AgentRunLock {{
+    try {{
+        $createdNew = $false
+        $script:AgentRunMutex = New-Object System.Threading.Mutex($false, 'Global\\SmartCenterAgentWorker', [ref]$createdNew)
+        $script:AgentRunMutexAcquired = $script:AgentRunMutex.WaitOne(0)
+        if (-not $script:AgentRunMutexAcquired) {{
+            Write-AgentLog 'another worker instance is already running; skip this tick'
+            exit 0
+        }}
+    }} catch {{
+        Write-AgentLog ('worker lock failed, continue without lock: ' + $_.Exception.Message)
+    }}
+}}
+
+function Exit-AgentRunLock {{
+    try {{
+        if ($script:AgentRunMutexAcquired -and $script:AgentRunMutex) {{
+            $script:AgentRunMutex.ReleaseMutex() | Out-Null
+        }}
+    }} catch {{}}
+    try {{
+        if ($script:AgentRunMutex) {{
+            $script:AgentRunMutex.Dispose()
+        }}
+    }} catch {{}}
+}}
+
 function Get-CommandOrNull([string]$name) {{
     try {{
         return Get-Command $name -ErrorAction Stop
@@ -1303,6 +2384,28 @@ function Get-ErrorDetails([object]$err) {{
     try {{
         if ($err.Exception -and $err.Exception.Message) {{
             $parts += [string]$err.Exception.Message
+        }}
+    }} catch {{}}
+    try {{
+        if ($err.ErrorDetails -and $err.ErrorDetails.Message) {{
+            $parts += ([string]$err.ErrorDetails.Message).Trim()
+        }}
+    }} catch {{}}
+    try {{
+        if ($err.Exception -and $err.Exception.Response) {{
+            $statusCode = [int]$err.Exception.Response.StatusCode
+            $statusDesc = [string]$err.Exception.Response.StatusDescription
+            $parts += ('HTTP ' + $statusCode + ' ' + $statusDesc)
+            $stream = $err.Exception.Response.GetResponseStream()
+            if ($stream) {{
+                $reader = New-Object System.IO.StreamReader($stream)
+                try {{
+                    $bodyText = $reader.ReadToEnd()
+                    if ($bodyText) {{ $parts += ('response=' + $bodyText) }}
+                }} finally {{
+                    $reader.Close()
+                }}
+            }}
         }}
     }} catch {{}}
     try {{
@@ -1329,13 +2432,72 @@ function Get-ErrorDetails([object]$err) {{
     return $text
 }}
 
+function Convert-ToJsonSafeObject([object]$obj, [int]$depth = 0) {{
+    if ($null -eq $obj) {{ return $null }}
+    if ($obj -is [string] -or $obj -is [char]) {{
+        $text = [string]$obj
+        $text = $text -replace '[\x00-\x08\x0B\x0C\x0E-\x1F]', ' '
+        $text = $text.Replace('"', "'")
+        if ($text.Length -gt 1200) {{
+            $text = $text.Substring(0, 1200) + '...'
+        }}
+        return $text
+    }}
+    if ($obj -is [bool] -or $obj -is [byte] -or $obj -is [int16] -or $obj -is [int] -or $obj -is [int64] -or $obj -is [single] -or $obj -is [double] -or $obj -is [decimal]) {{
+        return $obj
+    }}
+    if ($depth -ge 8) {{
+        return ([string]$obj)
+    }}
+    if ($obj -is [System.Collections.IDictionary]) {{
+        $hash = @{{}}
+        foreach ($key in @($obj.Keys)) {{
+            $safeKey = [string](Convert-ToJsonSafeObject $key ($depth + 1))
+            if (-not $safeKey) {{ continue }}
+            $hash[$safeKey] = Convert-ToJsonSafeObject $obj[$key] ($depth + 1)
+        }}
+        return $hash
+    }}
+    if (($obj -is [System.Collections.IEnumerable]) -and -not ($obj -is [string])) {{
+        $items = @()
+        foreach ($item in $obj) {{
+            $items += ,(Convert-ToJsonSafeObject $item ($depth + 1))
+        }}
+        return ,$items
+    }}
+    if ($obj.PSObject -and $obj.PSObject.Properties.Count -gt 0) {{
+        $hash = @{{}}
+        foreach ($prop in $obj.PSObject.Properties) {{
+            $hash[[string]$prop.Name] = Convert-ToJsonSafeObject $prop.Value ($depth + 1)
+        }}
+        return $hash
+    }}
+    return ([string]$obj)
+}}
+
+function ConvertTo-AgentJson([object]$obj, [int]$depth = 8) {{
+    $json = Convert-ToJsonSafeObject $obj 0 | ConvertTo-Json -Depth $depth -Compress
+    $probe = $json | ConvertFrom-Json -ErrorAction Stop
+    return $json
+}}
+
+function Remove-AgentDiagnosticNoise([hashtable]$diag) {{
+    if (-not $diag) {{ return @{{}} }}
+    foreach ($key in @('amd_adl_error','dxgk_error')) {{
+        if ($diag.ContainsKey($key)) {{
+            $diag.Remove($key)
+        }}
+    }}
+    return $diag
+}}
+
 function Get-LogTail([string]$path, [int]$lineCount = 20) {{
     try {{
         if (-not (Test-Path $path)) {{
             return ''
         }}
         $lines = Get-Content $path -Tail $lineCount -ErrorAction Stop
-        return (($lines | ForEach-Object {{ [string]$_ }}) -join ' || ')
+        return (($lines | ForEach-Object {{ Convert-ToJsonSafeObject ([string]$_) 0 }}) -join ' || ')
     }} catch {{
         return ''
     }}
@@ -1387,6 +2549,110 @@ function Invoke-AgentJsonRequest([string]$uri, [string]$method = 'GET', [string]
     }}
 }}
 
+function Send-AgentHeartbeat([hashtable]$cfg) {{
+    try {{
+        if (-not $cfg -or -not $cfg['current_server_url']) {{ return }}
+        $heartbeatMac = ''
+        $heartbeatIp = ''
+        try {{ $heartbeatMac = Get-MacAddress }} catch {{}}
+        try {{ $heartbeatIp = Get-PrimaryIPv4 }} catch {{}}
+        if ($heartbeatMac) {{ $cfg['machine_mac'] = $heartbeatMac }}
+        if ($heartbeatIp) {{ $cfg['machine_ip'] = $heartbeatIp }}
+        $taskInfo = Get-AgentTaskInfo
+        $heartbeatPayload = @{{
+            mac = $heartbeatMac
+            hostname = $env:COMPUTERNAME
+            ip = $heartbeatIp
+            timestamp = (Get-Date).ToString('o')
+            status = @{{
+                agent = @{{
+                    version = $AgentVersion
+                    machine_mac = $heartbeatMac
+                    machine_ip = $heartbeatIp
+                    hostname = $env:COMPUTERNAME
+                    current_server_url = $cfg['current_server_url']
+                    candidate_hosts = @($cfg['candidate_hosts'])
+                    report_interval_sec = [int]$cfg['report_interval_sec']
+                    config_updated_at = $cfg['config_updated_at']
+                    last_config_sync_at = $cfg['last_config_sync_at']
+                    last_discovery_at = $cfg['last_discovery_at']
+                    ntp_enabled = [bool]$cfg['ntp_enabled']
+                    ntp_primary = $cfg['ntp_primary']
+                    ntp_fallback = $cfg['ntp_fallback']
+                    last_ntp_check_at = $cfg['last_ntp_check_at']
+                    ntp_configured_at = $cfg['ntp_configured_at']
+                    ntp_last_result = $cfg['ntp_last_result']
+                    task_name = $TaskName
+                    task_exists = $taskInfo.exists
+                    task_state = $taskInfo.state
+                    task_user = $taskInfo.user
+                    task_last_run_time = $taskInfo.last_run_time
+                    task_next_run_time = $taskInfo.next_run_time
+                    worker_path = $WorkerPath
+                    launcher_path = $LauncherPath
+                    heartbeat = $true
+                    self_update = $script:SelfUpdateStatus
+                    log_tail = Get-LogTail $LogPath 12
+                }}
+            }}
+        }}
+        $heartbeatPayload = ConvertTo-AgentJson $heartbeatPayload 8
+        $heartbeatUrl = $cfg['current_server_url'].TrimEnd('/') + $cfg['report_path']
+        Invoke-AgentJsonRequest -Uri $heartbeatUrl -Method Post -ContentType 'application/json' -Body $heartbeatPayload -TimeoutSec 5 | Out-Null
+        Write-AgentLog ('heartbeat ok -> ' + $heartbeatUrl)
+    }} catch {{
+        Write-AgentLog ('heartbeat failed: ' + (Get-ErrorDetails $_))
+    }}
+}}
+
+function Invoke-ExternalCommandCapture([string]$filePath, [string[]]$arguments, [int]$timeoutSec = 6) {{
+    $result = @{{
+        exit_code = 999
+        timed_out = $false
+        output = ''
+        error = ''
+    }}
+    try {{
+        if (-not $filePath -or -not (Test-Path $filePath)) {{
+            $result.error = 'tool_not_found'
+            return $result
+        }}
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = $filePath
+        $safeArguments = @()
+        foreach ($arg in @($arguments)) {{
+            if ($null -eq $arg) {{ continue }}
+            $argText = [System.Convert]::ToString($arg, [System.Globalization.CultureInfo]::InvariantCulture)
+            if ([string]::IsNullOrWhiteSpace($argText)) {{ continue }}
+            $safeArguments += $argText
+        }}
+        if ($safeArguments.Count -gt 0) {{
+            $quotedArguments = @()
+            foreach ($argText in $safeArguments) {{
+                $quotedArguments += ('"' + ($argText -replace '"', '\\"') + '"')
+            }}
+            $psi.Arguments = ($quotedArguments -join ' ')
+        }}
+        $psi.UseShellExecute = $false
+        $psi.RedirectStandardOutput = $true
+        $psi.RedirectStandardError = $true
+        $psi.CreateNoWindow = $true
+        $proc = New-Object System.Diagnostics.Process
+        $proc.StartInfo = $psi
+        [void]$proc.Start()
+        if (-not $proc.WaitForExit([Math]::Max(1, $timeoutSec) * 1000)) {{
+            $result.timed_out = $true
+            try {{ $proc.Kill() }} catch {{}}
+        }}
+        try {{ $result.output = [string]$proc.StandardOutput.ReadToEnd() }} catch {{}}
+        try {{ $result.error = [string]$proc.StandardError.ReadToEnd() }} catch {{}}
+        try {{ $result.exit_code = [int]$proc.ExitCode }} catch {{}}
+    }} catch {{
+        $result.error = Get-ErrorDetails $_
+    }}
+    return $result
+}}
+
 function Get-AgentInstances([string]$className, [string]$filter = '') {{
     $items = $null
     $cim = Get-CommandOrNull 'Get-CimInstance'
@@ -1421,10 +2687,10 @@ function Format-MacAddress([string]$raw) {{
         return ''
     }}
     $compact = ($text -replace '[^0-9A-Fa-f]', '').ToUpper()
-    if ($compact.Length -lt 12) {{
-        return $text.ToUpper()
+    if ($compact.Length -ne 12) {{
+        return ''
     }}
-    return ([regex]::Replace($compact.Substring(0, 12), '([0-9A-F]{2})(?=.)', '$1-'))
+    return ($compact.Substring(0, 2) + '-' + $compact.Substring(2, 2) + '-' + $compact.Substring(4, 2) + '-' + $compact.Substring(6, 2) + '-' + $compact.Substring(8, 2) + '-' + $compact.Substring(10, 2))
 }}
 
 function Convert-ToHashtable([object]$obj) {{
@@ -1544,9 +2810,18 @@ function New-AgentConfigObject([hashtable]$raw) {{
     if (-not $cfg.ContainsKey('server_port') -or -not $cfg['server_port']) {{ $cfg['server_port'] = 6899 }}
     if (-not $cfg.ContainsKey('report_path') -or -not $cfg['report_path']) {{ $cfg['report_path'] = '/report' }}
     if (-not $cfg.ContainsKey('config_path') -or -not $cfg['config_path']) {{ $cfg['config_path'] = '/agent/config' }}
+    if (-not $cfg.ContainsKey('worker_path') -or -not $cfg['worker_path']) {{ $cfg['worker_path'] = '/agent/worker.json' }}
+    if (-not $cfg.ContainsKey('launcher_path') -or -not $cfg['launcher_path']) {{ $cfg['launcher_path'] = '/agent/launcher.json' }}
     if (-not $cfg.ContainsKey('report_interval_sec') -or -not $cfg['report_interval_sec']) {{ $cfg['report_interval_sec'] = 60 }}
     if (-not $cfg.ContainsKey('sync_interval_sec') -or -not $cfg['sync_interval_sec']) {{ $cfg['sync_interval_sec'] = 60 }}
     if (-not $cfg.ContainsKey('discovery_retry_sec') -or -not $cfg['discovery_retry_sec']) {{ $cfg['discovery_retry_sec'] = 120 }}
+    if (-not $cfg.ContainsKey('ntp_enabled')) {{ $cfg['ntp_enabled'] = $true }}
+    if (-not $cfg.ContainsKey('ntp_primary') -or -not $cfg['ntp_primary']) {{ $cfg['ntp_primary'] = '192.168.50.120' }}
+    if (-not $cfg.ContainsKey('ntp_fallback') -or -not $cfg['ntp_fallback']) {{ $cfg['ntp_fallback'] = '192.168.50.121' }}
+    if (-not $cfg.ContainsKey('ntp_check_interval_sec') -or -not $cfg['ntp_check_interval_sec']) {{ $cfg['ntp_check_interval_sec'] = 3600 }}
+    if (-not $cfg.ContainsKey('last_ntp_check_at')) {{ $cfg['last_ntp_check_at'] = '' }}
+    if (-not $cfg.ContainsKey('ntp_configured_at')) {{ $cfg['ntp_configured_at'] = '' }}
+    if (-not $cfg.ContainsKey('ntp_last_result')) {{ $cfg['ntp_last_result'] = '' }}
     $cfg['candidate_hosts'] = @(Merge-UniqueList @($cfg['server_host'], $cfg['candidate_hosts']))
     $cfg['scan_networks'] = @(Merge-UniqueList @($cfg['scan_networks']))
     if ((-not $cfg.ContainsKey('server_host') -or -not $cfg['server_host']) -and $cfg['candidate_hosts'].Count -gt 0) {{
@@ -1563,7 +2838,7 @@ function New-AgentConfigObject([hashtable]$raw) {{
 }}
 
 function Save-AgentConfig([hashtable]$cfg) {{
-    Write-TextFile $ConfigPath ($cfg | ConvertTo-Json -Depth 8)
+    Write-TextFile $ConfigPath (ConvertTo-AgentJson $cfg 8)
 }}
 
 function Load-AgentConfig() {{
@@ -1579,6 +2854,7 @@ function Load-AgentConfig() {{
                 report_path = Get-ConfigTextValue $storedJson.report_path ''
                 config_path = Get-ConfigTextValue $storedJson.config_path ''
                 worker_path = Get-ConfigTextValue $storedJson.worker_path ''
+                launcher_path = Get-ConfigTextValue $storedJson.launcher_path ''
                 report_interval_sec = Get-ConfigIntValue $storedJson.report_interval_sec 0
                 sync_interval_sec = Get-ConfigIntValue $storedJson.sync_interval_sec 0
                 discovery_retry_sec = Get-ConfigIntValue $storedJson.discovery_retry_sec 0
@@ -1586,6 +2862,13 @@ function Load-AgentConfig() {{
                 config_updated_at = Get-ConfigTextValue $storedJson.config_updated_at ''
                 last_config_sync_at = Get-ConfigTextValue $storedJson.last_config_sync_at ''
                 last_discovery_at = Get-ConfigTextValue $storedJson.last_discovery_at ''
+                last_ntp_check_at = Get-ConfigTextValue $storedJson.last_ntp_check_at ''
+                ntp_configured_at = Get-ConfigTextValue $storedJson.ntp_configured_at ''
+                ntp_last_result = Get-ConfigTextValue $storedJson.ntp_last_result ''
+                ntp_enabled = if ($null -ne $storedJson.ntp_enabled) {{ [bool]$storedJson.ntp_enabled }} else {{ $true }}
+                ntp_primary = Get-ConfigTextValue $storedJson.ntp_primary ''
+                ntp_fallback = Get-ConfigTextValue $storedJson.ntp_fallback ''
+                ntp_check_interval_sec = Get-ConfigIntValue $storedJson.ntp_check_interval_sec 0
                 updated_at = Get-ConfigTextValue $storedJson.updated_at ''
                 candidate_hosts = @(Get-ConfigStringListValue $storedJson.candidate_hosts)
                 scan_networks = @(Get-ConfigStringListValue $storedJson.scan_networks)
@@ -1614,17 +2897,47 @@ function Compare-VersionText([string]$left, [string]$right) {{
     return 0
 }}
 
-function Invoke-AgentSelfUpdate([hashtable]$cfg, [hashtable]$incoming) {{
-    if (-not $incoming -or -not $incoming.ContainsKey('version')) {{ return $false }}
-    $remoteVersion = [string]$incoming['version']
-    if (-not $remoteVersion -or (Compare-VersionText $remoteVersion $AgentVersion) -le 0) {{ return $false }}
-    $workerPathValue = if ($incoming.ContainsKey('worker_path') -and $incoming['worker_path']) {{ [string]$incoming['worker_path'] }} else {{ '/agent/worker.ps1' }}
-    $baseUrl = if ($cfg['current_server_url']) {{ [string]$cfg['current_server_url'] }} else {{ 'http://' + $cfg['server_host'] + ':' + $cfg['server_port'] }}
-    if (-not $baseUrl) {{ return $false }}
-    $workerUrl = $baseUrl.TrimEnd('/') + $workerPathValue + '?v=' + [uri]::EscapeDataString($remoteVersion) + '&ts=' + [uri]::EscapeDataString((Get-Date).Ticks)
-    try {{
-        $response = Invoke-AgentJsonRequest -Uri $workerUrl -Method Get -TimeoutSec 15
-        $workerText = ''
+	function Invoke-AgentSelfUpdate([hashtable]$cfg, [hashtable]$incoming) {{
+	    $checkedAt = (Get-Date).ToString('o')
+	    if (-not $incoming -or -not $incoming.ContainsKey('version')) {{
+	        $script:SelfUpdateStatus = @{{
+	            checked_at = $checkedAt
+	            local_version = $AgentVersion
+	            remote_version = ''
+	            action = 'skip_no_remote_version'
+	            ok = $true
+	        }}
+	        return $false
+	    }}
+	    $remoteVersion = [string]$incoming['version']
+	    if (-not $remoteVersion -or (Compare-VersionText $remoteVersion $AgentVersion) -le 0) {{
+	        $script:SelfUpdateStatus = @{{
+	            checked_at = $checkedAt
+	            local_version = $AgentVersion
+	            remote_version = $remoteVersion
+	            action = 'skip_current'
+	            ok = $true
+	        }}
+	        return $false
+	    }}
+	    $workerPathValue = if ($incoming.ContainsKey('worker_path') -and $incoming['worker_path']) {{ [string]$incoming['worker_path'] }} else {{ '/agent/worker.json' }}
+	    $launcherPathValue = if ($incoming.ContainsKey('launcher_path') -and $incoming['launcher_path']) {{ [string]$incoming['launcher_path'] }} else {{ '/agent/launcher.json' }}
+	    $baseUrl = if ($cfg['current_server_url']) {{ [string]$cfg['current_server_url'] }} else {{ 'http://' + $cfg['server_host'] + ':' + $cfg['server_port'] }}
+	    if (-not $baseUrl) {{
+	        $script:SelfUpdateStatus = @{{
+	            checked_at = $checkedAt
+	            local_version = $AgentVersion
+	            remote_version = $remoteVersion
+	            action = 'skip_no_server_url'
+	            ok = $false
+	        }}
+	        return $false
+	    }}
+	    $workerUrl = $baseUrl.TrimEnd('/') + $workerPathValue + '?v=' + [uri]::EscapeDataString($remoteVersion) + '&ts=' + [uri]::EscapeDataString((Get-Date).Ticks)
+	    $launcherUrl = $baseUrl.TrimEnd('/') + $launcherPathValue + '?v=' + [uri]::EscapeDataString($remoteVersion) + '&ts=' + [uri]::EscapeDataString((Get-Date).Ticks)
+	    try {{
+	        $response = Invoke-AgentJsonRequest -Uri $workerUrl -Method Get -TimeoutSec 15
+	        $workerText = ''
         if ($response -and $response.worker_b64) {{
             $workerText = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String([string]$response.worker_b64))
         }}
@@ -1636,22 +2949,65 @@ function Invoke-AgentSelfUpdate([hashtable]$cfg, [hashtable]$incoming) {{
         if (-not $workerText -or $workerText -notmatch [regex]::Escape($remoteVersion)) {{
             throw 'downloaded worker version mismatch'
         }}
-        $backupPath = $WorkerPath + '.bak_' + (Get-Date).ToString('yyyyMMddHHmmss')
-        if (Test-Path $WorkerPath) {{
-            Copy-Item -LiteralPath $WorkerPath -Destination $backupPath -Force -ErrorAction SilentlyContinue
+        $launcherText = ''
+        try {{
+            $launcherResponse = Invoke-AgentJsonRequest -Uri $launcherUrl -Method Get -TimeoutSec 12
+            if ($launcherResponse -and $launcherResponse.launcher_b64) {{
+                $launcherText = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String([string]$launcherResponse.launcher_b64))
+            }}
+        }} catch {{
+            Write-AgentLog ('launcher self-update download failed, worker update will continue: ' + (Get-ErrorDetails $_))
         }}
-        Write-TextFile $WorkerPath $workerText
-        Write-AgentLog ('self-updated worker ' + $AgentVersion + ' -> ' + $remoteVersion + '; restart on next scheduled run')
-        return $true
-    }} catch {{
-        Write-AgentLog ('self-update failed: ' + (Get-ErrorDetails $_))
-        return $false
-    }}
-}}
+        if ($launcherText -and $launcherText -notmatch [regex]::Escape($remoteVersion)) {{
+            Write-AgentLog 'launcher self-update skipped: downloaded launcher version mismatch'
+            $launcherText = ''
+        }}
+        $backupPath = $WorkerPath + '.bak_' + (Get-Date).ToString('yyyyMMddHHmmss')
+	        if (Test-Path $WorkerPath) {{
+	            Copy-Item -LiteralPath $WorkerPath -Destination $backupPath -Force -ErrorAction SilentlyContinue
+	        }}
+	        Write-TextFile $WorkerPath $workerText
+	        $launcherBackupPath = ''
+	        if ($launcherText) {{
+	            $launcherBackupPath = $LauncherPath + '.bak_' + (Get-Date).ToString('yyyyMMddHHmmss')
+	            if (Test-Path $LauncherPath) {{
+	                Copy-Item -LiteralPath $LauncherPath -Destination $launcherBackupPath -Force -ErrorAction SilentlyContinue
+	            }}
+	            Write-TextFile $LauncherPath $launcherText
+	        }}
+	        $script:SelfUpdateStatus = @{{
+	            checked_at = $checkedAt
+	            local_version = $AgentVersion
+	            remote_version = $remoteVersion
+	            action = 'updated'
+	            ok = $true
+	            worker_url = $workerUrl
+	            backup_path = $backupPath
+	            launcher_url = $launcherUrl
+	            launcher_updated = [bool]$launcherText
+	            launcher_backup_path = $launcherBackupPath
+	        }}
+	        Write-AgentLog ('self-updated worker/launcher ' + $AgentVersion + ' -> ' + $remoteVersion + '; restart on next scheduled run')
+	        return $true
+	    }} catch {{
+	        $errorText = Get-ErrorDetails $_
+	        $script:SelfUpdateStatus = @{{
+	            checked_at = $checkedAt
+	            local_version = $AgentVersion
+	            remote_version = $remoteVersion
+	            action = 'failed'
+	            ok = $false
+	            worker_url = $workerUrl
+	            error = $errorText
+	        }}
+	        Write-AgentLog ('self-update failed: ' + $errorText)
+	        return $false
+	    }}
+	}}
 
 function Merge-AgentConfig([hashtable]$cfg, [hashtable]$incoming) {{
     if (-not $incoming) {{ return $cfg }}
-    foreach ($key in @('service','version','server_host','server_port','report_path','config_path','worker_path','report_interval_sec','sync_interval_sec','discovery_retry_sec')) {{
+    foreach ($key in @('service','version','server_host','server_port','report_path','config_path','worker_path','launcher_path','report_interval_sec','sync_interval_sec','discovery_retry_sec','ntp_enabled','ntp_primary','ntp_fallback','ntp_check_interval_sec')) {{
         if ($incoming.ContainsKey($key) -and $null -ne $incoming[$key] -and [string]$incoming[$key] -ne '') {{
             $cfg[$key] = $incoming[$key]
         }}
@@ -1673,6 +3029,88 @@ function Merge-AgentConfig([hashtable]$cfg, [hashtable]$incoming) {{
         $cfg['current_server_url'] = 'http://' + $cfg['server_host'] + ':' + $cfg['server_port']
     }}
     $cfg['config_updated_at'] = (Get-Date).ToString('o')
+    return $cfg
+}}
+
+function Get-NtpPeerList([hashtable]$cfg) {{
+    $peers = @()
+    foreach ($peer in @($cfg['ntp_primary'], $cfg['ntp_fallback'])) {{
+        $text = [string]$peer
+        if ($text -and $text.Trim()) {{
+            $peers += ($text.Trim() + ',0x8')
+        }}
+    }}
+    return (($peers | Select-Object -Unique) -join ' ')
+}}
+
+function Get-WindowsTimePeerList {{
+    try {{
+        $raw = (& w32tm /query /configuration 2>&1 | Out-String)
+        $match = [regex]::Match($raw, 'NtpServer:\\s*(.+?)(?:\\s+\\(|\\r?\\n)')
+        if ($match.Success) {{
+            return $match.Groups[1].Value.Trim()
+        }}
+    }} catch {{}}
+    return ''
+}}
+
+function Test-NtpPeerConfigured([string]$currentPeerList, [string]$desiredPeerList) {{
+    $current = [string]$currentPeerList
+    $desired = [string]$desiredPeerList
+    if (-not $desired) {{ return $true }}
+    foreach ($part in @($desired -split '\\s+')) {{
+        $peerHost = ([string]$part).Split(',')[0]
+        if ($peerHost -and $current -notmatch [regex]::Escape($peerHost)) {{
+            return $false
+        }}
+    }}
+    return $true
+}}
+
+function Invoke-NtpAutoConfigure([hashtable]$cfg) {{
+    if (-not [bool]$cfg['ntp_enabled']) {{ return $cfg }}
+    $desiredPeerList = Get-NtpPeerList $cfg
+    if (-not $desiredPeerList) {{ return $cfg }}
+    $intervalSec = Get-ConfigIntValue $cfg['ntp_check_interval_sec'] 3600
+    if ($intervalSec -lt 300) {{ $intervalSec = 300 }}
+    $shouldCheck = $true
+    if ($cfg['last_ntp_check_at']) {{
+        try {{
+            $shouldCheck = (((Get-Date) - [datetime]::Parse([string]$cfg['last_ntp_check_at'])).TotalSeconds -ge $intervalSec)
+        }} catch {{
+            $shouldCheck = $true
+        }}
+    }}
+    if (-not $cfg['ntp_configured_at']) {{
+        $shouldCheck = $true
+    }}
+    if ([string]$cfg['ntp_last_result'] -like 'error*') {{
+        $shouldCheck = $true
+    }}
+    if (-not $shouldCheck) {{ return $cfg }}
+    $cfg['last_ntp_check_at'] = (Get-Date).ToString('o')
+    try {{
+        if (-not (Get-CommandOrNull 'w32tm')) {{
+            throw 'w32tm not found'
+        }}
+        $currentPeerList = Get-WindowsTimePeerList
+        $needsConfigure = -not (Test-NtpPeerConfigured $currentPeerList $desiredPeerList)
+        try {{ Set-Service w32time -StartupType Automatic -ErrorAction SilentlyContinue }} catch {{}}
+        try {{ Start-Service w32time -ErrorAction SilentlyContinue }} catch {{}}
+        if ($needsConfigure) {{
+            & w32tm /config /manualpeerlist:$desiredPeerList /syncfromflags:manual /reliable:no /update | Out-Null
+            try {{ Restart-Service w32time -Force -ErrorAction SilentlyContinue }} catch {{}}
+            $cfg['ntp_configured_at'] = (Get-Date).ToString('o')
+            Write-AgentLog ('ntp configured peers=' + $desiredPeerList)
+        }}
+        try {{ & w32tm /resync /force | Out-Null }} catch {{}}
+        $source = ''
+        try {{ $source = ((& w32tm /query /source 2>&1 | Out-String).Trim()) }} catch {{}}
+        $cfg['ntp_last_result'] = ('ok peers=' + $desiredPeerList + ' source=' + $source)
+    }} catch {{
+        $cfg['ntp_last_result'] = 'error ' + (Get-ErrorDetails $_)
+        Write-AgentLog ('ntp auto-config failed: ' + (Get-ErrorDetails $_))
+    }}
     return $cfg
 }}
 
@@ -1896,9 +3334,18 @@ function Find-AvailableServer([hashtable]$cfg, [switch]$ForceDiscovery) {{
 function Get-MacAddress {{
     try {{
         $adapters = @(Get-AgentInstances 'Win32_NetworkAdapterConfiguration') | Where-Object {{
-            $_.IPEnabled -eq $true -and $_.MACAddress
+            $_.IPEnabled -eq $true -and $_.MACAddress -and $_.IPAddress
         }}
-        $adapter = $adapters | Select-Object -First 1
+        $adapter = $adapters | Sort-Object -Property IPConnectionMetric, InterfaceIndex | Select-Object -First 1
+        if ($adapter) {{
+            return (Format-MacAddress ([string]$adapter.MACAddress))
+        }}
+    }} catch {{}}
+    try {{
+        $adapters = @(Get-AgentInstances 'Win32_NetworkAdapterConfiguration') | Where-Object {{
+            $_.MACAddress
+        }}
+        $adapter = $adapters | Sort-Object -Property IPEnabled, IPConnectionMetric, InterfaceIndex -Descending | Select-Object -First 1
         if ($adapter) {{
             return (Format-MacAddress ([string]$adapter.MACAddress))
         }}
@@ -1916,7 +3363,14 @@ function Get-MacAddress {{
             }}
         }}
     }} catch {{}}
-    return 'TEMP-' + [guid]::NewGuid().ToString().Substring(0, 12).ToUpper()
+    try {{
+        if (Test-Path $ConfigPath) {{
+            $storedJson = (Get-Content $ConfigPath -Raw -Encoding UTF8) | ConvertFrom-Json
+            $storedMac = Format-MacAddress ([string]$storedJson.machine_mac)
+            if ($storedMac) {{ return $storedMac }}
+        }}
+    }} catch {{}}
+    return ''
 }}
 
 function Get-PrimaryIPv4 {{
@@ -1924,8 +3378,8 @@ function Get-PrimaryIPv4 {{
         $adapters = @(Get-AgentInstances 'Win32_NetworkAdapterConfiguration') | Where-Object {{
             $_.IPEnabled -eq $true -and $_.IPAddress
         }}
-        foreach ($adapter in $adapters) {{
-            $ipv4 = $adapter.IPAddress | Where-Object {{ $_ -match '^\\d+\\.\\d+\\.\\d+\\.\\d+$' -and $_ -notlike '169.254.*' }} | Select-Object -First 1
+        foreach ($adapter in @($adapters | Sort-Object -Property IPConnectionMetric, InterfaceIndex)) {{
+            $ipv4 = $adapter.IPAddress | Where-Object {{ $_ -match '^\\d+\\.\\d+\\.\\d+\\.\\d+$' -and $_ -notlike '169.254.*' -and $_ -ne '127.0.0.1' }} | Select-Object -First 1
             if ($ipv4) {{ return $ipv4 }}
         }}
     }} catch {{}}
@@ -1942,31 +3396,162 @@ function Get-PrimaryIPv4 {{
             }}
         }}
     }} catch {{}}
+    try {{
+        $dnsName = [System.Net.Dns]::GetHostName()
+        $addresses = [System.Net.Dns]::GetHostAddresses($dnsName) | Where-Object {{
+            $_.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork -and
+            ([string]$_) -notlike '169.254.*' -and
+            ([string]$_) -ne '127.0.0.1'
+        }}
+        $addr = $addresses | Select-Object -First 1
+        if ($addr) {{ return [string]$addr }}
+    }} catch {{}}
     return ''
 }}
 
 function Get-NetSpeed {{
-    $counters = @(Get-AgentInstances 'Win32_PerfRawData_Tcpip_NetworkInterface')
-    $totalSent = 0
-    $totalRecv = 0
-    foreach ($counter in $counters) {{
-        $totalSent += [double]$counter.BytesSentPersec
-        $totalRecv += [double]$counter.BytesReceivedPersec
-    }}
-    $now = Get-Date
-    $sendKb = 0
-    $recvKb = 0
-    if ($lastNetSampleTime) {{
-        $seconds = ($now - $lastNetSampleTime).TotalSeconds
-        if ($seconds -gt 0) {{
-            $sendKb = [math]::Round((($totalSent - $lastNetBytesSent) / $seconds) / 1KB, 1)
-            $recvKb = [math]::Round((($totalRecv - $lastNetBytesRecv) / $seconds) / 1KB, 1)
+    $primaryIp = Get-PrimaryIPv4
+    $selected = $null
+    $candidates = @()
+    $totalSent = 0.0
+    $totalRecv = 0.0
+    $adapterId = 'unknown'
+    $adapterName = ''
+    $adapterDescription = ''
+    $adapterIp = ''
+    $linkSpeedMbps = 0.0
+    $sampleScope = 'primary_interface'
+    $virtualNamePattern = 'Loopback|Teredo|ISATAP|Tunnel|Pseudo|虚拟|隧道|Hyper-V|vEthernet|VMware|VirtualBox|Npcap|Bluetooth|ZeroTier|Tailscale|Wintun|WireGuard'
+    try {{
+        $interfaces = [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | Where-Object {{
+            $_.OperationalStatus -eq [System.Net.NetworkInformation.OperationalStatus]::Up -and
+            $_.NetworkInterfaceType -ne [System.Net.NetworkInformation.NetworkInterfaceType]::Loopback -and
+            $_.NetworkInterfaceType -ne [System.Net.NetworkInformation.NetworkInterfaceType]::Tunnel
         }}
+        foreach ($iface in @($interfaces)) {{
+            try {{
+                $name = [string]$iface.Name
+                $desc = [string]$iface.Description
+                if (($name + ' ' + $desc) -match $virtualNamePattern) {{ continue }}
+                $props = $iface.GetIPProperties()
+                $ipv4 = ''
+                foreach ($uni in @($props.UnicastAddresses)) {{
+                    $addr = [string]$uni.Address
+                    if ($uni.Address.AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork -and $addr -notlike '169.254.*' -and $addr -ne '127.0.0.1') {{
+                        $ipv4 = $addr
+                        break
+                    }}
+                }}
+                if (-not $ipv4) {{ continue }}
+                $speed = [double]$iface.Speed
+                $score = 0
+                if ($primaryIp -and $ipv4 -eq $primaryIp) {{ $score += 1000 }}
+                if ($iface.NetworkInterfaceType -eq [System.Net.NetworkInformation.NetworkInterfaceType]::Ethernet) {{ $score += 100 }}
+                elseif ($iface.NetworkInterfaceType -eq [System.Net.NetworkInformation.NetworkInterfaceType]::Wireless80211) {{ $score += 80 }}
+                if ($speed -gt 0) {{ $score += [math]::Min(50, [math]::Floor($speed / 1000000000)) }}
+                $candidates += [pscustomobject]@{{
+                    Interface = $iface
+                    Id = [string]$iface.Id
+                    Name = $name
+                    Description = $desc
+                    IPv4 = $ipv4
+                    Speed = $speed
+                    Score = $score
+                }}
+            }} catch {{}}
+        }}
+        if ($candidates.Count -gt 0) {{
+            $selected = $candidates | Sort-Object -Property @{{Expression='Score';Descending=$true}}, @{{Expression='Speed';Descending=$true}} | Select-Object -First 1
+            if ($primaryIp) {{
+                $primaryCandidate = $candidates | Where-Object {{ $_.IPv4 -eq $primaryIp }} | Sort-Object -Property @{{Expression='Speed';Descending=$true}} | Select-Object -First 1
+                if ($primaryCandidate) {{ $selected = $primaryCandidate }}
+            }}
+        }}
+        if ($selected) {{
+            $stats = $selected.Interface.GetIPv4Statistics()
+            $totalSent = [double]$stats.BytesSent
+            $totalRecv = [double]$stats.BytesReceived
+            $adapterId = [string]$selected.Id
+            $adapterName = [string]$selected.Name
+            $adapterDescription = [string]$selected.Description
+            $adapterIp = [string]$selected.IPv4
+            if ([double]$selected.Speed -gt 0) {{ $linkSpeedMbps = [math]::Round(([double]$selected.Speed) / 1000000, 0) }}
+        }}
+    }} catch {{}}
+    if ((-not $selected) -or (($totalSent -le 0) -and ($totalRecv -le 0))) {{
+        $sampleScope = 'non_virtual_total'
+        $adapterId = 'fallback-total'
+        $adapterName = '物理网卡合计'
+        $adapterDescription = ''
+        $adapterIp = $primaryIp
+        $totalSent = 0.0
+        $totalRecv = 0.0
+        foreach ($counter in @(Get-AgentInstances 'Win32_PerfRawData_Tcpip_NetworkInterface')) {{
+            $name = [string]$counter.Name
+            if ($name -match $virtualNamePattern) {{ continue }}
+            $totalSent += [double]$counter.BytesSentPersec
+            $totalRecv += [double]$counter.BytesReceivedPersec
+        }}
+    }}
+
+    $now = Get-Date
+    $nowIso = $now.ToString('o')
+    $sendKb = 0.0
+    $recvKb = 0.0
+    $previous = $null
+    try {{
+        if (Test-Path $NetSamplePath) {{
+            $previous = Get-Content $NetSamplePath -Raw -Encoding UTF8 | ConvertFrom-Json
+        }}
+    }} catch {{
+        $previous = $null
+    }}
+    if ($previous -and $previous.sampled_at) {{
+        try {{
+            $prevTime = [datetime]::Parse([string]$previous.sampled_at)
+            $seconds = ($now - $prevTime).TotalSeconds
+            $sentDelta = $totalSent - [double]$previous.bytes_sent
+            $recvDelta = $totalRecv - [double]$previous.bytes_recv
+            $sameAdapter = (([string]$previous.adapter_id) -eq $adapterId)
+            if ($seconds -gt 0 -and $seconds -lt 7200 -and $sentDelta -ge 0 -and $recvDelta -ge 0 -and $sameAdapter) {{
+                $sendKb = [math]::Round(($sentDelta / $seconds) / 1KB, 1)
+                $recvKb = [math]::Round(($recvDelta / $seconds) / 1KB, 1)
+            }}
+        }} catch {{}}
+    }}
+    $sample = @{{
+        sampled_at = $nowIso
+        bytes_sent = [math]::Round($totalSent, 0)
+        bytes_recv = [math]::Round($totalRecv, 0)
+        adapter_id = $adapterId
+        adapter_name = $adapterName
+        adapter_description = $adapterDescription
+        adapter_ip = $adapterIp
+        link_speed_mbps = $linkSpeedMbps
+        sample_scope = $sampleScope
+    }}
+    try {{
+        Write-TextFile $NetSamplePath (ConvertTo-AgentJson $sample 4)
+    }} catch {{
+        Write-AgentLog ('network sample save failed: ' + (Get-ErrorDetails $_))
     }}
     $script:lastNetBytesSent = $totalSent
     $script:lastNetBytesRecv = $totalRecv
     $script:lastNetSampleTime = $now
-    return @($sendKb, $recvKb)
+    $effectiveErrors = @($errors)
+    if ($serials.Count -gt 0) {{
+        $effectiveErrors = @($effectiveErrors | Where-Object {{ [string]$_ -notmatch '(?i)CodeMeter command timed out' }})
+    }}
+    return @{{
+        sent_kb_s = $sendKb
+        recv_kb_s = $recvKb
+        adapter_id = $adapterId
+        adapter_name = $adapterName
+        adapter_description = $adapterDescription
+        adapter_ip = $adapterIp
+        link_speed_mbps = $linkSpeedMbps
+        sample_scope = $sampleScope
+    }}
 }}
 
 function Get-NvidiaSmiPath {{
@@ -1997,7 +3582,15 @@ function Get-NvidiaGpuInfo {{
         return @()
     }}
     try {{
-        $lines = @(& $smiPath --query-gpu=index,name,utilization.gpu,temperature.gpu --format=csv,noheader,nounits 2>$null)
+        $capture = Invoke-ExternalCommandCapture -FilePath $smiPath -Arguments ([string[]]@('--query-gpu=index,name,utilization.gpu,temperature.gpu','--format=csv,noheader,nounits')) -TimeoutSec 6
+        if ($capture.timed_out) {{
+            Write-AgentLog 'nvidia-smi gpu query timed out'
+            return @()
+        }}
+        if ($capture.exit_code -ne 0 -and $capture.error) {{
+            Write-AgentLog ('nvidia-smi gpu query failed: ' + [string]$capture.error)
+        }}
+        $lines = @(([string]$capture.output) -split "`r?`n" | Where-Object {{ $_ -and $_.Trim() }})
         foreach ($line in $lines) {{
             $parts = @([string]$line -split ',')
             if ($parts.Count -lt 4) {{
@@ -2029,7 +3622,9 @@ function Get-NvidiaGpuInfo {{
 
 function Get-DxgkGpuPerfData {{
     $items = @()
+    $script:GpuProbeDiagnostic['dxgk_checked_at'] = (Get-Date).ToString('o')
     if (-not (Get-CommandOrNull 'Add-Type')) {{
+        $script:GpuProbeDiagnostic['dxgk_error'] = 'Add-Type unavailable'
         return @()
     }}
     try {{
@@ -2084,6 +3679,7 @@ public class SmartCenterGpuPerfReader {{
 
     [StructLayout(LayoutKind.Sequential)]
     public struct D3DKMT_ADAPTER_PERFDATA {{
+        public uint PhysicalAdapterIndex;
         public ulong MemoryFrequency;
         public ulong MaxMemoryFrequency;
         public ulong MaxMemoryFrequencyOC;
@@ -2095,14 +3691,140 @@ public class SmartCenterGpuPerfReader {{
         public byte PowerStateOverride;
     }}
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct D3DKMT_ADAPTERINFO {{
+        public uint hAdapter;
+        public LUID AdapterLuid;
+        public uint NumOfSources;
+        [MarshalAs(UnmanagedType.Bool)]
+        public bool bPrecisePresentRegionsPreferred;
+    }}
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct D3DKMT_ENUMADAPTERS2 {{
+        public uint NumAdapters;
+        public IntPtr pAdapters;
+    }}
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct D3DKMT_ADAPTERADDRESS {{
+        public uint BusNumber;
+        public uint DeviceNumber;
+        public uint FunctionNumber;
+    }}
+
     public class GpuPerfResult {{
         public string DeviceName;
         public string Name;
         public string Luid;
+        public int QueryType;
+        public int QueryStatus;
+        public int RawTemperature;
+        public int BusNumber;
+        public int DeviceNumber;
+        public int FunctionNumber;
+        public int Utilization;
         public int Temperature;
         public int FanRPM;
         public int Power;
     }}
+
+    public class GpuPerfDiagnostic {{
+        public string DeviceName;
+        public string Name;
+        public string Luid;
+        public int OpenStatus;
+        public int QueryType;
+        public int QueryStatus;
+        public int RawTemperature;
+        public int AddressStatus;
+        public int BusNumber;
+        public int DeviceNumber;
+        public int FunctionNumber;
+        public int Utilization;
+        public int Temperature;
+        public int FanRPM;
+        public int Power;
+    }}
+
+    public static List<GpuPerfDiagnostic> Diagnostics = new List<GpuPerfDiagnostic>();
+    public static int GdiDisplayCount = 0;
+    public static int EnumAdapters2Status = 0;
+    public static int EnumAdapters2Count = 0;
+	    public static int EnumAdapters2Returned = 0;
+	    public static int EngineCounterInstanceCount = 0;
+	    public static int EngineCounterLuidCount = 0;
+	    public static int EngineMaxUtilization = 0;
+	    public static int EngineTotalUtilization = 0;
+	    public static string EngineLuidSummary = "";
+
+    private static string NormalizeLuid(LUID luid) {{
+        return "luid_0x" + ((ulong)luid.HighPart & 0xffffffffUL).ToString("x8") + "_0x" + luid.LowPart.ToString("x8");
+    }}
+
+	    private static Dictionary<string, int> ReadGpuEngineUtilizationByLuid() {{
+	        EngineCounterInstanceCount = 0;
+	        EngineCounterLuidCount = 0;
+	        Dictionary<string, double> engineTotals = new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+	        int observedCounterCount = 0;
+	        try {{
+	            var category = new System.Diagnostics.PerformanceCounterCategory("GPU Engine");
+	            List<System.Diagnostics.PerformanceCounter> counters = new List<System.Diagnostics.PerformanceCounter>();
+	            List<string> counterLuids = new List<string>();
+            foreach (string instance in category.GetInstanceNames()) {{
+                if (String.IsNullOrWhiteSpace(instance)) continue;
+	                string lower = instance.ToLowerInvariant();
+	                var luidMatch = System.Text.RegularExpressions.Regex.Match(lower, @"luid_0x[0-9a-f]+_0x[0-9a-f]+");
+	                if (!luidMatch.Success) continue;
+	                string luidPart = luidMatch.Value;
+                try {{
+                    var counter = new System.Diagnostics.PerformanceCounter("GPU Engine", "Utilization Percentage", instance, true);
+                    counter.NextValue();
+	                    counters.Add(counter);
+	                    counterLuids.Add(luidPart);
+	                }} catch {{
+	                    continue;
+	                }}
+	            }}
+	            observedCounterCount = counters.Count;
+	            if (counters.Count > 0) {{
+	                System.Threading.Thread.Sleep(200);
+	            }}
+            for (int idx = 0; idx < counters.Count; idx++) {{
+                double value = 0.0;
+                try {{
+                    value = counters[idx].NextValue();
+                }} catch {{
+                    value = 0.0;
+                }}
+                try {{ counters[idx].Dispose(); }} catch {{}}
+                if (value <= 0.0) continue;
+                string luidPart = counterLuids[idx];
+                if (!engineTotals.ContainsKey(luidPart)) engineTotals[luidPart] = 0.0;
+                engineTotals[luidPart] += value;
+            }}
+        }} catch {{
+        }}
+	        Dictionary<string, int> result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+	        int maxUtil = 0;
+	        int totalUtil = 0;
+	        List<string> summaries = new List<string>();
+	        foreach (var item in engineTotals) {{
+	            int rounded = (int)Math.Round(item.Value);
+	            if (rounded < 0) rounded = 0;
+	            if (rounded > 100) rounded = 100;
+	            result[item.Key] = rounded;
+	            if (rounded > maxUtil) maxUtil = rounded;
+	            totalUtil += rounded;
+	            if (summaries.Count < 8) summaries.Add(item.Key + "=" + rounded.ToString());
+	        }}
+	        EngineCounterInstanceCount = observedCounterCount;
+	        EngineCounterLuidCount = result.Count;
+	        EngineMaxUtilization = maxUtil;
+	        EngineTotalUtilization = totalUtil > 100 ? 100 : totalUtil;
+	        EngineLuidSummary = String.Join(",", summaries.ToArray());
+	        return result;
+	    }}
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     public static extern bool EnumDisplayDevices(string lpDevice, uint iDevNum, ref DISPLAY_DEVICE lpDisplayDevice, uint dwFlags);
@@ -2116,15 +3838,181 @@ public class SmartCenterGpuPerfReader {{
     [DllImport("gdi32.dll", EntryPoint = "D3DKMTCloseAdapter")]
     public static extern int D3DKMTCloseAdapter(ref D3DKMT_CLOSEADAPTER data);
 
+    [DllImport("gdi32.dll", EntryPoint = "D3DKMTEnumAdapters2")]
+    public static extern int D3DKMTEnumAdapters2(ref D3DKMT_ENUMADAPTERS2 data);
+
+    private static int QueryAdapterAddress(uint hAdapter, out D3DKMT_ADAPTERADDRESS address) {{
+        address = new D3DKMT_ADAPTERADDRESS();
+        int size = Marshal.SizeOf(typeof(D3DKMT_ADAPTERADDRESS));
+        IntPtr ptr = Marshal.AllocHGlobal(size);
+        try {{
+            Marshal.StructureToPtr(address, ptr, false);
+            D3DKMT_QUERYADAPTERINFO query = new D3DKMT_QUERYADAPTERINFO();
+            query.hAdapter = hAdapter;
+            query.Type = 6;
+            query.pPrivateDriverData = ptr;
+            query.PrivateDriverDataSize = (uint)size;
+            int status = D3DKMTQueryAdapterInfo(ref query);
+            if (status == 0) {{
+                address = (D3DKMT_ADAPTERADDRESS)Marshal.PtrToStructure(ptr, typeof(D3DKMT_ADAPTERADDRESS));
+            }}
+            return status;
+        }} finally {{
+            Marshal.FreeHGlobal(ptr);
+        }}
+    }}
+
+    private static void QueryAndAppendPerf(List<GpuPerfResult> results, HashSet<string> seen, Dictionary<string, int> utilByLuid, uint hAdapter, LUID adapterLuid, string deviceName, string name, int openStatus) {{
+        D3DKMT_ADAPTERADDRESS address;
+        int addressStatus = QueryAdapterAddress(hAdapter, out address);
+        D3DKMT_ADAPTER_PERFDATA perf = new D3DKMT_ADAPTER_PERFDATA();
+        int size = Marshal.SizeOf(typeof(D3DKMT_ADAPTER_PERFDATA));
+        IntPtr ptr = Marshal.AllocHGlobal(size);
+        try {{
+            Marshal.StructureToPtr(perf, ptr, false);
+            D3DKMT_QUERYADAPTERINFO query = new D3DKMT_QUERYADAPTERINFO();
+            query.hAdapter = hAdapter;
+            // KMTQAITYPE_ADAPTERPERFDATA in d3dkmthk.h.
+            query.Type = 62;
+            query.pPrivateDriverData = ptr;
+            query.PrivateDriverDataSize = (uint)size;
+            int status = D3DKMTQueryAdapterInfo(ref query);
+            string luid = adapterLuid.HighPart.ToString("X8") + ":" + adapterLuid.LowPart.ToString("X8");
+            string perfLuid = NormalizeLuid(adapterLuid);
+            int utilization = 0;
+            if (utilByLuid != null && utilByLuid.ContainsKey(perfLuid)) {{
+                utilization = utilByLuid[perfLuid];
+            }}
+            if (status == 0) {{
+                perf = (D3DKMT_ADAPTER_PERFDATA)Marshal.PtrToStructure(ptr, typeof(D3DKMT_ADAPTER_PERFDATA));
+                double tempC = perf.Temperature / 10.0;
+                int temp = (tempC > 0 && tempC < 150) ? (int)Math.Round(tempC) : 0;
+                Diagnostics.Add(new GpuPerfDiagnostic {{
+                    DeviceName = deviceName,
+                    Name = name,
+                    Luid = luid,
+                    OpenStatus = openStatus,
+                    QueryType = query.Type,
+                    QueryStatus = status,
+                    RawTemperature = (int)perf.Temperature,
+                    AddressStatus = addressStatus,
+                    BusNumber = (int)address.BusNumber,
+                    DeviceNumber = (int)address.DeviceNumber,
+                    FunctionNumber = (int)address.FunctionNumber,
+                    Utilization = utilization,
+                    Temperature = temp,
+                    FanRPM = (int)perf.FanRPM,
+                    Power = (int)perf.Power
+                }});
+                if (!seen.Contains(luid)) {{
+                    seen.Add(luid);
+                    results.Add(new GpuPerfResult {{
+                        DeviceName = deviceName,
+                        Name = name,
+                        Luid = luid,
+                        QueryType = query.Type,
+                        QueryStatus = status,
+                        RawTemperature = (int)perf.Temperature,
+                        BusNumber = (int)address.BusNumber,
+                        DeviceNumber = (int)address.DeviceNumber,
+                        FunctionNumber = (int)address.FunctionNumber,
+                        Utilization = utilization,
+                        Temperature = temp,
+                        FanRPM = (int)perf.FanRPM,
+                        Power = (int)perf.Power
+                    }});
+                }}
+            }} else {{
+                Diagnostics.Add(new GpuPerfDiagnostic {{
+                    DeviceName = deviceName,
+                    Name = name,
+                    Luid = luid,
+                    OpenStatus = openStatus,
+                    QueryType = query.Type,
+                    QueryStatus = status,
+                    AddressStatus = addressStatus,
+                    BusNumber = (int)address.BusNumber,
+                    DeviceNumber = (int)address.DeviceNumber,
+                    FunctionNumber = (int)address.FunctionNumber,
+                    Utilization = utilization
+                }});
+            }}
+        }} finally {{
+            Marshal.FreeHGlobal(ptr);
+        }}
+    }}
+
+    private static void ReadFromEnumAdapters2(List<GpuPerfResult> results, HashSet<string> seen, Dictionary<string, int> utilByLuid) {{
+        D3DKMT_ENUMADAPTERS2 enumData = new D3DKMT_ENUMADAPTERS2();
+        enumData.NumAdapters = 0;
+        enumData.pAdapters = IntPtr.Zero;
+        int firstStatus = D3DKMTEnumAdapters2(ref enumData);
+        EnumAdapters2Status = firstStatus;
+        EnumAdapters2Count = (int)enumData.NumAdapters;
+        if (enumData.NumAdapters == 0) {{
+            Diagnostics.Add(new GpuPerfDiagnostic {{
+                DeviceName = "enum2:init",
+                Name = "D3DKMTEnumAdapters2",
+                OpenStatus = firstStatus,
+                QueryType = 62,
+                QueryStatus = -1
+            }});
+            return;
+        }}
+        uint count = Math.Min(enumData.NumAdapters, 32);
+        int itemSize = Marshal.SizeOf(typeof(D3DKMT_ADAPTERINFO));
+        IntPtr adaptersPtr = Marshal.AllocHGlobal(itemSize * (int)count);
+        try {{
+            D3DKMT_ENUMADAPTERS2 enumData2 = new D3DKMT_ENUMADAPTERS2();
+            enumData2.NumAdapters = count;
+            enumData2.pAdapters = adaptersPtr;
+            int enumStatus = D3DKMTEnumAdapters2(ref enumData2);
+            EnumAdapters2Status = enumStatus;
+            EnumAdapters2Returned = (int)enumData2.NumAdapters;
+            if (enumStatus != 0) {{
+                Diagnostics.Add(new GpuPerfDiagnostic {{
+                    DeviceName = "enum2:query",
+                    Name = "D3DKMTEnumAdapters2",
+                    OpenStatus = enumStatus,
+                    QueryType = 62,
+                    QueryStatus = -1
+                }});
+                return;
+            }}
+            for (int idx = 0; idx < enumData2.NumAdapters; idx++) {{
+                IntPtr itemPtr = IntPtr.Add(adaptersPtr, idx * itemSize);
+                D3DKMT_ADAPTERINFO info = (D3DKMT_ADAPTERINFO)Marshal.PtrToStructure(itemPtr, typeof(D3DKMT_ADAPTERINFO));
+                QueryAndAppendPerf(results, seen, utilByLuid, info.hAdapter, info.AdapterLuid, "enum2:" + idx.ToString(), "DXGK Adapter " + idx.ToString(), enumStatus);
+                D3DKMT_CLOSEADAPTER close = new D3DKMT_CLOSEADAPTER();
+                close.hAdapter = info.hAdapter;
+                D3DKMTCloseAdapter(ref close);
+            }}
+        }} finally {{
+            Marshal.FreeHGlobal(adaptersPtr);
+        }}
+    }}
+
     public static GpuPerfResult[] Read() {{
         List<GpuPerfResult> results = new List<GpuPerfResult>();
         HashSet<string> seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+	        Diagnostics.Clear();
+	        GdiDisplayCount = 0;
+	        EnumAdapters2Status = 0;
+	        EnumAdapters2Count = 0;
+	        EnumAdapters2Returned = 0;
+	        EngineCounterInstanceCount = 0;
+	        EngineCounterLuidCount = 0;
+	        EngineMaxUtilization = 0;
+	        EngineTotalUtilization = 0;
+	        EngineLuidSummary = "";
+	        Dictionary<string, int> utilByLuid = ReadGpuEngineUtilizationByLuid();
         for (uint i = 0; i < 32; i++) {{
             DISPLAY_DEVICE dd = new DISPLAY_DEVICE();
             dd.cb = Marshal.SizeOf(typeof(DISPLAY_DEVICE));
             if (!EnumDisplayDevices(null, i, ref dd, 0)) {{
                 break;
             }}
+            GdiDisplayCount++;
             if (String.IsNullOrWhiteSpace(dd.DeviceName)) {{
                 continue;
             }}
@@ -2132,46 +4020,24 @@ public class SmartCenterGpuPerfReader {{
             open.DeviceName = dd.DeviceName;
             int openStatus = D3DKMTOpenAdapterFromGdiDisplayName(ref open);
             if (openStatus != 0 || open.hAdapter == 0) {{
+                Diagnostics.Add(new GpuPerfDiagnostic {{
+                    DeviceName = dd.DeviceName,
+                    Name = dd.DeviceString,
+                    OpenStatus = openStatus,
+                    QueryType = 62,
+                    QueryStatus = -1
+                }});
                 continue;
             }}
             try {{
-                D3DKMT_ADAPTER_PERFDATA perf = new D3DKMT_ADAPTER_PERFDATA();
-                int size = Marshal.SizeOf(typeof(D3DKMT_ADAPTER_PERFDATA));
-                IntPtr ptr = Marshal.AllocHGlobal(size);
-                try {{
-                    Marshal.StructureToPtr(perf, ptr, false);
-                    D3DKMT_QUERYADAPTERINFO query = new D3DKMT_QUERYADAPTERINFO();
-                    query.hAdapter = open.hAdapter;
-                    query.Type = 49;
-                    query.pPrivateDriverData = ptr;
-                    query.PrivateDriverDataSize = (uint)size;
-                    int status = D3DKMTQueryAdapterInfo(ref query);
-                    if (status == 0) {{
-                        perf = (D3DKMT_ADAPTER_PERFDATA)Marshal.PtrToStructure(ptr, typeof(D3DKMT_ADAPTER_PERFDATA));
-                        string luid = open.AdapterLuid.HighPart.ToString("X8") + ":" + open.AdapterLuid.LowPart.ToString("X8");
-                        if (!seen.Contains(luid)) {{
-                            seen.Add(luid);
-                            double tempC = perf.Temperature / 10.0;
-                            int temp = (tempC > 0 && tempC < 150) ? (int)Math.Round(tempC) : 0;
-                            results.Add(new GpuPerfResult {{
-                                DeviceName = dd.DeviceName,
-                                Name = dd.DeviceString,
-                                Luid = luid,
-                                Temperature = temp,
-                                FanRPM = (int)perf.FanRPM,
-                                Power = (int)perf.Power
-                            }});
-                        }}
-                    }}
-                }} finally {{
-                    Marshal.FreeHGlobal(ptr);
-                }}
+                QueryAndAppendPerf(results, seen, utilByLuid, open.hAdapter, open.AdapterLuid, dd.DeviceName, dd.DeviceString, openStatus);
             }} finally {{
                 D3DKMT_CLOSEADAPTER close = new D3DKMT_CLOSEADAPTER();
                 close.hAdapter = open.hAdapter;
                 D3DKMTCloseAdapter(ref close);
             }}
         }}
+        ReadFromEnumAdapters2(results, seen, utilByLuid);
         return results.ToArray();
     }}
 }}
@@ -2179,7 +4045,39 @@ public class SmartCenterGpuPerfReader {{
             Add-Type -TypeDefinition $source -Language CSharp -ErrorAction Stop | Out-Null
         }}
         $items = @([SmartCenterGpuPerfReader]::Read())
+        $script:GpuProbeDiagnostic['dxgk_count'] = [int]$items.Count
+        $script:GpuProbeDiagnostic['dxgk_gdi_display_count'] = [int][SmartCenterGpuPerfReader]::GdiDisplayCount
+        $script:GpuProbeDiagnostic['dxgk_enum2_status'] = [int][SmartCenterGpuPerfReader]::EnumAdapters2Status
+        $script:GpuProbeDiagnostic['dxgk_enum2_count'] = [int][SmartCenterGpuPerfReader]::EnumAdapters2Count
+        $script:GpuProbeDiagnostic['dxgk_enum2_returned'] = [int][SmartCenterGpuPerfReader]::EnumAdapters2Returned
+	        $script:GpuProbeDiagnostic['gpu_engine_counter_instances'] = [int][SmartCenterGpuPerfReader]::EngineCounterInstanceCount
+	        $script:GpuProbeDiagnostic['gpu_engine_luid_count'] = [int][SmartCenterGpuPerfReader]::EngineCounterLuidCount
+	        $script:GpuProbeDiagnostic['gpu_engine_max_util'] = [int][SmartCenterGpuPerfReader]::EngineMaxUtilization
+	        $script:GpuProbeDiagnostic['gpu_engine_total_util'] = [int][SmartCenterGpuPerfReader]::EngineTotalUtilization
+	        $script:GpuProbeDiagnostic['gpu_engine_luid_summary'] = [string][SmartCenterGpuPerfReader]::EngineLuidSummary
+	        $script:GpuProbeDiagnostic['dxgk_probe'] = @(
+            @([SmartCenterGpuPerfReader]::Diagnostics) | Select-Object -First 8 | ForEach-Object {{
+                @{{
+                    device = [string]$_.DeviceName
+                    name = [string]$_.Name
+                    luid = [string]$_.Luid
+                    open_status = [int]$_.OpenStatus
+                    query_type = [int]$_.QueryType
+                    query_status = [int]$_.QueryStatus
+                    raw_temp = [int]$_.RawTemperature
+                    temp = [int]$_.Temperature
+                    util = [int]$_.Utilization
+                    address_status = [int]$_.AddressStatus
+                    bus = [int]$_.BusNumber
+                    device_number = [int]$_.DeviceNumber
+                    function_number = [int]$_.FunctionNumber
+                    fan_rpm = [int]$_.FanRPM
+                    power = [int]$_.Power
+                }}
+            }}
+        )
     }} catch {{
+        $script:GpuProbeDiagnostic['dxgk_error'] = Get-ErrorDetails $_
         Write-AgentLog ('dxgk gpu perf query failed: ' + $_.Exception.Message)
         return @()
     }}
@@ -2191,10 +4089,35 @@ function Merge-DxgkGpuPerfData([array]$gpuList) {{
     if ($perfItems.Count -eq 0) {{
         return @($gpuList)
     }}
-    foreach ($perf in $perfItems) {{
+    $nonzeroMetricItems = @($perfItems | Where-Object {{
+        $candidateTemp = 0
+        $candidateUtil = 0
+        try {{ $candidateTemp = [int]$_.Temperature }} catch {{ $candidateTemp = 0 }}
+        try {{ $candidateUtil = [int]$_.Utilization }} catch {{ $candidateUtil = 0 }}
+        $candidateTemp -gt 0 -or $candidateUtil -gt 0
+    }})
+    $amdRowIndexes = @()
+    $nvidiaRowIndexes = @()
+    $genericFallbackIndexes = @()
+    $hasNvidiaRow = $false
+    for ($idx = 0; $idx -lt $gpuList.Count; $idx++) {{
+        $row = $gpuList[$idx]
+        if ([string]$row.name -match '(?i)nvidia|geforce|quadro|rtx|gtx' -or [string]$row.source -match '(?i)nvidia') {{
+            $hasNvidiaRow = $true
+            $nvidiaRowIndexes += $idx
+            continue
+        }}
+        if ([string]$row.name -match '(?i)amd|radeon') {{
+            $amdRowIndexes += $idx
+        }}
+        $genericFallbackIndexes += $idx
+    }}
+	    foreach ($perf in $perfItems) {{
         $temp = 0
+        $util = 0
         try {{ $temp = [int]$perf.Temperature }} catch {{ $temp = 0 }}
-        if ($temp -le 0) {{
+        try {{ $util = [int]$perf.Utilization }} catch {{ $util = 0 }}
+        if ($temp -le 0 -and $util -le 0) {{
             continue
         }}
         $perfIdentity = Normalize-GpuIdentity ([string]$perf.Name)
@@ -2202,36 +4125,143 @@ function Merge-DxgkGpuPerfData([array]$gpuList) {{
         for ($i = 0; $i -lt $gpuList.Count; $i++) {{
             $row = $gpuList[$i]
             $rowTemp = 0
+            $rowUtil = 0
             try {{ $rowTemp = [int]$row.temp }} catch {{ $rowTemp = 0 }}
+            try {{ $rowUtil = [int]$row.util_percent }} catch {{ $rowUtil = 0 }}
             $rowIdentity = Normalize-GpuIdentity ([string]$row.name)
             $nameMatches = $perfIdentity -and $rowIdentity -and ($perfIdentity -eq $rowIdentity -or $perfIdentity.Contains($rowIdentity) -or $rowIdentity.Contains($perfIdentity))
             $amdFallback = ([string]$row.name -match '(?i)amd|radeon') -and ([string]$perf.Name -match '(?i)amd|radeon')
-            if (($nameMatches -or $amdFallback) -and $rowTemp -le 0) {{
-                $row.temp = $temp
+            if ($nameMatches -or $amdFallback) {{
+                if ($temp -gt 0 -and $rowTemp -le 0) {{ $row.temp = $temp }}
+                if ($util -gt 0 -and $rowUtil -le 0) {{ $row.util_percent = $util }}
                 $row.source = 'dxgk'
                 if ($perf.FanRPM -gt 0) {{ $row.fan_rpm = [int]$perf.FanRPM }}
                 $gpuList[$i] = $row
                 $updated = $true
                 break
             }}
+	        }}
+        if (-not $updated -and $nonzeroMetricItems.Count -eq 1 -and $nvidiaRowIndexes.Count -eq 1) {{
+            $targetIndex = [int]$nvidiaRowIndexes[0]
+            $row = $gpuList[$targetIndex]
+            if ($temp -gt 0) {{ $row.temp = $temp }}
+            if ($util -gt 0) {{ $row.util_percent = $util }}
+            if (-not $row.source -or [string]$row.source -eq 'wmi') {{
+                $row.source = 'dxgk'
+            }} elseif ([string]$row.source -notmatch '(?i)dxgk') {{
+                $row.source = ([string]$row.source + '+dxgk')
+            }}
+            if ($perf.FanRPM -gt 0) {{ $row.fan_rpm = [int]$perf.FanRPM }}
+            if ($perf.Power -gt 0) {{ $row.power = [int]$perf.Power }}
+            $gpuList[$targetIndex] = $row
+            $script:GpuProbeDiagnostic['dxgk_fallback_target'] = [string]$row.name
+            $updated = $true
         }}
-        if (-not $updated -and $perf.Name) {{
-            $gpuList += @{{
+        if (-not $updated -and $nonzeroMetricItems.Count -eq 1 -and $amdRowIndexes.Count -eq 1) {{
+            $targetIndex = [int]$amdRowIndexes[0]
+            $row = $gpuList[$targetIndex]
+            if ($temp -gt 0) {{ $row.temp = $temp }}
+            if ($util -gt 0) {{ $row.util_percent = $util }}
+            $row.source = 'dxgk'
+            if ($perf.FanRPM -gt 0) {{ $row.fan_rpm = [int]$perf.FanRPM }}
+            $gpuList[$targetIndex] = $row
+            $updated = $true
+        }}
+        if (-not $updated -and -not $hasNvidiaRow -and $nonzeroMetricItems.Count -eq 1 -and $genericFallbackIndexes.Count -eq 1) {{
+            $targetIndex = [int]$genericFallbackIndexes[0]
+            $row = $gpuList[$targetIndex]
+            if ($temp -gt 0) {{ $row.temp = $temp }}
+            if ($util -gt 0) {{ $row.util_percent = $util }}
+            $row.source = 'dxgk'
+            if ($perf.FanRPM -gt 0) {{ $row.fan_rpm = [int]$perf.FanRPM }}
+            $gpuList[$targetIndex] = $row
+            $updated = $true
+        }}
+	        if (-not $updated -and -not $hasNvidiaRow -and $gpuList.Count -eq 0 -and $perf.Name) {{
+	            $gpuList += @{{
                 index = $gpuList.Count
                 name = [string]$perf.Name
-                util_percent = 0
+                util_percent = $util
                 temp = $temp
                 source = 'dxgk'
                 fan_rpm = if ($perf.FanRPM -gt 0) {{ [int]$perf.FanRPM }} else {{ 0 }}
             }}
-        }}
-    }}
-    return @($gpuList)
-}}
+	        }}
+	    }}
+	    $hasAnyUtil = $false
+	    foreach ($row in @($gpuList)) {{
+	        try {{
+	            if ([int]$row.util_percent -gt 0) {{ $hasAnyUtil = $true; break }}
+	        }} catch {{}}
+	    }}
+	    $engineMaxUtil = 0
+	    try {{ $engineMaxUtil = [int]$script:GpuProbeDiagnostic['gpu_engine_max_util'] }} catch {{ $engineMaxUtil = 0 }}
+	    $engineLuidCount = 0
+	    try {{ $engineLuidCount = [int]$script:GpuProbeDiagnostic['gpu_engine_luid_count'] }} catch {{ $engineLuidCount = 0 }}
+		    if ((-not $hasAnyUtil) -and $engineMaxUtil -gt 0 -and $engineLuidCount -eq 1) {{
+		        $targetIndexes = @()
+		        $amdWithDxgkMetrics = @()
+		        $nvidiaIndexes = @()
+		        for ($idx = 0; $idx -lt $gpuList.Count; $idx++) {{
+		            $row = $gpuList[$idx]
+		            if ([string]$row.name -match '(?i)nvidia|geforce|quadro|rtx|gtx' -or [string]$row.source -match '(?i)nvidia') {{
+		                $nvidiaIndexes += $idx
+		                continue
+		            }}
+	            $targetIndexes += $idx
+	            $rowTemp = 0
+	            try {{ $rowTemp = [int]$row.temp }} catch {{ $rowTemp = 0 }}
+	            if ([string]$row.name -match '(?i)amd|radeon' -and [string]$row.source -match '(?i)dxgk' -and $rowTemp -gt 0) {{
+	                $amdWithDxgkMetrics += $idx
+	            }}
+	        }}
+	        $targetIndex = $null
+		        if ($nvidiaIndexes.Count -eq 1) {{
+		            $targetIndex = [int]$nvidiaIndexes[0]
+		        }} elseif ($amdWithDxgkMetrics.Count -eq 1) {{
+		            $targetIndex = [int]$amdWithDxgkMetrics[0]
+	        }} elseif ($targetIndexes.Count -eq 1) {{
+	            $targetIndex = [int]$targetIndexes[0]
+	        }}
+	        if ($null -ne $targetIndex) {{
+	            $row = $gpuList[$targetIndex]
+	            $row.util_percent = $engineMaxUtil
+	            if (-not $row.source -or [string]$row.source -eq 'wmi') {{
+	                $row.source = 'gpu-engine'
+	            }} elseif ([string]$row.source -notmatch '(?i)gpu-engine') {{
+	                $row.source = ([string]$row.source + '+gpu-engine')
+	            }}
+	            $gpuList[$targetIndex] = $row
+	            $script:GpuProbeDiagnostic['gpu_engine_fallback_target'] = [string]$row.name
+	            $script:GpuProbeDiagnostic['gpu_engine_fallback_util'] = $engineMaxUtil
+	        }}
+	    }}
+	    return @($gpuList)
+	}}
 
 function Get-AmdAdlGpuTemps {{
     $items = @()
+    $script:GpuProbeDiagnostic['amd_adl_checked_at'] = (Get-Date).ToString('o')
+    $adlSearchDirs = @(
+        (Join-Path $env:WINDIR 'System32'),
+        (Join-Path $env:WINDIR 'SysWOW64'),
+        (Join-Path $env:ProgramFiles 'AMD\CNext\CNext'),
+        (Join-Path ${{env:ProgramFiles(x86)}} 'AMD\CNext\CNext')
+    )
+    foreach ($dll in @('atiadlxx.dll','atiadlxy.dll')) {{
+        $found = $false
+        foreach ($dir in $adlSearchDirs) {{
+            try {{
+                if ($dir -and (Test-Path (Join-Path $dir $dll))) {{
+                    $found = $true
+                    break
+                }}
+            }} catch {{}}
+        }}
+        $script:GpuProbeDiagnostic[('has_' + $dll)] = [bool]$found
+    }}
     if (-not (Get-CommandOrNull 'Add-Type')) {{
+        $script:GpuProbeDiagnostic['amd_adl_error'] = 'Add-Type unavailable'
         return @()
     }}
     try {{
@@ -2365,7 +4395,9 @@ public class SmartCenterAmdAdlReader {{
             Add-Type -TypeDefinition $source -Language CSharp -ErrorAction Stop | Out-Null
         }}
         $items = @([SmartCenterAmdAdlReader]::Read())
+        $script:GpuProbeDiagnostic['amd_adl_count'] = [int]$items.Count
     }} catch {{
+        $script:GpuProbeDiagnostic['amd_adl_error'] = Get-ErrorDetails $_
         Write-AgentLog ('amd adl gpu temp query failed: ' + $_.Exception.Message)
         return @()
     }}
@@ -2425,14 +4457,25 @@ function Normalize-GpuIdentity([string]$name) {{
     return $text
 }}
 
+function Test-GpuNameMatch([string]$left, [string]$right) {{
+    $leftId = Normalize-GpuIdentity $left
+    $rightId = Normalize-GpuIdentity $right
+    if (-not $leftId -or -not $rightId) {{ return $false }}
+    if ($leftId -eq $rightId -or $leftId.Contains($rightId) -or $rightId.Contains($leftId)) {{
+        return $true
+    }}
+    $leftVendor = if ($left -match '(?i)nvidia|geforce|quadro|rtx|gtx') {{ 'nvidia' }} elseif ($left -match '(?i)amd|radeon') {{ 'amd' }} elseif ($left -match '(?i)intel') {{ 'intel' }} else {{ '' }}
+    $rightVendor = if ($right -match '(?i)nvidia|geforce|quadro|rtx|gtx') {{ 'nvidia' }} elseif ($right -match '(?i)amd|radeon') {{ 'amd' }} elseif ($right -match '(?i)intel') {{ 'intel' }} else {{ '' }}
+    return $leftVendor -and $rightVendor -and $leftVendor -eq $rightVendor
+}}
+
 function Add-MissingDisplayGpu([array]$gpuList, [string]$name, [ref]$indexRef) {{
     $text = ([string]$name).Trim()
     if (-not $text) {{
         return @($gpuList)
     }}
-    $identity = Normalize-GpuIdentity $text
     foreach ($item in @($gpuList)) {{
-        if ($item.name -and (Normalize-GpuIdentity ([string]$item.name)) -eq $identity) {{
+        if ($item.name -and (Test-GpuNameMatch ([string]$item.name) $text)) {{
             return @($gpuList)
         }}
     }}
@@ -2449,6 +4492,8 @@ function Add-MissingDisplayGpu([array]$gpuList, [string]$name, [ref]$indexRef) {
 
 function Get-GpuInfo {{
     $gpuList = @(Get-NvidiaGpuInfo)
+    $hasIntelDisplay = $false
+    $hasAmdDisplay = $false
     $nextIndex = 0
     if ($gpuList.Count -gt 0) {{
         try {{
@@ -2463,18 +4508,33 @@ function Get-GpuInfo {{
     try {{
         $gpus = @(Get-AgentInstances 'Win32_VideoController')
         foreach ($gpu in $gpus) {{
+            if ([string]$gpu.Name -match '(?i)intel') {{
+                $hasIntelDisplay = $true
+            }}
+            if ([string]$gpu.Name -match '(?i)amd|radeon') {{
+                $hasAmdDisplay = $true
+            }}
             $gpuList = @(Add-MissingDisplayGpu $gpuList ([string]$gpu.Name) ([ref]$nextIndex))
         }}
     }} catch {{}}
+    $hasNvidia = @($gpuList | Where-Object {{ [string]$_.name -match '(?i)nvidia|geforce|quadro|rtx|gtx' -or [string]$_.source -match '(?i)nvidia' }}).Count -gt 0
+    if ($hasNvidia -and $hasIntelDisplay) {{
+        $script:GpuProbeDiagnostic['amd_adl_skipped'] = 'nvidia_intel_hybrid'
+        Write-AgentLog 'amd adl gpu probe skipped for NVIDIA+Intel hybrid graphics'
+    }}
     try {{
         $gpuList = @(Merge-DxgkGpuPerfData $gpuList)
     }} catch {{
         Write-AgentLog ('dxgk gpu merge failed: ' + $_.Exception.Message)
     }}
-    try {{
-        $gpuList = @(Merge-AmdAdlGpuTemps $gpuList)
-    }} catch {{
-        Write-AgentLog ('amd adl gpu merge failed: ' + $_.Exception.Message)
+    if ($hasAmdDisplay) {{
+        try {{
+            $gpuList = @(Merge-AmdAdlGpuTemps $gpuList)
+        }} catch {{
+            Write-AgentLog ('amd adl gpu merge failed: ' + $_.Exception.Message)
+        }}
+    }} else {{
+        $script:GpuProbeDiagnostic['amd_adl_skipped'] = 'no_amd_display'
     }}
     if ($gpuList.Count -eq 0) {{
         try {{
@@ -2620,10 +4680,14 @@ function Get-CodeMeterInfo {{
             @('-l')
         )) {{
             try {{
-                $output = @(& $tool @args 2>&1)
-                $joined = (($output | ForEach-Object {{ [string]$_ }}) -join [Environment]::NewLine)
+                $capture = Invoke-ExternalCommandCapture -FilePath $tool -Arguments @($args | Where-Object {{ $null -ne $_ -and [string]$_ -ne '' }}) -TimeoutSec 6
+                $joined = ([string]$capture.output + [Environment]::NewLine + [string]$capture.error).Trim()
                 if ($joined) {{ $outputs += $joined }}
-                if ($LASTEXITCODE -eq 0 -and $joined) {{ break }}
+                if ($capture.timed_out) {{
+                    $errors += ('CodeMeter command timed out: ' + ($args -join ' '))
+                    continue
+                }}
+                if ($capture.exit_code -eq 0 -and $joined) {{ break }}
                 if ($joined) {{ $errors += $joined.Substring(0, [Math]::Min(240, $joined.Length)) }}
             }} catch {{
                 $errors += $_.Exception.Message
@@ -2671,7 +4735,7 @@ function Get-CodeMeterInfo {{
         level = $level
         checked_at = $checkedAt
         raw_excerpt = $parsed.raw_excerpt
-        error = (($errors | Select-Object -First 2) -join '; ')
+        error = (($effectiveErrors | Select-Object -First 2) -join '; ')
     }}
 }}
 
@@ -2736,10 +4800,19 @@ function Get-HardwareSnapshot {{
 }}
 
 function Get-StatusPayload([hashtable]$cfg) {{
+    Write-StageLog 'payload' 'start'
+    $reportGeneratedAt = (Get-Date).ToString('o')
+    $machineMac = Get-MacAddress
+    $machineIp = Get-PrimaryIPv4
+    if ($machineMac) {{ $cfg['machine_mac'] = $machineMac }}
+    if ($machineIp) {{ $cfg['machine_ip'] = $machineIp }}
     $hardware = $null
+    Write-StageLog 'hardware' 'start'
     try {{
         $hardware = Get-HardwareSnapshot
+        Write-StageLog 'hardware' 'ok'
     }} catch {{
+        Write-StageLog 'hardware' ('failed: ' + (Get-ErrorDetails $_))
         $hardware = @{{
             cpu_name = 'Unknown CPU'
             motherboard = 'Unknown motherboard'
@@ -2748,13 +4821,21 @@ function Get-StatusPayload([hashtable]$cfg) {{
         }}
     }}
     $os = $null
+    Write-StageLog 'os' 'start'
     try {{
         $os = @(Get-AgentInstances 'Win32_OperatingSystem') | Select-Object -First 1
-    }} catch {{}}
+        Write-StageLog 'os' 'ok'
+    }} catch {{
+        Write-StageLog 'os' ('failed: ' + (Get-ErrorDetails $_))
+    }}
     $logicalDisk = $null
+    Write-StageLog 'disk' 'start'
     try {{
         $logicalDisk = @(Get-AgentInstances 'Win32_LogicalDisk' "DeviceID='C:'") | Select-Object -First 1
-    }} catch {{}}
+        Write-StageLog 'disk' 'ok'
+    }} catch {{
+        Write-StageLog 'disk' ('failed: ' + (Get-ErrorDetails $_))
+    }}
     $memUsed = 0
     $memTotal = 0
     $memPercent = 0
@@ -2772,22 +4853,57 @@ function Get-StatusPayload([hashtable]$cfg) {{
         }} catch {{}}
     }}
     $cpuPercent = 0
+    Write-StageLog 'cpu_counter' 'start'
     try {{
         if (Get-CommandOrNull 'Get-Counter') {{
             $cpuPercent = [math]::Round((Get-Counter '\\Processor(_Total)\\% Processor Time').CounterSamples[0].CookedValue, 1)
         }}
-    }} catch {{}}
+        Write-StageLog 'cpu_counter' 'ok'
+    }} catch {{
+        Write-StageLog 'cpu_counter' ('failed: ' + (Get-ErrorDetails $_))
+    }}
     $netSpeed = @(0, 0)
+    Write-StageLog 'network' 'start'
     try {{
         $netSpeed = Get-NetSpeed
-    }} catch {{}}
+        Write-StageLog 'network' 'ok'
+    }} catch {{
+        Write-StageLog 'network' ('failed: ' + (Get-ErrorDetails $_))
+    }}
+    Write-StageLog 'task_info' 'start'
     $taskInfo = Get-AgentTaskInfo
+    Write-StageLog 'task_info' 'ok'
+    Write-StageLog 'gpu' 'start'
+    $gpuInfo = @()
+    try {{
+        $gpuInfo = @(Get-GpuInfo)
+        Write-StageLog 'gpu' ('ok count=' + [string]$gpuInfo.Count)
+    }} catch {{
+        Write-StageLog 'gpu' ('failed: ' + (Get-ErrorDetails $_))
+    }}
+    Write-StageLog 'codemeter' 'start'
+    $codemeterInfo = $null
+    try {{
+        $codemeterInfo = Get-CodeMeterInfo
+        Write-StageLog 'codemeter' 'ok'
+    }} catch {{
+        Write-StageLog 'codemeter' ('failed: ' + (Get-ErrorDetails $_))
+        $codemeterInfo = @{{
+            installed = $false
+            running = $false
+            summary = 'probe_failed'
+            level = 'warning'
+            checked_at = (Get-Date).ToString('o')
+            error = Get-ErrorDetails $_
+        }}
+    }}
 
-    return @{{
-        mac = Get-MacAddress
+    $payload = @{{
+        mac = $machineMac
         hostname = $env:COMPUTERNAME
-        ip = Get-PrimaryIPv4
-        timestamp = (Get-Date).ToString('o')
+        ip = $machineIp
+        timestamp = $reportGeneratedAt
+        wake_proxy_result = $script:WakeProxyResult
         status = @{{
             cpu_name = $hardware.cpu_name
             motherboard = $hardware.motherboard
@@ -2797,44 +4913,76 @@ function Get-StatusPayload([hashtable]$cfg) {{
             mem_total = $memTotal
             mem_percent = $memPercent
             disk_percent = $diskPercent
-            net_sent_kb_s = $netSpeed[0]
-            net_recv_kb_s = $netSpeed[1]
-            gpu_list = @(Get-GpuInfo)
-            codemeter = Get-CodeMeterInfo
+            net_sent_kb_s = [double]$netSpeed.sent_kb_s
+            net_recv_kb_s = [double]$netSpeed.recv_kb_s
+            network_primary = @{{
+                adapter_name = [string]$netSpeed.adapter_name
+                adapter_description = [string]$netSpeed.adapter_description
+                adapter_ip = [string]$netSpeed.adapter_ip
+                link_speed_mbps = [double]$netSpeed.link_speed_mbps
+                sample_scope = [string]$netSpeed.sample_scope
+            }}
+            gpu_list = @($gpuInfo)
+            gpu_diagnostics = Remove-AgentDiagnosticNoise $script:GpuProbeDiagnostic
+            codemeter = $codemeterInfo
             os_caption = if ($os) {{ $os.Caption }} else {{ '' }}
             os_version = if ($os) {{ $os.Version }} else {{ '' }}
             hardware_refreshed_at = $hardware.hardware_refreshed_at
-            agent = @{{
-                version = $AgentVersion
-                current_server_url = $cfg['current_server_url']
+            report_generated_at = $reportGeneratedAt
+                agent = @{{
+                    version = $AgentVersion
+                    machine_mac = $machineMac
+                    machine_ip = $machineIp
+                    hostname = $env:COMPUTERNAME
+                    current_server_url = $cfg['current_server_url']
                 candidate_hosts = @($cfg['candidate_hosts'])
                 report_interval_sec = [int]$cfg['report_interval_sec']
                 config_updated_at = $cfg['config_updated_at']
                 last_config_sync_at = $cfg['last_config_sync_at']
                 last_discovery_at = $cfg['last_discovery_at']
+                ntp_enabled = [bool]$cfg['ntp_enabled']
+                ntp_primary = $cfg['ntp_primary']
+                ntp_fallback = $cfg['ntp_fallback']
+                last_ntp_check_at = $cfg['last_ntp_check_at']
+                ntp_configured_at = $cfg['ntp_configured_at']
+                ntp_last_result = $cfg['ntp_last_result']
                 task_name = $TaskName
                 task_exists = $taskInfo.exists
                 task_state = $taskInfo.state
                 task_user = $taskInfo.user
-                task_last_run_time = $taskInfo.last_run_time
-                task_next_run_time = $taskInfo.next_run_time
-                worker_path = $WorkerPath
+	                task_last_run_time = $taskInfo.last_run_time
+	                task_next_run_time = $taskInfo.next_run_time
+	                worker_path = $WorkerPath
+	                self_update = $script:SelfUpdateStatus
             }}
         }}
     }}
+    Write-StageLog 'payload' 'ok'
+    return $payload
 }}
 
 try {{
     New-Item -ItemType Directory -Force -Path $AgentDir | Out-Null
+    Enter-AgentRunLock
     Write-AgentLog ('worker run starting version=' + $AgentVersion)
     $config = Load-AgentConfig
     Write-AgentLog ('config loaded current=' + [string]$config['current_server_url'])
     $config = Find-AvailableServer $config
+    $config = Invoke-NtpAutoConfigure $config
+    Save-AgentConfig $config
+    Send-AgentHeartbeat $config
+    $identityMac = Get-MacAddress
+    $identityIp = Get-PrimaryIPv4
+    if ($identityMac) {{ $config['machine_mac'] = $identityMac }}
+    if ($identityIp) {{ $config['machine_ip'] = $identityIp }}
+    Save-AgentConfig $config
+    Write-AgentLog ('identity mac=' + [string]$identityMac + ' ip=' + [string]$identityIp)
     Write-AgentLog ('active server=' + [string]$config['current_server_url'])
 }} catch {{
     try {{
         Write-AgentLog ('worker startup failed: ' + (Get-ErrorDetails $_))
     }} catch {{}}
+    Exit-AgentRunLock
     exit 1
 }}
 
@@ -2852,12 +5000,27 @@ try {{
         $config = Find-AvailableServer $config
     }}
 
-    $payload = Get-StatusPayload $config | ConvertTo-Json -Depth 8
+    $payload = ConvertTo-AgentJson (Get-StatusPayload $config) 8
+    $payloadBytes = [System.Text.Encoding]::UTF8.GetByteCount($payload)
+    Write-AgentLog ('payload bytes=' + [string]$payloadBytes)
+    try {{
+        $payloadProbe = $payload | ConvertFrom-Json
+        Write-AgentLog ('payload timestamp=' + [string]$payloadProbe.timestamp + ' status_generated=' + [string]$payloadProbe.status.report_generated_at)
+    }} catch {{}}
     $reportUrl = $config['current_server_url'].TrimEnd('/') + $config['report_path']
     $response = Invoke-AgentJsonRequest -Uri $reportUrl -Method Post -ContentType 'application/json' -Body $payload -TimeoutSec 8
-    Write-AgentLog ('report ok -> ' + $reportUrl)
+    if ($response -and $response.status -eq 'ignored') {{
+        Write-AgentLog ('report ignored by server: ' + [string]$response.reason + ' -> ' + $reportUrl)
+    }} else {{
+        Write-AgentLog ('report ok -> ' + $reportUrl)
+    }}
     if ($response -and $response.agent_config) {{
-        Merge-AgentConfig $config (Convert-ToHashtable $response.agent_config) | Out-Null
+        $incomingConfig = Convert-ToHashtable $response.agent_config
+        if (Invoke-AgentSelfUpdate $config $incomingConfig) {{
+            Exit-AgentRunLock
+            exit 0
+        }}
+        Merge-AgentConfig $config $incomingConfig | Out-Null
         $config['last_config_sync_at'] = (Get-Date).ToString('o')
         Save-AgentConfig $config
     }}
@@ -2870,18 +5033,107 @@ try {{
     }} elseif ($response.command -eq 'restart') {{
         Write-AgentLog 'restart command received'
         Restart-Computer -Force
+    }} elseif ($response.command -and $response.command.action -eq 'wake_proxy') {{
+        $targetMac = [string]$response.command.mac
+        $targetIp = [string]$response.command.ip
+        if ($targetMac) {{
+            try {{
+                $cleanMac = ($targetMac -replace '[^0-9A-Fa-f]', '').ToUpperInvariant()
+                if ($cleanMac.Length -ne 12) {{ throw 'invalid wake mac' }}
+                $ports = @(9, 7)
+                $targets = New-Object System.Collections.Generic.List[string]
+                $targets.Add('255.255.255.255') | Out-Null
+                if ($targetIp) {{
+                    try {{
+                        $networkBytes = [System.Net.IPAddress]::Parse($targetIp).GetAddressBytes()
+                        $networkBytes[3] = 255
+                        $targets.Add(([System.Net.IPAddress]::new($networkBytes)).ToString()) | Out-Null
+                    }} catch {{}}
+                }}
+                $uniqueTargets = @($targets | Where-Object {{ $_ }} | Select-Object -Unique)
+                foreach ($attempt in 1..3) {{
+                    foreach ($broadcastTarget in $uniqueTargets) {{
+                        foreach ($port in $ports) {{
+                            $udp = New-Object System.Net.Sockets.UdpClient
+                            try {{
+                                $udp.EnableBroadcast = $true
+                                $packet = New-Object byte[] 102
+                                for ($i = 0; $i -lt 6; $i++) {{ $packet[$i] = 0xFF }}
+                                $macBytes = New-Object byte[] 6
+                                for ($i = 0; $i -lt 6; $i++) {{
+                                    $macBytes[$i] = [Convert]::ToByte($cleanMac.Substring($i * 2, 2), 16)
+                                }}
+                                for ($block = 0; $block -lt 16; $block++) {{
+                                    [Array]::Copy($macBytes, 0, $packet, 6 + ($block * 6), 6)
+                                }}
+                                [void]$udp.Send($packet, $packet.Length, $broadcastTarget, $port)
+                            }} finally {{
+                                $udp.Close()
+                            }}
+                        }}
+                    }}
+                    Start-Sleep -Milliseconds 120
+                }}
+                $script:WakeProxyResult = @{{
+                    ok = $true
+                    mac = $targetMac
+                    ip = $targetIp
+                    targets = @($uniqueTargets)
+                    ports = @($ports)
+                    attempts = 3
+                    sent_at = (Get-Date).ToString('o')
+                }}
+                Write-AgentLog ('wake proxy sent mac=' + $targetMac + ' ip=' + $targetIp + ' targets=' + ($uniqueTargets -join ',') + ' ports=' + ($ports -join ','))
+            }} catch {{
+                $script:WakeProxyResult = @{{
+                    ok = $false
+                    mac = $targetMac
+                    ip = $targetIp
+                    error = (Get-ErrorDetails $_)
+                    sent_at = (Get-Date).ToString('o')
+                }}
+                Write-AgentLog ('wake proxy failed mac=' + $targetMac + ': ' + (Get-ErrorDetails $_))
+            }}
+            if ($script:WakeProxyResult) {{
+                try {{
+                    $proxyPayload = @{{
+                        mac = Get-MacAddress
+                        hostname = $env:COMPUTERNAME
+                        ip = Get-PrimaryIPv4
+                        timestamp = (Get-Date).ToString('o')
+                        wake_proxy_result = $script:WakeProxyResult
+                        status = @{{
+                            agent = @{{
+                                version = $AgentVersion
+                                current_server_url = $config['current_server_url']
+                            }}
+                        }}
+                    }}
+                    $proxyPayload = ConvertTo-AgentJson $proxyPayload 8
+                    Invoke-AgentJsonRequest -Uri $reportUrl -Method Post -ContentType 'application/json' -Body $proxyPayload -TimeoutSec 8 | Out-Null
+                    Write-AgentLog 'wake proxy result reported'
+                }} catch {{
+                    Write-AgentLog ('wake proxy result report failed: ' + (Get-ErrorDetails $_))
+                }}
+            }}
+        }}
     }}
 }} catch {{
     Write-AgentLog ('worker run failed: ' + (Get-ErrorDetails $_))
+    Exit-AgentRunLock
     exit 1
 }}
+Exit-AgentRunLock
 exit 0
 """
 
 def build_agent_launcher_script():
     return """$ErrorActionPreference = 'Continue'
+$LauncherVersion = '__AGENT_VERSION__'
 $AgentDir = Join-Path $env:ProgramData 'SmartCenterAgent'
 $WorkerPath = Join-Path $AgentDir 'agent_worker.ps1'
+$LauncherPath = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $AgentDir 'agent_launcher.ps1' }
+$ConfigPath = Join-Path $AgentDir 'agent_config.json'
 $RunnerLogPath = Join-Path $AgentDir 'agent_runner.log'
 $Utf8Encoding = New-Object System.Text.UTF8Encoding($true)
 
@@ -2897,13 +5149,88 @@ function Write-RunnerLog([string]$msg) {
     Append-TextFile $RunnerLogPath ("[" + (Get-Date).ToString('yyyy-MM-dd HH:mm:ss') + "] " + $msg)
 }
 
-Write-RunnerLog 'launcher started'
+function Read-AgentConfig {
+    try {
+        if (Test-Path $ConfigPath) {
+            return Get-Content $ConfigPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        }
+    } catch {}
+    return $null
+}
+
+function Write-TextFile([string]$path, [string]$content) {
+    $parent = [System.IO.Path]::GetDirectoryName($path)
+    if ($parent) {
+        [System.IO.Directory]::CreateDirectory($parent) | Out-Null
+    }
+    [System.IO.File]::WriteAllText($path, [string]$content, $Utf8Encoding)
+}
+
+function Try-LauncherSelfUpdate {
+    try {
+        $cfg = Read-AgentConfig
+        if (-not $cfg -or -not $cfg.current_server_url) { return $false }
+        $baseUrl = ([string]$cfg.current_server_url).TrimEnd('/')
+        $configPath = if ($cfg.config_path) { [string]$cfg.config_path } else { '/agent/config' }
+        $workerPath = if ($cfg.worker_path) { [string]$cfg.worker_path } else { '/agent/worker.json' }
+        $launcherPath = if ($cfg.launcher_path) { [string]$cfg.launcher_path } else { '/agent/launcher.json' }
+        $remote = Invoke-RestMethod -Uri ($baseUrl + $configPath + '?probe=1&launcher=1&ts=' + [uri]::EscapeDataString((Get-Date).Ticks)) -Method Get -TimeoutSec 5 -ErrorAction Stop
+        $remoteVersion = ''
+        if ($remote.version) { $remoteVersion = [string]$remote.version }
+        elseif ($remote.agent_config -and $remote.agent_config.version) { $remoteVersion = [string]$remote.agent_config.version }
+        if (-not $remoteVersion -or $remoteVersion -eq $LauncherVersion) { return $false }
+        $workerJson = Invoke-RestMethod -Uri ($baseUrl + $workerPath + '?launcher=1&v=' + [uri]::EscapeDataString($remoteVersion) + '&ts=' + [uri]::EscapeDataString((Get-Date).Ticks)) -Method Get -TimeoutSec 12 -ErrorAction Stop
+        $workerText = ''
+        if ($workerJson -and $workerJson.worker_b64) {
+            $workerText = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String([string]$workerJson.worker_b64))
+        }
+        if (-not $workerText -or $workerText -notmatch [regex]::Escape($remoteVersion)) {
+            throw 'launcher downloaded worker version mismatch'
+        }
+        $launcherText = ''
+        try {
+            $launcherJson = Invoke-RestMethod -Uri ($baseUrl + $launcherPath + '?launcher=1&v=' + [uri]::EscapeDataString($remoteVersion) + '&ts=' + [uri]::EscapeDataString((Get-Date).Ticks)) -Method Get -TimeoutSec 12 -ErrorAction Stop
+            if ($launcherJson -and $launcherJson.launcher_b64) {
+                $launcherText = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String([string]$launcherJson.launcher_b64))
+            }
+            if ($launcherText -and $launcherText -notmatch [regex]::Escape($remoteVersion)) {
+                Write-RunnerLog 'launcher self-update skipped: downloaded launcher version mismatch'
+                $launcherText = ''
+            }
+        } catch {
+            Write-RunnerLog ('launcher self-update download failed, worker update will continue: ' + $_.Exception.Message)
+        }
+        if (Test-Path $WorkerPath) {
+            Copy-Item -LiteralPath $WorkerPath -Destination ($WorkerPath + '.launcher_bak_' + (Get-Date).ToString('yyyyMMddHHmmss')) -Force -ErrorAction SilentlyContinue
+        }
+        Write-TextFile $WorkerPath $workerText
+        if ($launcherText) {
+            if (Test-Path $LauncherPath) {
+                Copy-Item -LiteralPath $LauncherPath -Destination ($LauncherPath + '.launcher_bak_' + (Get-Date).ToString('yyyyMMddHHmmss')) -Force -ErrorAction SilentlyContinue
+            }
+            Write-TextFile $LauncherPath $launcherText
+        }
+        Write-RunnerLog ('launcher self-updated worker/launcher ' + $LauncherVersion + ' -> ' + $remoteVersion)
+        return $true
+    } catch {
+        Write-RunnerLog ('launcher self-update failed: ' + $_.Exception.Message)
+        return $false
+    }
+}
+
+Write-RunnerLog ('launcher started version=' + $LauncherVersion)
 try {
+    Try-LauncherSelfUpdate | Out-Null
     if (-not (Test-Path $WorkerPath)) {
         throw ('missing worker script: ' + $WorkerPath)
     }
-    & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $WorkerPath *>> $RunnerLogPath
-    $workerExitCode = $LASTEXITCODE
+    $proc = Start-Process -FilePath 'powershell.exe' -ArgumentList @('-NoLogo','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',$WorkerPath) -WindowStyle Hidden -PassThru -RedirectStandardOutput ($AgentDir + '\\worker_stdout.log') -RedirectStandardError ($AgentDir + '\\worker_stderr.log')
+    if (-not $proc.WaitForExit(45 * 1000)) {
+        Write-RunnerLog ('worker timed out after 45s, killing pid=' + $proc.Id)
+        try { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue } catch {}
+        exit 124
+    }
+    $workerExitCode = $proc.ExitCode
     if ($workerExitCode -ne 0) {
         Write-RunnerLog ('worker exited with code ' + $workerExitCode)
         exit $workerExitCode
@@ -2913,7 +5240,7 @@ try {
     Write-RunnerLog ('launcher failed: ' + $_.Exception.Message)
     throw
 }
-"""
+""".replace("__AGENT_VERSION__", AGENT_VERSION)
 
 def build_agent_bootstrap_script(server_host):
     initial_config_json = json.dumps(build_agent_runtime_config(server_host), ensure_ascii=False, indent=2)
@@ -2930,6 +5257,13 @@ $ConfigPath = Join-Path $AgentDir 'agent_config.json'
 $DeployLogPath = Join-Path $AgentDir 'deploy.log'
 $AgentLogPath = Join-Path $AgentDir 'agent.log'
 $TaskName = 'SmartCenterAgent'
+$LegacyTaskNames = @('SmartCenterAgentUser', 'SmartCenterAgentStartup', 'SmartCenterAgentBootstrap', 'SmartCenter Windows Agent', 'Smart Center Agent')
+$LegacyAgentDirs = @()
+try {{
+    if ($env:LOCALAPPDATA) {{
+        $LegacyAgentDirs += (Join-Path $env:LOCALAPPDATA 'SmartCenterAgent')
+    }}
+}} catch {{}}
 $Utf8Encoding = New-Object System.Text.UTF8Encoding($true)
 
 function Write-DeployLog([string]$msg) {{
@@ -2938,6 +5272,7 @@ function Write-DeployLog([string]$msg) {{
         [System.IO.Directory]::CreateDirectory($parent) | Out-Null
     }}
     [System.IO.File]::AppendAllText($DeployLogPath, ("[" + (Get-Date).ToString('yyyy-MM-dd HH:mm:ss') + "] " + $msg + [Environment]::NewLine), $Utf8Encoding)
+    Write-Host $msg
 }}
 
 function Get-LogTail([string]$path, [int]$lineCount = 20) {{
@@ -2969,19 +5304,27 @@ function Format-MacAddress([string]$raw) {{
         return ''
     }}
     $compact = ($text -replace '[^0-9A-Fa-f]', '').ToUpper()
-    if ($compact.Length -lt 12) {{
+    if ($compact.Length -ne 12) {{
         return ''
     }}
-    $compact = $compact.Substring(0, 12)
     return ($compact.Substring(0, 2) + '-' + $compact.Substring(2, 2) + '-' + $compact.Substring(4, 2) + '-' + $compact.Substring(6, 2) + '-' + $compact.Substring(8, 2) + '-' + $compact.Substring(10, 2))
 }}
 
 function Get-MacAddress {{
     try {{
         $adapters = Get-CimInstance Win32_NetworkAdapterConfiguration | Where-Object {{
-            $_.IPEnabled -eq $true -and $_.MACAddress
+            $_.IPEnabled -eq $true -and $_.MACAddress -and $_.IPAddress
         }}
-        $adapter = $adapters | Select-Object -First 1
+        $adapter = $adapters | Sort-Object -Property IPConnectionMetric, InterfaceIndex | Select-Object -First 1
+        if ($adapter) {{
+            return (Format-MacAddress ([string]$adapter.MACAddress))
+        }}
+    }} catch {{}}
+    try {{
+        $adapters = Get-CimInstance Win32_NetworkAdapterConfiguration | Where-Object {{
+            $_.MACAddress
+        }}
+        $adapter = $adapters | Sort-Object -Property IPEnabled, IPConnectionMetric, InterfaceIndex -Descending | Select-Object -First 1
         if ($adapter) {{
             return (Format-MacAddress ([string]$adapter.MACAddress))
         }}
@@ -2999,7 +5342,14 @@ function Get-MacAddress {{
             }}
         }}
     }} catch {{}}
-    return ('TEMP-' + [guid]::NewGuid().ToString().Substring(0, 12).ToUpper())
+    try {{
+        if (Test-Path $ConfigPath) {{
+            $storedJson = (Get-Content $ConfigPath -Raw -Encoding UTF8) | ConvertFrom-Json
+            $storedMac = Format-MacAddress ([string]$storedJson.machine_mac)
+            if ($storedMac) {{ return $storedMac }}
+        }}
+    }} catch {{}}
+    return ''
 }}
 
 function Get-PrimaryIPv4 {{
@@ -3007,10 +5357,19 @@ function Get-PrimaryIPv4 {{
         $adapters = Get-CimInstance Win32_NetworkAdapterConfiguration | Where-Object {{
             $_.IPEnabled -eq $true -and $_.IPAddress
         }}
-        foreach ($adapter in $adapters) {{
-            $ipv4 = $adapter.IPAddress | Where-Object {{ $_ -match '^\\d+\\.\\d+\\.\\d+\\.\\d+$' }} | Select-Object -First 1
+        foreach ($adapter in @($adapters | Sort-Object -Property IPConnectionMetric, InterfaceIndex)) {{
+            $ipv4 = $adapter.IPAddress | Where-Object {{ $_ -match '^\\d+\\.\\d+\\.\\d+\\.\\d+$' -and $_ -notlike '169.254.*' -and $_ -ne '127.0.0.1' }} | Select-Object -First 1
             if ($ipv4) {{
                 return $ipv4
+            }}
+        }}
+    }} catch {{}}
+    try {{
+        $hostEntry = [System.Net.Dns]::GetHostEntry([System.Net.Dns]::GetHostName())
+        foreach ($address in $hostEntry.AddressList) {{
+            $text = [string]$address
+            if ($text -match '^\\d+\\.\\d+\\.\\d+\\.\\d+$' -and $text -notlike '169.254.*' -and $text -ne '127.0.0.1') {{
+                return $text
             }}
         }}
     }} catch {{}}
@@ -3022,16 +5381,89 @@ function Stop-AgentProcesses {{
         $targets = Get-CimInstance Win32_Process | Where-Object {{
             $_.CommandLine -and (
                 $_.CommandLine -like '*SmartCenterAgent*agent_worker.ps1*' -or
-                $_.CommandLine -like '*SmartCenterAgent*agent_launcher.ps1*'
+                $_.CommandLine -like '*SmartCenterAgent*agent_launcher.ps1*' -or
+                $_.CommandLine -like '*ProgramData*SmartCenterAgent*'
             )
         }}
         foreach ($proc in $targets) {{
+            if ($proc.ProcessId -eq $PID) {{ continue }}
             try {{
                 Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
                 Write-DeployLog ('stopped old process pid=' + $proc.ProcessId)
             }} catch {{}}
         }}
     }} catch {{}}
+}}
+
+function Remove-SmartCenterScheduledTasks {{
+    try {{
+        $taskOutput = @(& schtasks.exe /Query /FO CSV /NH 2>$null)
+        foreach ($line in $taskOutput) {{
+            $text = [string]$line
+            if (-not $text) {{ continue }}
+            $columns = @($text -split '","' | ForEach-Object {{ ([string]$_).Trim('"') }})
+            $taskPath = if ($columns.Count -gt 0) {{ [string]$columns[0] }} else {{ '' }}
+            if (-not $taskPath) {{ continue }}
+            $taskNameOnly = Split-Path $taskPath -Leaf
+            if ($taskPath -like '*SmartCenter*' -or $taskPath -like '*Smart Center*' -or $taskNameOnly -eq $TaskName -or $taskNameOnly -eq ($TaskName + '_OnStart')) {{
+                try {{
+                    $result = Invoke-Schtasks -Arguments @('/Delete', '/TN', $taskPath, '/F') -AllowFailure
+                    if ($result.exit_code -eq 0) {{
+                        Write-DeployLog ('removed scheduled task: ' + $taskPath)
+                    }} else {{
+                        Write-DeployLog ('scheduled task remove returned exit=' + $result.exit_code + ': ' + $taskPath)
+                    }}
+                }} catch {{
+                    Write-DeployLog ('scheduled task remove failed: ' + $taskPath + ' ' + $_.Exception.Message)
+                }}
+            }}
+        }}
+    }} catch {{
+        Write-DeployLog ('scheduled task scan failed: ' + $_.Exception.Message)
+    }}
+    try {{
+        if (Get-Command Get-ScheduledTask -ErrorAction SilentlyContinue) {{
+            $tasks = Get-ScheduledTask | Where-Object {{
+                $_.TaskName -like '*SmartCenter*' -or $_.TaskName -like '*Smart Center*' -or $_.TaskName -eq $TaskName -or $_.TaskName -eq ($TaskName + '_OnStart')
+            }}
+            foreach ($task in $tasks) {{
+                try {{
+                    Unregister-ScheduledTask -TaskName $task.TaskName -TaskPath $task.TaskPath -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+                    Write-DeployLog ('unregistered scheduled task: ' + $task.TaskPath + $task.TaskName)
+                }} catch {{}}
+            }}
+        }}
+    }} catch {{
+        Write-DeployLog ('powershell scheduled task scan failed: ' + $_.Exception.Message)
+    }}
+}}
+
+function Remove-LegacyAgent {{
+    foreach ($legacyTask in $LegacyTaskNames) {{
+        if (-not $legacyTask) {{ continue }}
+        try {{
+            $result = Invoke-Schtasks -Arguments @('/Delete', '/TN', $legacyTask, '/F') -AllowFailure
+            if ($result.exit_code -eq 0) {{
+                Write-DeployLog ('legacy scheduled task removed: ' + $legacyTask)
+            }}
+        }} catch {{
+            Write-DeployLog ('legacy scheduled task cleanup failed: ' + $legacyTask + ' ' + $_.Exception.Message)
+        }}
+        try {{
+            Unregister-ScheduledTask -TaskName $legacyTask -Confirm:$false -ErrorAction SilentlyContinue | Out-Null
+        }} catch {{}}
+    }}
+    foreach ($legacyDir in $LegacyAgentDirs) {{
+        try {{
+            if ($legacyDir -and (Test-Path $legacyDir) -and ($legacyDir -ne $AgentDir)) {{
+                $backup = $legacyDir + '.legacy_' + (Get-Date).ToString('yyyyMMddHHmmss')
+                Move-Item -LiteralPath $legacyDir -Destination $backup -Force -ErrorAction Stop
+                Write-DeployLog ('legacy agent dir moved: ' + $legacyDir + ' -> ' + $backup)
+            }}
+        }} catch {{
+            Write-DeployLog ('legacy agent dir cleanup failed: ' + $legacyDir + ' ' + $_.Exception.Message)
+        }}
+    }}
 }}
 
 function Invoke-Schtasks {{
@@ -3119,8 +5551,11 @@ function Start-AgentTask {{
 }}
 
 New-Item -ItemType Directory -Force -Path $AgentDir | Out-Null
-Write-DeployLog 'deployment started'
+Write-DeployLog ('deployment started version=' + $AgentVersion)
 Remove-AgentTask
+Remove-SmartCenterScheduledTasks
+Stop-AgentProcesses
+Remove-LegacyAgent
 Stop-AgentProcesses
 Start-Sleep -Milliseconds 600
 
@@ -3131,24 +5566,22 @@ Write-TextFile $LauncherPath $launcher
 $agentConfig = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('{config_b64}'))
 Write-TextFile $ConfigPath $agentConfig
 Write-DeployLog 'agent files written'
+try {{
+    $writtenWorker = Get-Content $WorkerPath -Raw -Encoding UTF8
+    if ($writtenWorker -notmatch [regex]::Escape($AgentVersion)) {{
+        throw 'worker version verify failed'
+    }}
+    Write-DeployLog ('worker version verified: ' + $AgentVersion)
+}} catch {{
+    Write-DeployLog ('worker version verify failed: ' + $_.Exception.Message)
+    throw
+}}
 
 Register-AgentTask
-Start-AgentTask
+Write-DeployLog 'scheduled task will take over on next minute tick'
 
-$initialWorkerExitCode = 999
-$initialWorkerLogTail = ''
-try {{
-    & powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $WorkerPath *>> $DeployLogPath
-    $initialWorkerExitCode = $LASTEXITCODE
-    if ($initialWorkerExitCode -eq 0) {{
-        Write-DeployLog 'initial worker run completed'
-    }} else {{
-        Write-DeployLog ('initial worker run failed with exit=' + $initialWorkerExitCode)
-    }}
-}} catch {{
-    Write-DeployLog ('initial worker run failed: ' + $_.Exception.Message)
-}}
-$initialWorkerLogTail = Get-LogTail $AgentLogPath 20
+$initialWorkerExitCode = 202
+$initialWorkerLogTail = 'initial worker run skipped during install; scheduled task will take over'
 
 try {{
     $bootstrapPayload = @{{
@@ -3177,6 +5610,12 @@ try {{
     Write-DeployLog ('bootstrap heartbeat failed: ' + $_.Exception.Message)
 }}
 
+try {{
+    Start-AgentTask
+}} catch {{
+    Write-DeployLog ('scheduled task async start request failed: ' + $_.Exception.Message)
+}}
+
 Write-Host 'SmartCenterAgent deployed and started'
 Write-Host ('Server: http://' + $ServerHost + ':{get_agent_server_port()}')
 Write-Host ('Deploy log: ' + $DeployLogPath)
@@ -3196,6 +5635,7 @@ if not "%errorlevel%"=="0" (
 echo.
 echo Deploying SmartCenter Windows agent...
 echo Server: http://{server_host}:{port}
+echo Agent version: {AGENT_VERSION}
 echo.
 set "AGENT_URL={ps_url}?ts=%RANDOM%%RANDOM%"
 set "AGENT_TMP=%TEMP%\\smart_center_agent_%RANDOM%%RANDOM%.ps1"
@@ -3227,7 +5667,10 @@ def load_machine_rows():
 
 def serialize_machine_rows(rows):
     machines = []
+    prepared_rows = []
+    ping_targets = []
     for row in rows:
+        report_online = False
         is_online = False
         offline_window_sec = 180
         agent_status = {}
@@ -3244,15 +5687,64 @@ def serialize_machine_rows(rows):
             report_interval = 0
         if report_interval > 0:
             offline_window_sec = max(180, int(report_interval * 2 + 30))
-        if row[3]:
-            try: is_online = (datetime.now() - datetime.fromisoformat(row[3].replace('Z','+00:00')).replace(tzinfo=None)).total_seconds() < offline_window_sec
+        server_received_at = status_data.get("server_received_at") if isinstance(status_data, dict) else ""
+        online_reference_at = server_received_at or row[3]
+        if online_reference_at:
+            try: report_online = (datetime.now() - datetime.fromisoformat(str(online_reference_at).replace('Z','+00:00')).replace(tzinfo=None)).total_seconds() < offline_window_sec
             except: pass
+        runtime_freshness = _payload_runtime_freshness(status_data, server_received_at or row[3])
+        has_runtime_metrics = _payload_has_runtime_metrics(status_data)
+        runtime_fresh = bool(runtime_freshness.get("fresh"))
+        is_linux_builtin = _payload_is_linux_builtin(status_data)
+        is_online = bool(report_online and (runtime_fresh or (is_linux_builtin and has_runtime_metrics)))
+        ping_target = _valid_ping_target(row[2])
+        if (not report_online or not is_online) and ping_target:
+            ping_targets.append(ping_target)
+        prepared_rows.append((row, is_online, report_online, runtime_freshness, has_runtime_metrics, status_data, agent_status, server_received_at, ping_target))
+    ping_states, ping_meta = _resolve_ping_states_cached(ping_targets)
+    for row, is_online, report_online, runtime_freshness, has_runtime_metrics, status_data, agent_status, server_received_at, ping_target in prepared_rows:
+        ping_online = None
+        ping_state = "not_required"
+        ping_age_sec = None
+        ping_refreshing = False
+        if not report_online or not is_online:
+            ping_online = ping_states.get(ping_target) if ping_target else None
+            ping_info = ping_meta.get(ping_target, {}) if ping_target else {}
+            ping_state = ping_info.get("state") or ("fresh" if ping_online is not None else "pending")
+            ping_age_sec = ping_info.get("age_sec")
+            ping_refreshing = bool(ping_info.get("refreshing"))
+        network_reachable = True if report_online else ping_online
+        offline_reason = ""
+        if not report_online and ping_online is False:
+            offline_reason = "no_report_ping_failed"
+        elif not report_online and ping_online is True:
+            offline_reason = "no_report_ping_ok"
+        elif not report_online and ping_online is None:
+            offline_reason = "no_report_ping_pending"
+        elif report_online and has_runtime_metrics and not runtime_freshness.get("fresh"):
+            offline_reason = "runtime_stale"
         machine = {
             "mac": row[0],
             "hostname": row[1] or "未知主机",
             "ip": row[2],
             "is_online": is_online,
+            "report_online": report_online,
+            "agent_heartbeat_online": bool(report_online and has_runtime_metrics and not runtime_freshness.get("fresh")),
+            "runtime_fresh": bool(runtime_freshness.get("fresh")),
+            "runtime_age_sec": runtime_freshness.get("age_sec"),
+            "last_report_kind": status_data.get("last_report_kind") if isinstance(status_data, dict) else "",
+            "last_full_report_at": status_data.get("last_full_report_at") if isinstance(status_data, dict) else "",
+            "last_bootstrap_report_at": status_data.get("last_bootstrap_report_at") if isinstance(status_data, dict) else "",
+            "ping_online": ping_online,
+            "ping_state": ping_state,
+            "ping_age_sec": ping_age_sec,
+            "ping_refreshing": ping_refreshing,
+            "network_reachable": network_reachable,
+            "offline_reason": offline_reason,
             "last_online": row[3],
+            "server_received_at": server_received_at or row[3],
+            "client_reported_at": status_data.get("client_reported_at") if isinstance(status_data, dict) else "",
+            "clock_offset_sec": status_data.get("clock_offset_sec") if isinstance(status_data, dict) else None,
             "status": status_data,
             "agent_status": agent_status,
             "is_manual": bool(row[5]),
@@ -3264,6 +5756,17 @@ def serialize_machine_rows(rows):
         }
         machine["diagnostic"] = _build_machine_diagnostic(machine)
         machines.append(machine)
+        try:
+            cache_key = str(machine.get("mac") or row[0] or "").strip()
+            if cache_key:
+                current_online = bool(machine.get("is_online"))
+                previous_online = MACHINE_STATE_LOG_CACHE.get(cache_key)
+                if previous_online is not None and bool(previous_online) != current_online:
+                    name_text = str(machine.get("custom_name") or machine.get("hostname") or machine.get("ip") or cache_key)
+                    add_log(-1, f"[状态变化][服务器] {name_text} {'在线' if current_online else '离线'}（状态识别）")
+                MACHINE_STATE_LOG_CACHE[cache_key] = current_online
+        except Exception:
+            pass
     return machines
 
 
@@ -3317,10 +5820,10 @@ def get_scan_networks():
 def ping_host(ip):
     try:
         result = subprocess.run(
-            ["ping", "-n", "1", "-w", "120", ip],
+            _ping_command(ip),
             capture_output=True,
             text=True,
-            encoding="gbk",
+            encoding="gbk" if platform.system().lower().startswith("win") else "utf-8",
             errors="ignore"
         )
         return result.returncode == 0
@@ -3492,6 +5995,59 @@ def get_agent_worker_script():
     response.headers["X-Smart-Center-Agent-Version"] = AGENT_VERSION
     return response
 
+@bp.route('/agent/worker.json')
+def get_agent_worker_json():
+    worker_text = build_agent_worker_script(get_server_host_from_request())
+    response = jsonify({
+        "service": "smart_center_agent",
+        "version": AGENT_VERSION,
+        "worker_b64": base64.b64encode(worker_text.encode("utf-8")).decode("ascii"),
+        "updated_at": datetime.now().isoformat(),
+    })
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Smart-Center-Agent-Version"] = AGENT_VERSION
+    return response
+
+@bp.route('/agent/linux.py')
+def get_linux_agent_script():
+    template_path = Path(__file__).resolve().parent.parent / "agent" / "linux_agent.py"
+    try:
+        script_text = template_path.read_text(encoding="utf-8")
+    except Exception as exc:
+        return Response(f"# linux agent template unavailable: {exc}\n", status=503, mimetype="text/plain; charset=utf-8")
+    script_text = (
+        script_text
+        .replace("__AGENT_VERSION__", AGENT_VERSION)
+        .replace("__SERVER_HOST__", get_server_host_from_request())
+        .replace("__SERVER_PORT__", str(get_agent_server_port()))
+    )
+    response = Response(script_text, mimetype="text/plain; charset=utf-8")
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Smart-Center-Agent-Version"] = AGENT_VERSION
+    return response
+
+@bp.route('/agent/launcher.json')
+def get_agent_launcher_json():
+    launcher_text = build_agent_launcher_script()
+    response = jsonify({
+        "service": "smart_center_agent",
+        "version": AGENT_VERSION,
+        "launcher_b64": base64.b64encode(launcher_text.encode("utf-8")).decode("ascii"),
+        "updated_at": datetime.now().isoformat(),
+    })
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Smart-Center-Agent-Version"] = AGENT_VERSION
+    return response
+
 @bp.route('/deploy_agent.bat')
 def get_agent_bat():
     response = Response(build_deploy_bat(get_server_host_from_request()), mimetype="application/octet-stream")
@@ -3514,6 +6070,7 @@ def get_agent_config():
 def report_data():
     content_length = int(request.content_length or 0)
     if content_length and content_length > REPORT_MAX_BYTES:
+        add_log(-1, f"[服务器] 忽略过大Agent上报 remote={request.remote_addr} bytes={content_length} limit={REPORT_MAX_BYTES}")
         return jsonify({
             "status": "ignored",
             "reason": "payload_too_large",
@@ -3521,28 +6078,110 @@ def report_data():
             "agent_config": build_agent_runtime_config(get_server_host_from_request())
         }), 202
 
-    try:
-        data = request.get_json(silent=True) or {}
-    except Exception:
+    data, parse_error = _load_report_json_payload()
+    if isinstance(data, list):
+        data = next((item for item in data if isinstance(item, dict) and (isinstance(item.get("status"), dict) or _payload_has_runtime_metrics(item))), {})
+    if not isinstance(data, dict):
         data = {}
-    if not data:
-        try:
-            payload_text = request.get_data(cache=True, as_text=True) or ""
-            data = json.loads(payload_text) if payload_text else {}
-        except Exception:
-            data = {}
-    mac = normalize_machine_mac(data.get("mac"))
-    if not mac:
-        return jsonify({"status": "error", "error": "missing mac"}), 400
-
     status_payload = data.get("status") if isinstance(data.get("status"), dict) else {}
-    timestamp = str(data.get("timestamp") or datetime.now().isoformat())
-    hostname = str(data.get("hostname") or "未知主机")
-    ip = str(data.get("ip") or request.remote_addr or "")
+    if not status_payload and _payload_has_runtime_metrics(data):
+        status_payload = dict(data)
+        for envelope_key in ("mac", "hostname", "ip", "timestamp", "wake_proxy_result"):
+            status_payload.pop(envelope_key, None)
+    agent_payload = status_payload.get("agent") if isinstance(status_payload.get("agent"), dict) else {}
+    mac = normalize_machine_mac(
+        data.get("mac")
+        or status_payload.get("mac")
+        or agent_payload.get("machine_mac")
+        or agent_payload.get("mac")
+    )
+    report_ip = str(
+        data.get("ip")
+        or status_payload.get("ip")
+        or agent_payload.get("machine_ip")
+        or agent_payload.get("ip")
+        or ""
+    ).strip()
+    hostname = str(
+        data.get("hostname")
+        or status_payload.get("hostname")
+        or agent_payload.get("hostname")
+        or "未知主机"
+    )
+    if not mac:
+        mac = _get_machine_mac_by_ip(report_ip)
+    if not mac:
+        mac = _get_recent_machine_mac_by_remote_addr(request.remote_addr)
+    if not mac:
+        mac = _get_machine_mac_by_hostname_or_name(hostname)
+    if not mac:
+        mac = _get_machine_mac_by_legacy_report(report_ip, request.remote_addr, hostname, data.get("mac") or status_payload.get("mac") or "")
+    if not mac:
+        add_log(
+            -1,
+            f"[服务器] Agent上报解析失败 remote={request.remote_addr} bytes={content_length} parse_error={parse_error or '-'}"
+        )
+        return jsonify({
+            "status": "ignored",
+            "reason": "unparseable_report",
+            "command": None,
+            "agent_config": build_agent_runtime_config(get_server_host_from_request())
+        }), 202
+    if parse_error and not data:
+        add_log(
+            -1,
+            f"[服务器] Agent空上报已忽略 remote={request.remote_addr} mac={mac or '-'} bytes={content_length} parse_error={parse_error}"
+        )
+        return jsonify({
+            "status": "ignored",
+            "reason": "empty_report",
+            "command": None,
+            "agent_config": build_agent_runtime_config(get_server_host_from_request())
+        }), 202
+    if not mac:
+        add_log(-1, f"[服务器] 拒绝无MAC上报 remote={request.remote_addr} ip={report_ip or '-'} host={hostname or '-'} keys={','.join(sorted(data.keys()))} status_keys={','.join(sorted(status_payload.keys()))}")
+        return jsonify({
+            "status": "error",
+            "error": "missing mac",
+            "message": "report missing mac and no known row matched by ip/remote_addr",
+            "remote_addr": request.remote_addr,
+            "report_ip": report_ip,
+            "agent_config": build_agent_runtime_config(get_server_host_from_request())
+        }), 400
+
+    if isinstance(data.get("wake_proxy_result"), dict):
+        _record_machine_wake_proxy_result(mac, data.get("wake_proxy_result"))
+
+    if _is_test_machine_report(mac, hostname, report_ip or request.remote_addr, status_payload):
+        add_log(
+            -1,
+            f"[服务器] 忽略测试Agent上报 remote={request.remote_addr} ip={report_ip or '-'} mac={mac or '-'} host={hostname or '-'}"
+        )
+        return jsonify({
+            "status": "ignored",
+            "reason": "test_machine_report",
+            "command": None,
+            "agent_config": build_agent_runtime_config(get_server_host_from_request())
+        }), 202
+
+    client_reported_at = str(data.get("timestamp") or status_payload.get("report_generated_at") or "")
+    server_received_at = datetime.now().isoformat()
+    status_payload = _annotate_report_timing(status_payload, client_reported_at, server_received_at)
+    if _payload_has_runtime_metrics(status_payload):
+        _mark_payload_as_full_report(status_payload, server_received_at, prefer_server=True)
+    else:
+        status_payload["last_report_kind"] = _classify_machine_report(status_payload, data)
+    timestamp = server_received_at
+    ip = str(report_ip or request.remote_addr or "")
     _store_machine_status(mac, hostname, ip, timestamp, status_payload)
+    agent_version = ""
+    try:
+        agent_version = str((status_payload.get("agent") or {}).get("version") or "")
+    except Exception:
+        agent_version = ""
     return jsonify({
         "status": "ok",
-        "command": _pop_machine_command(mac),
+        "command": _pop_machine_command(mac, agent_version),
         "agent_config": build_agent_runtime_config(get_server_host_from_request())
     })
 
@@ -3681,9 +6320,40 @@ def wake_machine(mac):
     try:
         normalized_mac = normalize_machine_mac(mac)
         wake_mac = normalized_mac.replace("-", "") if "-" in normalized_mac else normalized_mac
-        from wakeonlan import send_magic_packet; send_magic_packet(wake_mac)
-        log_audit_event("server.wake", target=normalized_mac, detail={"mac": normalized_mac})
-        return jsonify({"status": "ok"})
+        if not wake_mac or normalized_mac.startswith(("LOCAL-", "TEMP-")):
+            return jsonify({"error": "invalid mac"}), 400
+        target_ip = _get_machine_ip_for_wol(normalized_mac)
+        targets = _wol_broadcast_targets(target_ip)
+        from wakeonlan import send_magic_packet
+        sent_targets = []
+        errors = []
+        for target in targets:
+            for port in (9, 7):
+                try:
+                    for _ in range(3):
+                        send_magic_packet(wake_mac, ip_address=target, port=port)
+                        time.sleep(0.08)
+                    sent_targets.append({"target": target, "port": port, "attempts": 3})
+                except Exception as exc:
+                    errors.append({"target": target, "port": port, "error": str(exc)})
+        relays = []
+        for relay in _find_wol_relay_candidates(normalized_mac, target_ip):
+            _set_machine_command(relay["mac"], {
+                "action": "wake_proxy",
+                "mac": normalized_mac,
+                "ip": target_ip,
+                "requested_at": datetime.now().isoformat(),
+                "min_agent_version": "2026.05.03.03",
+            })
+            relays.append(relay)
+        detail = {"mac": normalized_mac, "ip": target_ip, "targets": sent_targets, "errors": errors, "relays": relays}
+        if not sent_targets:
+            raise RuntimeError("; ".join(item["error"] for item in errors) or "no wol target sent")
+        relay_text = ",".join(f"{relay.get('name')}({relay.get('ip')})" for relay in relays) or "无"
+        target_text = ",".join(f"{item.get('target')}:{item.get('port')}x{item.get('attempts')}" for item in sent_targets)
+        add_log(-1, f"[服务器] WOL唤醒包已发出: {normalized_mac} IP={target_ip or '未知'} 广播={target_text} 中继={relay_text}")
+        log_audit_event("server.wake", target=normalized_mac, detail=detail, status="ok" if not errors else "partial")
+        return jsonify({"status": "ok", "mac": normalized_mac, "ip": target_ip, "targets": sent_targets, "errors": errors, "relays": relays})
     except Exception as e:
         normalized_mac = normalize_machine_mac(mac)
         log_audit_event("server.wake", target=normalized_mac or mac, detail={"mac": normalized_mac or mac, "error": str(e)}, status="error")

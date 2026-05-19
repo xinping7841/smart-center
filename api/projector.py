@@ -43,7 +43,25 @@ def api_projector_control():
     if not locked:
         return jsonify({"success": False, "msg": f"设备正由 {lock_info.get('owner')} 操作，请稍后再试", "error": "device_busy"}), 409
     try:
-        success, res = ProjectorDriver(proj_cfg).execute(data.get("command", {}))
+        command_payload = data.get("command", {})
+        baseline_kw = None
+        baseline_meter = None
+        if str(proj_cfg.get("control_type") or "") == "inferred_rs232":
+            try:
+                from projector_core import get_inferred_projector_command_baseline
+
+                baseline_kw, baseline_meter = get_inferred_projector_command_baseline(proj_cfg)
+            except Exception:
+                baseline_kw, baseline_meter = None, None
+        success, res = ProjectorDriver(proj_cfg).execute(command_payload)
+        if str(proj_cfg.get("control_type") or "") == "inferred_rs232":
+            try:
+                from projector_core import infer_rs232_projector_status, record_inferred_projector_command
+
+                record_inferred_projector_command(proj_cfg, command_payload, success, res, baseline_kw, baseline_meter)
+                PROJECTOR_STATUS[str(proj_cfg.get("id"))] = infer_rs232_projector_status(proj_cfg)
+            except Exception as infer_exc:
+                add_log(-1, f"[投影机] 推断状态更新失败 [{proj_cfg.get('name', proj_cfg.get('id'))}]: {infer_exc}")
         cmd_name = data.get("command", {}).get("name", "未命名命令")
         log_msg = (
             f"[投影机] 控制 [{proj_cfg.get('name', proj_cfg.get('id'))}] - {cmd_name}: "
@@ -77,6 +95,22 @@ def api_projector_status():
     statuses = {}
     for proj in CONFIG.get("projectors", []):
         proj_id = str(proj.get("id"))
+        if str(proj.get("control_type") or "") == "inferred_rs232":
+            try:
+                from projector_core import infer_rs232_projector_status
+
+                fresh = infer_rs232_projector_status(proj)
+                PROJECTOR_STATUS[proj_id] = fresh
+                statuses[proj_id] = dict(fresh)
+                continue
+            except Exception as exc:
+                cached = PROJECTOR_STATUS.get(proj_id)
+                if cached is not None:
+                    fallback = dict(cached)
+                    fallback["last_error"] = str(exc)
+                    fallback["status_level"] = fallback.get("status_level") or "stale"
+                    statuses[proj_id] = fallback
+                    continue
         cached = PROJECTOR_STATUS.get(proj_id)
         if cached is not None:
             statuses[proj_id] = dict(cached)

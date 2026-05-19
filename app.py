@@ -1,14 +1,16 @@
 import gzip
+import mimetypes
 import os
 from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor
 
-from flask import Flask, g, request
+from flask import Flask, g, request, send_from_directory
 from werkzeug.serving import BaseWSGIServer, WSGIRequestHandler
 
 from api.auth_api import bp as auth_api_bp
 from api.apple_audio import bp as apple_audio_bp
 from api.automation import bp as automation_bp
+from api.dashboard import bp as dashboard_bp
 from api.door import bp as door_bp
 from api.control_center import bp as control_center_bp
 from api.driver_hub import bp as driver_hub_bp
@@ -23,6 +25,7 @@ from api.projector import bp as projector_bp
 from api.screen import bp as screen_bp
 from api.sequencer import bp as sequencer_bp
 from api.snmp import bp as snmp_bp
+from api.nvr import bp as nvr_bp
 from api.server import bp as server_bp
 from api.ups import bp as ups_bp
 from api.universal import bp as universal_bp
@@ -36,6 +39,7 @@ os.environ.pop("OPENCV_FFMPEG_CAPTURE_OPTIONS", None)
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SMART_POWER_SECRET_KEY", "smart-power-monitor-dev-secret")
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("SMART_POWER_MAX_CONTENT_LENGTH", 524288))
+app.config["SEND_FILE_MAX_AGE_DEFAULT"] = int(os.environ.get("SMART_CENTER_STATIC_MAX_AGE", "31536000"))
 
 _COMPRESSIBLE_MIMETYPES = {
     "application/javascript",
@@ -49,6 +53,8 @@ _COMPRESSIBLE_MIMETYPES = {
 }
 _GZIP_MIN_BYTES = int(os.environ.get("SMART_POWER_GZIP_MIN_BYTES", "1024"))
 _GZIP_LEVEL = max(1, min(9, int(os.environ.get("SMART_POWER_GZIP_LEVEL", "5"))))
+_HTTP_ACCESS_LOG = str(os.environ.get("SMART_CENTER_HTTP_ACCESS_LOG", "")).strip().lower() in {"1", "true", "yes", "on"}
+_STATIC_MAX_AGE = int(os.environ.get("SMART_CENTER_STATIC_MAX_AGE", "31536000"))
 
 
 def _add_vary_accept_encoding(response):
@@ -86,10 +92,42 @@ def _maybe_gzip_response(response):
     return response
 
 
+def _maybe_send_precompressed_static(path):
+    if request.method not in {"GET", "HEAD"}:
+        return None
+    if "gzip" not in request.headers.get("Accept-Encoding", "").lower():
+        return None
+    if not path.startswith("/static/"):
+        return None
+    filename = path.removeprefix("/static/").lstrip("/")
+    if not filename or "\x00" in filename:
+        return None
+    static_dir = app.static_folder
+    source_path = os.path.join(static_dir, filename)
+    gzip_path = f"{source_path}.gz"
+    if not os.path.isfile(source_path) or not os.path.isfile(gzip_path):
+        return None
+    mimetype, _ = mimetypes.guess_type(source_path)
+    response = send_from_directory(
+        static_dir,
+        f"{filename}.gz",
+        mimetype=mimetype or "application/octet-stream",
+        conditional=True,
+        max_age=_STATIC_MAX_AGE,
+    )
+    response.headers["Content-Encoding"] = "gzip"
+    response.headers["Content-Disposition"] = f"inline; filename={os.path.basename(filename)}"
+    _add_vary_accept_encoding(response)
+    return response
+
+
 @app.before_request
 def load_request_user():
     endpoint = str(request.endpoint or "")
     path = urlparse(request.path or "").path
+    if endpoint == "static" or path.startswith("/static/"):
+        g.current_user = set_guest_user()
+        return _maybe_send_precompressed_static(path)
     if endpoint == "server.report_data" or path in {"/report", "/agent/config"} or path.startswith("/agent/"):
         g.current_user = set_guest_user()
         return
@@ -104,7 +142,16 @@ def inject_auth_context():
 @app.after_request
 def disable_page_cache(response):
     path = urlparse(request.path or "").path
-    if path == "/" or path.startswith("/config") or path.startswith("/login"):
+    if path.startswith("/static/"):
+        response.headers["Cache-Control"] = f"public, max-age={_STATIC_MAX_AGE}, immutable"
+        response.headers.pop("Pragma", None)
+        response.headers.pop("Expires", None)
+        response.headers.pop("Set-Cookie", None)
+        if response.headers.get("Content-Encoding", "").lower() == "gzip":
+            _add_vary_accept_encoding(response)
+        else:
+            response.headers.pop("Vary", None)
+    elif path == "/" or path.startswith("/config") or path.startswith("/login"):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
@@ -112,6 +159,7 @@ def disable_page_cache(response):
 
 
 app.register_blueprint(power_bp)
+app.register_blueprint(dashboard_bp)
 app.register_blueprint(auth_api_bp)
 app.register_blueprint(apple_audio_bp)
 app.register_blueprint(light_bp)
@@ -126,11 +174,25 @@ app.register_blueprint(universal_bp)
 app.register_blueprint(env_bp)
 app.register_blueprint(hy_edge_bp)
 app.register_blueprint(snmp_bp)
+app.register_blueprint(nvr_bp)
 app.register_blueprint(automation_bp)
 app.register_blueprint(hvac_bp)
 app.register_blueprint(sequencer_bp)
 app.register_blueprint(ups_bp)
 app.register_blueprint(m32r_bp)
+
+
+class QuietWSGIRequestHandler(WSGIRequestHandler):
+    def log_request(self, code="-", size="-"):
+        if _HTTP_ACCESS_LOG:
+            super().log_request(code, size)
+            return
+        try:
+            status_code = int(str(code).split()[0])
+        except Exception:
+            status_code = 0
+        if status_code >= 400:
+            super().log_request(code, size)
 
 
 class ThreadPoolWSGIServer(BaseWSGIServer):
@@ -162,7 +224,7 @@ class ThreadPoolWSGIServer(BaseWSGIServer):
             host,
             port,
             wsgi_app,
-            handler=request_handler or WSGIRequestHandler,
+            handler=request_handler or QuietWSGIRequestHandler,
             passthrough_errors=passthrough_errors,
         )
 
