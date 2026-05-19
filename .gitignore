@@ -8,9 +8,21 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .DS_Store
+._*
+
+# Runtime data, reports and local generated state
+backups/
+reports/
+*/data/reports/
+audit_logs.json
+operation_logs.json
+energy_log.json
+__remote_meters.json
+*_after_fix.json
+_chrome_dump_log.txt
+_edge_dump_log.txt
 
 # Local/runtime backups and generated dumps
-backups/
 *.bak
 *.bak_*
 *.tmp
