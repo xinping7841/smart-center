@@ -35,6 +35,7 @@ DEFAULT_SIDEBAR = [
     {"id": "power", "icon": "⚡", "name": "强电控制", "sort": 2, "visible": True},
     {"id": "m32r", "icon": "🎛", "name": "M32R 控台", "sort": 3, "visible": True},
     {"id": "meter", "icon": "🔋", "name": "电表中心", "sort": 3, "visible": True},
+    {"id": "current_collector", "icon": "∿", "name": "电流采集", "sort": 3.4, "visible": True},
     {"id": "ups", "icon": "🔌", "name": "UPS监测", "sort": 4, "visible": True},
     {"id": "light", "icon": "💡", "name": "场馆灯光", "sort": 5, "visible": True},
     {"id": "door", "icon": "🚪", "name": "门禁与监控", "sort": 6, "visible": True},
@@ -88,6 +89,27 @@ DEFAULT_DOOR_CONFIG = {
         },
         "http_send_full_frame": False,
     },
+}
+
+DEFAULT_CURRENT_COLLECTOR = {
+    "enabled": True,
+    "name": "16路电流采集器",
+    "transport": "tcp-rtu",
+    "host": "192.168.50.109",
+    "port": 502,
+    "serial_port": "COM7",
+    "baudrate": 9600,
+    "bytesize": 8,
+    "parity": "N",
+    "stopbits": 1,
+    "slave": 1,
+    "register": 0,
+    "count": 16,
+    "scale": 100.0,
+    "multiplier": 1.0,
+    "timeout": 1.0,
+    "poll_interval": 2.0,
+    "channels": [{"channel": index, "name": f"第{index}路", "visible": True} for index in range(1, 17)],
 }
 
 
@@ -346,6 +368,71 @@ def _sanitize_door_config(door_config):
         normalized_zones[cam_key] = zone_map
     normalized_vision["zones"] = normalized_zones
     merged["vision"] = normalized_vision
+    return merged
+
+
+def _normalize_current_collector_config(raw_config):
+    merged = deepcopy(DEFAULT_CURRENT_COLLECTOR)
+    if isinstance(raw_config, dict):
+        merged.update(raw_config)
+    merged["enabled"] = bool(merged.get("enabled", True))
+    merged["name"] = str(merged.get("name") or DEFAULT_CURRENT_COLLECTOR["name"]).strip() or DEFAULT_CURRENT_COLLECTOR["name"]
+    transport = str(merged.get("transport") or "tcp-rtu").strip().lower()
+    if transport in {"serial", "rtu", "rtu_serial"}:
+        transport = "serial"
+    elif transport in {"modbus-tcp", "modbus_tcp", "tcp"}:
+        transport = "modbus-tcp"
+    else:
+        transport = "tcp-rtu"
+    merged["transport"] = transport
+    merged["host"] = str(merged.get("host") or DEFAULT_CURRENT_COLLECTOR["host"]).strip() or DEFAULT_CURRENT_COLLECTOR["host"]
+    merged["serial_port"] = str(merged.get("serial_port") or DEFAULT_CURRENT_COLLECTOR["serial_port"]).strip() or DEFAULT_CURRENT_COLLECTOR["serial_port"]
+    int_ranges = {
+        "port": (502, 1, 65535),
+        "baudrate": (9600, 1200, 921600),
+        "bytesize": (8, 5, 8),
+        "stopbits": (1, 1, 2),
+        "slave": (1, 1, 247),
+        "register": (0, 0, 65535),
+        "count": (16, 1, 32),
+    }
+    for key, (default, minimum, maximum) in int_ranges.items():
+        try:
+            merged[key] = max(minimum, min(int(str(merged.get(key, default)).strip(), 0), maximum))
+        except Exception:
+            merged[key] = default
+    for key, default, minimum, maximum in (
+        ("scale", 100.0, 0.001, 1000000.0),
+        ("multiplier", 1.0, 0.0, 1000000.0),
+        ("timeout", 1.0, 0.1, 10.0),
+        ("poll_interval", 2.0, 0.5, 300.0),
+    ):
+        try:
+            merged[key] = max(minimum, min(float(merged.get(key, default)), maximum))
+        except Exception:
+            merged[key] = default
+    parity = str(merged.get("parity") or "N").strip().upper()
+    merged["parity"] = parity if parity in {"N", "E", "O", "M", "S"} else "N"
+    raw_channels = merged.get("channels") if isinstance(merged.get("channels"), list) else []
+    channel_map = {}
+    for item in raw_channels:
+        if not isinstance(item, dict):
+            continue
+        try:
+            channel = int(item.get("channel") or 0)
+        except Exception:
+            channel = 0
+        if channel <= 0:
+            continue
+        channel_map[channel] = {
+            "channel": channel,
+            "name": str(item.get("name") or f"第{channel}路").strip() or f"第{channel}路",
+            "visible": bool(item.get("visible", True)),
+        }
+    merged["channels"] = [
+        channel_map.get(index, {"channel": index, "name": f"第{index}路", "visible": True})
+        for index in range(1, int(merged.get("count", 16) or 16) + 1)
+    ]
     return merged
 
 DEFAULT_ENV_FEATURES = {
@@ -1663,6 +1750,7 @@ def load_config():
     if "nvr_devices" not in loaded_config or not isinstance(loaded_config["nvr_devices"], list): loaded_config["nvr_devices"] = []
     if "ups_devices" not in loaded_config or not isinstance(loaded_config["ups_devices"], list): loaded_config["ups_devices"] = []
     if "meters" not in loaded_config or not isinstance(loaded_config["meters"], list): loaded_config["meters"] = []
+    loaded_config["current_collector"] = _normalize_current_collector_config(loaded_config.get("current_collector"))
     if "automations" not in loaded_config:
         loaded_config["automations"] = []
     else:
@@ -1842,6 +1930,7 @@ def load_config():
         loaded_config["sidebar"] = [nav for nav in loaded_config["sidebar"] if nav["id"] not in ["universal", "automation", "env", "auto", "users"]]
         if not any(nav["id"] == "m32r" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "m32r", "icon": "🎛", "name": "M32R 控台", "sort": 3, "visible": True})
         if not any(nav["id"] == "meter" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "meter", "icon": "🔋", "name": "电表中心", "sort": 3, "visible": True})
+        if not any(nav["id"] == "current_collector" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "current_collector", "icon": "∿", "name": "电流采集", "sort": 3.4, "visible": True})
         if not any(nav["id"] == "ups" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "ups", "icon": "🔌", "name": "UPS监测", "sort": 4, "visible": True})
         if not any(nav["id"] == "snmp" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "snmp", "icon": "🛰", "name": "SNMP监测", "sort": 4, "visible": True})
         if not any(nav["id"] == "camera_preview" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "camera_preview", "icon": "🎦", "name": "监控预览", "sort": 4.3, "visible": True})

@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>电流采集 - 中控</title>
+  <style>
+    :root { color-scheme: dark; font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif; background:#07111f; color:#e5edf8; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:linear-gradient(180deg,#07111f,#0b1627); }
+    header { position:sticky; top:0; z-index:2; padding:16px 22px; background:rgba(7,17,31,.94); border-bottom:1px solid rgba(148,163,184,.18); display:flex; justify-content:space-between; gap:16px; align-items:center; }
+    h1 { margin:0; font-size:22px; }
+    main { padding:18px 22px 28px; }
+    a { color:#93c5fd; text-decoration:none; }
+    .meta { color:#9fb0c8; font-size:13px; line-height:1.6; }
+    .status { display:inline-flex; align-items:center; border-radius:999px; padding:6px 12px; font-size:13px; font-weight:800; background:#334155; color:#cbd5e1; }
+    .status.online { background:rgba(34,197,94,.16); color:#86efac; }
+    .status.offline { background:rgba(239,68,68,.14); color:#fca5a5; }
+    .panel { margin-bottom:16px; padding:14px 16px; border:1px solid rgba(148,163,184,.16); background:rgba(15,23,42,.76); border-radius:12px; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    label { display:inline-flex; align-items:center; gap:7px; color:#cbd5e1; font-size:13px; }
+    input, select { height:34px; padding:6px 8px; border-radius:7px; border:1px solid rgba(148,163,184,.28); background:#0f172a; color:#f8fafc; font:inherit; }
+    input { width:92px; }
+    select { width:150px; }
+    input.wide { width:160px; }
+    input.narrow { width:76px; }
+    button { height:34px; padding:0 12px; border:0; border-radius:7px; background:#2563eb; color:#fff; font-weight:800; cursor:pointer; }
+    button.secondary { background:#334155; }
+    button.danger { background:#dc2626; }
+    button.success { background:#16a34a; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; }
+    .card { border:1px solid rgba(148,163,184,.16); background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(12,20,34,.96)); border-radius:10px; padding:13px; }
+    .card-head { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:10px; }
+    .name-input { width:140px; min-width:0; font-weight:800; border-color:rgba(59,130,246,.32); }
+    .raw { color:#94a3b8; font-family:Consolas,monospace; font-size:12px; }
+    .metric { padding:10px; border-radius:8px; background:rgba(2,6,23,.42); border:1px solid rgba(148,163,184,.10); }
+    .metric span { display:block; color:#94a3b8; font-size:12px; margin-bottom:6px; }
+    .metric strong { display:block; font-family:Consolas,monospace; font-size:24px; line-height:1.15; }
+    .log { margin-top:14px; color:#9fb0c8; font-family:Consolas,monospace; font-size:12px; word-break:break-all; line-height:1.6; }
+    .error { color:#fca5a5; }
+    @media (max-width: 760px) {
+      header { align-items:flex-start; flex-direction:column; }
+      main { padding:12px; }
+      .grid { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1 id="pageTitle">电流采集</h1>
+      <div class="meta"><a href="/">返回中控主页</a> · <span id="subtitle">等待采集...</span></div>
+    </div>
+    <span class="status offline" id="status">离线</span>
+  </header>
+  <main>
+    <section class="panel">
+      <div class="toolbar">
+        <label>名称 <input id="deviceName" class="wide config-input" value="16路电流采集器"></label>
+        <label>接入方式
+          <select id="transport" class="config-input" onchange="syncConfigVisibility()">
+            <option value="tcp-rtu">串口服务器透传</option>
+            <option value="modbus-tcp">Modbus-TCP</option>
+            <option value="serial">本机串口</option>
+          </select>
+        </label>
+        <label class="tcp-field">IP <input id="host" class="wide config-input" value="192.168.50.109"></label>
+        <label class="tcp-field">端口 <input id="port" class="narrow config-input" type="number" min="1" max="65535" value="502"></label>
+        <label class="serial-field">串口 <input id="serialPort" class="wide config-input" value="COM7"></label>
+        <label>地址 <input id="slave" class="narrow config-input" type="number" min="1" max="247" value="1"></label>
+        <label>寄存器 <input id="register" class="narrow config-input" value="0x0000"></label>
+        <label>路数 <input id="count" class="narrow config-input" type="number" min="1" max="32" value="16"></label>
+        <label>比例 <input id="scale" class="narrow config-input" type="number" min="0.001" step="0.001" value="100"></label>
+      </div>
+      <div class="toolbar" style="margin-top:10px;">
+        <label class="serial-param">波特率 <input id="baudrate" class="narrow config-input" type="number" value="9600"></label>
+        <label class="serial-param">数据位 <input id="bytesize" class="narrow config-input" type="number" min="5" max="8" value="8"></label>
+        <label class="serial-param">停止位 <input id="stopbits" class="narrow config-input" type="number" min="1" max="2" value="1"></label>
+        <label class="serial-param">校验
+          <select id="parity" class="config-input" style="width:80px;">
+            <option value="N">无</option>
+            <option value="E">偶</option>
+            <option value="O">奇</option>
+          </select>
+        </label>
+        <label>超时 <input id="timeout" class="narrow config-input" type="number" min="0.1" step="0.1" value="1"></label>
+        <label>轮询 <input id="pollInterval" class="narrow config-input" type="number" min="0.5" step="0.5" value="2"></label>
+        <button onclick="saveConfig()">保存配置</button>
+        <button class="secondary" onclick="readNow()">立即读取</button>
+        <button class="danger" id="toggleBtn" onclick="toggleEnabled()">关闭采集</button>
+        <span class="meta" id="configMessage"></span>
+      </div>
+    </section>
+    <section class="grid" id="grid"></section>
+    <section class="log" id="log"></section>
+  </main>
+  <script>
+    let lastPayload = null;
+    let configDirty = false;
+    const canConfig = true;
+
+    function $(id) { return document.getElementById(id); }
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+    }
+    function formatA(value) {
+      const num = Number(value);
+      return Number.isFinite(num) ? `${num.toFixed(3)} A` : '--';
+    }
+    function setStatus(online, text) {
+      const el = $('status');
+      el.className = `status ${online ? 'online' : 'offline'}`;
+      el.textContent = text || (online ? '在线' : '离线');
+    }
+    function syncConfigVisibility() {
+      const transport = $('transport').value || 'tcp-rtu';
+      document.querySelectorAll('.serial-field').forEach(el => el.style.display = transport === 'serial' ? 'inline-flex' : 'none');
+      document.querySelectorAll('.tcp-field').forEach(el => el.style.display = transport === 'serial' ? 'none' : 'inline-flex');
+      document.querySelectorAll('.serial-param').forEach(el => el.style.display = transport === 'modbus-tcp' ? 'none' : 'inline-flex');
+    }
+    function setValue(id, value) {
+      const el = $(id);
+      if (el && document.activeElement !== el && value !== undefined && value !== null) el.value = value;
+    }
+    function syncConfigForm(cfg) {
+      if (!cfg || configDirty) return;
+      setValue('deviceName', cfg.name || '16路电流采集器');
+      setValue('transport', cfg.transport || 'tcp-rtu');
+      setValue('host', cfg.host || '192.168.50.109');
+      setValue('port', cfg.port || 502);
+      setValue('serialPort', cfg.serial_port || 'COM7');
+      setValue('slave', cfg.slave || 1);
+      setValue('register', `0x${Number(cfg.register || 0).toString(16).padStart(4, '0').toUpperCase()}`);
+      setValue('count', cfg.count || 16);
+      setValue('scale', cfg.scale || 100);
+      setValue('baudrate', cfg.baudrate || 9600);
+      setValue('bytesize', cfg.bytesize || 8);
+      setValue('stopbits', cfg.stopbits || 1);
+      setValue('parity', cfg.parity || 'N');
+      setValue('timeout', cfg.timeout || 1);
+      setValue('pollInterval', cfg.poll_interval || 2);
+      syncConfigVisibility();
+    }
+    function getChannelNames() {
+      return Array.from(document.querySelectorAll('.name-input')).map(input => ({
+        channel: Number(input.dataset.channel || 0),
+        name: input.value.trim() || `第${input.dataset.channel}路`,
+        visible: true
+      })).filter(item => item.channel > 0);
+    }
+    function configPayload() {
+      return {
+        name: $('deviceName').value.trim() || '16路电流采集器',
+        transport: $('transport').value,
+        host: $('host').value.trim(),
+        port: Number($('port').value || 502),
+        serial_port: $('serialPort').value.trim(),
+        slave: Number($('slave').value || 1),
+        register: $('register').value.trim(),
+        count: Number($('count').value || 16),
+        scale: Number($('scale').value || 100),
+        baudrate: Number($('baudrate').value || 9600),
+        bytesize: Number($('bytesize').value || 8),
+        stopbits: Number($('stopbits').value || 1),
+        parity: $('parity').value || 'N',
+        timeout: Number($('timeout').value || 1),
+        poll_interval: Number($('pollInterval').value || 2),
+        channels: getChannelNames(),
+      };
+    }
+    function render(payload) {
+      lastPayload = payload || {};
+      const cfg = lastPayload.config || {};
+      const snap = lastPayload.snapshot || {};
+      const channels = Array.isArray(lastPayload.channels) ? lastPayload.channels : [];
+      const enabled = lastPayload.enabled !== false;
+      const online = !!lastPayload.online;
+      $('pageTitle').textContent = cfg.name || '电流采集';
+      setStatus(online, !enabled ? '已关闭' : (online ? '在线' : '离线'));
+      $('toggleBtn').textContent = enabled ? '关闭采集' : '开启采集';
+      $('toggleBtn').className = enabled ? 'danger' : 'success';
+      $('subtitle').textContent = !enabled
+        ? '采集已关闭'
+        : online
+          ? `${snap.collected_at || lastPayload.updated_at || '--'} / ${snap.transport || cfg.transport || '--'} / 地址 ${snap.slave || cfg.slave || '--'} / 寄存器 ${snap.register_base || '--'}`
+          : `离线：${lastPayload.error || '暂无数据'}`;
+      syncConfigForm(cfg);
+      $('grid').innerHTML = channels.map(item => `
+        <section class="card">
+          <div class="card-head">
+            <input class="name-input" data-channel="${item.channel}" value="${escapeHtml(item.name || `第${item.channel}路`)}" onchange="configDirty=true">
+            <div class="raw">寄存器 ${item.raw_register ?? '--'}</div>
+          </div>
+          <div class="metric"><span>采集器电流</span><strong>${formatA(item.current)}</strong></div>
+        </section>
+      `).join('');
+      const error = lastPayload.error ? `<div class="error">ERROR: ${escapeHtml(lastPayload.error)}</div>` : '';
+      $('log').innerHTML = `${error}<div>TX: ${escapeHtml(snap.request_hex || '--')}</div><div>RX: ${escapeHtml(snap.response_hex || '--')}</div>`;
+    }
+    async function fetchStatus() {
+      const res = await fetch('/api/current-collector/status', { cache: 'no-store' });
+      render(await res.json());
+    }
+    async function readNow() {
+      const res = await fetch('/api/current-collector/read', { method: 'POST', cache: 'no-store' });
+      render(await res.json());
+    }
+    async function saveConfig() {
+      $('configMessage').textContent = '正在保存...';
+      const res = await fetch('/api/current-collector/config', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(configPayload())
+      });
+      const data = await res.json();
+      configDirty = false;
+      $('configMessage').textContent = data.ok ? '已保存' : (data.error || data.message || '保存失败');
+      render(data);
+    }
+    async function toggleEnabled() {
+      const enabled = !(lastPayload && lastPayload.enabled === false);
+      const res = await fetch('/api/current-collector/enabled', {
+        method: 'POST',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !enabled })
+      });
+      render(await res.json());
+    }
+    document.querySelectorAll('.config-input').forEach(el => {
+      el.addEventListener('input', () => { configDirty = true; });
+      el.addEventListener('change', () => { configDirty = true; });
+    });
+    syncConfigVisibility();
+    fetchStatus().catch(err => {
+      setStatus(false, '连接失败');
+      $('subtitle').textContent = String(err);
+    });
+    setInterval(() => fetchStatus().catch(() => {}), 2000);
+  </script>
+</body>
+</html>
