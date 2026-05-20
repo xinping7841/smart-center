@@ -84,8 +84,8 @@
             <option value="O">奇</option>
           </select>
         </label>
-        <label>超时 <input id="timeout" class="narrow config-input" type="number" min="0.1" step="0.1" value="1"></label>
-        <label>轮询 <input id="pollInterval" class="narrow config-input" type="number" min="0.5" step="0.5" value="2"></label>
+        <label>超时 <input id="timeout" class="narrow config-input" type="number" min="0.1" step="0.1" value="2"></label>
+        <label>轮询 <input id="pollInterval" class="narrow config-input" type="number" min="0.5" step="0.5" value="5"></label>
         <button onclick="saveConfig()">保存配置</button>
         <button class="secondary" onclick="readNow()">立即读取</button>
         <button class="danger" id="toggleBtn" onclick="toggleEnabled()">关闭采集</button>
@@ -138,8 +138,8 @@
       setValue('bytesize', cfg.bytesize || 8);
       setValue('stopbits', cfg.stopbits || 1);
       setValue('parity', cfg.parity || 'N');
-      setValue('timeout', cfg.timeout || 1);
-      setValue('pollInterval', cfg.poll_interval || 2);
+      setValue('timeout', cfg.timeout || 2);
+      setValue('pollInterval', cfg.poll_interval || 5);
       syncConfigVisibility();
     }
     function getChannelNames() {
@@ -164,8 +164,8 @@
         bytesize: Number($('bytesize').value || 8),
         stopbits: Number($('stopbits').value || 1),
         parity: $('parity').value || 'N',
-        timeout: Number($('timeout').value || 1),
-        poll_interval: Number($('pollInterval').value || 2),
+        timeout: Number($('timeout').value || 2),
+        poll_interval: Number($('pollInterval').value || 5),
         channels: getChannelNames(),
       };
     }

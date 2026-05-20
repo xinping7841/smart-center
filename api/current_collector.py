@@ -38,8 +38,8 @@ DEFAULT_CURRENT_COLLECTOR = {
     "count": DEFAULT_CHANNEL_COUNT,
     "scale": DEFAULT_SCALE_100X,
     "multiplier": 1.0,
-    "timeout": 1.0,
-    "poll_interval": 2.0,
+    "timeout": 2.0,
+    "poll_interval": 5.0,
     "channels": [{"channel": index, "name": f"第{index}路", "visible": True} for index in range(1, 17)],
 }
 
