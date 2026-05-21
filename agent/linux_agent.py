@@ -723,16 +723,32 @@ def read_gpu_snapshot():
     gpu_list = []
     try:
         result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=index,name,utilization.gpu,temperature.gpu", "--format=csv,noheader,nounits"],
+            [
+                "nvidia-smi",
+                "--query-gpu=index,name,utilization.gpu,utilization.memory,memory.used,memory.total,temperature.gpu,power.draw",
+                "--format=csv,noheader,nounits",
+            ],
             capture_output=True, text=True, timeout=2, encoding="utf-8", errors="ignore",
         )
         if result.returncode == 0:
             for line in result.stdout.splitlines():
                 parts = [item.strip() for item in line.split(",")]
-                if len(parts) < 4:
+                if len(parts) < 8:
                     continue
                 try:
-                    gpu_list.append({"index": int(parts[0]), "name": parts[1], "util_percent": int(float(parts[2] or 0)), "temp": int(float(parts[3] or 0))})
+                    memory_used = int(float(parts[4] or 0))
+                    memory_total = int(float(parts[5] or 0))
+                    gpu_list.append({
+                        "index": int(parts[0]),
+                        "name": parts[1],
+                        "util_percent": int(float(parts[2] or 0)),
+                        "memory_util_percent": int(float(parts[3] or 0)),
+                        "memory_used_mb": memory_used,
+                        "memory_total_mb": memory_total,
+                        "temp": int(float(parts[6] or 0)),
+                        "power_w": round(float(parts[7] or 0), 1),
+                        "source": "nvidia-smi",
+                    })
                 except Exception:
                     continue
     except Exception:

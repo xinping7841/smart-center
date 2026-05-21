@@ -13042,10 +13042,17 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 const label = realGpus.length ? `GPU ${idx}` : `显示 ${idx}`;
                 const utilPercent = Math.max(0, Math.min(100, normalizeServerBytes(g?.util_percent)));
                 const util = formatServerMetric(utilPercent);
+                const memoryUsed = normalizeServerBytes(g?.memory_used_mb);
+                const memoryTotal = normalizeServerBytes(g?.memory_total_mb);
+                const memoryPercent = Math.max(0, Math.min(100, memoryTotal > 0 ? (memoryUsed / memoryTotal) * 100 : normalizeServerBytes(g?.memory_util_percent)));
+                const memoryText = memoryTotal > 0 ? `${(memoryUsed / 1024).toFixed(1).replace(/\.0$/, '')}/${(memoryTotal / 1024).toFixed(1).replace(/\.0$/, '')} GB` : formatServerMetric(memoryPercent);
                 const hasTemp = Number.isFinite(Number(g?.temp)) && Number(g?.temp) > 0;
                 const temp = hasTemp ? `${Number(g.temp).toFixed(0)}°C` : '温度未上报';
                 const tempColor = hasTemp ? 'var(--text-main)' : 'var(--text-sub)';
-                return `<div class="metric-row server-gpu-row" title="${escapeHtml(g?.name || 'GPU')}"><div class="metric-label"><span>${label} ${escapeHtml(compactGpuName(g?.name))}</span><span>${util}<em style="color:${tempColor};"> · ${temp}</em></span></div><div class="progress-track"><div class="progress-fill ${getColor(utilPercent)}" style="width:${utilPercent}%"></div></div></div>`;
+                const memoryHtml = memoryPercent > 0
+                    ? `<div class="metric-label server-gpu-memory-label"><span>显存占用</span><span>${escapeHtml(memoryText)} · ${formatServerMetric(memoryPercent)}</span></div><div class="progress-track server-gpu-memory-track"><div class="progress-fill bg-blue" style="width:${memoryPercent}%"></div></div>`
+                    : '';
+                return `<div class="metric-row server-gpu-row" title="${escapeHtml(g?.name || 'GPU')}"><div class="metric-label"><span>${label} ${escapeHtml(compactGpuName(g?.name))}</span><span>${util}<em style="color:${tempColor};"> · ${temp}</em></span></div><div class="progress-track"><div class="progress-fill ${getColor(utilPercent)}" style="width:${utilPercent}%"></div></div>${memoryHtml}</div>`;
             }).join('');
             const note = virtualCount > 0 ? `<div class="server-gpu-muted">已隐藏 ${virtualCount} 个远控/虚拟显示适配器</div>` : '';
             return `<div class="gpu-list">${rows}${note}</div>`;
