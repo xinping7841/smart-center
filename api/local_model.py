@@ -279,6 +279,307 @@ def _extract_log_records(limit):
     return rows
 
 
+
+def _count_by(rows, key):
+    counts = {}
+    for row in rows:
+        value = str(row.get(key) or "unknown").strip() or "unknown"
+        counts[value] = counts.get(value, 0) + 1
+    return dict(sorted(counts.items(), key=lambda item: (-item[1], item[0])))
+
+
+def _top_items(counts, limit=12):
+    return [{"name": key, "count": value} for key, value in list(counts.items())[:limit]]
+
+
+def _compact_value(value, default="未配置"):
+    text = str(value or "").strip()
+    return text if text else default
+
+
+def _device_capabilities(row):
+    section = str(row.get("source_section") or "")
+    raw = row.get("raw") if isinstance(row.get("raw"), dict) else {}
+    caps = []
+    if section == "cabinets":
+        caps.extend(["强电回路控制", "回路状态读取", "电能/功率监测"])
+    elif section == "meters":
+        caps.extend(["电表采集", "用电趋势分析", "能耗统计"])
+    elif section == "ups_devices":
+        caps.extend(["UPS状态监测", "电池/负载告警"])
+    elif section == "snmp_devices":
+        caps.extend(["SNMP轮询", "网络设备/服务器/NAS指标监测"])
+    elif section == "nvr_devices":
+        caps.extend(["NVR/摄像机状态监测", "视频通道可用性检查"])
+    elif section == "light_devices":
+        caps.extend(["灯光/继电器输出控制", "输出状态读取"])
+        if raw.get("input_count"):
+            caps.append("输入状态读取")
+    elif section == "projectors":
+        caps.extend(["投影机开关机", "信号源/状态查询", "异常状态识别"])
+    elif section == "screens":
+        caps.extend(["幕布升降停止控制", "幕布状态维护"])
+    elif section == "sequencers":
+        caps.extend(["时序电源分路控制", "顺序上电/断电"])
+    elif section == "hvac_devices":
+        caps.extend(["空调状态读取", "温度/模式/开关控制"])
+    elif section == "env_sensors":
+        caps.extend(["温湿度/环境指标采集", "环境异常辅助判断"])
+    elif section == "custom_devices":
+        caps.extend(["泛型协议控制", "自定义命令发送", "状态解析"])
+    elif section == "current_collector":
+        caps.extend(["多路电流采集", "组合回路汇总", "设备运行状态推断"])
+    command_count = len(raw.get("commands") or raw.get("command_list") or [])
+    if command_count:
+        caps.append(f"配置了 {command_count} 个命令")
+    channel_count = raw.get("channel_count") or raw.get("channels") or raw.get("count")
+    if channel_count:
+        caps.append(f"约 {channel_count} 个通道/回路")
+    return caps
+
+
+def _device_dependencies(row):
+    raw = row.get("raw") if isinstance(row.get("raw"), dict) else {}
+    section = str(row.get("source_section") or "")
+    deps = []
+    if row.get("host"):
+        deps.append(f"网络地址 {row.get('host')}:{row.get('port') or '默认端口'}")
+    protocol = str(row.get("protocol") or "").lower()
+    if "ha" in protocol or section == "hvac_devices":
+        deps.append("可能依赖 Home Assistant/米家桥接/设备 token")
+    if "snmp" in protocol or section == "snmp_devices":
+        deps.append("依赖 SNMP community、OID 和网络可达性")
+    if "modbus" in protocol or section in {"cabinets", "meters", "current_collector"}:
+        deps.append("依赖 Modbus 地址、寄存器、倍率和轮询超时配置")
+    if section == "projectors":
+        deps.append("状态判断可能依赖供电回路、电流采集或投影机协议回包")
+    if raw.get("scene_id") or raw.get("automation_id"):
+        deps.append("可能被场景/自动化联动调用")
+    return deps
+
+
+def _build_device_insights(device_rows):
+    rows = []
+    for row in device_rows:
+        name = _compact_value(row.get("name"), row.get("device_id") or "未命名设备")
+        protocol = _compact_value(row.get("protocol"))
+        host = _compact_value(row.get("host"), "未绑定网络地址")
+        port = _compact_value(row.get("port"), "默认端口")
+        capabilities = _device_capabilities(row)
+        dependencies = _device_dependencies(row)
+        summary = (
+            f"{name} 属于{row.get('device_type') or row.get('source_section')}，"
+            f"协议/品牌为 {protocol}，地址为 {host}:{port}。"
+            f"主要能力：{'、'.join(capabilities) if capabilities else '待从配置补充'}。"
+        )
+        if dependencies:
+            summary += f" 关键依赖：{'、'.join(dependencies)}。"
+        rows.append({
+            "schema": "smart_center.training.v1",
+            "kind": "insight",
+            "insight_type": "device_profile",
+            "title": f"设备画像：{name}",
+            "subject_id": row.get("device_id"),
+            "source_section": row.get("source_section"),
+            "device_type": row.get("device_type"),
+            "summary": summary,
+            "facts": {
+                "name": name,
+                "protocol": protocol,
+                "host": row.get("host") or "",
+                "port": row.get("port") or "",
+                "enabled": row.get("enabled"),
+                "capabilities": capabilities,
+                "dependencies": dependencies,
+            },
+            "training_hint": "回答设备用途、协议、地址、依赖关系和排障顺序时优先参考该画像。",
+        })
+    return rows
+
+
+def _build_protocol_insights(device_rows, protocol_rows):
+    grouped = {}
+    for row in device_rows:
+        protocol = str(row.get("protocol") or row.get("source_section") or "unknown").strip() or "unknown"
+        item = grouped.setdefault(protocol, {"devices": [], "sections": set()})
+        item["devices"].append(row.get("name") or row.get("device_id"))
+        item["sections"].add(str(row.get("source_section") or ""))
+    insights = []
+    for protocol, payload in sorted(grouped.items(), key=lambda item: (-len(item[1]["devices"]), item[0])):
+        proto_l = protocol.lower()
+        checks = ["确认设备在线和 IP/端口可达", "核对中控配置是否与现场设备一致", "查看事件日志中的超时、拒绝和状态变化"]
+        if "modbus" in proto_l or any(section in payload["sections"] for section in ("cabinets", "meters", "current_collector")):
+            checks.extend(["核对站号/slave、寄存器地址、功能码、倍率", "区分 TCP Modbus 与 RTU over TCP 网关"])
+        if "snmp" in proto_l:
+            checks.extend(["核对 community、SNMP版本、自定义 OID", "检查 NAS/交换机是否允许 120 访问"])
+        if "miio" in proto_l or "xiaomi" in proto_l:
+            checks.extend(["核对米家 token、局域网可达性", "米家 App 正常但中控异常时优先查桥接层和实体映射"])
+        if "pjlink" in proto_l or "projector" in proto_l:
+            checks.extend(["区分协议回包状态、供电状态和电流推断状态", "投影关机与断电不能混为一类"])
+        insights.append({
+            "schema": "smart_center.training.v1",
+            "kind": "insight",
+            "insight_type": "protocol_capability",
+            "title": f"协议能力卡：{protocol}",
+            "protocol": protocol,
+            "summary": f"{protocol} 当前关联 {len(payload['devices'])} 个设备，覆盖 {', '.join(sorted(x for x in payload['sections'] if x)) or '未知模块'}。",
+            "facts": {
+                "device_count": len(payload["devices"]),
+                "sample_devices": [str(item) for item in payload["devices"][:20]],
+                "source_sections": sorted(x for x in payload["sections"] if x),
+                "troubleshooting": checks,
+            },
+            "training_hint": "遇到协议离线、状态不准、控制失败时，先按该能力卡给出排查路径。",
+        })
+    if protocol_rows:
+        insights.append({
+            "schema": "smart_center.training.v1",
+            "kind": "insight",
+            "insight_type": "protocol_inventory",
+            "title": "协议与驱动资产总览",
+            "summary": f"本次导出包含 {len(protocol_rows)} 条协议/驱动配置记录，覆盖控制中心、驱动包、投影命令库和监控配置。",
+            "facts": {"record_count": len(protocol_rows), "sources": _top_items(_count_by(protocol_rows, "kind"), 20)},
+            "training_hint": "回答系统支持哪些协议、驱动和命令库时使用该总览。",
+        })
+    return insights
+
+
+def _build_rule_insights(config):
+    current = config.get("current_collector") if isinstance(config.get("current_collector"), dict) else {}
+    groups = current.get("groups") if isinstance(current.get("groups"), list) else []
+    projectors = config.get("projectors") if isinstance(config.get("projectors"), list) else []
+    hvacs = config.get("hvac_devices") if isinstance(config.get("hvac_devices"), list) else []
+    rules = [
+        {
+            "title": "状态推断：先判断供电，再判断设备开关机",
+            "summary": "投影、时序电源和强电相关问题要先区分断电、待机、开机和通信失败。供电状态优先来自电柜/时序电源/电流采集，设备开关机再结合协议回包和电流阈值。",
+            "facts": {"projector_count": len(projectors), "current_collector_groups": groups},
+        },
+        {
+            "title": "空调排障：米家正常不代表 HA/中控链路正常",
+            "summary": "如果米家 App 能直接控制但中控显示离线，优先检查 Home Assistant 桥接、实体映射、token、局域网可达性、轮询超时和最近日志。",
+            "facts": {"hvac_count": len(hvacs), "home_assistant": _redact(config.get("home_assistant") or {})},
+        },
+        {
+            "title": "电流采集：适合做运行状态辅助证据",
+            "summary": "电流采集比总功率更适合判断单一设备是否开机，但阈值必须避开同线路小功率设备干扰；结论应同时说明供电状态和电流证据。",
+            "facts": {"collector_enabled": current.get("enabled"), "host": current.get("host"), "groups": groups},
+        },
+        {
+            "title": "控制安全：高风险动作必须二次确认",
+            "summary": "强电断电、时序电源关闭、投影关机、场景批量联动、自动化规则修改都可能影响现场演出或参观，模型只能给建议，不能替用户直接执行。",
+            "facts": {"high_risk_actions": ["power_off", "sequencer_off", "projector_off", "scene_run", "automation_edit"]},
+        },
+    ]
+    return [
+        {
+            "schema": "smart_center.training.v1",
+            "kind": "insight",
+            "insight_type": "inference_rule" if "状态推断" in item["title"] or "电流采集" in item["title"] else "operation_policy",
+            "title": item["title"],
+            "summary": item["summary"],
+            "facts": item["facts"],
+            "training_hint": "回答状态判断、故障分析或操作建议时，应显式引用该规则并说明证据。",
+        }
+        for item in rules
+    ]
+
+
+def _build_log_insights(log_rows):
+    category_counts = _count_by(log_rows, "category")
+    event_type_counts = _count_by(log_rows, "event_type")
+    result_counts = _count_by(log_rows, "result")
+    source_counts = _count_by(log_rows, "source")
+    device_counts = {}
+    recent_errors = []
+    for row in log_rows:
+        device = str(row.get("device_name") or row.get("device_id") or "").strip()
+        if device:
+            device_counts[device] = device_counts.get(device, 0) + 1
+        result_text = str(row.get("result") or "").lower()
+        msg = str(row.get("message") or "")
+        if len(recent_errors) < 30 and ("error" in result_text or "fail" in result_text or "异常" in msg or "失败" in msg or "离线" in msg):
+            recent_errors.append({
+                "time": row.get("time"),
+                "category": row.get("category"),
+                "device": device,
+                "action": row.get("action"),
+                "result": row.get("result"),
+                "message": msg[:240],
+            })
+    return [{
+        "schema": "smart_center.training.v1",
+        "kind": "insight",
+        "insight_type": "log_pattern",
+        "title": "日志模式摘要",
+        "summary": f"本次纳入 {len(log_rows)} 条日志。高频模块：{', '.join(f'{x['name']}({x['count']})' for x in _top_items(category_counts, 5)) or '暂无'}。",
+        "facts": {
+            "category_counts": category_counts,
+            "event_type_counts": event_type_counts,
+            "result_counts": result_counts,
+            "source_counts": source_counts,
+            "top_devices": _top_items(dict(sorted(device_counts.items(), key=lambda item: (-item[1], item[0]))), 15),
+            "recent_errors": recent_errors,
+        },
+        "training_hint": "回答最近异常、外部变化、自动化影响和高频故障时优先参考该摘要。",
+    }]
+
+
+def _build_qa_insights(device_rows):
+    samples = [
+        ("列出所有 TCP/网络协议设备", "按 devices 中 host 非空或 protocol/comm_mode 为 TCP/UDP/HTTP/SNMP/Modbus TCP 的记录筛选，并返回名称、地址、端口、协议。"),
+        ("某设备离线应该先查什么", "先查网络可达、协议参数、桥接服务、最近事件日志，再区分设备断电、通信失败和配置错误。"),
+        ("投影现在是断电还是关机", "先看供电回路/时序电源/电柜状态，再看电流采集和投影协议回包，不能只凭单一总功率判断。"),
+        ("空调米家可控但中控离线", "优先查 Home Assistant/miio 桥接、实体映射、token、局域网连通和轮询日志。"),
+        ("哪些操作需要谨慎", "强电、时序电源、投影关机、场景联动和自动化修改都需要人工确认。"),
+    ]
+    return [
+        {
+            "schema": "smart_center.training.v1",
+            "kind": "insight",
+            "insight_type": "qa_pattern",
+            "title": f"问答模式：{question}",
+            "instruction": question,
+            "output": answer,
+            "facts": {"device_inventory_count": len(device_rows)},
+            "training_hint": "作为模型回答中控常见问题的风格和推理模板。",
+        }
+        for question, answer in samples
+    ]
+
+
+def build_insights(config, device_rows, protocol_rows, log_rows):
+    insight_rows = []
+    insight_rows.extend(_build_device_insights(device_rows))
+    insight_rows.extend(_build_protocol_insights(device_rows, protocol_rows))
+    insight_rows.extend(_build_rule_insights(config))
+    insight_rows.extend(_build_log_insights(log_rows))
+    insight_rows.extend(_build_qa_insights(device_rows))
+    daily_summary = {
+        "schema": "smart_center.training.v1",
+        "kind": "daily_summary",
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "counts": {
+            "devices": len(device_rows),
+            "protocol_records": len(protocol_rows),
+            "logs": len(log_rows),
+            "insights": len(insight_rows),
+        },
+        "device_sections": _count_by(device_rows, "source_section"),
+        "device_types": _count_by(device_rows, "device_type"),
+        "protocols": _count_by(device_rows, "protocol"),
+        "log_categories": _count_by(log_rows, "category"),
+        "log_results": _count_by(log_rows, "result"),
+        "recommended_model_use": [
+            "优先用 insights 做中控知识库/RAG 检索",
+            "用 devices/protocols/logs 作为证据来源",
+            "涉及真实控制动作时只给建议和风险，不直接执行",
+            "每天比较 daily_summary 可发现设备、协议和异常趋势变化",
+        ],
+    }
+    return insight_rows, daily_summary
+
+
 def build_training_export():
     config = deepcopy(CONFIG)
     model_cfg = normalize_local_model_config(config.get("local_model"))
@@ -288,20 +589,28 @@ def build_training_export():
     device_rows = _extract_device_records(config)
     protocol_rows = _extract_protocol_records(config)
     log_rows = _extract_log_records(int(export_cfg.get("recent_log_limit", 500))) if export_cfg.get("include_logs", True) else []
+    insight_rows, daily_summary = build_insights(config, device_rows, protocol_rows, log_rows)
     instruction_rows = [
         {
             "schema": "smart_center.training.v1",
             "kind": "instruction",
             "instruction": "根据中控配置说明指定设备的协议、地址、用途和可用控制能力。",
             "input": {"device_inventory_count": len(device_rows)},
-            "output": "已归一化设备清单，可按 source_section、device_type、device_id 检索。",
+            "output": "已归一化设备清单，可按 source_section、device_type、device_id 检索，并可结合 insights 中的 device_profile 回答。",
         },
         {
             "schema": "smart_center.training.v1",
             "kind": "instruction",
             "instruction": "根据中控事件日志判断动作来自人工、自动化、设备回报还是外部变化。",
             "input": {"event_log_count": len(log_rows)},
-            "output": "event_log 记录包含 category、event_type、source、action、result、message 和脱敏 raw。",
+            "output": "event_log 记录包含 category、event_type、source、action、result、message 和脱敏 raw；log_pattern insight 提供聚合结论。",
+        },
+        {
+            "schema": "smart_center.training.v1",
+            "kind": "instruction",
+            "instruction": "回答中控状态推断和排障问题时，优先引用提炼后的规则、设备画像和协议能力卡。",
+            "input": {"insight_count": len(insight_rows)},
+            "output": "先给结论，再列证据，最后给排查或操作建议；涉及真实控制动作必须提醒人工确认。",
         },
     ]
     files = {
@@ -309,12 +618,16 @@ def build_training_export():
         "protocols": out_dir / f"protocols_{stamp}.jsonl",
         "logs": out_dir / f"logs_{stamp}.jsonl",
         "instructions": out_dir / f"instructions_{stamp}.jsonl",
+        "insights": out_dir / f"insights_{stamp}.jsonl",
+        "daily_summary": out_dir / f"daily_summary_{stamp}.json",
         "knowledge": out_dir / f"knowledge_{stamp}.json",
     }
     _jsonl_write(files["devices"], device_rows)
     _jsonl_write(files["protocols"], protocol_rows)
     _jsonl_write(files["logs"], log_rows)
     _jsonl_write(files["instructions"], instruction_rows)
+    _jsonl_write(files["insights"], insight_rows)
+    files["daily_summary"].write_text(json.dumps(daily_summary, ensure_ascii=False, indent=2), encoding="utf-8")
     knowledge = {
         "schema": "smart_center.training.v1",
         "generated_at": datetime.now().isoformat(timespec="seconds"),
@@ -324,8 +637,11 @@ def build_training_export():
             "protocol_records": len(protocol_rows),
             "logs": len(log_rows),
             "instructions": len(instruction_rows),
+            "insights": len(insight_rows),
         },
         "device_sections": DEVICE_SECTIONS,
+        "insight_types": _count_by(insight_rows, "insight_type"),
+        "daily_summary": daily_summary,
         "config_snapshot": _redact(config),
         "files": {name: str(path) for name, path in files.items()},
     }
