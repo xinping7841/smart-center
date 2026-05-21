@@ -280,6 +280,69 @@
         return '';
     }
 
+    function formatAutomationValue(value) {
+        if (value === null || value === undefined || value === '') return '--';
+        if (typeof value === 'number' && Number.isFinite(value)) {
+            return Number.isInteger(value) ? String(value) : value.toFixed(Math.abs(value) >= 100 ? 1 : 2).replace(/\.?0+$/, '');
+        }
+        return String(value);
+    }
+
+    function formatAutomationRuleTime(value) {
+        if (!value) return '--';
+        const text = formatDateTimeText(value);
+        return text === '未上报' ? '--' : text;
+    }
+
+    function getAutomationTodayKey(now = new Date()) {
+        const pad = value => String(value).padStart(2, '0');
+        return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    }
+
+    function getAutomationDayLabel(schedule = {}) {
+        const dayType = String(schedule.day_type || 'everyday');
+        if (dayType === 'workday') return '工作日';
+        if (dayType === 'weekend') return '周末';
+        if (dayType === 'custom') return '自定义日期';
+        return '每天';
+    }
+
+    function getAutomationSourceLabel(sourceType) {
+        const map = { env: '环境', screen: '幕布', power: '强电', sequencer: '时序电源', light: '灯光', meter: '电表', server: '服务器', hvac: '空调' };
+        return map[String(sourceType || 'env')] || String(sourceType || '数据源');
+    }
+
+    function getAutomationPropLabel(prop) {
+        const map = { lux: '光照', illuminance: '光照', temp: '温度', temperature: '温度', hum: '湿度', humidity: '湿度', online: '在线', current: '电流', power: '电源', mode: '模式', hvac_action: '运行状态', all_on: '全部开启', all_off: '全部关闭', on_count: '开启路数', off_count: '关闭路数', channel_state: '通道状态', running: '运行中', locked: '锁定' };
+        return map[String(prop || '').toLowerCase()] || String(prop || '属性');
+    }
+
+    function getAutomationPropUnit(prop) {
+        const key = String(prop || '').toLowerCase();
+        if (['lux', 'illuminance'].includes(key)) return ' lux';
+        if (['temp', 'temperature'].includes(key)) return '°C';
+        if (['hum', 'humidity'].includes(key)) return '%';
+        if (key === 'current') return ' A';
+        if (key === 'power') return ' W';
+        if (['on_count', 'off_count'].includes(key)) return ' 路';
+        return '';
+    }
+
+    function formatAutomationValueWithUnit(value, prop) {
+        if (typeof value === 'boolean') {
+            const key = String(prop || '').toLowerCase();
+            if (key === 'online') return value ? '在线' : '离线';
+            if (key === 'all_on') return value ? '已全开' : '未全开';
+            if (key === 'all_off') return value ? '已全关' : '未全关';
+            if (key === 'locked') return value ? '已锁定' : '未锁定';
+            if (key === 'running') return value ? '运行中' : '待机';
+            return value ? '开' : '关';
+        }
+        const text = formatAutomationValue(value);
+        if (text === '--') return text;
+        return `${text}${getAutomationPropUnit(prop)}`;
+    }
+
     const api = {
         escapeHtml,
         translateApiError,
@@ -303,6 +366,14 @@
         getPermissionDisabledClass,
         getDeviceStatusMeta,
         getCardStateClass,
+        formatAutomationValue,
+        formatAutomationRuleTime,
+        getAutomationTodayKey,
+        getAutomationDayLabel,
+        getAutomationSourceLabel,
+        getAutomationPropLabel,
+        getAutomationPropUnit,
+        formatAutomationValueWithUnit,
     };
 
     SmartCenter.utils = Object.assign({}, SmartCenter.utils || {}, api);
