@@ -8,6 +8,17 @@
     :root { color-scheme: dark; font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif; background:#07111f; color:#e5edf8; }
     * { box-sizing:border-box; }
     body { margin:0; min-height:100vh; background:linear-gradient(180deg,#07111f,#0b1627); }
+    .layout { min-height:100vh; display:flex; }
+    .sidebar { width:248px; flex:0 0 248px; background:linear-gradient(180deg, rgba(10,21,37,.98), rgba(14,27,46,.98)); border-right:1px solid rgba(79,141,253,.14); display:flex; flex-direction:column; }
+    .logo { padding:22px 18px; font-size:19px; font-weight:900; border-bottom:1px solid rgba(148,163,184,.10); color:#f8fafc; }
+    .nav-menu { list-style:none; margin:0; padding:14px 10px; overflow-y:auto; }
+    .nav-menu li { margin:0 2px 5px; border-radius:12px; }
+    .nav-menu a { display:flex; align-items:center; gap:11px; padding:11px 13px; color:#9fb0c8; font-size:14px; font-weight:700; text-decoration:none; border-left:3px solid transparent; border-radius:12px; }
+    .nav-menu li.active a { color:#dbeafe; background:linear-gradient(135deg, rgba(79,141,253,.18), rgba(34,211,238,.09)); border-left-color:#4f8dfd; }
+    .nav-menu a:hover { color:#f8fafc; background:rgba(79,141,253,.12); }
+    .nav-icon { width:24px; text-align:center; flex:none; }
+    .sys-info { margin-top:auto; padding:14px 16px 18px; border-top:1px solid rgba(148,163,184,.10); color:#72839a; font-size:12px; line-height:1.6; text-align:center; }
+    .content { flex:1; min-width:0; }
     header { position:sticky; top:0; z-index:2; padding:16px 22px; background:rgba(7,17,31,.94); border-bottom:1px solid rgba(148,163,184,.18); display:flex; justify-content:space-between; gap:16px; align-items:center; }
     h1 { margin:0; font-size:22px; }
     main { padding:18px 22px 28px; }
@@ -29,10 +40,13 @@
     button.danger { background:#dc2626; }
     button.success { background:#16a34a; }
     button:disabled { opacity:.5; cursor:not-allowed; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; }
+    .group-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin-bottom:16px; }
     .card { border:1px solid rgba(148,163,184,.16); background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(12,20,34,.96)); border-radius:10px; padding:13px; }
+    .group-card { border-color:rgba(34,211,238,.22); background:linear-gradient(180deg,rgba(14,35,54,.96),rgba(10,25,41,.96)); }
     .card-head { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:10px; }
     .name-input { width:140px; min-width:0; font-weight:800; border-color:rgba(59,130,246,.32); }
+    .group-title { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:15px; font-weight:900; color:#e0f2fe; }
     .raw { color:#94a3b8; font-family:Consolas,monospace; font-size:12px; }
     .metric { padding:10px; border-radius:8px; background:rgba(2,6,23,.42); border:1px solid rgba(148,163,184,.10); }
     .metric span { display:block; color:#94a3b8; font-size:12px; margin-bottom:6px; }
@@ -40,21 +54,42 @@
     .log { margin-top:14px; color:#9fb0c8; font-family:Consolas,monospace; font-size:12px; word-break:break-all; line-height:1.6; }
     .error { color:#fca5a5; }
     @media (max-width: 760px) {
+      .layout { display:block; }
+      .sidebar { display:none; }
       header { align-items:flex-start; flex-direction:column; }
       main { padding:12px; }
       .grid { grid-template-columns:1fr; }
+      .group-grid { grid-template-columns:1fr; }
     }
   </style>
 </head>
 <body>
-  <header>
-    <div>
-      <h1 id="pageTitle">电流采集</h1>
-      <div class="meta"><a href="/">返回中控主页</a> · <span id="subtitle">等待采集...</span></div>
-    </div>
-    <span class="status offline" id="status">离线</span>
-  </header>
-  <main>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="logo">泛型控制</div>
+      <ul class="nav-menu">
+        {% for item in (config.sidebar|sort(attribute='sort') if config.sidebar else []) %}
+          {% if item.visible %}
+          <li class="{{ 'active' if item.id == 'current_collector' else '' }}">
+            <a href="{{ '/current-collector' if item.id == 'current_collector' else ('/m32r' if item.id == 'm32r' else '/#view-' ~ item.id) }}">
+              <span class="nav-icon">{{ item.icon }}</span>
+              <span>{{ item.name }}</span>
+            </a>
+          </li>
+          {% endif %}
+        {% endfor %}
+      </ul>
+      <div class="sys-info">Smart Center<br>电流采集</div>
+    </aside>
+    <div class="content">
+      <header>
+        <div>
+          <h1 id="pageTitle">电流采集</h1>
+          <div class="meta"><a href="/">返回中控主页</a> · <span id="subtitle">等待采集...</span></div>
+        </div>
+        <span class="status offline" id="status">离线</span>
+      </header>
+      <main>
     <section class="panel">
       <div class="toolbar">
         <label>名称 <input id="deviceName" class="wide config-input" value="16路电流采集器"></label>
@@ -92,9 +127,12 @@
         <span class="meta" id="configMessage"></span>
       </div>
     </section>
-    <section class="grid" id="grid"></section>
-    <section class="log" id="log"></section>
-  </main>
+        <section class="group-grid" id="groupGrid"></section>
+        <section class="grid" id="grid"></section>
+        <section class="log" id="log"></section>
+      </main>
+    </div>
+  </div>
   <script>
     let lastPayload = null;
     let configDirty = false;
@@ -107,6 +145,43 @@
     function formatA(value) {
       const num = Number(value);
       return Number.isFinite(num) ? `${num.toFixed(3)} A` : '--';
+    }
+    function channelValueMap(channels) {
+      const map = new Map();
+      channels.forEach(item => map.set(Number(item.channel), Number(item.current)));
+      return map;
+    }
+    function renderGroups(cfg, channels) {
+      const groups = Array.isArray(cfg.groups) ? cfg.groups.filter(item => item && item.visible !== false) : [];
+      const box = $('groupGrid');
+      if (!box) return;
+      if (!groups.length) {
+        box.innerHTML = '';
+        return;
+      }
+      const values = channelValueMap(channels);
+      box.innerHTML = groups
+        .slice()
+        .sort((a, b) => Number(a.sort || 999) - Number(b.sort || 999))
+        .map(group => {
+          const groupChannels = Array.isArray(group.channels) ? group.channels.map(Number).filter(Boolean) : [];
+          let sum = 0;
+          let known = 0;
+          groupChannels.forEach(channel => {
+            const value = values.get(channel);
+            if (Number.isFinite(value)) {
+              sum += value;
+              known += 1;
+            }
+          });
+          return `<section class="card group-card">
+            <div class="card-head">
+              <div class="group-title" title="${escapeHtml(group.name || '')}">${escapeHtml(group.name || '组合电流')}</div>
+              <div class="raw">${escapeHtml(groupChannels.map(ch => `CH${ch}`).join(' / ') || '--')}</div>
+            </div>
+            <div class="metric"><span>组合电流</span><strong>${known ? formatA(sum) : '--'}</strong></div>
+          </section>`;
+        }).join('');
     }
     function setStatus(online, text) {
       const el = $('status');
@@ -186,6 +261,7 @@
           ? `${snap.collected_at || lastPayload.updated_at || '--'} / ${snap.transport || cfg.transport || '--'} / 地址 ${snap.slave || cfg.slave || '--'} / 寄存器 ${snap.register_base || '--'}`
           : `离线：${lastPayload.error || '暂无数据'}`;
       syncConfigForm(cfg);
+      renderGroups(cfg, channels);
       $('grid').innerHTML = channels.map(item => `
         <section class="card">
           <div class="card-head">
