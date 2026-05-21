@@ -85,7 +85,7 @@
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
     <script src="/static/vendor/echarts.min.js?v=6.0.0"></script>
     <script src="/static/js/core/bootstrap.js?v=20260522-stage2"></script>
-    <script src="/static/js/core/utils.js?v=20260522-stage2-utils"></script>
+    <script src="/static/js/core/utils.js?v=20260522-stage2-format-utils"></script>
     <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260519-sequencer-single-page">
     <style>
         /* AI map: dashboard.inline_styles. Move isolated blocks to static/css/views
@@ -1732,13 +1732,6 @@
             }
         }
         ensureInitialVisibleView();
-        function parseDateTimeText(value) {
-            const text = String(value || '').trim();
-            if (!text) return null;
-            const normalized = text.replace(' ', 'T');
-            const dt = new Date(normalized);
-            return Number.isNaN(dt.getTime()) ? null : dt;
-        }
         function isNowInTimeRange(startText, endText) {
             if (!startText || !endText) return true;
             const parse = text => {
@@ -2955,29 +2948,6 @@
                 </div>
             `).join('');
         }
-        function formatRelativeSeconds(seconds) {
-            const total = Math.max(0, Number(seconds) || 0);
-            if (total < 1) return '0秒';
-            if (total < 60) return `${Math.round(total)}秒`;
-            const minutes = Math.floor(total / 60);
-            const remainSeconds = Math.round(total % 60);
-            if (minutes < 60) return remainSeconds > 0 ? `${minutes}分${remainSeconds}秒` : `${minutes}分钟`;
-            const hours = Math.floor(minutes / 60);
-            const remainMinutes = minutes % 60;
-            return remainMinutes > 0 ? `${hours}小时${remainMinutes}分钟` : `${hours}小时`;
-        }
-        function formatDateTimeText(value) {
-            if (!value) return '未上报';
-            const dt = new Date(String(value).replace(' ', 'T'));
-            if (Number.isNaN(dt.getTime())) return String(value);
-            return dt.toLocaleString('zh-CN', { hour12: false });
-        }
-        function formatTimeShort(value) {
-            if (!value) return '--';
-            const dt = new Date(String(value).replace(' ', 'T'));
-            if (Number.isNaN(dt.getTime())) return String(value);
-            return dt.toLocaleTimeString('zh-CN', { hour12: false });
-        }
         function getDeviceStatusMeta(status = {}, options = {}) {
             const fallbackOfflineText = options.offlineText || '离线';
             const levelRaw = String(status.status_level || '').trim().toLowerCase();
@@ -3026,10 +2996,6 @@
             if (!meta || meta.level === 'offline') return 'offline';
             if (meta.level === 'stale' || meta.level === 'error') return 'warning';
             return '';
-        }
-        function toFiniteNumber(value) {
-            const num = Number(value);
-            return Number.isFinite(num) ? num : null;
         }
         function getAutomationStatusMap() {
             return new Map((Array.isArray(automationStatusCache.rules) ? automationStatusCache.rules : []).map(item => [String(item.id), item]));
@@ -4195,26 +4161,6 @@
                 || envConfigs.map(cfg => ({ cfg, st: envData[cfg.id] || { online: false } })).find(item => item.st && item.st.online)
                 || null;
         }
-        function getTodayTargetDateTime(timeText='20:00') {
-            const now = new Date();
-            const [h, m] = String(timeText || '20:00').split(':').map(v => parseInt(v, 10) || 0);
-            const dt = new Date(now);
-            dt.setHours(h, m, 0, 0);
-            return dt;
-        }
-        function formatCountdownText(target) {
-            if (!(target instanceof Date) || Number.isNaN(target.getTime())) return '未知';
-            const now = new Date();
-            let diff = Math.floor((target.getTime() - now.getTime()) / 1000);
-            if (diff <= 0) return '已到时间';
-            const hours = Math.floor(diff / 3600);
-            diff -= hours * 3600;
-            const minutes = Math.floor(diff / 60);
-            const seconds = diff - minutes * 60;
-            if (hours > 0) return `${hours}小时 ${minutes}分钟`;
-            if (minutes > 0) return `${minutes}分钟 ${seconds}秒`;
-            return `${seconds}秒`;
-        }
         function formatLuxTrendSummary(trend, threshold, currentLux) {
             if (!trend || typeof trend !== 'object') {
                 return { eta: '--', note: '趋势数据尚未建立' };
@@ -4682,9 +4628,7 @@
             return looksLikeGarbledText(text) ? fallback : text;
         }
         function formatPowerValue(value, digits = 1, suffix = '') {
-            const numeric = Number(value);
-            if (!Number.isFinite(numeric)) return `--${suffix}`;
-            return `${numeric.toFixed(digits)}${suffix}`;
+            return formatFixedNumber(value, digits, suffix, '--');
         }
         function getCabinetDisplayName(cab, cabId) {
             const cabinetName = sanitizeReadableText(cab?.cabinet_name, '');
@@ -4938,9 +4882,7 @@
             }).join('');
         }
         function formatHomeNumber(value, digits = 0, suffix = '') {
-            const num = Number(value);
-            if (!Number.isFinite(num)) return '--';
-            return `${num.toFixed(digits)}${suffix}`;
+            return formatFixedNumber(value, digits, suffix, '--');
         }
         function renderHomeCompactMetric(label, value, tone = '') {
             return `<div class="home-compact-metric">

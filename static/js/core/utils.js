@@ -93,6 +93,73 @@
         }, fallbackText);
     }
 
+    function parseDateTimeText(value) {
+        const text = String(value || '').trim();
+        if (!text) return null;
+        const normalized = text.replace(' ', 'T');
+        const dt = new Date(normalized);
+        return Number.isNaN(dt.getTime()) ? null : dt;
+    }
+
+    function formatRelativeSeconds(seconds) {
+        const total = Math.max(0, Number(seconds) || 0);
+        if (total < 1) return '0秒';
+        if (total < 60) return `${Math.round(total)}秒`;
+        const minutes = Math.floor(total / 60);
+        const remainSeconds = Math.round(total % 60);
+        if (minutes < 60) return remainSeconds > 0 ? `${minutes}分${remainSeconds}秒` : `${minutes}分钟`;
+        const hours = Math.floor(minutes / 60);
+        const remainMinutes = minutes % 60;
+        return remainMinutes > 0 ? `${hours}小时${remainMinutes}分钟` : `${hours}小时`;
+    }
+
+    function formatDateTimeText(value) {
+        if (!value) return '未上报';
+        const dt = new Date(String(value).replace(' ', 'T'));
+        if (Number.isNaN(dt.getTime())) return String(value);
+        return dt.toLocaleString('zh-CN', { hour12: false });
+    }
+
+    function formatTimeShort(value) {
+        if (!value) return '--';
+        const dt = new Date(String(value).replace(' ', 'T'));
+        if (Number.isNaN(dt.getTime())) return String(value);
+        return dt.toLocaleTimeString('zh-CN', { hour12: false });
+    }
+
+    function toFiniteNumber(value) {
+        const num = Number(value);
+        return Number.isFinite(num) ? num : null;
+    }
+
+    function getTodayTargetDateTime(timeText = '20:00') {
+        const now = new Date();
+        const [h, m] = String(timeText || '20:00').split(':').map(v => parseInt(v, 10) || 0);
+        const dt = new Date(now);
+        dt.setHours(h, m, 0, 0);
+        return dt;
+    }
+
+    function formatCountdownText(target) {
+        if (!(target instanceof Date) || Number.isNaN(target.getTime())) return '未知';
+        const now = new Date();
+        let diff = Math.floor((target.getTime() - now.getTime()) / 1000);
+        if (diff <= 0) return '已到时间';
+        const hours = Math.floor(diff / 3600);
+        diff -= hours * 3600;
+        const minutes = Math.floor(diff / 60);
+        const seconds = diff - minutes * 60;
+        if (hours > 0) return `${hours}小时 ${minutes}分钟`;
+        if (minutes > 0) return `${minutes}分钟 ${seconds}秒`;
+        return `${seconds}秒`;
+    }
+
+    function formatFixedNumber(value, digits = 0, suffix = '', fallback = '--') {
+        const num = Number(value);
+        if (!Number.isFinite(num)) return suffix ? `${fallback}${suffix}` : fallback;
+        return `${num.toFixed(digits)}${suffix}`;
+    }
+
     const api = {
         escapeHtml,
         translateApiError,
@@ -101,6 +168,14 @@
         fetchJson,
         fetchJsonLoose,
         postJsonLoose,
+        parseDateTimeText,
+        formatRelativeSeconds,
+        formatDateTimeText,
+        formatTimeShort,
+        toFiniteNumber,
+        getTodayTargetDateTime,
+        formatCountdownText,
+        formatFixedNumber,
     };
 
     SmartCenter.utils = Object.assign({}, SmartCenter.utils || {}, api);
