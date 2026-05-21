@@ -17,38 +17,45 @@ _PENDING_TTL_SEC = 120
 
 
 CATEGORY_LABELS = {
-    "hvac": "??",
-    "power": "??",
-    "light": "??",
-    "sequencer": "????",
-    "projector": "???",
-    "screen": "??",
-    "server": "???",
-    "automation": "???",
-    "system": "??",
-    "door": "??",
+    "hvac": "空调",
+    "power": "强电",
+    "light": "灯光",
+    "sequencer": "时序电源",
+    "projector": "投影机",
+    "screen": "幕布",
+    "server": "服务器",
+    "automation": "自动化",
+    "system": "系统",
+    "door": "门禁",
+    "meter": "电表",
+    "ups": "UPS",
+    "snmp": "SNMP",
+    "nvr": "监控",
+    "current_collector": "电流采集",
+    "local_model": "本地模型",
 }
 
 EVENT_TYPE_LABELS = {
-    "command": "????",
-    "state_change": "????",
-    "automation": "???",
-    "audit": "??",
-    "error": "??",
-    "health": "????",
+    "command": "控制命令",
+    "state_change": "状态变化",
+    "automation": "自动化",
+    "audit": "审计",
+    "error": "异常",
+    "health": "健康检查",
+    "config": "配置变更",
 }
 
 SOURCE_LABELS = {
-    "user": "??",
+    "user": "人工",
     "api": "API",
-    "automation": "???",
-    "poller": "????",
-    "device": "????",
-    "external": "????",
+    "automation": "自动化",
+    "poller": "轮询识别",
+    "device": "设备回报",
+    "external": "外部变化",
     "ha": "Home Assistant",
     "miio": "miio",
-    "system": "??",
-    "unknown": "??",
+    "system": "系统",
+    "unknown": "未知",
 }
 
 
@@ -367,43 +374,169 @@ def query_events(
     return {"items": [_row_to_dict(row) for row in rows], "total": int(total or 0), "limit": safe_limit, "offset": safe_offset}
 
 
-def record_legacy_operation(cab_idx, operation, category="system", status="ok", detail=None, actor=None):
+
+def _contains_any(text, needles):
+    return any(item and item in text for item in needles)
+
+
+def _extract_bracket_value(text, marker):
+    prefix = f"[{marker}]"
+    if prefix not in text:
+        return ""
+    tail = text.split(prefix, 1)[1].strip()
+    if tail.startswith("[") and "]" in tail:
+        return tail.split("]", 1)[0].lstrip("[")
+    return ""
+
+
+def _infer_action(text):
+    lower = text.lower()
+    pairs = [
+        ("power_on", ["power_on", "开机", "开启", "打开", "开灯", "合闸", "启动"]),
+        ("power_off", ["power_off", "关机", "关闭", "关灯", "断开", "停止"]),
+        ("set_temp", ["set_temp", "设定温度", "温度"]),
+        ("set_mode", ["set_mode", "模式"]),
+        ("set_fan_mode", ["set_fan_mode", "风速", "风量"]),
+        ("status_change", ["状态变化", "->", "离线", "在线"]),
+        ("scene_start", ["scene] start", "场景", "start:"]),
+        ("scene_completed", ["scene] completed", "completed:"]),
+        ("automation_triggered", ["automation] triggered", "自动化", "triggered:"]),
+        ("config", ["配置", "保存"]),
+    ]
+    for action, needles in pairs:
+        if any(needle.lower() in lower for needle in needles):
+            return action
+    return ""
+
+
+def _infer_device_name(text, category):
+    lower = text.lower()
+    if "[scene]" in lower:
+        tail = text.split(":", 1)[1].strip() if ":" in text else text
+        return tail[:80]
+    if "automation] triggered" in lower:
+        if "[" in text and "]" in text:
+            parts = text.split("[")
+            if len(parts) >= 3 and "]" in parts[2]:
+                return parts[2].split("]", 1)[0].strip()
+    bracket = _extract_bracket_value(text, CATEGORY_LABELS.get(category, ""))
+    if bracket and bracket != CATEGORY_LABELS.get(category):
+        return bracket
+    if "[" in text and "]" in text:
+        parts = [part for part in text.split("[") if "]" in part]
+        if len(parts) >= 2:
+            maybe = parts[1].split("]", 1)[0].strip()
+            if maybe and maybe not in CATEGORY_LABELS.values() and maybe not in {"scene", "automation"}:
+                return maybe
+    for sep in ("] ", "]", "：", ":"):
+        if sep in text:
+            tail = text.split(sep, 1)[1].strip()
+            for token in (" 已执行", " 控制", " 电源", " - ", ":", "："):
+                if token in tail:
+                    tail = tail.split(token, 1)[0].strip()
+            if 1 <= len(tail) <= 80:
+                return tail
+    return ""
+
+
+def infer_legacy_event(operation, category="", status="ok", detail=None):
+    text = str(operation or "")
+    lower = text.lower()
     detail = detail if isinstance(detail, dict) else {}
-    source = str(detail.get("source") or "system")
-    event_type = str(detail.get("event_type") or "audit")
+    inferred_category = str(category or "").strip()
+    if not inferred_category or inferred_category == "system":
+        if _contains_any(text, ["空调", "[hvac]"]) or "hvac" in lower:
+            inferred_category = "hvac"
+        elif _contains_any(text, ["强电", "电柜", "回路", "合闸", "断开"]) or "power" in lower:
+            inferred_category = "power"
+        elif _contains_any(text, ["灯光", "户外灯", "庭院灯", "开灯", "关灯"]) or "light" in lower:
+            inferred_category = "light"
+        elif _contains_any(text, ["时序电源", "时序器"]) or "sequencer" in lower:
+            inferred_category = "sequencer"
+        elif _contains_any(text, ["投影机", "投影"]) or "projector" in lower:
+            inferred_category = "projector"
+        elif _contains_any(text, ["幕布"]) or "screen" in lower:
+            inferred_category = "screen"
+        elif _contains_any(text, ["服务器", "主机"]) or "server" in lower:
+            inferred_category = "server"
+        elif _contains_any(text, ["自动化", "场景联动"]) or "automation" in lower or "[scene]" in lower:
+            inferred_category = "automation"
+        elif _contains_any(text, ["门禁", "大门"]) or "door" in lower:
+            inferred_category = "door"
+        elif _contains_any(text, ["电表", "能耗"]) or "meter" in lower:
+            inferred_category = "meter"
+        elif _contains_any(text, ["UPS"]):
+            inferred_category = "ups"
+        elif _contains_any(text, ["SNMP", "NAS", "交换机"]):
+            inferred_category = "snmp"
+        elif _contains_any(text, ["电流采集", "采集器"]):
+            inferred_category = "current_collector"
+        else:
+            inferred_category = "system"
+
+    if "状态变化" in text or "->" in text:
+        event_type = "state_change"
+        source = "poller"
+        result = "external_detected"
+    elif "自动化" in text or "automation" in lower or "[scene]" in lower:
+        event_type = "automation"
+        source = "automation"
+        result = status or "ok"
+    elif any(token in text for token in ("控制", "执行", "命令", "开机", "关机", "合闸", "断开", "开灯", "关灯")):
+        event_type = "command"
+        source = str(detail.get("source") or "api")
+        result = status or ("success" if "成功" in text or "已执行" in text else "sent")
+    elif "失败" in text or "异常" in text or "错误" in text:
+        event_type = "error"
+        source = str(detail.get("source") or "system")
+        result = status or "error"
+    else:
+        event_type = str(detail.get("event_type") or "audit")
+        source = str(detail.get("source") or "system")
+        result = status or "ok"
+
+    if "失败" in text or "异常" in text or str(status).lower() in {"error", "failed", "fail"}:
+        result = "error" if result in {"ok", "sent"} else result
+    if "成功" in text or "已执行" in text:
+        result = "success" if event_type == "command" else result
+
+    return {
+        "category": inferred_category,
+        "event_type": event_type,
+        "source": source,
+        "device_name": str(detail.get("device_name") or _infer_device_name(text, inferred_category)),
+        "device_id": str(detail.get("device_id") or ""),
+        "entity_id": str(detail.get("entity_id") or ""),
+        "channel": str(detail.get("channel") or ""),
+        "action": str(detail.get("action") or _infer_action(text)),
+        "result": result,
+    }
+
+
+def record_legacy_operation(cab_idx, operation, category="", status="ok", detail=None, actor=None):
+    detail = detail if isinstance(detail, dict) else {}
+    actor = actor if isinstance(actor, dict) else {}
+    meta = infer_legacy_event(operation, category=category, status=status, detail=detail)
     record_event(
-        category=category or _infer_category(operation),
-        event_type=event_type,
-        source=source,
-        source_detail=(actor or {}).get("username") if isinstance(actor, dict) else "",
+        category=meta["category"],
+        event_type=meta["event_type"],
+        source=meta["source"],
+        source_detail=actor.get("username") or str(detail.get("source_detail") or ""),
+        device_id=meta["device_id"],
+        device_name=meta["device_name"],
+        entity_id=meta["entity_id"],
+        channel=meta["channel"],
+        action=meta["action"],
         message=str(operation or ""),
-        result=status or "ok",
+        result=meta["result"],
         cab_idx=cab_idx if isinstance(cab_idx, int) else None,
-        raw={"legacy": True, "detail": detail, "actor": actor or {}},
+        raw={"legacy": True, "detail": detail, "actor": actor, "inferred": meta},
+        register_command=meta["event_type"] == "command",
     )
 
 
 def _infer_category(operation):
-    text = str(operation or "")
-    if "??" in text or "hvac" in text.lower():
-        return "hvac"
-    if "??" in text or "??" in text or "??" in text or "??" in text:
-        return "power"
-    if "??" in text:
-        return "light"
-    if "??" in text or "sequencer" in text.lower():
-        return "sequencer"
-    if "???" in text or "automation" in text.lower() or "scene" in text.lower():
-        return "automation"
-    if "??" in text:
-        return "projector"
-    if "??" in text:
-        return "screen"
-    if "???" in text:
-        return "server"
-    if "??" in text:
-        return "door"
-    return "system"
+    return infer_legacy_event(operation).get("category") or "system"
 
 
 # Initialize lazily but early enough to fail silently only on individual writes.
