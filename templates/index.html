@@ -4152,31 +4152,6 @@
                 </div>`;
             }).join('');
         }
-        function refreshPowerSupplement(cabId, force = false) {
-            const now = Date.now();
-            const activeView = getActiveViewId();
-            const minInterval = activeView === 'power' ? 12000 : 30000;
-            if (!force && powerSupplementFetchAt[cabId] && (now - powerSupplementFetchAt[cabId] < minInterval)) return;
-            powerSupplementFetchAt[cabId] = now;
-            fetch(`/api/logs?cab=${cabId}`)
-                .then(r => r.json())
-                .then(logs => {
-                    powerLogCache[cabId] = Array.isArray(logs) ? logs : [];
-                    renderPowerDetailLogs(cabId, powerLogCache[cabId]);
-                    renderDashboardPowerCards();
-                    renderDashboardPowerCompact();
-                })
-                .catch(err => console.error('强电日志更新失败', cabId, err));
-            fetch(`/api/7days_energy?cab=${cabId}`)
-                .then(r => r.json())
-                .then(data => {
-                    powerHistoryCache[cabId] = Array.isArray(data) ? data : [];
-                    renderPowerEnergyChart(cabId, powerHistoryCache[cabId]);
-                    renderDashboardPowerCards();
-                    renderDashboardPowerCompact();
-                })
-                .catch(err => console.error('强电图表更新失败', cabId, err));
-        }
         function getMeterModeText(mode) {
             const textMap = { type1: '电表类型 1', type4: '电表类型 4' };
             return textMap[String(mode || '').toLowerCase()] || (mode || '未定义');
@@ -4210,62 +4185,6 @@
                 const rightName = String(right?.display_name || right?.cabinet_name || right?.id || '');
                 return leftName.localeCompare(rightName, 'zh-CN');
             });
-        }
-        function renderMeterCard(meter) {
-            const online = !!meter.online;
-            const degraded = !!meter._degraded || String(meter.error || '').includes('fallback:');
-            const isReferenceMeter = !!meter.is_reference_meter;
-            const updatedText = meter.updated_at ? String(meter.updated_at).replace('T', ' ').slice(0, 19) : '--';
-            const errorText = String(meter.error || '').trim();
-            const dataSourceText = meter.source_label || meter.source || (degraded ? '降级采集' : (online ? '远程采集' : '等待连接'));
-            const titleText = meter.display_name || meter.cabinet_name || meter.id;
-            const subtitleText = isReferenceMeter
-                ? '参考主表 · 不参与统计'
-                : `${meter.area_name || '电表'} · ${dataSourceText}`;
-            const extraItems = [
-                { label: 'AB 线压', value: meterValueOrDash(meter.voltage_ab, 1, 'V', true) },
-                { label: 'BC 线压', value: meterValueOrDash(meter.voltage_bc, 1, 'V', true) },
-                { label: 'CA 线压', value: meterValueOrDash(meter.voltage_ca, 1, 'V', true) },
-                { label: '功率因数', value: meterValueOrDash(meter.power_factor, 3, '', true) },
-                { label: '频率', value: meterValueOrDash(meter.frequency, 2, 'Hz', true) },
-                { label: '视在功率', value: meterValueOrDash(meter.apparent_power, 2, 'kVA', true) },
-                { label: '无功功率', value: meterValueOrDash(meter.reactive_power, 2, 'kvar', true) }
-            ].filter(item => item.value !== '--');
-            const extraHtml = extraItems.length
-                ? `<div class="meter-extra-grid">${extraItems.map(item => `<div class="meter-extra-card"><div class="label">${item.label}</div><div class="value">${item.value}</div></div>`).join('')}</div>`
-                : '';
-            const statusText = online ? (degraded ? '告警' : '在线') : '离线';
-            const detailText = online ? escapeHtml(errorText || '远程采集正常') : escapeHtml(errorText || '设备离线或暂无返回');
-            return `<div class="meter-card ${online ? '' : 'offline'} ${isReferenceMeter ? 'reference-meter' : ''}">
-                <div class="meter-card-head">
-                    <div>
-                        <div class="card-head-kicker">${isReferenceMeter ? 'Reference Meter' : 'Meter Overview'}</div>
-                        <div class="meter-card-title">${escapeHtml(titleText)}</div>
-                        <div class="meter-card-subtitle">${escapeHtml(subtitleText)}</div>
-                    </div>
-                    <div class="status-chip-stack">
-                        <span class="meter-status-chip ${online ? (degraded ? 'degraded' : 'online') : 'offline'}">${statusText}</span>
-                        ${isReferenceMeter ? `<span class="meter-status-chip">对照专用</span>` : ''}
-                        ${meter.mode ? `<span class="meter-status-chip">${escapeHtml(getMeterModeText(meter.mode))}</span>` : ''}
-                    </div>
-                </div>
-                <div class="meter-phase-grid">
-                    <div class="meter-phase-card"><div class="phase">A 相</div><div class="main">${Number(meter.voltage_a || 0).toFixed(1)} V</div><div class="sub">${Number(meter.current_a || 0).toFixed(1)} A</div></div>
-                    <div class="meter-phase-card"><div class="phase">B 相</div><div class="main">${Number(meter.voltage_b || 0).toFixed(1)} V</div><div class="sub">${Number(meter.current_b || 0).toFixed(1)} A</div></div>
-                    <div class="meter-phase-card"><div class="phase">C 相</div><div class="main">${Number(meter.voltage_c || 0).toFixed(1)} V</div><div class="sub">${Number(meter.current_c || 0).toFixed(1)} A</div></div>
-                </div>
-                <div class="meter-kpi-grid">
-                    <div class="meter-kpi-card"><div class="label">实时功率</div><div class="value" style="color:var(--warning);">${Number((meter.effective_realtime_power ?? meter.stable_realtime_power ?? meter.realtime_power) || 0).toFixed(2)} kW</div></div>
-                    <div class="meter-kpi-card"><div class="label">累计电能</div><div class="value">${Number(meter.effective_electric_energy || 0).toFixed(1)} kWh</div></div>
-                    <div class="meter-kpi-card"><div class="label">今日电量</div><div class="value" style="color:var(--success);">${Number(meter.daily_energy || 0).toFixed(1)} kWh</div></div>
-                    <div class="meter-kpi-card"><div class="label">本月电量</div><div class="value" style="color:var(--brand-blue);">${Number(meter.monthly_energy || 0).toFixed(1)} kWh</div></div>
-                </div>
-                ${extraHtml}
-                <div class="meter-foot">
-                    <span>更新时间 ${escapeHtml(updatedText)}</span>
-                    <span>${detailText}</span>
-                </div>
-            </div>`;
         }
         function renderMeterCard(meter) {
             const online = !!meter.online;
@@ -4610,80 +4529,6 @@
                 }]
             }, true);
             myCharts.dashboardEnergyTrend.resize();
-        }
-        function updateMeterCenter() {
-            fetch(`/api/meters?target=${encodeURIComponent(meterTrendTarget)}&period=${encodeURIComponent(meterTrendPeriod)}&days=35`)
-                .then(r => r.json())
-                .then(data => {
-                    meterCenterCache = data || { summary: {}, meters: [], trend: [] };
-                    const summary = meterCenterCache.summary || {};
-                    const meters = Array.isArray(meterCenterCache.meters) ? meterCenterCache.meters : [];
-                    const grid = document.getElementById('meter-center-grid');
-                    const totalEl = document.getElementById('meter-summary-total');
-                    const onlineEl = document.getElementById('meter-summary-online');
-                    const powerEl = document.getElementById('meter-summary-power');
-                    const dailyEl = document.getElementById('meter-summary-daily');
-                    const monthlyEl = document.getElementById('meter-summary-monthly');
-                    const powerMetaEl = document.getElementById('meter-summary-power-meta');
-                    const dailyMetaEl = document.getElementById('meter-summary-daily-meta');
-                    const monthlyMetaEl = document.getElementById('meter-summary-monthly-meta');
-                    const displayBadge = document.getElementById('meter-summary-badge-display');
-                    const scopeBadge = document.getElementById('meter-summary-badge-scope');
-                    const sourceBadge = document.getElementById('meter-summary-badge-source');
-                    if (totalEl) totalEl.innerText = Number(summary.total || 0);
-                    if (onlineEl) onlineEl.innerText = Number(summary.online || 0);
-                    const cardTotalPower = Number(
-                        summary.card_total_realtime_power
-                        ?? summary.stable_total_realtime_power
-                        ?? summary.estimated_total_realtime_power
-                        ?? summary.total_realtime_power
-                        ?? 0
-                    );
-                    if (powerEl) powerEl.innerText = cardTotalPower.toFixed(2);
-                    if (dailyEl) dailyEl.innerText = Number(summary.total_daily_energy || 0).toFixed(1);
-                    if (monthlyEl) monthlyEl.innerText = Number(summary.total_monthly_energy || 0).toFixed(1) + ' kWh';
-                    if (displayBadge) {
-                        const mode = String((configData.meter_statistics || {}).energy_display_mode || 'display').toLowerCase();
-                        displayBadge.innerText = mode === 'raw' ? '原始累计值' : '运行口径';
-                    }
-                    if (scopeBadge) scopeBadge.innerText = `${Number(summary.online || 0)} / ${Number(summary.total || 0)} 在线`;
-                    if (sourceBadge) {
-                        const sourceMeta = resolveMeterSourceMeta(meterCenterCache);
-                        sourceBadge.innerText = sourceMeta.text;
-                        sourceBadge.title = sourceMeta.title || '';
-                        sourceBadge.style.color = sourceMeta.color || '#f8fafc';
-                    }
-                    const dashPower = document.getElementById('dash-total-power');
-                    const dashDaily = document.getElementById('dash-total-daily-energy');
-                    const dashPowerMeta = document.getElementById('dash-total-power-meta');
-                    const dashDailyMeta = document.getElementById('dash-total-daily-meta');
-                    const dashStablePower = Number(
-                        (meterCenterCache.dashboard_summary || {}).stable_power
-                        ?? (meterCenterCache.dashboard_summary || {}).estimated_power
-                        ?? (meterCenterCache.dashboard_summary || {}).power
-                        ?? cardTotalPower
-                        ?? 0
-                    );
-                    if (dashPower) dashPower.innerText = dashStablePower.toFixed(2);
-                    if (dashDaily) dashDaily.innerText = Number((meterCenterCache.dashboard_summary || {}).daily_energy || 0).toFixed(1);
-                    const compareToReference = (summary.compare_to_reference || {});
-                    if (powerMetaEl) powerMetaEl.innerHTML = formatPowerSummaryMeta(summary);
-                    if (dailyMetaEl) dailyMetaEl.innerHTML = formatReferenceMeta(compareToReference.daily_energy, ' kWh');
-                    if (monthlyMetaEl) monthlyMetaEl.innerHTML = formatReferenceMeta(compareToReference.monthly_energy, ' kWh');
-                    if (dashPowerMeta) dashPowerMeta.innerHTML = `单位 kW · ${formatPowerSummaryMeta(summary)}`;
-                    if (dashDailyMeta) dashDailyMeta.innerHTML = formatReferenceMeta(compareToReference.daily_energy, ' kWh');
-                    renderMeterTypeChips(summary.type_counts || {});
-                    renderMeterTrendSelectors(meterCenterCache);
-                    if (grid) {
-                        grid.innerHTML = meters.length
-                            ? meters.map(renderMeterCard).join('')
-                            : '<div style="color:var(--text-sub); grid-column:1/-1; text-align:center; padding:20px;">暂无可展示电表数据</div>';
-                    }
-                    const trendRows = (((meterCenterCache.trend_breakdown || {})[meterTrendPeriod === 'week' ? 'weekly' : (meterTrendPeriod === 'month' ? 'monthly' : 'daily')]) || []);
-                    renderMeterTrendChart(trendRows);
-                    renderDashboardEnergyTrend(trendRows, summary);
-                })
-                .catch(err => console.error('电表中心状态更新失败', err));
         }
         function changeMeterTrendTarget(target) {
             meterTrendTarget = target || 'total';
@@ -8140,31 +7985,6 @@
             const onlineEl = document.getElementById('dash-sequencer-online');
             if (totalEl) totalEl.innerText = devices.length;
             if (onlineEl) onlineEl.innerText = devices.filter(item => item.online).length;
-        }
-        function updateSequencerStatus() {
-            fetch('/api/sequencer/status')
-                .then(r => r.json())
-                .then(data => {
-                    sequencerStatusCache = data || {};
-                    renderSequencerCards();
-                })
-                .catch(err => console.error('时序电源状态更新失败', err));
-        }
-        function fireSequencerAction(id, action, channel = null) {
-            if (!ensurePermission('sequencer.control', '操作时序电源')) return;
-            showToast('时序电源指令下发中...', false);
-            fetch('/api/sequencer/control', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id, action, channel })
-            }).then(r => r.json()).then(data => {
-                if (!data.success) {
-                    showToast(data.message || '执行失败', true);
-                    return;
-                }
-                showToast(`执行成功${data.command ? ' - ' + data.command : ''}`);
-                setTimeout(() => { updateSequencerStatus(); updateDashboardLogs(); }, 120);
-            }).catch(() => showToast('网络请求失败', true));
         }
         function applyDashboardSectionOrder() {
             const dashboard = document.getElementById('view-dashboard');
