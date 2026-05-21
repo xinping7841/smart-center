@@ -198,7 +198,7 @@
             {% set first_active = namespace(found=false) %}
             {% for item in (config.sidebar|sort(attribute='sort') if config.sidebar else []) %}
                 {% if item.visible %}
-                <li class="{% if not first_active.found %}active{% set first_active.found = true %}{% endif %}" onclick="{% if item.id == 'm32r' %}window.location.href='/m32r'{% else %}switchTab('{{ item.id }}', '{{ item.name }}', this){% endif %}">
+                <li class="{% if not first_active.found %}active{% set first_active.found = true %}{% endif %}" onclick="{% if item.id == 'm32r' %}window.location.href='/m32r'{% elif item.id == 'current_collector' %}window.location.href='/current-collector'{% else %}switchTab('{{ item.id }}', '{{ item.name }}', this){% endif %}">
                     <span>{{ item.icon }}</span> {{ item.name }}
                 </li>
                 {% endif %}
