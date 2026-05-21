@@ -16,7 +16,7 @@ from paths import DB_FILE as DB_FILE_PATH, ensure_parent_dir
 
 bp = Blueprint('server', __name__)
 DB_FILE = str(DB_FILE_PATH)
-AGENT_VERSION = "2026.05.21.02"
+AGENT_VERSION = "2026.05.21.03"
 REPORT_MAX_BYTES = 8 * 1024 * 1024
 REPORT_MIN_INTERVAL_SEC = 2.0
 REPORT_CACHE = {}
@@ -5162,8 +5162,13 @@ function Get-StorageInventory {{
     $logicalByPartition = @{{}}
     try {{
         foreach ($link in @(Get-AgentInstances 'Win32_LogicalDiskToPartition')) {{
-            $partMatch = [regex]::Match([string]$link.Antecedent, 'Disk #(\d+), Partition #(\d+)')
-            $driveMatch = [regex]::Match([string]$link.Dependent, 'DeviceID="([^"]+)"')
+            $partText = [string]$link.Antecedent
+            $driveText = [string]$link.Dependent
+            $partMatch = [regex]::Match($partText, 'Disk\s*#(\d+),\s*Partition\s*#(\d+)', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+            if (-not $partMatch.Success) {{
+                $partMatch = [regex]::Match($partText, 'DiskIndex\s*=\s*"?(\d+)"?.*Index\s*=\s*"?(\d+)"?', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+            }}
+            $driveMatch = [regex]::Match($driveText, 'DeviceID\s*=\s*"([^"]+)"', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
             if ($partMatch.Success -and $driveMatch.Success) {{
                 $logicalByPartition[($partMatch.Groups[1].Value + ':' + $partMatch.Groups[2].Value)] = $driveMatch.Groups[1].Value
             }}
