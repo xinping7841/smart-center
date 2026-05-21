@@ -15,6 +15,7 @@ This directory is the target for gradually extracting logic from `templates/inde
 - `m32r.js`: standalone M32R virtual console page, mixer status polling, channel/main controls, templates, and Apple Audio route helpers.
 - `driver-hub.js`: standalone driver hub snapshot page, group filtering, health counters, and driver table rendering.
 - `local-model.js`: standalone local AI model console, configuration form, health check, chat, and training data export UI.
+- `login.js`: login page submit handler, remember-me local storage, and Enter-key shortcut.
 
 Rules:
 

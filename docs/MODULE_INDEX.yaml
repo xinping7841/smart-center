@@ -13,6 +13,16 @@ modules:
     config_keys: ['dashboard','ui_text']
     split_priority: high
     ai_keywords: ['dashboard','summary','home','overview']
+  auth_login:
+    frontend_module: 'static/js/views/login.js'
+    purpose: Login page submit handler, remember-me local storage, and auth redirect.
+    routes: ['/login','/api/auth/login']
+    backend: ['api/auth_api.py']
+    frontend: ['templates/login.html','static/js/views/login.js']
+    config_keys: ['login_page_text','auth']
+    runtime_state: ['runtime/auth_users.json']
+    split_priority: low
+    ai_keywords: ['login','auth','remember me','permission','account']
   power:
     purpose: Strong-current cabinet control, meter payloads, energy statistics, logs, exports.
     routes: ['/api/status','/api/meters','/api/7days_energy','/api/30days_energy','/api/export/meter_statistics','/api/set','/api/onekey_start','/api/onekey_stop','/api/logs']
