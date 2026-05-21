@@ -125,10 +125,11 @@ modules:
     split_priority: medium
     ai_keywords: ['door','vision','camera','recording','dataset','wizard']
   light:
+    frontend_module: 'static/js/views/lighting.js'
     purpose: Lighting controller polling, control, logs, and debug tools.
     routes: ['/api/light/status','/api/light/control','/api/light/logs','/light_debug']
     backend: ['api/light.py','background.py','drivers/light_*.py']
-    frontend: ['templates/index.html','templates/config.html']
+    frontend: ['templates/index.html','templates/config.html','templates/lighting.html','static/js/views/lighting.js']
     config_keys: ['custom_devices','lights','light_scenes']
     runtime_state: ['LIGHT_STATUS','LIGHT_ONLINE','LIGHT_DRIVERS']
     split_priority: medium

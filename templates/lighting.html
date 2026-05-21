@@ -80,8 +80,8 @@
                     {% for ch_config in device.channels_config|sort(attribute='sort') %}
                     {% if ch_config.visible %}
                     <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
-                        <button class="btn channel-btn status-offline" 
-                                data-device-id="{{ device.id }}" 
+                        <button class="btn channel-btn status-offline"
+                                data-device-id="{{ device.id }}"
                                 data-channel="{{ ch_config.channel }}"
                                 data-channel-name="{{ ch_config.name }}">
                             <span class="channel-name">{{ ch_config.name }}</span>
@@ -109,65 +109,6 @@
 </div>
 
 <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-<script>
-    $(document).ready(function() {
-        refreshStatus(); refreshLogs();
-        setInterval(refreshStatus, 1000);
-        setInterval(refreshLogs, 1500);
-
-        $(document).on('click', '.channel-btn', function() {
-            var btn = $(this);
-            $.ajax({
-                url: '/api/light/control', type: 'POST', contentType: 'application/json',
-                data: JSON.stringify({ type: 'single', device_id: btn.data('device-id'), channel: btn.data('channel'), is_open: !btn.hasClass('status-on') })
-            });
-        });
-
-        $(document).on('click', '.scene-btn', function() {
-            $.ajax({
-                url: '/api/light/control', type: 'POST', contentType: 'application/json',
-                data: JSON.stringify({ type: 'scene', scene_id: $(this).data('scene-id') })
-            });
-        });
-    });
-
-    function refreshStatus() {
-        $.get('/api/light/status', function(data) {
-            for (var devId in data.online) {
-                var isOnline = data.online[devId];
-                var statusTag = $('#device-status-' + devId);
-                if (isOnline) { statusTag.removeClass('status-offline').addClass('status-online').html('在线'); } 
-                else { statusTag.removeClass('status-online').addClass('status-offline').html('离线'); }
-            }
-            for (var devId in data.channels) {
-                var statusList = data.channels[devId];
-                statusList.forEach(function(status, index) {
-                    var btn = $('[data-device-id="' + devId + '"][data-channel="' + (index + 1) + '"]');
-                    if(btn.length > 0) {
-                        btn.removeClass('status-on status-off status-offline');
-                        if (status === null) {
-                            btn.addClass('status-offline'); btn.find('.channel-state').html('离线');
-                        } else if (status) {
-                            btn.addClass('status-on'); btn.find('.channel-state').html('已开启');
-                        } else {
-                            btn.addClass('status-off'); btn.find('.channel-state').html('已关闭');
-                        }
-                    }
-                });
-            }
-        });
-    }
-
-    function refreshLogs() {
-        $.get('/api/light/logs', function(data) {
-            var html = '';
-            data.forEach(function(log) {
-                var t = new Date(log.time).toLocaleTimeString('zh-CN', {hour12: false});
-                html += '<div class="log-item"><span class="log-time">[' + t + ']</span> <span>' + log.operation + '</span></div>';
-            });
-            $('#log-window').html(html);
-        });
-    }
-</script>
+<script src="/static/js/views/lighting.js?v=20260522-stage2-lighting-view"></script>
 </body>
 </html>

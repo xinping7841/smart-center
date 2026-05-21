@@ -9,7 +9,7 @@ The dashboard currently works, so frontend splitting must be done as behavior-pr
 - `templates/index.html` is the main shell and contains large inline CSS/JS.
 - Static CSS files are large and mostly shared.
 - Most buttons still call global functions from inline `onclick` attributes.
-- The following behavior-preserving modules have been extracted to `static/js/views/`: `logs.js`, `proxy.js`, `ups.js`, `hy-edge.js`, `apple-audio.js`, `universal.js`, `env.js`, `current-collector.js`, `m32r.js`, `driver-hub.js`, `local-model.js`, and `login.js`.
+- The following behavior-preserving modules have been extracted to `static/js/views/`: `logs.js`, `proxy.js`, `ups.js`, `hy-edge.js`, `apple-audio.js`, `universal.js`, `env.js`, `current-collector.js`, `m32r.js`, `driver-hub.js`, `local-model.js`, `login.js`, and `lighting.js`.
 
 ## Stage 2A: Bootstrap And Boundaries
 
@@ -46,6 +46,7 @@ Recommended order:
 10. Driver hub page. Completed: `static/js/views/driver-hub.js`.
 11. Local model page. Completed: `static/js/views/local-model.js`.
 12. Login page. Completed: `static/js/views/login.js`.
+13. Legacy lighting page. Completed: `static/js/views/lighting.js`.
 
 ## Stage 2D: Extract Heavy Views
 

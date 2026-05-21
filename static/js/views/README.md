@@ -16,6 +16,7 @@ This directory is the target for gradually extracting logic from `templates/inde
 - `driver-hub.js`: standalone driver hub snapshot page, group filtering, health counters, and driver table rendering.
 - `local-model.js`: standalone local AI model console, configuration form, health check, chat, and training data export UI.
 - `login.js`: login page submit handler, remember-me local storage, and Enter-key shortcut.
+- `lighting.js`: standalone legacy stage lighting page polling, log refresh, and unchanged jQuery control event bindings.
 
 Rules:
 
