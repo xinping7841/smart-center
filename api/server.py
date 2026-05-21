@@ -6919,6 +6919,8 @@ def report_data():
         _record_machine_wake_proxy_result(mac, data.get("wake_proxy_result"))
     if isinstance(data.get("command_result"), dict):
         _record_machine_command_result(mac, data.get("command_result"))
+        status_payload["command_result"] = data.get("command_result")
+        status_payload["last_command_report_at"] = datetime.now().isoformat()
 
     if _is_test_machine_report(mac, hostname, report_ip or request.remote_addr, status_payload):
         add_log(
