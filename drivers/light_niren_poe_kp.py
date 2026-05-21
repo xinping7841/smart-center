@@ -71,6 +71,12 @@ class NirenPoeKpRelayDriver(BaseDriver):
         except Exception:
             return 1
 
+    def _input_count(self):
+        try:
+            return max(0, min(int(self.config.get("input_count", 1) or 0), 64))
+        except Exception:
+            return 1
+
     def _host_port(self):
         return str(self.config.get("ip") or "").strip(), int(self.config.get("port") or 44489)
 
@@ -180,17 +186,27 @@ class NirenPoeKpRelayDriver(BaseDriver):
     def _read_coils_modbus(self):
         count = self._channel_count()
         start = int(self.config.get("status_start_address", 0) or 0)
-        body = start.to_bytes(2, "big") + count.to_bytes(2, "big")
-        pdu = self._exchange_modbus(0x01, body)
+        return self._read_bool_bits_modbus(0x01, start, count, "relay")
+
+    def _read_inputs_modbus(self):
+        count = self._input_count()
+        if count <= 0:
+            return []
+        start = int(self.config.get("input_start_address", 0) or 0)
+        return self._normalize_inputs(self._read_bool_bits_modbus(0x02, start, count, "input"))
+
+    def _read_bool_bits_modbus(self, function_code, start, count, label):
+        body = int(start).to_bytes(2, "big") + int(count).to_bytes(2, "big")
+        pdu = self._exchange_modbus(function_code, body)
         if len(pdu) < 4 or pdu[1] & 0x80:
-            raise RuntimeError(f"relay read exception: {pdu.hex(' ')}")
+            raise RuntimeError(f"{label} read exception: {pdu.hex(' ')}")
         byte_count = int(pdu[2])
         data = pdu[3:3 + byte_count]
-        channels = []
+        states = []
         for byte in data:
             for bit in range(8):
-                channels.append(bool(byte & (1 << bit)))
-        return channels[:count]
+                states.append(bool(byte & (1 << bit)))
+        return states[:count]
 
     def _send_at(self, command):
         text = str(command or "").strip()
@@ -210,20 +226,43 @@ class NirenPoeKpRelayDriver(BaseDriver):
             channels.append(value == "1")
         return channels
 
+    def _read_inputs_at(self):
+        count = self._input_count()
+        inputs = []
+        for ch in range(1, count + 1):
+            raw = self._send_at(f"AT+OCCH{ch}=?")
+            if "+OCCH" not in raw:
+                raise RuntimeError(raw or "empty AT response")
+            value = raw.split(":", 1)[-1].split(",", 1)[0].strip()
+            inputs.append(value == "1")
+        return self._normalize_inputs(inputs)
+
+    def _input_active_level(self):
+        value = str(self.config.get("input_active_level", "high") or "high").strip().lower()
+        return "low" if value in {"low", "0", "false", "closed_low", "低", "低电平"} else "high"
+
+    def _normalize_inputs(self, inputs):
+        if self._input_active_level() != "low":
+            return inputs
+        return [None if item is None else not bool(item) for item in inputs]
+
     def read_status(self):
         with self.dev_lock:
             try:
                 if self._protocol() == "at":
                     channels = self._read_coils_at()
+                    inputs = self._read_inputs_at()
                 else:
                     channels = self._read_coils_modbus()
+                    inputs = self._read_inputs_modbus()
                 self.is_online = True
                 self.last_error = ""
                 return {
                     "online": True,
                     "channels": channels,
+                    "inputs": inputs,
                     "status_text": self.last_protocol or self._protocol(),
-                    "raw_status": {"protocol": self.last_protocol or self._protocol()},
+                    "raw_status": {"protocol": self.last_protocol or self._protocol(), "inputs": inputs},
                 }
             except Exception as exc:
                 self.is_online = False
@@ -231,6 +270,7 @@ class NirenPoeKpRelayDriver(BaseDriver):
                 return {
                     "online": False,
                     "channels": [None] * self._channel_count(),
+                    "inputs": [None] * self._input_count(),
                     "status_text": "offline",
                     "error": str(exc),
                 }

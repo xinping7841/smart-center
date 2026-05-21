@@ -1964,7 +1964,10 @@ def load_config():
         if str(light.get("brand") or "").strip().upper() in {"NIREN_POE_KP", "POE_KP_I101"}:
             light["port"] = int(light.get("port") or 44489)
             light["channels"] = max(1, min(int(light.get("channels") or 1), 64))
+            light["input_count"] = max(0, min(int(light.get("input_count", 1) or 0), 64))
             if "relay_protocol" not in light: light["relay_protocol"] = "rtu_over_tcp"
+            if "input_start_address" not in light: light["input_start_address"] = 0
+            if "input_active_level" not in light: light["input_active_level"] = "high"
             if "retry_count" not in light: light["retry_count"] = 3
             if "retry_delay_ms" not in light: light["retry_delay_ms"] = 350
         if "status_read_mode" not in light: light["status_read_mode"] = "coil"
@@ -1982,6 +1985,24 @@ def load_config():
             light["dashboard_action_buttons"] = []
         if "channels_config" not in light:
             light["channels_config"] = [{"channel": i, "name": f"第{i}路", "sort": i, "visible": True, "span": 1} for i in range(1, light["channels"] + 1)]
+        if "input_channels_config" not in light or not isinstance(light.get("input_channels_config"), list):
+            light["input_channels_config"] = [{"channel": i, "name": f"输入{i}", "sort": i, "visible": True, "span": 1} for i in range(1, int(light.get("input_count", 0) or 0) + 1)]
+        if int(light.get("input_count", 0) or 0) > 0:
+            existing_inputs = {
+                int(item.get("channel") or 0): item
+                for item in light.get("input_channels_config", [])
+                if isinstance(item, dict)
+            }
+            light["input_channels_config"] = [
+                {
+                    "channel": i,
+                    "name": str((existing_inputs.get(i) or {}).get("name") or f"输入{i}"),
+                    "sort": int((existing_inputs.get(i) or {}).get("sort") or i),
+                    "visible": bool((existing_inputs.get(i) or {}).get("visible", True)),
+                    "span": int((existing_inputs.get(i) or {}).get("span") or 1),
+                }
+                for i in range(1, int(light.get("input_count", 0) or 0) + 1)
+            ]
 
     for env in loaded_config["env_sensors"]:
         if "source_type" not in env:

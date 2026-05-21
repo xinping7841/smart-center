@@ -261,6 +261,11 @@ def api_light_status():
         extras[str(dev_id)] = {
             "brand": cfg.get("brand"),
             "dashboard_action_buttons": list(cfg.get("dashboard_action_buttons", []) or []),
+            "inputs": list(meta.get("inputs", []) or []),
+            "input_count": int(cfg.get("input_count", 0) or 0),
+            "input_channels_config": list(cfg.get("input_channels_config", []) or []),
+            "input_active_level": cfg.get("input_active_level", "high"),
+            "input_state_known": bool(meta.get("input_state_known", False)),
             "status_text": (meta.get("device_status_text") or meta.get("status_text") or "unknown"),
             "status_level": meta.get("status_level", "offline"),
             "status_label": meta.get("status_label", "离线"),
@@ -589,8 +594,12 @@ def api_light_debug_all():
             "slave_id": cfg.get("slave_id", 1),
             "brand": cfg.get("brand"),
             "channel_count": cfg.get("channels", 0),
+            "input_count": cfg.get("input_count", 0),
+            "input_channels_config": cfg.get("input_channels_config", []),
+            "input_active_level": cfg.get("input_active_level", "high"),
             "status_read_mode": cfg.get("status_read_mode", "coil"),
             "status_start_address": cfg.get("status_start_address", 0),
+            "input_start_address": cfg.get("input_start_address", 0),
             "write_start_address": cfg.get("write_start_address", 0),
             "cached_online": LIGHT_ONLINE.get(dev_id),
             "cached_channels": LIGHT_STATUS.get(dev_id, []),
@@ -608,6 +617,7 @@ def api_light_debug_all():
                     "success": True,
                     "online": status.get("online", False),
                     "channels": status.get("channels", []),
+                    "inputs": status.get("inputs", []),
                 }
             )
         except Exception as exc:

@@ -2577,6 +2577,11 @@
             else conf.light_devices[pIdx].channels_config[cIdx][key] = isNum ? (parseInt(val)||0) : val;
             renderAll();
         }
+        function updLightInput(pIdx, cIdx, key, val, isNum=false) {
+            if (!Array.isArray(conf.light_devices[pIdx].input_channels_config)) conf.light_devices[pIdx].input_channels_config = [];
+            conf.light_devices[pIdx].input_channels_config[cIdx][key] = isNum ? (parseInt(val)||0) : val;
+            renderAll();
+        }
 
         // 鏂板锛氭姇褰变华鎸囦护鏇存柊
         function updProjCmd(pIdx, cIdx, k, val, isNum=false) { 
@@ -3158,6 +3163,13 @@
             cfgs.forEach(ch => { if (ch.remark === undefined || ch.remark === null) ch.remark = ''; });
             obj.channels_config = cfgs.filter(c => c.channel <= count);
         }
+        function initInputChannels(obj) {
+            let count = parseInt(obj.input_count || 0);
+            if(!Array.isArray(obj.input_channels_config)) obj.input_channels_config = [];
+            let cfgs = obj.input_channels_config;
+            for(let i=1; i<=count; i++) { if(!cfgs.find(c=>c.channel===i)) cfgs.push({channel:i, name:"输入" + i, sort:i, visible:true, span: 1}); }
+            obj.input_channels_config = cfgs.filter(c => c.channel <= count);
+        }
         function initSequencerChannels(obj) {
             let count = obj.channel_count || 8;
             if(!obj.channels_config) obj.channels_config = [];
@@ -3662,6 +3674,7 @@
                 let hl = '';
                 conf.light_devices.forEach((l, i) => {
                     initChannels(l, 'channels');
+                    initInputChannels(l);
                     ensureLightDashboardButtons(l);
                     const lightBrand = String(l.brand || 'COXE');
                     const isRfTcpLight = lightBrand === 'RF_TCP';
@@ -3676,6 +3689,19 @@
                             </div>
                             <div class="item"><label>显示状态</label>
                                 <select onchange="updCh('light',${i},${cIdx},'visible',this.value==='true')"><option value="true" ${ch.visible?'selected':''}>显示</option><option value="false" ${!ch.visible?'selected':''}>隐藏</option></select>
+                            </div>
+                        </div>`;
+                    });
+                    let inputHtml = '';
+                    (l.input_channels_config || []).forEach((ch, cIdx) => {
+                        inputHtml += `<div class="action-row" style="background:#f8fafc;">
+                            <div class="item"><label>输入 ${ch.channel} 名称</label><input value="${ch.name}" onchange="updLightInput(${i},${cIdx},'name',this.value)"></div>
+                            <div class="item"><label>排序</label><input type="number" value="${ch.sort}" onchange="updLightInput(${i},${cIdx},'sort',this.value,true)" style="width:70px"></div>
+                            <div class="item"><label>宽度排布</label>
+                                <select onchange="updLightInput(${i},${cIdx},'span',this.value,true)"><option value="1" ${ch.span==1?'selected':''}>单列</option><option value="2" ${ch.span==2?'selected':''}>双宽</option></select>
+                            </div>
+                            <div class="item"><label>显示状态</label>
+                                <select onchange="updLightInput(${i},${cIdx},'visible',this.value==='true')"><option value="true" ${ch.visible?'selected':''}>显示</option><option value="false" ${!ch.visible?'selected':''}>隐藏</option></select>
                             </div>
                         </div>`;
                     });
@@ -3697,6 +3723,9 @@
                             <div class="item"><label>补轮询延时(ms)</label><input type="number" value="${l.post_command_delay_ms||500}" onchange="upd('light_devices',${i},'post_command_delay_ms',this.value,true)"></div>
                             ` : isNirenRelay ? `
                             <div class="item"><label>继电器协议</label><select onchange="upd('light_devices',${i},'relay_protocol',this.value)"><option value="rtu_over_tcp" ${(l.relay_protocol||'rtu_over_tcp')==='rtu_over_tcp'?'selected':''}>RTU 透传 TCP</option><option value="auto" ${(l.relay_protocol||'')==='auto'?'selected':''}>自动探测</option><option value="modbus_tcp" ${(l.relay_protocol||'')==='modbus_tcp'?'selected':''}>标准 Modbus TCP</option><option value="at" ${(l.relay_protocol||'')==='at'?'selected':''}>AT 指令</option></select></div>
+                            <div class="item"><label>输入路数</label><input type="number" value="${l.input_count ?? 1}" onchange="upd('light_devices',${i},'input_count',this.value,true)"></div>
+                            <div class="item"><label>输入起始地址</label><input type="number" value="${l.input_start_address||0}" onchange="upd('light_devices',${i},'input_start_address',this.value,true)"></div>
+                            <div class="item"><label>有效电平</label><select onchange="upd('light_devices',${i},'input_active_level',this.value)"><option value="high" ${(l.input_active_level||'high')==='high'?'selected':''}>高电平触发</option><option value="low" ${(l.input_active_level||'high')==='low'?'selected':''}>低电平触发</option></select></div>
                             <div class="item"><label>状态起始地址</label><input type="number" value="${l.status_start_address||0}" onchange="upd('light_devices',${i},'status_start_address',this.value,true)"></div>
                             <div class="item"><label>写入起始地址</label><input type="number" value="${l.write_start_address||0}" onchange="upd('light_devices',${i},'write_start_address',this.value,true)"></div>
                             <div class="item"><label>超时(秒)</label><input type="number" step="0.1" value="${l.timeout_sec||1.2}" onchange="conf.light_devices[${i}].timeout_sec=Number(this.value)||1.2;renderAll()"></div>
@@ -3720,7 +3749,8 @@
                                 <div class="item"><label>首页显示</label><select onchange="ensureLightDashboardButtons(conf.light_devices[${i}]); conf.light_devices[${i}].dashboard_action_buttons[0] = Object.assign({action:'off3', label:'关闭模式 3'}, conf.light_devices[${i}].dashboard_action_buttons[0]||{}, {visible:this.value==='true'}); renderAll();"><option value="true" ${((((l.dashboard_action_buttons||[])[0]||{}).visible ?? true)===true)?'selected':''}>显示</option><option value="false" ${((((l.dashboard_action_buttons||[])[0]||{}).visible ?? true)===false)?'selected':''}>隐藏</option></select></div>
                             </div>
                         </div>` : ``}
-                        <div style="border-top:1px dashed var(--border); padding-top:15px;"><h4 style="margin-bottom:10px; color:#64748b;">灯光通道排布设置</h4>${chHtml}</div>
+                        <div style="border-top:1px dashed var(--border); padding-top:15px;"><h4 style="margin-bottom:10px; color:#64748b;">输出通道排布设置</h4>${chHtml}</div>
+                        ${isNirenRelay ? `<div style="border-top:1px dashed var(--border); padding-top:15px; margin-top:12px;"><h4 style="margin-bottom:10px; color:#64748b;">输入接口状态设置</h4>${inputHtml || '<div style="font-size:12px;color:#94a3b8;">未配置输入接口。</div>'}</div>` : ``}
                     </div>`;
                 });
                 document.getElementById('list-light').innerHTML = hl;

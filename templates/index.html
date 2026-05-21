@@ -679,6 +679,21 @@
                         {% endif %}
                         {% endfor %}
                     </div>
+                    {% if device.input_channels_config %}
+                    <div class="relay-input-panel" id="light-input-panel-{{ device.id }}">
+                        <div class="relay-input-title">输入接口状态</div>
+                        <div class="relay-input-grid" id="light-inputs-{{ device.id }}">
+                            {% for ch in device.input_channels_config|default([])|sort(attribute='sort') %}
+                            {% if ch.visible %}
+                            <div class="relay-input-chip unknown ch-span-{{ ch.span | default(1) }}" id="lin_{{ device.id }}_{{ ch.channel }}">
+                                <span class="name">{{ ch.name }}</span>
+                                <span class="state">待确认</span>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
                     {% if device.dashboard_action_buttons %}
                     <div class="dashboard-mini-actions" style="margin-top:-4px;">
                         {% for action in device.dashboard_action_buttons %}
@@ -1925,6 +1940,7 @@
         }
         const lightLocks = {};
         const lightStates = {};
+        const lightInputStates = {};
         const lightOnlineStates = {};
         const projectorConfigs = configData.projectors || [];
         const upsConfigs = configData.ups_devices || [];
@@ -10499,7 +10515,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             window.open('/api/export/energy_30days', '_blank');
         }
 
-        configData.light_devices.forEach(dev => { lightLocks[dev.id] = {}; lightStates[dev.id] = []; lightOnlineStates[dev.id] = false; });
+        configData.light_devices.forEach(dev => { lightLocks[dev.id] = {}; lightStates[dev.id] = []; lightInputStates[dev.id] = []; lightOnlineStates[dev.id] = false; });
         function normalizeLightChannelState(status) {
             if (status === null || status === undefined) return null;
             if (status === true || status === false) return status;
@@ -10579,6 +10595,38 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             return { cls: 'ch-unknown', text: '待确认', actionable: false };
         }
         function renderLightChannel(devId, chNum) { const btn = document.getElementById(`lch_${devId}_${chNum}`); if(!btn) return; const uiState = getLightChannelUiState(devId, chNum); const oldClasses = Array.from(btn.classList).filter(c => c.startsWith('ch-span-') || c === 'ch-btn').join(' '); btn.className = `${oldClasses} ${uiState.cls}`; btn.querySelector('.state').innerText = uiState.text; btn.title = uiState.actionable ? '' : (lightOnlineStates[devId] ? '设备在线，但该通道状态暂未确认' : '设备离线，无法读取通道状态'); }
+        function getLightInputState(devId, inputNum, inputsMap = {}) {
+            const list = Array.isArray(inputsMap[devId]) ? inputsMap[devId] : (Array.isArray(inputsMap[String(devId)]) ? inputsMap[String(devId)] : lightInputStates[devId]);
+            if (!Array.isArray(list)) return null;
+            return normalizeLightChannelState(list[Number(inputNum) - 1]);
+        }
+        function renderLightInput(devId, inputNum) {
+            const chip = document.getElementById(`lin_${devId}_${inputNum}`);
+            if (!chip) return;
+            const state = getLightInputState(devId, inputNum);
+            const isOnline = !!lightOnlineStates[devId];
+            const cls = !isOnline ? 'offline' : (state === true ? 'active' : (state === false ? 'idle' : 'unknown'));
+            const text = !isOnline ? '离线' : (state === true ? '触发' : (state === false ? '未触发' : '待确认'));
+            const oldClasses = Array.from(chip.classList).filter(c => c.startsWith('ch-span-') || c === 'relay-input-chip').join(' ');
+            chip.className = `${oldClasses} ${cls}`;
+            const stateEl = chip.querySelector('.state');
+            if (stateEl) stateEl.innerText = text;
+            chip.title = state === true ? '输入接口检测到有效电平' : (state === false ? '输入接口未检测到有效电平' : '输入接口状态待确认');
+        }
+        function getVisibleLightInputs(device) {
+            return Array.isArray(device.input_channels_config)
+                ? device.input_channels_config.filter(ch => ch && ch.visible !== false).sort((a, b) => Number(a.sort || 999) - Number(b.sort || 999))
+                : [];
+        }
+        function renderDashboardInputSummary(device, extraMeta, compact=false) {
+            const inputs = Array.isArray(extraMeta.inputs) ? extraMeta.inputs : [];
+            const visibleInputs = getVisibleLightInputs(device);
+            const count = visibleInputs.length || inputs.length;
+            if (!count) return '';
+            const active = inputs.filter(item => normalizeLightChannelState(item) === true).length;
+            if (compact) return renderHomeCompactMetric('输入触发', `${active} / ${count}`, active > 0 ? 'warn' : '');
+            return `<div class="dashboard-mini-note">输入触发 ${escapeHtml(String(active))} / ${escapeHtml(String(count))}</div>`;
+        }
         function renderDashboardLightCards(statusData = {}) {
             const container = document.getElementById('dashboard-light-grid');
             if (!container) return;
@@ -10627,6 +10675,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                         <div class="dashboard-mini-light-count">已开 ${escapeHtml(String(onCount))} / ${escapeHtml(String(visibleChannelCount || currentStates.length || 0))}</div>
                         <div class="dashboard-mini-note">${online ? (unknownCount > 0 ? `${unknownCount} 路状态待确认` : statusMeta.note) : statusMeta.note}</div>
                     </div>
+                    ${renderDashboardInputSummary(device, extraMeta)}
                     <div class="dashboard-mini-actions">${actions || '<span class="dashboard-mini-note">暂无可用通道</span>'}${extraButtons}</div>
                 </div>`;
             }).join('');
@@ -10699,6 +10748,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                     <div class="home-compact-metrics">
                         ${renderHomeCompactMetric('已开路数', `${onCount} / ${total || '--'}`, onCount > 0 ? 'ok' : '')}
                         ${renderHomeCompactMetric('状态待确认', String(unknownCount || 0), unknownCount > 0 ? 'warn' : '')}
+                        ${renderDashboardInputSummary(device, extraMeta, true)}
                     </div>
                     <div class="home-compact-actions">${actions || '<span class="home-compact-note">暂无可用通道</span>'}${extraButtons}</div>
                     <div class="home-compact-note">${escapeHtml(statusMeta.note || '--')}</div>
@@ -12672,6 +12722,11 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                             if (lightLocks[devId][chNum] && (Date.now() - lightLocks[devId][chNum] < 2000)) return;
                             lightStates[devId][chNum] = st;
                             renderLightChannel(devId, chNum);
+                        });
+                        const inputStates = Array.isArray(extraMeta.inputs) ? extraMeta.inputs : [];
+                        lightInputStates[devId] = inputStates;
+                        inputStates.forEach((st, idx) => {
+                            renderLightInput(devId, idx + 1);
                         });
                     }
                     const lOnline = document.getElementById('dash-light-online');

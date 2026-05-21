@@ -1214,6 +1214,7 @@ def init_light_drivers():
                     "status_text": "offline",
                     "device_status_text": "offline",
                     "channel_state_known": False,
+                    "inputs": [None] * int(cfg.get("input_count", 0) or 0),
                 }
             )
         except Exception as e:
@@ -1246,6 +1247,7 @@ def poll_single_light(dev_id, light_cfg=None):
     try:
         res = dict(drv.read_status() or {})
         channels = list(res.get("channels", []) or [])
+        inputs = list(res.get("inputs", []) or [])
         device_status_text = str(res.get("status_text", "unknown") or "unknown")
         if res.get("online"):
             LIGHT_STATUS[dev_id] = channels
@@ -1262,7 +1264,24 @@ def poll_single_light(dev_id, light_cfg=None):
                         message=message,
                         source="poller",
                         changes=[{"text": changed_text}],
-                        raw={"channels": channels},
+                        raw={"channels": channels, "inputs": inputs},
+                    )
+                except Exception:
+                    pass
+            input_changed_text = _observed_channel_change_text(f"light:{dev_id}:inputs:observed", inputs, {"channels_config": cfg.get("input_channels_config", [])})
+            if input_changed_text:
+                device_name = str(cfg.get("name") or cfg.get("id") or dev_id)
+                message = f"[状态变化][输入] {device_name} {input_changed_text}（轮询识别）"
+                _record_detected_change(f"light:{dev_id}:inputs", message)
+                try:
+                    record_state_change(
+                        category="input",
+                        device_id=str(dev_id),
+                        device_name=device_name,
+                        message=message,
+                        source="poller",
+                        changes=[{"text": input_changed_text}],
+                        raw={"inputs": inputs},
                     )
                 except Exception:
                     pass
@@ -1273,6 +1292,9 @@ def poll_single_light(dev_id, light_cfg=None):
                     "status_text": device_status_text,
                     "device_status_text": device_status_text,
                     "channel_state_known": any(ch is not None for ch in channels),
+                    "inputs": inputs,
+                    "input_state_known": any(item is not None for item in inputs),
+                    "raw_status": res.get("raw_status", {}),
                 },
                 now_iso,
                 now_monotonic,
@@ -1288,6 +1310,9 @@ def poll_single_light(dev_id, light_cfg=None):
                     "status_text": device_status_text,
                     "device_status_text": device_status_text,
                     "channel_state_known": any(ch is not None for ch in channels),
+                    "inputs": inputs,
+                    "input_state_known": any(item is not None for item in inputs),
+                    "raw_status": res.get("raw_status", {}),
                 },
             )
         LIGHT_META[dev_id] = next_meta
