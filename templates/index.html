@@ -13040,11 +13040,12 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             const virtualCount = rawList.filter(g => isVirtualGpuName(g?.name)).length;
             const rows = list.slice(0, 4).map((g, idx) => {
                 const label = realGpus.length ? `GPU ${idx}` : `显示 ${idx}`;
-                const util = formatServerMetric(g?.util_percent || 0);
+                const utilPercent = Math.max(0, Math.min(100, normalizeServerBytes(g?.util_percent)));
+                const util = formatServerMetric(utilPercent);
                 const hasTemp = Number.isFinite(Number(g?.temp)) && Number(g?.temp) > 0;
                 const temp = hasTemp ? `${Number(g.temp).toFixed(0)}°C` : '温度未上报';
                 const tempColor = hasTemp ? 'var(--text-main)' : 'var(--text-sub)';
-                return `<div title="${escapeHtml(g?.name || 'GPU')}">${label}: ${escapeHtml(compactGpuName(g?.name))} <span style="color:var(--text-main);">${util}</span><span style="color:${tempColor};"> · ${temp}</span></div>`;
+                return `<div class="metric-row server-gpu-row" title="${escapeHtml(g?.name || 'GPU')}"><div class="metric-label"><span>${label} ${escapeHtml(compactGpuName(g?.name))}</span><span>${util}<em style="color:${tempColor};"> · ${temp}</em></span></div><div class="progress-track"><div class="progress-fill ${getColor(utilPercent)}" style="width:${utilPercent}%"></div></div></div>`;
             }).join('');
             const note = virtualCount > 0 ? `<div class="server-gpu-muted">已隐藏 ${virtualCount} 个远控/虚拟显示适配器</div>` : '';
             return `<div class="gpu-list">${rows}${note}</div>`;
