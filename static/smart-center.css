@@ -1491,10 +1491,10 @@
         .server-view-toggle { display:inline-flex; align-items:center; gap:2px; padding:2px; border-radius:8px; background:rgba(15,23,42,0.62); border:1px solid rgba(148,163,184,0.18); }
         .server-view-toggle button { min-width:46px; height:28px; padding:0 10px; border:0; border-radius:6px; background:transparent; color:#94a3b8; font-size:12px; font-weight:800; cursor:pointer; }
         .server-view-toggle button.active { background:rgba(56,189,248,0.18); color:#e0f2fe; box-shadow:inset 0 0 0 1px rgba(56,189,248,0.24); }
-        .server-hardware-summary { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:6px; margin:0 0 10px; }
-        .server-hw-chip { min-width:0; padding:6px 8px; border-radius:8px; background:rgba(15,23,42,0.34); border:1px solid rgba(148,163,184,0.10); }
-        .server-hw-chip span { display:block; margin-bottom:2px; font-size:10px; line-height:1; color:#94a3b8; }
-        .server-hw-chip strong { display:block; min-width:0; font-size:12px; line-height:1.2; color:#dbeafe; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .server-hardware-summary { display:flex; align-items:center; gap:6px 10px; flex-wrap:wrap; min-height:22px; margin:0 0 9px; padding:5px 0 7px; border-bottom:1px dashed rgba(148,163,184,0.10); color:#94a3b8; font-size:11px; line-height:1.25; }
+        .server-hardware-summary span { display:inline-flex; align-items:center; gap:4px; max-width:100%; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .server-hardware-summary span + span::before { content:""; width:3px; height:3px; border-radius:999px; background:rgba(148,163,184,0.42); margin-right:4px; flex:0 0 auto; }
+        .server-hardware-summary em { flex:0 0 auto; font-style:normal; color:#64748b; font-weight:800; }
         .server-hardware-detail { display:none; margin:10px 0 0; padding:9px; border-radius:10px; background:rgba(2,6,23,0.26); border:1px solid rgba(148,163,184,0.12); }
         .server-detail-mode .server-hardware-detail { display:block; }
         .server-detail-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; font-size:12px; color:#cbd5e1; }
@@ -1507,7 +1507,6 @@
         .server-detail-columns li span { min-width:0; color:#94a3b8; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .server-detail-columns li strong { min-width:0; color:#e2e8f0; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         @media screen and (max-width: 760px) {
-            .server-hardware-summary { grid-template-columns:repeat(2, minmax(0, 1fr)); }
             .server-detail-columns { grid-template-columns:1fr; }
         }
         .metric-row { margin-bottom: 8px; } .metric-label { display: flex; justify-content: space-between; gap:10px; font-size: 12px; color: var(--text-sub); margin-bottom: 3px;}
