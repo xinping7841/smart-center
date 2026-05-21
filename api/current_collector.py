@@ -41,6 +41,7 @@ DEFAULT_CURRENT_COLLECTOR = {
     "timeout": 2.0,
     "poll_interval": 5.0,
     "channels": [{"channel": index, "name": f"第{index}路", "visible": True} for index in range(1, 17)],
+    "groups": [],
 }
 
 STATE_LOCK = threading.RLock()
@@ -125,11 +126,32 @@ def normalize_current_collector_config(raw_config=None):
             "channel": channel,
             "name": str(item.get("name") or f"第{channel}路").strip() or f"第{channel}路",
             "visible": bool(item.get("visible", True)),
+            "sort": _coerce_int(item.get("sort"), channel, 0, 9999),
         }
     cfg["channels"] = [
-        channel_map.get(index, {"channel": index, "name": f"第{index}路", "visible": True})
+        channel_map.get(index, {"channel": index, "name": f"第{index}路", "visible": True, "sort": index})
         for index in range(1, cfg["count"] + 1)
     ]
+    raw_groups = cfg.get("groups") if isinstance(cfg.get("groups"), list) else []
+    groups = []
+    for idx, item in enumerate(raw_groups, start=1):
+        if not isinstance(item, dict):
+            continue
+        group_channels = []
+        for channel in item.get("channels", []):
+            channel_num = _coerce_int(channel, 0, 0, 999)
+            if 1 <= channel_num <= cfg["count"] and channel_num not in group_channels:
+                group_channels.append(channel_num)
+        if not group_channels:
+            continue
+        groups.append({
+            "id": str(item.get("id") or f"group_{idx}").strip() or f"group_{idx}",
+            "name": str(item.get("name") or f"组合 {idx}").strip() or f"组合 {idx}",
+            "channels": group_channels,
+            "visible": bool(item.get("visible", True)),
+            "sort": _coerce_int(item.get("sort"), idx, 0, 9999),
+        })
+    cfg["groups"] = groups
     return cfg
 
 
@@ -200,6 +222,7 @@ def state_payload():
     payload["enabled"] = bool(config.get("enabled", True))
     payload["config"] = config
     payload["channels"] = build_channel_rows(payload.get("snapshot"), config)
+    payload["groups"] = build_group_rows(payload["channels"], config)
     return payload
 
 
@@ -218,10 +241,53 @@ def build_channel_rows(snapshot, config):
             "channel": index,
             "name": item.get("name") or f"第{index}路",
             "visible": bool(item.get("visible", True)),
+            "sort": int(item.get("sort") or index),
             "current": value,
             "raw_register": raw_value,
         })
     return channels
+
+
+def build_group_rows(channels, config):
+    channel_map = {int(item.get("channel") or 0): item for item in channels}
+    groups = []
+    for item in sorted(config.get("groups", []), key=lambda g: (int(g.get("sort") or 9999), str(g.get("name") or ""))):
+        group_channels = []
+        total_current = 0.0
+        active_channels = []
+        valid_count = 0
+        for channel in item.get("channels", []):
+            channel_num = int(channel or 0)
+            row = channel_map.get(channel_num)
+            if not row:
+                continue
+            current = row.get("current")
+            if current is not None:
+                try:
+                    current_num = float(current)
+                except Exception:
+                    current_num = 0.0
+                total_current += current_num
+                valid_count += 1
+                if abs(current_num) > 0.001:
+                    active_channels.append(channel_num)
+            group_channels.append({
+                "channel": channel_num,
+                "name": row.get("name") or f"第{channel_num}路",
+                "current": current,
+            })
+        groups.append({
+            "id": item.get("id"),
+            "name": item.get("name") or "组合",
+            "visible": bool(item.get("visible", True)),
+            "sort": int(item.get("sort") or 9999),
+            "channels": group_channels,
+            "channel_numbers": [row["channel"] for row in group_channels],
+            "active_channels": active_channels,
+            "total_current": round(total_current, 3),
+            "valid_count": valid_count,
+        })
+    return groups
 
 
 def poll_loop():
@@ -323,6 +389,8 @@ def api_current_collector_config():
             next_config[key] = data[key]
     if isinstance(data.get("channels"), list):
         next_config["channels"] = data["channels"]
+    if isinstance(data.get("groups"), list):
+        next_config["groups"] = data["groups"]
     try:
         saved = save_current_collector_config(next_config)
     except Exception as exc:

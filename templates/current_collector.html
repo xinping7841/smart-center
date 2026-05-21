@@ -29,37 +29,50 @@
     .status.offline { background:rgba(239,68,68,.14); color:#fca5a5; }
     .panel { margin-bottom:16px; padding:14px 16px; border:1px solid rgba(148,163,184,.16); background:rgba(15,23,42,.76); border-radius:12px; }
     .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
-    label { display:inline-flex; align-items:center; gap:7px; color:#cbd5e1; font-size:13px; }
-    input, select { height:34px; padding:6px 8px; border-radius:7px; border:1px solid rgba(148,163,184,.28); background:#0f172a; color:#f8fafc; font:inherit; }
-    input { width:92px; }
-    select { width:150px; }
-    input.wide { width:160px; }
-    input.narrow { width:76px; }
-    button { height:34px; padding:0 12px; border:0; border-radius:7px; background:#2563eb; color:#fff; font-weight:800; cursor:pointer; }
-    button.secondary { background:#334155; }
+    button, .button-link { min-height:34px; padding:8px 12px; border:0; border-radius:7px; background:#2563eb; color:#fff; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; line-height:1; font-size:13px; }
+    .button-link { text-decoration:none; }
+    button.secondary, .button-link.secondary { background:#334155; }
+    button.warning { background:#d97706; }
     button.danger { background:#dc2626; }
     button.success { background:#16a34a; }
     button:disabled { opacity:.5; cursor:not-allowed; }
-    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; }
-    .group-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px; margin-bottom:16px; }
+    .data-section { margin-top:16px; }
+    .section-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin:0 0 10px; }
+    .section-title { margin:0; color:#e5edf8; font-size:16px; font-weight:900; letter-spacing:.2px; }
+    .section-note { color:#94a3b8; font-size:12px; line-height:1.6; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; }
+    .raw-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(176px,1fr)); gap:9px; }
+    .group-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; margin-bottom:14px; }
     .card { border:1px solid rgba(148,163,184,.16); background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(12,20,34,.96)); border-radius:10px; padding:13px; }
-    .group-card { border-color:rgba(34,211,238,.22); background:linear-gradient(180deg,rgba(14,35,54,.96),rgba(10,25,41,.96)); }
+    .raw-card { border-radius:8px; padding:10px; }
+    .card.live { border-color:rgba(34,197,94,.72); }
+    .card.group { border-color:rgba(59,130,246,.36); }
+    .card.group.live { border-color:rgba(34,197,94,.72); }
     .card-head { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:10px; }
-    .name-input { width:140px; min-width:0; font-weight:800; border-color:rgba(59,130,246,.32); }
-    .group-title { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:15px; font-weight:900; color:#e0f2fe; }
+    .channel-name { min-width:0; font-weight:800; color:#f8fafc; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .card.group .channel-name { color:#fbbf24; }
     .raw { color:#94a3b8; font-family:Consolas,monospace; font-size:12px; }
+    .card.group .raw { color:#fde68a; }
     .metric { padding:10px; border-radius:8px; background:rgba(2,6,23,.42); border:1px solid rgba(148,163,184,.10); }
+    .raw-card .metric { padding:8px; border-radius:7px; }
     .metric span { display:block; color:#94a3b8; font-size:12px; margin-bottom:6px; }
+    .raw-card .metric span { font-size:11px; margin-bottom:4px; }
     .metric strong { display:block; font-family:Consolas,monospace; font-size:24px; line-height:1.15; }
+    .raw-card .metric strong { font-size:20px; }
+    .card.live .metric strong { color:#86efac; }
+    .group-meta { margin-top:10px; color:#94a3b8; font-size:12px; line-height:1.7; }
+    .card.group .group-meta { color:#fde68a; }
     .log { margin-top:14px; color:#9fb0c8; font-family:Consolas,monospace; font-size:12px; word-break:break-all; line-height:1.6; }
     .error { color:#fca5a5; }
+    .hint { margin-top:10px; color:#9fb0c8; font-size:13px; line-height:1.7; }
+    .hold-note { display:none; margin-left:4px; color:#fbbf24; font-size:13px; font-weight:800; }
+    .hold-note.active { display:inline-flex; }
     @media (max-width: 760px) {
       .layout { display:block; }
       .sidebar { display:none; }
       header { align-items:flex-start; flex-direction:column; }
       main { padding:12px; }
       .grid { grid-template-columns:1fr; }
-      .group-grid { grid-template-columns:1fr; }
     }
   </style>
 </head>
@@ -92,51 +105,36 @@
       <main>
     <section class="panel">
       <div class="toolbar">
-        <label>名称 <input id="deviceName" class="wide config-input" value="16路电流采集器"></label>
-        <label>接入方式
-          <select id="transport" class="config-input" onchange="syncConfigVisibility()">
-            <option value="tcp-rtu">串口服务器透传</option>
-            <option value="modbus-tcp">Modbus-TCP</option>
-            <option value="serial">本机串口</option>
-          </select>
-        </label>
-        <label class="tcp-field">IP <input id="host" class="wide config-input" value="192.168.50.109"></label>
-        <label class="tcp-field">端口 <input id="port" class="narrow config-input" type="number" min="1" max="65535" value="502"></label>
-        <label class="serial-field">串口 <input id="serialPort" class="wide config-input" value="COM7"></label>
-        <label>地址 <input id="slave" class="narrow config-input" type="number" min="1" max="247" value="1"></label>
-        <label>寄存器 <input id="register" class="narrow config-input" value="0x0000"></label>
-        <label>路数 <input id="count" class="narrow config-input" type="number" min="1" max="32" value="16"></label>
-        <label>比例 <input id="scale" class="narrow config-input" type="number" min="0.001" step="0.001" value="100"></label>
-      </div>
-      <div class="toolbar" style="margin-top:10px;">
-        <label class="serial-param">波特率 <input id="baudrate" class="narrow config-input" type="number" value="9600"></label>
-        <label class="serial-param">数据位 <input id="bytesize" class="narrow config-input" type="number" min="5" max="8" value="8"></label>
-        <label class="serial-param">停止位 <input id="stopbits" class="narrow config-input" type="number" min="1" max="2" value="1"></label>
-        <label class="serial-param">校验
-          <select id="parity" class="config-input" style="width:80px;">
-            <option value="N">无</option>
-            <option value="E">偶</option>
-            <option value="O">奇</option>
-          </select>
-        </label>
-        <label>超时 <input id="timeout" class="narrow config-input" type="number" min="0.1" step="0.1" value="2"></label>
-        <label>轮询 <input id="pollInterval" class="narrow config-input" type="number" min="0.5" step="0.5" value="5"></label>
-        <button onclick="saveConfig()">保存配置</button>
         <button class="secondary" onclick="readNow()">立即读取</button>
+        <button class="warning" id="pauseBtn" onclick="toggleRealtimePause()">暂停画面</button>
         <button class="danger" id="toggleBtn" onclick="toggleEnabled()">关闭采集</button>
-        <span class="meta" id="configMessage"></span>
+        <a class="button-link secondary" href="/config?tab=current_collector">进入配置中心</a>
+        <span class="hold-note" id="pauseNote">画面已暂停，数据停留在暂停时刻</span>
       </div>
+      <div class="hint">本页只显示实时采集状态；接入方式、IP/串口、寄存器、倍率、轮询与通道名称请在配置中心统一维护。</div>
     </section>
-        <section class="group-grid" id="groupGrid"></section>
-        <section class="grid" id="grid"></section>
+    <section class="data-section" id="groupSection" style="display:none;">
+      <div class="section-head">
+        <h2 class="section-title">组合汇总</h2>
+        <div class="section-note">按配置中心的多路组合实时汇总</div>
+      </div>
+      <div class="group-grid" id="groupGrid"></div>
+    </section>
+    <section class="data-section" id="rawSection">
+      <div class="section-head">
+        <h2 class="section-title">原始回路数据</h2>
+        <div class="section-note">按单路显示配置和排序展示</div>
+      </div>
+      <div class="raw-grid" id="grid"></div>
+    </section>
         <section class="log" id="log"></section>
       </main>
     </div>
   </div>
   <script>
     let lastPayload = null;
-    let configDirty = false;
-    const canConfig = true;
+    let realtimePaused = false;
+    let statusTimer = null;
 
     function $(id) { return document.getElementById(id); }
     function escapeHtml(value) {
@@ -146,109 +144,35 @@
       const num = Number(value);
       return Number.isFinite(num) ? `${num.toFixed(3)} A` : '--';
     }
-    function channelValueMap(channels) {
-      const map = new Map();
-      channels.forEach(item => map.set(Number(item.channel), Number(item.current)));
-      return map;
-    }
-    function renderGroups(cfg, channels) {
-      const groups = Array.isArray(cfg.groups) ? cfg.groups.filter(item => item && item.visible !== false) : [];
-      const box = $('groupGrid');
-      if (!box) return;
-      if (!groups.length) {
-        box.innerHTML = '';
-        return;
-      }
-      const values = channelValueMap(channels);
-      box.innerHTML = groups
-        .slice()
-        .sort((a, b) => Number(a.sort || 999) - Number(b.sort || 999))
-        .map(group => {
-          const groupChannels = Array.isArray(group.channels) ? group.channels.map(Number).filter(Boolean) : [];
-          let sum = 0;
-          let known = 0;
-          groupChannels.forEach(channel => {
-            const value = values.get(channel);
-            if (Number.isFinite(value)) {
-              sum += value;
-              known += 1;
-            }
-          });
-          return `<section class="card group-card">
-            <div class="card-head">
-              <div class="group-title" title="${escapeHtml(group.name || '')}">${escapeHtml(group.name || '组合电流')}</div>
-              <div class="raw">${escapeHtml(groupChannels.map(ch => `CH${ch}`).join(' / ') || '--')}</div>
-            </div>
-            <div class="metric"><span>组合电流</span><strong>${known ? formatA(sum) : '--'}</strong></div>
-          </section>`;
-        }).join('');
+    function hasLiveCurrent(value) {
+      const num = Number(value);
+      return Number.isFinite(num) && Math.abs(num) > 0.001;
     }
     function setStatus(online, text) {
       const el = $('status');
       el.className = `status ${online ? 'online' : 'offline'}`;
       el.textContent = text || (online ? '在线' : '离线');
     }
-    function syncConfigVisibility() {
-      const transport = $('transport').value || 'tcp-rtu';
-      document.querySelectorAll('.serial-field').forEach(el => el.style.display = transport === 'serial' ? 'inline-flex' : 'none');
-      document.querySelectorAll('.tcp-field').forEach(el => el.style.display = transport === 'serial' ? 'none' : 'inline-flex');
-      document.querySelectorAll('.serial-param').forEach(el => el.style.display = transport === 'modbus-tcp' ? 'none' : 'inline-flex');
+    function setPauseUi() {
+      const btn = $('pauseBtn');
+      const note = $('pauseNote');
+      if (btn) {
+        btn.textContent = realtimePaused ? '继续实时' : '暂停画面';
+        btn.className = realtimePaused ? 'success' : 'warning';
+      }
+      if (note) note.className = `hold-note ${realtimePaused ? 'active' : ''}`;
     }
-    function setValue(id, value) {
-      const el = $(id);
-      if (el && document.activeElement !== el && value !== undefined && value !== null) el.value = value;
-    }
-    function syncConfigForm(cfg) {
-      if (!cfg || configDirty) return;
-      setValue('deviceName', cfg.name || '16路电流采集器');
-      setValue('transport', cfg.transport || 'tcp-rtu');
-      setValue('host', cfg.host || '192.168.50.109');
-      setValue('port', cfg.port || 502);
-      setValue('serialPort', cfg.serial_port || 'COM7');
-      setValue('slave', cfg.slave || 1);
-      setValue('register', `0x${Number(cfg.register || 0).toString(16).padStart(4, '0').toUpperCase()}`);
-      setValue('count', cfg.count || 16);
-      setValue('scale', cfg.scale || 100);
-      setValue('baudrate', cfg.baudrate || 9600);
-      setValue('bytesize', cfg.bytesize || 8);
-      setValue('stopbits', cfg.stopbits || 1);
-      setValue('parity', cfg.parity || 'N');
-      setValue('timeout', cfg.timeout || 2);
-      setValue('pollInterval', cfg.poll_interval || 5);
-      syncConfigVisibility();
-    }
-    function getChannelNames() {
-      return Array.from(document.querySelectorAll('.name-input')).map(input => ({
-        channel: Number(input.dataset.channel || 0),
-        name: input.value.trim() || `第${input.dataset.channel}路`,
-        visible: true
-      })).filter(item => item.channel > 0);
-    }
-    function configPayload() {
-      return {
-        name: $('deviceName').value.trim() || '16路电流采集器',
-        transport: $('transport').value,
-        host: $('host').value.trim(),
-        port: Number($('port').value || 502),
-        serial_port: $('serialPort').value.trim(),
-        slave: Number($('slave').value || 1),
-        register: $('register').value.trim(),
-        count: Number($('count').value || 16),
-        scale: Number($('scale').value || 100),
-        baudrate: Number($('baudrate').value || 9600),
-        bytesize: Number($('bytesize').value || 8),
-        stopbits: Number($('stopbits').value || 1),
-        parity: $('parity').value || 'N',
-        timeout: Number($('timeout').value || 2),
-        poll_interval: Number($('pollInterval').value || 5),
-        channels: getChannelNames(),
-      };
+    function toggleRealtimePause() {
+      realtimePaused = !realtimePaused;
+      setPauseUi();
+      if (!realtimePaused) fetchStatus().catch(() => {});
     }
     function render(payload) {
       lastPayload = payload || {};
       const cfg = lastPayload.config || {};
       const snap = lastPayload.snapshot || {};
       const channels = Array.isArray(lastPayload.channels) ? lastPayload.channels : [];
+      const groups = Array.isArray(lastPayload.groups) ? lastPayload.groups : [];
       const enabled = lastPayload.enabled !== false;
       const online = !!lastPayload.online;
       $('pageTitle').textContent = cfg.name || '电流采集';
@@ -260,40 +184,49 @@
         : online
           ? `${snap.collected_at || lastPayload.updated_at || '--'} / ${snap.transport || cfg.transport || '--'} / 地址 ${snap.slave || cfg.slave || '--'} / 寄存器 ${snap.register_base || '--'}`
           : `离线：${lastPayload.error || '暂无数据'}`;
-      syncConfigForm(cfg);
-      renderGroups(cfg, channels);
-      $('grid').innerHTML = channels.map(item => `
-        <section class="card">
+      const visibleGroups = groups
+        .filter(item => item.visible !== false)
+        .sort((a, b) => Number(a.sort ?? 9999) - Number(b.sort ?? 9999) || String(a.name || '').localeCompare(String(b.name || '')));
+      $('groupSection').style.display = visibleGroups.length ? 'block' : 'none';
+      $('groupGrid').innerHTML = visibleGroups.map(item => {
+        const live = hasLiveCurrent(item.total_current);
+        const channelText = (item.channel_numbers || []).length ? `包含：${(item.channel_numbers || []).join('、')} 路` : '暂无通道';
+        const activeText = (item.active_channels || []).length ? `有电流：${(item.active_channels || []).join('、')} 路` : '当前无动态电流';
+        return `
+        <section class="card group ${live ? 'live' : ''}">
           <div class="card-head">
-            <input class="name-input" data-channel="${item.channel}" value="${escapeHtml(item.name || `第${item.channel}路`)}" onchange="configDirty=true">
+            <div class="channel-name" title="${escapeHtml(item.name || '组合')}">${escapeHtml(item.name || '组合')}</div>
+            <div class="raw">${escapeHtml(activeText)}</div>
+          </div>
+          <div class="metric"><span>组合总电流</span><strong>${formatA(item.total_current)}</strong></div>
+          <div class="group-meta">${escapeHtml(channelText)} · 有效数据 ${item.valid_count ?? 0} 路</div>
+        </section>
+      `}).join('');
+      const visibleChannels = channels
+        .filter(item => item.visible !== false)
+        .sort((a, b) => Number(a.sort ?? a.channel ?? 9999) - Number(b.sort ?? b.channel ?? 9999) || Number(a.channel || 0) - Number(b.channel || 0));
+      $('grid').innerHTML = visibleChannels.map(item => {
+        const live = hasLiveCurrent(item.current);
+        return `
+        <section class="card raw-card ${live ? 'live' : ''}">
+          <div class="card-head">
+            <div class="channel-name" title="${escapeHtml(item.name || `第${item.channel}路`)}">${escapeHtml(item.name || `第${item.channel}路`)}</div>
             <div class="raw">寄存器 ${item.raw_register ?? '--'}</div>
           </div>
           <div class="metric"><span>采集器电流</span><strong>${formatA(item.current)}</strong></div>
         </section>
-      `).join('');
+      `}).join('');
       const error = lastPayload.error ? `<div class="error">ERROR: ${escapeHtml(lastPayload.error)}</div>` : '';
       $('log').innerHTML = `${error}<div>TX: ${escapeHtml(snap.request_hex || '--')}</div><div>RX: ${escapeHtml(snap.response_hex || '--')}</div>`;
     }
     async function fetchStatus() {
+      if (realtimePaused) return;
       const res = await fetch('/api/current-collector/status', { cache: 'no-store' });
       render(await res.json());
     }
     async function readNow() {
       const res = await fetch('/api/current-collector/read', { method: 'POST', cache: 'no-store' });
       render(await res.json());
-    }
-    async function saveConfig() {
-      $('configMessage').textContent = '正在保存...';
-      const res = await fetch('/api/current-collector/config', {
-        method: 'POST',
-        cache: 'no-store',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(configPayload())
-      });
-      const data = await res.json();
-      configDirty = false;
-      $('configMessage').textContent = data.ok ? '已保存' : (data.error || data.message || '保存失败');
-      render(data);
     }
     async function toggleEnabled() {
       const enabled = !(lastPayload && lastPayload.enabled === false);
@@ -305,16 +238,12 @@
       });
       render(await res.json());
     }
-    document.querySelectorAll('.config-input').forEach(el => {
-      el.addEventListener('input', () => { configDirty = true; });
-      el.addEventListener('change', () => { configDirty = true; });
-    });
-    syncConfigVisibility();
     fetchStatus().catch(err => {
       setStatus(false, '连接失败');
       $('subtitle').textContent = String(err);
     });
-    setInterval(() => fetchStatus().catch(() => {}), 2000);
+    setPauseUi();
+    statusTimer = setInterval(() => fetchStatus().catch(() => {}), 2000);
   </script>
 </body>
 </html>
