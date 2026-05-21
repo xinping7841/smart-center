@@ -67,6 +67,12 @@ def init_db():
         try: c.execute(f"ALTER TABLE machines ADD COLUMN {col} {defval}")
         except: pass
     c.execute('''CREATE TABLE IF NOT EXISTS metrics_history (id INTEGER PRIMARY KEY AUTOINCREMENT, mac TEXT, timestamp TEXT, data TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS machine_commands (
+        mac TEXT PRIMARY KEY,
+        command TEXT,
+        created_at TEXT,
+        updated_at TEXT
+    )''')
     conn.commit(); conn.close()
 
 def clean_old_history():
@@ -892,8 +898,45 @@ def _command_min_agent_version(command):
     return ""
 
 
+def _machine_command_to_json(command):
+    try:
+        return json.dumps(command, ensure_ascii=False, separators=(",", ":"))
+    except Exception:
+        return json.dumps(str(command), ensure_ascii=False)
+
+
+def _machine_command_from_json(command_text):
+    try:
+        return json.loads(command_text) if command_text else None
+    except Exception:
+        return command_text
+
+
 def _pop_machine_command(mac, agent_version=""):
     for key in _machine_command_keys(mac):
+        db_command = None
+        conn = None
+        try:
+            conn = sqlite3.connect(DB_FILE)
+            c = conn.cursor()
+            c.execute(
+                "CREATE TABLE IF NOT EXISTS machine_commands (mac TEXT PRIMARY KEY, command TEXT, created_at TEXT, updated_at TEXT)"
+            )
+            c.execute("SELECT command FROM machine_commands WHERE mac=? LIMIT 1", (key,))
+            row = c.fetchone()
+            if row:
+                db_command = _machine_command_from_json(row[0])
+                min_version = _command_min_agent_version(db_command)
+                if min_version and _compare_version_text(agent_version, min_version) < 0:
+                    return None
+                c.execute("DELETE FROM machine_commands WHERE mac=?", (key,))
+                conn.commit()
+                return db_command
+        except Exception as exc:
+            add_log(-1, f"[服务器] 读取节点持久命令失败: {key} {exc}")
+        finally:
+            if conn is not None:
+                conn.close()
         if key in SERVER_COMMANDS:
             command = SERVER_COMMANDS.get(key)
             min_version = _command_min_agent_version(command)
@@ -907,6 +950,28 @@ def _set_machine_command(mac, command):
     key = normalize_machine_mac(mac) or str(mac or "").strip().upper()
     if key:
         SERVER_COMMANDS[key] = command
+        conn = None
+        try:
+            now_iso = datetime.now().isoformat()
+            conn = sqlite3.connect(DB_FILE)
+            c = conn.cursor()
+            c.execute(
+                "CREATE TABLE IF NOT EXISTS machine_commands (mac TEXT PRIMARY KEY, command TEXT, created_at TEXT, updated_at TEXT)"
+            )
+            c.execute(
+                """
+                INSERT INTO machine_commands (mac, command, created_at, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(mac) DO UPDATE SET command=excluded.command, updated_at=excluded.updated_at
+                """,
+                (key, _machine_command_to_json(command), now_iso, now_iso),
+            )
+            conn.commit()
+        except Exception as exc:
+            add_log(-1, f"[服务器] 写入节点持久命令失败: {key} {exc}")
+        finally:
+            if conn is not None:
+                conn.close()
 
 def get_agent_server_host():
     server_cfg = CONFIG.get("server_monitor", {}) if isinstance(CONFIG, dict) else {}
@@ -2441,6 +2506,8 @@ def _merge_machine_rows(cursor, target_mac, target_row, source_mac):
     if not source_mac or source_mac == target_mac:
         return
     cursor.execute("UPDATE metrics_history SET mac=? WHERE mac=?", (target_mac, source_mac))
+    cursor.execute("UPDATE machine_commands SET mac=? WHERE mac=? AND NOT EXISTS (SELECT 1 FROM machine_commands WHERE mac=?)", (target_mac, source_mac, target_mac))
+    cursor.execute("DELETE FROM machine_commands WHERE mac=?", (source_mac,))
     cursor.execute("DELETE FROM machines WHERE mac=?", (source_mac,))
     for key in _machine_command_keys(source_mac):
         if key in SERVER_COMMANDS and target_mac not in SERVER_COMMANDS:
