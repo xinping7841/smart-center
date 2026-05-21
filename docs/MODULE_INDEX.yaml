@@ -22,6 +22,16 @@ modules:
     runtime_state: ['DEVICE_STATUS','METER_STATUS','runtime/remote_meter_payload_cache.json']
     split_priority: very_high
     ai_keywords: ['power','meter','cabinet','energy','current','channel']
+  current_collector:
+    frontend_module: 'static/js/views/current-collector.js'
+    purpose: Standalone multi-channel current collector page with live polling, pause/resume display, raw channel cards, and configured group totals.
+    routes: ['/current-collector','/api/current-collector/status','/api/current-collector/read','/api/current-collector/enabled','/api/current-collector/config','/api/current-collector/health']
+    backend: ['api/current_collector.py','current_collector.py']
+    frontend: ['templates/current_collector.html','templates/config.html','static/js/views/current-collector.js']
+    config_keys: ['current_collector']
+    runtime_state: ['current_collector.STATE']
+    split_priority: low
+    ai_keywords: ['current collector','current_collector','current','amperage','channel groups','modbus']
   server_monitor:
     purpose: Windows/Linux machine reporting, hardware cards, CodeMeter, WOL, shutdown/restart commands.
     routes: ['/api/machines','/api/machines/*','/report','/agent/config','/agent/worker.json','/deploy_agent.bat','/api/wake/<mac>']

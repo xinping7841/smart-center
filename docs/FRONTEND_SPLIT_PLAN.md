@@ -41,7 +41,7 @@ Recommended order:
 5. Apple Audio music player. Completed: `static/js/views/apple-audio.js`.
 6. Protocol/universal command shims. Completed: `static/js/views/universal.js`.
 7. Environment sensor page and dashboard summary. Completed: `static/js/views/env.js`.
-8. Current collector page.
+8. Current collector page. Completed: `static/js/views/current-collector.js`.
 9. M32R page if still isolated.
 
 ## Stage 2D: Extract Heavy Views
