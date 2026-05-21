@@ -84,8 +84,24 @@
     </script>
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
     <script src="/static/vendor/echarts.min.js?v=6.0.0"></script>
-    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260519-sequencer-single-page">
+    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260520-codemeter-wide-table-v2">
     <style>
+        /* CodeMeter license table is inline to bypass stale CSS caches on remote browser clients. */
+        .server-codemeter-line { display:block !important; margin:8px 0 0 !important; padding:6px 10px !important; border-radius:8px !important; background:rgba(2,6,23,0.24) !important; border:1px solid rgba(148,163,184,0.10) !important; font-size:12px !important; color:var(--text-sub) !important; min-width:0 !important; }
+        .server-codemeter-table { display:table !important; width:100% !important; min-width:100% !important; table-layout:fixed !important; border-collapse:collapse !important; line-height:1.08 !important; }
+        .server-codemeter-table .server-codemeter-col-id { width:45% !important; }
+        .server-codemeter-table .server-codemeter-col-code { width:20% !important; }
+        .server-codemeter-table .server-codemeter-col-date { width:35% !important; }
+        .server-codemeter-table th { padding:0 18px 3px 0 !important; color:#94a3b8 !important; font-size:9px !important; font-weight:850 !important; text-align:left !important; white-space:nowrap !important; }
+        .server-codemeter-table th:nth-child(2) { text-align:center !important; padding-left:14px !important; padding-right:24px !important; }
+        .server-codemeter-table th:nth-child(3) { text-align:right !important; padding-left:18px !important; padding-right:0 !important; }
+        .server-codemeter-table td { padding:1px 18px 1px 0 !important; vertical-align:middle !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; }
+        .server-codemeter-identity strong { display:block !important; color:#f8fafc !important; font-size:13px !important; font-weight:950 !important; line-height:1.15 !important; overflow:hidden !important; text-overflow:ellipsis !important; }
+        .server-codemeter-code { color:#dbeafe !important; font-size:11px !important; font-weight:900 !important; text-align:center !important; padding-left:14px !important; padding-right:24px !important; }
+        .server-codemeter-date { color:#e2e8f0 !important; font-size:11px !important; font-weight:900 !important; text-align:right !important; padding-left:18px !important; padding-right:0 !important; }
+        .server-codemeter-code.warning, .server-codemeter-date.warning { color:#fde68a !important; }
+        .server-codemeter-code.error, .server-codemeter-date.error { color:#fecaca !important; }
+        .server-codemeter-table tfoot td { padding-top:2px !important; color:#94a3b8 !important; font-size:10px !important; text-align:right !important; }
         /* Automation node canvas is kept inline to avoid stale immutable CSS caches on remote browsers. */
         #automationNodeModal.auto-node-modal { display:none !important; position:fixed !important; inset:0 !important; z-index:2147483000 !important; color:#0f172a !important; font-family:'Segoe UI', Microsoft YaHei, sans-serif !important; }
         #automationNodeModal.auto-node-modal.open { display:block !important; }
@@ -12903,6 +12919,42 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 futureExpiring
             };
         }
+        function sortCodeMeterLicenseRowsByCode(rows) {
+            return [...(Array.isArray(rows) ? rows : [])].sort((a, b) => {
+                const an = Number.parseInt(a.productCode, 10);
+                const bn = Number.parseInt(b.productCode, 10);
+                if (Number.isFinite(an) && Number.isFinite(bn) && an !== bn) return an - bn;
+                if (Number.isFinite(an) !== Number.isFinite(bn)) return Number.isFinite(an) ? -1 : 1;
+                return String(a.productCode || a.label || '').localeCompare(String(b.productCode || b.label || ''), 'zh-CN', { numeric: true });
+            });
+        }
+        function getCodeMeterLicenseRows(licenses, options = {}) {
+            const firmFilter = String(options.firmCode || '').trim();
+            const defaultFirmCode = String(options.defaultFirmCode || '').trim();
+            return (Array.isArray(licenses) ? licenses : [])
+                .filter(item => {
+                    if (!firmFilter) return true;
+                    const firmCode = String(item?.firm_code || item?.firmCode || item?.fc || defaultFirmCode).trim();
+                    return firmCode === firmFilter;
+                })
+                .map((item, index) => {
+                    const expiresAt = item?.expires_at || item?.valid_until || item?.expire_at || '';
+                    const expiryDate = parseCodeMeterExpiry(expiresAt);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const daysLeft = expiryDate ? Math.floor((expiryDate.getTime() - today.getTime()) / 86400000) : null;
+                    const cls = Number.isFinite(daysLeft) && daysLeft < 10 ? 'error' : (Number.isFinite(daysLeft) && daysLeft < 30 ? 'warning' : '');
+                    const productCode = String(item?.product_code || item?.productCode || item?.pc || '').trim();
+                    const firmCode = String(item?.firm_code || item?.firmCode || item?.fc || defaultFirmCode).trim();
+                    const productName = String(item?.product_name || item?.productName || item?.name || '').trim();
+                    const count = item?.license_count ?? item?.count ?? item?.quantity;
+                    const codeLabel = productCode ? (firmCode && firmCode !== '102541' ? `${firmCode}-${productCode}` : productCode) : '';
+                    const label = codeLabel ? `代码 ${codeLabel}` : (productName || `授权 ${index + 1}`);
+                    const dateText = expiryDate ? formatCodeMeterExpiry(expiryDate) : (String(item?.validity || '').toLowerCase() === 'permanent' ? '长期有效' : '未识别');
+                    const expired = Number.isFinite(daysLeft) && daysLeft < 0;
+                    return { item, firmCode, productCode, productName, count, label, dateText, daysLeft, expired, cls };
+                });
+        }
         function renderServerCodeMeterLine(codemeter) {
             const info = codemeter && typeof codemeter === 'object' ? codemeter : {};
             const serials = getCodeMeterSerials(info);
@@ -12912,24 +12964,57 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             const runtimeOutdated = !!(info.runtime_outdated || info.license_identity?.runtime_outdated);
             const runtimeVersion = String(info.runtime_version || info.license_identity?.runtime_version || '').trim();
             const hasCompanyLicense = hasCompanyCodeMeterLicense(info);
-            const expiryStatus = getCodeMeterExpiryStatusFromLicenses(info.licenses);
+            const defaultFirmCode = String(info.license_code || info.license_identity?.company_code || '').trim();
+            const companyRows = getCodeMeterLicenseRows(info.licenses, { firmCode: '102541', defaultFirmCode });
+            const companyLicenses = companyRows.map(row => row.item);
+            const expiryStatus = getCodeMeterExpiryStatusFromLicenses(companyLicenses);
             const cls = (!installed || level === 'muted') ? 'muted' : (level === 'error' || expiryStatus.cls === 'error' ? 'error' : ((!running || level === 'warning' || runtimeOutdated || !hasCompanyLicense || expiryStatus.cls === 'warning') ? 'warning' : ''));
             const licenseLabel = getCodeMeterLicenseLabel(info);
             const serialText = serials.length ? serials.slice(0, 1).join('') + (serials.length > 1 ? ` +${serials.length - 1}` : '') : (installed ? '未发现锁' : '未安装');
             const displayText = serialText;
-            const validityText = getCodeMeterValidityText(info);
+            const validityText = getCodeMeterValidityText({ ...info, licenses: companyLicenses });
+            const allLicenseRows = companyRows;
+            const sortedCompanyRows = sortCodeMeterLicenseRowsByCode(companyRows);
+            const visibleCompanyRows = sortedCompanyRows.filter(row => !row.expired && Number.isFinite(row.daysLeft)).slice(0, 3);
+            const rowsForTable = visibleCompanyRows.length ? visibleCompanyRows : [{
+                productCode: hasCompanyLicense ? '未解析' : '--',
+                label: hasCompanyLicense ? '未解析' : '--',
+                dateText: hasCompanyLicense ? validityText : (installed ? '无授权' : '未安装'),
+                cls: hasCompanyLicense ? 'warning' : 'muted',
+            }];
+            const tableRowsHtml = rowsForTable.map((row, index) => `
+                <tr>
+                    ${index === 0 ? `<td class="server-codemeter-identity" rowspan="${Math.max(1, rowsForTable.length)}"><strong>${escapeHtml(displayText)}</strong></td>` : ''}
+                    <td class="server-codemeter-code ${row.cls}">${escapeHtml(row.productCode || row.label)}</td>
+                    <td class="server-codemeter-date ${row.cls}">${escapeHtml(row.dateText)}</td>
+                </tr>
+            `).join('');
+            const hiddenLicenseCount = Math.max(0, companyRows.length - visibleCompanyRows.length);
+            const licenseDetailHtml = `<table class="server-codemeter-table">
+                <colgroup><col class="server-codemeter-col-id"><col class="server-codemeter-col-code"><col class="server-codemeter-col-date"></colgroup>
+                <thead><tr><th>CodeMeter</th><th>代码</th><th>到期时间</th></tr></thead>
+                <tbody>${tableRowsHtml}</tbody>
+                ${hiddenLicenseCount > 0 ? `<tfoot><tr><td colspan="3" title="${escapeHtml(`102541 还有 ${hiddenLicenseCount} 条授权在悬停详情中查看`)}">+${hiddenLicenseCount} 条授权</td></tr></tfoot>` : ''}
+            </table>`;
             const titleParts = [
                 licenseLabel ? `授权代码: ${licenseLabel}` : '',
                 `编号: ${serials.length ? serials.join(' / ') : serialText}`,
                 `授权: ${validityText}`,
                 `服务: ${info.service_state || '--'}`,
             ].filter(Boolean);
+            allLicenseRows.forEach(row => {
+                const statusText = row.expired ? '【已过期】' : (Number.isFinite(row.daysLeft) ? `剩余 ${row.daysLeft} 天` : '');
+                const bits = [row.label, row.productName, row.dateText, statusText].filter(Boolean);
+                titleParts.push(bits.join(' / '));
+            });
             if (Number.isFinite(expiryStatus.daysLeft) && expiryStatus.daysLeft >= 0) titleParts.push(`剩余: ${expiryStatus.daysLeft} 天`);
             if (runtimeVersion) titleParts.push(`Runtime: ${runtimeVersion}${runtimeOutdated ? '，建议升级到 8.0+' : ''}`);
             if (info.checked_at) titleParts.push(`检测: ${formatServerTime(info.checked_at)}`);
             if (info.error) titleParts.push(`错误: ${info.error}`);
             const upgradeHtml = runtimeOutdated ? `<em class="upgrade">升级8.0+</em>` : '';
-            return `<div class="server-codemeter-line ${cls}" title="${escapeHtml(titleParts.join('\n'))}"><span>CodeMeter</span><strong><em class="serial">${escapeHtml(displayText)}</em><em class="validity">${escapeHtml(validityText)}</em>${upgradeHtml}</strong></div>`;
+            return `<div class="server-codemeter-line ${cls}" title="${escapeHtml(titleParts.join('\n'))}">
+                ${licenseDetailHtml || `<div class="server-codemeter-fallback"><span>CodeMeter</span><strong>${escapeHtml(displayText)}</strong><em class="validity">${escapeHtml(validityText)}</em>${upgradeHtml}</div>`}
+            </div>`;
         }
         function getServerGroupName(machine) {
             const raw = String(machine?.asset_group || '').trim();

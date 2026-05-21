@@ -1648,10 +1648,61 @@
         .server-network-line { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:8px 0 0; font-size:12px; color:var(--text-sub); }
         .server-network-line strong { display:flex; gap:6px; color:var(--text-main); font-size:12px; font-weight:800; white-space:nowrap; }
         .server-pending-command { margin:8px 0 0; padding:6px 8px; border-radius:9px; border:1px solid rgba(245,158,11,0.30); background:rgba(245,158,11,0.12); color:#fde68a; font-size:12px; font-weight:800; line-height:1.25; }
-        .server-codemeter-line { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:8px 0 0; padding:6px 8px; border-radius:8px; background:rgba(2,6,23,0.24); border:1px solid rgba(148,163,184,0.10); font-size:12px; color:var(--text-sub); min-width:0; }
+        .server-codemeter-line { display:block; margin:8px 0 0; padding:6px 10px; border-radius:8px; background:rgba(2,6,23,0.24); border:1px solid rgba(148,163,184,0.10); font-size:12px; color:var(--text-sub); min-width:0; }
+        .server-codemeter-main { display:grid; grid-template-columns:minmax(112px, .72fr) minmax(168px, 1.28fr); align-items:start; gap:12px; min-width:0; }
+        .server-codemeter-id { min-width:0; display:flex; flex-direction:column; gap:3px; }
+        .server-codemeter-id span { color:#a5b4fc; font-size:11px; line-height:1; }
+        .server-codemeter-id strong { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#dbeafe; font-size:13px; font-weight:900; line-height:1.15; }
+        .server-codemeter-right { min-width:0; justify-self:stretch; }
         .server-codemeter-line strong { min-width:0; display:flex; align-items:center; justify-content:flex-end; gap:7px; color:var(--text-main); font-size:12px; font-weight:800; white-space:nowrap; overflow:hidden; }
         .server-codemeter-line .serial { min-width:0; overflow:hidden; text-overflow:ellipsis; font-style:normal; color:#dbeafe; }
         .server-codemeter-line .validity { flex:0 0 auto; font-size:11px; font-style:normal; color:#bbf7d0; }
+        .server-codemeter-table { display:table !important; width:100% !important; min-width:100% !important; table-layout:fixed; border-collapse:collapse; line-height:1.08; }
+        .server-codemeter-col-id { width:45%; }
+        .server-codemeter-col-code { width:20%; }
+        .server-codemeter-col-date { width:35%; }
+        .server-codemeter-table th { padding:0 18px 3px 0; color:#94a3b8; font-size:9px; font-weight:850; text-align:left; white-space:nowrap; }
+        .server-codemeter-table th:nth-child(2) { text-align:center; padding-left:14px; padding-right:24px; }
+        .server-codemeter-table th:nth-child(3) { text-align:right; padding-left:18px; padding-right:0; }
+        .server-codemeter-table td { padding:1px 18px 1px 0; vertical-align:middle; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .server-codemeter-identity { color:#dbeafe; }
+        .server-codemeter-identity strong { display:block; color:#f8fafc; font-size:13px; font-weight:950; line-height:1.15; overflow:hidden; text-overflow:ellipsis; }
+        .server-codemeter-code { color:#dbeafe; font-size:11px; font-weight:900; text-align:center; padding-left:14px !important; padding-right:24px !important; }
+        .server-codemeter-date { color:#e2e8f0; font-size:11px; font-weight:900; text-align:right; padding-left:18px !important; padding-right:0 !important; }
+        .server-codemeter-code.warning, .server-codemeter-date.warning { color:#fde68a; }
+        .server-codemeter-code.error, .server-codemeter-date.error { color:#fecaca; }
+        .server-codemeter-table tfoot td { padding-top:2px; color:#94a3b8; font-size:10px; text-align:right; }
+        .server-codemeter-columns { display:grid; grid-template-columns:repeat(3, minmax(54px, 1fr)) auto; align-items:center; gap:7px; min-width:0; }
+        .server-codemeter-license-col { min-width:0; display:grid; grid-template-rows:9px 13px 9px 13px; gap:1px; line-height:1; }
+        .server-codemeter-license-col span { color:#94a3b8; font-size:8px; font-weight:850; white-space:nowrap; }
+        .server-codemeter-license-col strong { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#dbeafe; font-size:11px; font-weight:950; }
+        .server-codemeter-license-col em { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#e2e8f0; font-size:10px; font-style:normal; font-weight:900; }
+        .server-codemeter-license-col.warning strong, .server-codemeter-license-col.warning em { color:#fde68a; }
+        .server-codemeter-license-col.error strong, .server-codemeter-license-col.error em { color:#fecaca; }
+        .server-codemeter-col { min-width:0; display:grid; grid-template-rows:12px auto; gap:2px; line-height:1.05; }
+        .server-codemeter-col span { color:#94a3b8; font-size:9px; font-weight:850; white-space:nowrap; }
+        .server-codemeter-col strong { display:grid; grid-auto-rows:13px; gap:1px; min-width:0; overflow:hidden; color:#e2e8f0; font-size:11px; font-weight:900; }
+        .server-codemeter-col em { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-style:normal; color:#dbeafe; }
+        .server-codemeter-col-date span, .server-codemeter-col-date strong { text-align:right; }
+        .server-codemeter-col em.warning { color:#fde68a; }
+        .server-codemeter-col em.error { color:#fecaca; }
+        .server-codemeter-grid-head { color:#94a3b8; font-size:9px; font-weight:800; letter-spacing:.04em; opacity:.78; }
+        .server-codemeter-grid-head:nth-child(2) { text-align:right; }
+        .server-codemeter-code { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#93c5fd; font-weight:800; }
+        .server-codemeter-date { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#e2e8f0; font-weight:850; text-align:right; }
+        .server-codemeter-code.warning, .server-codemeter-date.warning { color:#fde68a; }
+        .server-codemeter-code.error, .server-codemeter-date.error { color:#fecaca; }
+        .server-codemeter-more { align-self:end; color:#94a3b8; font-size:10px; line-height:1; text-align:right; font-style:normal; white-space:nowrap; }
+        .server-codemeter-detail { display:flex; flex-wrap:wrap; gap:4px; min-width:0; }
+        .server-codemeter-license { display:inline-flex; align-items:center; gap:4px; max-width:100%; padding:2px 5px; border-radius:999px; background:rgba(15,23,42,0.55); border:1px solid rgba(148,163,184,0.14); color:#cbd5e1; font-size:10px; line-height:1.15; }
+        .server-codemeter-license em { max-width:72px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-style:normal; color:#93c5fd; }
+        .server-codemeter-license strong { display:inline; min-width:auto; color:#dbeafe; font-size:10px; font-weight:900; }
+        .server-codemeter-license i { font-style:normal; color:#94a3b8; }
+        .server-codemeter-license.warning { border-color:rgba(245,158,11,0.34); background:rgba(245,158,11,0.12); }
+        .server-codemeter-license.warning strong { color:#fde68a; }
+        .server-codemeter-license.error { border-color:rgba(239,68,68,0.34); background:rgba(239,68,68,0.12); }
+        .server-codemeter-license.error strong { color:#fecaca; }
+        .server-codemeter-license.more { color:#94a3b8; }
         .server-codemeter-line.warning { border-color:rgba(245,158,11,0.24); background:rgba(245,158,11,0.10); }
         .server-codemeter-line.warning .validity { color:#fde68a; }
         .server-codemeter-line .upgrade { flex:0 0 auto; padding:1px 5px; border-radius:999px; background:rgba(245,158,11,.18); border:1px solid rgba(245,158,11,.30); color:#fde68a; font-size:10px; font-style:normal; }

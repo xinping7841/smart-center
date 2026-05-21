@@ -13,6 +13,7 @@ from api.automation import bp as automation_bp
 from api.dashboard import bp as dashboard_bp
 from api.door import bp as door_bp
 from api.control_center import bp as control_center_bp
+from api.current_collector import bp as current_collector_bp
 from api.driver_hub import bp as driver_hub_bp
 from api.env import bp as env_bp
 from api.hvac import bp as hvac_bp
@@ -165,6 +166,7 @@ app.register_blueprint(apple_audio_bp)
 app.register_blueprint(light_bp)
 app.register_blueprint(door_bp)
 app.register_blueprint(control_center_bp)
+app.register_blueprint(current_collector_bp)
 app.register_blueprint(driver_hub_bp)
 app.register_blueprint(server_bp)
 app.register_blueprint(proxy_bp)
