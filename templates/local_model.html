@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>本地模型 - 中控</title>
+  <style>
+    :root { color-scheme: dark; font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif; background:#07111f; color:#e5edf8; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:#07111f; }
+    .layout { min-height:100vh; display:flex; }
+    .sidebar { width:248px; flex:0 0 248px; background:#0b1627; border-right:1px solid rgba(148,163,184,.14); display:flex; flex-direction:column; }
+    .logo { padding:22px 18px; font-size:19px; font-weight:900; border-bottom:1px solid rgba(148,163,184,.10); color:#f8fafc; }
+    .nav-menu { list-style:none; margin:0; padding:14px 10px; overflow-y:auto; }
+    .nav-menu li { margin:0 2px 5px; border-radius:8px; }
+    .nav-menu a { display:flex; align-items:center; gap:11px; padding:10px 12px; color:#9fb0c8; font-size:14px; font-weight:700; text-decoration:none; border-left:3px solid transparent; border-radius:8px; }
+    .nav-menu li.active a { color:#dbeafe; background:rgba(59,130,246,.16); border-left-color:#4f8dfd; }
+    .nav-menu a:hover { color:#f8fafc; background:rgba(59,130,246,.10); }
+    .nav-icon { width:24px; text-align:center; flex:none; font-size:12px; font-weight:900; }
+    .sys-info { margin-top:auto; padding:14px 16px 18px; border-top:1px solid rgba(148,163,184,.10); color:#72839a; font-size:12px; line-height:1.6; text-align:center; }
+    .content { flex:1; min-width:0; display:flex; flex-direction:column; }
+    header { padding:14px 20px; background:rgba(7,17,31,.96); border-bottom:1px solid rgba(148,163,184,.16); display:flex; justify-content:space-between; gap:16px; align-items:center; }
+    h1 { margin:0; font-size:21px; }
+    .meta { color:#9fb0c8; font-size:13px; margin-top:4px; }
+    a { color:#93c5fd; text-decoration:none; }
+    main { flex:1; min-height:0; padding:14px 18px 18px; display:grid; grid-template-columns:minmax(0,1fr) 380px; gap:14px; }
+    .panel { border:1px solid rgba(148,163,184,.16); background:#0f172a; border-radius:8px; min-width:0; }
+    .chat { min-height:0; display:flex; flex-direction:column; }
+    .panel-head { padding:12px 14px; border-bottom:1px solid rgba(148,163,184,.12); display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    .panel-title { font-size:15px; font-weight:900; color:#f8fafc; }
+    .status { display:inline-flex; align-items:center; min-height:26px; padding:5px 9px; border-radius:999px; font-size:12px; font-weight:800; background:#334155; color:#cbd5e1; }
+    .status.ok { background:rgba(34,197,94,.16); color:#86efac; }
+    .status.bad { background:rgba(239,68,68,.14); color:#fca5a5; }
+    .messages { flex:1; min-height:430px; max-height:calc(100vh - 220px); overflow:auto; padding:14px; display:flex; flex-direction:column; gap:10px; }
+    .msg { max-width:88%; padding:10px 12px; border-radius:8px; line-height:1.65; font-size:14px; white-space:pre-wrap; word-break:break-word; border:1px solid rgba(148,163,184,.12); }
+    .msg.user { align-self:flex-end; background:#1d4ed8; color:white; }
+    .msg.assistant { align-self:flex-start; background:#111c30; color:#dbeafe; }
+    .msg.system { align-self:center; max-width:96%; background:#172033; color:#fbbf24; font-size:13px; }
+    .composer { padding:12px; border-top:1px solid rgba(148,163,184,.12); display:grid; grid-template-columns:1fr auto; gap:10px; }
+    textarea, input { width:100%; background:#08111f; color:#e5edf8; border:1px solid rgba(148,163,184,.20); border-radius:7px; padding:9px 10px; font:inherit; }
+    textarea { min-height:76px; resize:vertical; }
+    label { display:block; color:#9fb0c8; font-size:12px; font-weight:800; margin:0 0 5px; }
+    .side { display:flex; flex-direction:column; gap:14px; min-width:0; }
+    .form { padding:12px; display:grid; gap:10px; }
+    .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    button { min-height:34px; padding:8px 12px; border:0; border-radius:7px; background:#2563eb; color:#fff; font-weight:800; cursor:pointer; font-size:13px; }
+    button.secondary { background:#334155; }
+    button.success { background:#16a34a; }
+    button.warning { background:#d97706; }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    .hint { color:#94a3b8; font-size:12px; line-height:1.6; }
+    .files { padding:10px 12px 12px; display:grid; gap:7px; max-height:220px; overflow:auto; }
+    .file-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px; background:#0b1424; border:1px solid rgba(148,163,184,.10); border-radius:7px; }
+    .file-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:Consolas,monospace; font-size:12px; color:#dbeafe; }
+    .file-meta { color:#94a3b8; font-size:12px; }
+    @media (max-width: 980px) { main { grid-template-columns:1fr; } .messages { max-height:none; } }
+    @media (max-width: 760px) { .layout { display:block; } .sidebar { display:none; } header { align-items:flex-start; flex-direction:column; } main { padding:10px; } .row2 { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="logo">演播中控</div>
+      <ul class="nav-menu">
+        {% set path_map = {'current_collector':'/current-collector','m32r':'/m32r','local_model':'/local-model'} %}
+        {% for item in (config.sidebar|sort(attribute='sort') if config.sidebar else []) %}
+          {% if item.visible %}
+          <li class="{{ 'active' if item.id == 'local_model' else '' }}">
+            <a href="{{ path_map.get(item.id, '/#view-' ~ item.id) }}">
+              <span class="nav-icon">{{ item.icon }}</span>
+              <span>{{ item.name }}</span>
+            </a>
+          </li>
+          {% endif %}
+        {% endfor %}
+      </ul>
+      <div class="sys-info">Smart Center<br>本地模型</div>
+    </aside>
+    <div class="content">
+      <header>
+        <div><h1>本地模型</h1><div class="meta"><a href="/">返回中控主页</a> · <span id="modelLine">读取配置中...</span></div></div>
+        <span class="status" id="healthBadge">未检测</span>
+      </header>
+      <main>
+        <section class="panel chat">
+          <div class="panel-head"><div class="panel-title">对话入口</div><div class="actions"><button class="secondary" onclick="clearChat()">清空</button><button onclick="checkHealth()">检测服务</button></div></div>
+          <div class="messages" id="messages"></div>
+          <div class="composer"><textarea id="prompt" placeholder="问本地模型，例如：整理当前投影机、空调、强电柜的协议和状态关注点"></textarea><button id="sendBtn" onclick="sendChat()">发送</button></div>
+        </section>
+        <aside class="side">
+          <section class="panel">
+            <div class="panel-head"><div class="panel-title">模型配置</div><span class="status" id="saveBadge">未保存</span></div>
+            <div class="form">
+              <div><label>名称</label><input id="cfgName"></div>
+              <div><label>Base URL</label><input id="cfgBaseUrl"></div>
+              <div><label>模型</label><input id="cfgModel"></div>
+              <div><label>API Key</label><input id="cfgApiKey" placeholder="留空则保留原值，可填 dummy"></div>
+              <div class="row2"><div><label>温度</label><input id="cfgTemperature" type="number" step="0.1" min="0" max="2"></div><div><label>输出上限</label><input id="cfgMaxTokens" type="number" min="64" max="4096"></div></div>
+              <div><label>超时秒数</label><input id="cfgTimeout" type="number" min="3" max="600"></div>
+              <div><label>系统提示词</label><textarea id="cfgSystemPrompt"></textarea></div>
+              <div class="actions"><button class="success" onclick="saveConfig()">保存配置</button><button class="secondary" onclick="loadConfig()">重新读取</button></div>
+              <div class="hint">默认对接 122 的 vLLM OpenAI 兼容接口。真实控制类建议只让模型给建议，最终动作仍由中控按钮和权限确认。</div>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><div class="panel-title">训练数据导出</div><button class="warning" onclick="exportTraining()">生成</button></div>
+            <div class="form"><div class="hint" id="exportInfo">将设备、协议配置、事件日志和操作日志归一化为 JSON/JSONL，并自动脱敏凭据。</div></div>
+            <div class="files" id="files"></div>
+          </section>
+        </aside>
+      </main>
+    </div>
+  </div>
+<script>
+let modelConfig = null;
+let chatMessages = [];
+function $(id) { return document.getElementById(id); }
+function esc(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function setBadge(id, text, ok) { const el=$(id); el.textContent=text; el.className='status ' + (ok === true ? 'ok' : ok === false ? 'bad' : ''); }
+function addMessage(role, content) { chatMessages.push({role, content}); renderMessages(); }
+function renderMessages() {
+  const box = $('messages');
+  if (!chatMessages.length) {
+    box.innerHTML = '<div class="msg system">本地模型只负责分析与建议；涉及开关机、断电、联动等动作，请在中控对应页面执行。</div>';
+    return;
+  }
+  box.innerHTML = chatMessages.map(m => `<div class="msg ${m.role}">${esc(m.content)}</div>`).join('');
+  box.scrollTop = box.scrollHeight;
+}
+function clearChat() { chatMessages = []; renderMessages(); }
+async function loadConfig() {
+  const resp = await fetch('/api/local-model/config');
+  const data = await resp.json();
+  if (!data.ok) throw new Error(data.msg || data.error || '读取失败');
+  modelConfig = data.config || {};
+  $('cfgName').value = modelConfig.name || '';
+  $('cfgBaseUrl').value = modelConfig.base_url || '';
+  $('cfgModel').value = modelConfig.model || '';
+  $('cfgApiKey').value = '';
+  $('cfgApiKey').placeholder = modelConfig.api_key_set ? '已配置，留空保留' : '可留空或填 dummy';
+  $('cfgTemperature').value = modelConfig.temperature ?? 0.2;
+  $('cfgMaxTokens').value = modelConfig.max_tokens ?? 512;
+  $('cfgTimeout').value = modelConfig.timeout_sec ?? 120;
+  $('cfgSystemPrompt').value = modelConfig.system_prompt || '';
+  $('modelLine').textContent = `${modelConfig.base_url || '--'} · ${modelConfig.model || '--'}`;
+  setBadge('saveBadge', '已读取', true);
+}
+async function saveConfig() {
+  const payload = {
+    enabled: true,
+    name: $('cfgName').value.trim(),
+    provider: 'openai-compatible',
+    base_url: $('cfgBaseUrl').value.trim(),
+    model: $('cfgModel').value.trim(),
+    api_key: $('cfgApiKey').value.trim(),
+    temperature: Number($('cfgTemperature').value || 0.2),
+    max_tokens: Number($('cfgMaxTokens').value || 512),
+    timeout_sec: Number($('cfgTimeout').value || 120),
+    system_prompt: $('cfgSystemPrompt').value.trim()
+  };
+  const resp = await fetch('/api/local-model/config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+  const data = await resp.json();
+  if (!data.ok) { setBadge('saveBadge', data.msg || data.error || '保存失败', false); return; }
+  setBadge('saveBadge', '已保存', true);
+  await loadConfig();
+}
+async function checkHealth() {
+  setBadge('healthBadge', '检测中', null);
+  const resp = await fetch('/api/local-model/health');
+  const data = await resp.json();
+  if (data.ok) setBadge('healthBadge', `在线 ${data.elapsed_ms || 0}ms`, true);
+  else setBadge('healthBadge', '离线', false);
+}
+async function sendChat() {
+  const prompt = $('prompt').value.trim();
+  if (!prompt) return;
+  $('prompt').value = '';
+  addMessage('user', prompt);
+  $('sendBtn').disabled = true;
+  try {
+    const history = chatMessages.filter(m => m.role === 'user' || m.role === 'assistant').slice(-10);
+    const resp = await fetch('/api/local-model/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({messages: history})});
+    const data = await resp.json();
+    if (data.ok) addMessage('assistant', data.answer || '(空回复)');
+    else addMessage('system', data.msg || data.error || '调用失败');
+  } catch (err) {
+    addMessage('system', String(err));
+  } finally {
+    $('sendBtn').disabled = false;
+  }
+}
+async function loadFiles() {
+  const resp = await fetch('/api/local-model/training-files');
+  const data = await resp.json();
+  const rows = data.files || [];
+  $('files').innerHTML = rows.length ? rows.map(item => `<div class="file-row"><div><div class="file-name" title="${esc(item.path)}">${esc(item.name)}</div><div class="file-meta">${Math.ceil((item.size || 0)/1024)} KB · ${esc(item.updated_at || '')}</div></div><a href="/api/local-model/training-files/${encodeURIComponent(item.name)}">下载</a></div>`).join('') : '<div class="hint">暂无导出文件</div>';
+}
+async function exportTraining() {
+  $('exportInfo').textContent = '生成中...';
+  const resp = await fetch('/api/local-model/export-training', {method:'POST'});
+  const data = await resp.json();
+  if (data.ok) $('exportInfo').textContent = `已生成：设备 ${data.counts.devices}，协议 ${data.counts.protocol_records}，日志 ${data.counts.logs}`;
+  else $('exportInfo').textContent = data.msg || data.error || '生成失败';
+  await loadFiles();
+}
+$('prompt').addEventListener('keydown', ev => { if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) sendChat(); });
+renderMessages();
+loadConfig().then(checkHealth).catch(err => { setBadge('saveBadge', '读取失败', false); $('modelLine').textContent = String(err); });
+loadFiles();
+</script>
+</body>
+</html>

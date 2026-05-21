@@ -20,6 +20,7 @@ from api.hvac import bp as hvac_bp
 from api.hy_edge import bp as hy_edge_bp
 from api.light import bp as light_bp
 from api.logs import bp as logs_bp
+from api.local_model import bp as local_model_bp
 from api.m32r import bp as m32r_bp
 from api.power import bp as power_bp
 from api.proxy import bp as proxy_bp
@@ -168,6 +169,7 @@ app.register_blueprint(light_bp)
 app.register_blueprint(logs_bp)
 app.register_blueprint(door_bp)
 app.register_blueprint(control_center_bp)
+app.register_blueprint(local_model_bp)
 app.register_blueprint(current_collector_bp)
 app.register_blueprint(driver_hub_bp)
 app.register_blueprint(server_bp)

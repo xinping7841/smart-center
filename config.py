@@ -43,6 +43,7 @@ DEFAULT_SIDEBAR = [
     {"id": "server", "icon": "🖥️", "name": "服务器看板", "sort": 8, "visible": True},
     {"id": "projector", "icon": "🎥", "name": "投影机集群", "sort": 9, "visible": True},
     {"id": "universal", "icon": "🎛️", "name": "泛型控制", "sort": 10, "visible": True},
+    {"id": "local_model", "icon": "AI", "name": "本地模型", "sort": 10.5, "visible": True},
     {"id": "env", "icon": "🌡️", "name": "环境监测", "sort": 11, "visible": True},
     {"id": "auto", "icon": "🤖", "name": "自动化运行", "sort": 12, "visible": True}
 ]
@@ -1938,6 +1939,7 @@ def load_config():
         if not any(nav["id"] == "projector" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "projector", "icon": "🎥", "name": "投影机集群", "sort": 7, "visible": True})
         if not any(nav["id"] == "universal" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "universal", "icon": "🎛️", "name": "泛型控制", "sort": 8, "visible": True})
         if not any(nav["id"] == "env" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "env", "icon": "🌡️", "name": "环境监测", "sort": 9, "visible": True})
+        if not any(nav["id"] == "local_model" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "local_model", "icon": "AI", "name": "本地模型", "sort": 9.5, "visible": True})
         if not any(nav["id"] == "auto" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "auto", "icon": "🤖", "name": "自动化运行", "sort": 10, "visible": True})
 
     for cab in loaded_config["cabinets"]:

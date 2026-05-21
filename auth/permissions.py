@@ -26,6 +26,8 @@ PERMISSIONS = {
     "server.view",
     "server.control",
     "automation.view",
+    "local_model.view",
+    "local_model.control",
     "automation.edit",
     "system.config",
     "auth.manage",
@@ -60,6 +62,8 @@ PERMISSION_CATALOG = {
     "server.view": {"label": "服务器看板", "kind": "view"},
     "server.control": {"label": "服务器控制", "kind": "control"},
     "automation.view": {"label": "自动化模块", "kind": "view"},
+    "local_model.view": {"label": "本地模型", "kind": "view"},
+    "local_model.control": {"label": "本地模型对话", "kind": "control"},
     "automation.edit": {"label": "自动化编辑", "kind": "control"},
     "system.config": {"label": "系统级配置与扫描", "kind": "control"},
     "auth.manage": {"label": "用户与权限管理", "kind": "control"},
@@ -103,6 +107,8 @@ ROLE_PERMISSIONS = {
         "server.view",
         "server.control",
         "automation.view",
+        "local_model.view",
+        "local_model.control",
         "automation.edit",
     },
     "operator": {
@@ -131,6 +137,8 @@ ROLE_PERMISSIONS = {
         "server.view",
         "server.control",
         "automation.view",
+        "local_model.view",
+        "local_model.control",
         "automation.edit",
     },
     "viewer": {
@@ -148,6 +156,7 @@ ROLE_PERMISSIONS = {
         "snmp.view",
         "sequencer.view",
         "server.view",
+        "local_model.view",
         "automation.view",
     },
 }
