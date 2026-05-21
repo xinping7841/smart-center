@@ -930,6 +930,23 @@ def _pop_machine_command(mac, agent_version=""):
                 if min_version and _compare_version_text(agent_version, min_version) < 0:
                     return None
                 c.execute("DELETE FROM machine_commands WHERE mac=?", (key,))
+                cmd_name = db_command.get("action") if isinstance(db_command, dict) else db_command
+                if str(cmd_name or "").strip() in {"shutdown", "restart"}:
+                    try:
+                        c.execute("SELECT data FROM machines WHERE mac=? LIMIT 1", (key,))
+                        machine_row = c.fetchone()
+                        payload = _parse_machine_payload(machine_row[0]) if machine_row else {}
+                        payload["power_command"] = {
+                            "command": str(cmd_name or "").strip(),
+                            "claimed_at": datetime.now().isoformat(),
+                            "agent_version": agent_version or "",
+                        }
+                        c.execute(
+                            "UPDATE machines SET data=? WHERE mac=?",
+                            (json.dumps(payload, ensure_ascii=False, separators=(",", ":")), key),
+                        )
+                    except Exception as exc:
+                        add_log(-1, f"[服务器] 记录节点电源命令领取状态失败: {key} {exc}")
                 conn.commit()
                 return db_command
         except Exception as exc:
@@ -942,7 +959,32 @@ def _pop_machine_command(mac, agent_version=""):
             min_version = _command_min_agent_version(command)
             if min_version and _compare_version_text(agent_version, min_version) < 0:
                 return None
-            return SERVER_COMMANDS.pop(key, None)
+            command = SERVER_COMMANDS.pop(key, None)
+            cmd_name = command.get("action") if isinstance(command, dict) else command
+            if str(cmd_name or "").strip() in {"shutdown", "restart"}:
+                conn = None
+                try:
+                    conn = sqlite3.connect(DB_FILE)
+                    c = conn.cursor()
+                    c.execute("SELECT data FROM machines WHERE mac=? LIMIT 1", (key,))
+                    machine_row = c.fetchone()
+                    payload = _parse_machine_payload(machine_row[0]) if machine_row else {}
+                    payload["power_command"] = {
+                        "command": str(cmd_name or "").strip(),
+                        "claimed_at": datetime.now().isoformat(),
+                        "agent_version": agent_version or "",
+                    }
+                    c.execute(
+                        "UPDATE machines SET data=? WHERE mac=?",
+                        (json.dumps(payload, ensure_ascii=False, separators=(",", ":")), key),
+                    )
+                    conn.commit()
+                except Exception as exc:
+                    add_log(-1, f"[服务器] 记录节点内存电源命令领取状态失败: {key} {exc}")
+                finally:
+                    if conn is not None:
+                        conn.close()
+            return command
     return None
 
 
@@ -6515,6 +6557,28 @@ def serialize_machine_rows(rows):
     machines = []
     prepared_rows = []
     ping_targets = []
+    pending_power_commands = {}
+    try:
+        conn_cmd = sqlite3.connect(DB_FILE)
+        c_cmd = conn_cmd.cursor()
+        c_cmd.execute("CREATE TABLE IF NOT EXISTS machine_commands (mac TEXT PRIMARY KEY, command TEXT, created_at TEXT, updated_at TEXT)")
+        c_cmd.execute("SELECT mac, command, updated_at FROM machine_commands")
+        for cmd_mac, cmd_text, cmd_at in c_cmd.fetchall():
+            normalized_cmd_mac = normalize_machine_mac(cmd_mac)
+            cmd_payload = _machine_command_from_json(cmd_text)
+            cmd_name = cmd_payload.get("action") if isinstance(cmd_payload, dict) else cmd_payload
+            if str(cmd_name or "").strip() in {"shutdown", "restart"}:
+                pending_power_commands[normalized_cmd_mac] = {
+                    "command": str(cmd_name or "").strip(),
+                    "updated_at": cmd_at or "",
+                }
+    except Exception as exc:
+        add_log(-1, f"[服务器] 读取节点待执行电源命令失败: {exc}")
+    finally:
+        try:
+            conn_cmd.close()
+        except Exception:
+            pass
     for row in rows:
         report_online = False
         is_online = False
@@ -6544,24 +6608,42 @@ def serialize_machine_rows(rows):
         is_linux_builtin = _payload_is_linux_builtin(status_data)
         is_online = bool(report_online and (runtime_fresh or (is_linux_builtin and has_runtime_metrics)))
         ping_target = _valid_ping_target(row[2])
-        if (not report_online or not is_online) and ping_target:
+        pending_power = pending_power_commands.get(normalize_machine_mac(row[0]))
+        claimed_power = None
+        power_command = status_data.get("power_command") if isinstance(status_data.get("power_command"), dict) else {}
+        claimed_at = _parse_machine_timestamp(power_command.get("claimed_at") if power_command else "")
+        if power_command and str(power_command.get("command") or "").strip() in {"shutdown", "restart"} and claimed_at:
+            if (datetime.now() - claimed_at).total_seconds() <= 300:
+                claimed_power = dict(power_command)
+        power_probe = pending_power or claimed_power
+        if (power_probe or not report_online or not is_online) and ping_target:
             ping_targets.append(ping_target)
-        prepared_rows.append((row, is_online, report_online, runtime_freshness, has_runtime_metrics, status_data, agent_status, server_received_at, ping_target))
+        prepared_rows.append((row, is_online, report_online, runtime_freshness, has_runtime_metrics, status_data, agent_status, server_received_at, ping_target, pending_power, claimed_power))
     ping_states, ping_meta = _resolve_ping_states_cached(ping_targets)
-    for row, is_online, report_online, runtime_freshness, has_runtime_metrics, status_data, agent_status, server_received_at, ping_target in prepared_rows:
+    for row, is_online, report_online, runtime_freshness, has_runtime_metrics, status_data, agent_status, server_received_at, ping_target, pending_power, claimed_power in prepared_rows:
         ping_online = None
         ping_state = "not_required"
         ping_age_sec = None
         ping_refreshing = False
-        if not report_online or not is_online:
+        power_probe = pending_power or claimed_power
+        if power_probe or not report_online or not is_online:
             ping_online = ping_states.get(ping_target) if ping_target else None
             ping_info = ping_meta.get(ping_target, {}) if ping_target else {}
             ping_state = ping_info.get("state") or ("fresh" if ping_online is not None else "pending")
             ping_age_sec = ping_info.get("age_sec")
             ping_refreshing = bool(ping_info.get("refreshing"))
-        network_reachable = True if report_online else ping_online
+        if power_probe and ping_online is False:
+            is_online = False
+            report_online = False
+        network_reachable = True if report_online and not power_probe else ping_online
         offline_reason = ""
-        if not report_online and ping_online is False:
+        if power_probe and ping_online is False:
+            offline_reason = "power_command_ping_failed"
+        elif power_probe and ping_online is True:
+            offline_reason = "power_command_ping_ok"
+        elif power_probe and ping_online is None:
+            offline_reason = "power_command_ping_pending"
+        elif not report_online and ping_online is False:
             offline_reason = "no_report_ping_failed"
         elif not report_online and ping_online is True:
             offline_reason = "no_report_ping_ok"
@@ -6587,6 +6669,8 @@ def serialize_machine_rows(rows):
             "ping_refreshing": ping_refreshing,
             "network_reachable": network_reachable,
             "offline_reason": offline_reason,
+            "pending_power_command": pending_power or None,
+            "claimed_power_command": claimed_power or None,
             "last_online": row[3],
             "server_received_at": server_received_at or row[3],
             "client_reported_at": status_data.get("client_reported_at") if isinstance(status_data, dict) else "",
