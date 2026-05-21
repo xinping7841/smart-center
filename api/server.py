@@ -519,11 +519,24 @@ def _decode_json_report_body(raw_bytes):
         return None, "empty"
     last_error = ""
     last_context = ""
-    for encoding in ("utf-8", "utf-8-sig", "utf-16", "utf-16-le", "utf-16-be", "gb18030"):
+    # Some Windows PowerShell posts occasionally contain a few non-UTF8 bytes
+    # in diagnostic text. Decode leniently after strict attempts so the node can
+    # still receive pending commands instead of being treated as an empty report.
+    decode_attempts = [
+        ("utf-8", "strict"),
+        ("utf-8-sig", "strict"),
+        ("utf-16", "strict"),
+        ("utf-16-le", "strict"),
+        ("utf-16-be", "strict"),
+        ("gb18030", "strict"),
+        ("utf-8", "replace"),
+        ("gb18030", "replace"),
+    ]
+    for encoding, errors in decode_attempts:
         try:
-            text = raw_bytes.decode(encoding)
+            text = raw_bytes.decode(encoding, errors=errors)
         except Exception as exc:
-            last_error = f"{encoding}:decode:{exc}"
+            last_error = f"{encoding}/{errors}:decode:{exc}"
             continue
         text = text.strip("\ufeff\x00\r\n\t ")
         if not text:
@@ -537,7 +550,7 @@ def _decode_json_report_body(raw_bytes):
             try:
                 return json.loads(candidate), ""
             except Exception as exc:
-                last_error = f"{encoding}:json:{exc}"
+                last_error = f"{encoding}/{errors}:json:{exc}"
                 pos = getattr(exc, "pos", None)
                 if isinstance(pos, int):
                     start = max(0, pos - 180)
