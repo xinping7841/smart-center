@@ -53,11 +53,21 @@ modules:
     purpose: Air conditioner control and room environment sensor display.
     routes: ['/api/hvac/status','/api/hvac/control','/api/hvac/devices','/api/env/status']
     backend: ['api/hvac.py','hvac_core.py','api/env.py','services/home_assistant_bridge.py','services/miio_hvac.py','background.py']
-    frontend: ['templates/index.html','templates/config.html']
+    frontend: ['templates/index.html','templates/config.html','static/js/views/env.js']
     config_keys: ['hvac_devices','hvac_rooms','env_sensors','home_assistant']
     runtime_state: ['ENV_STATUS']
     split_priority: high
     ai_keywords: ['hvac','air conditioner','temperature','humidity','home assistant','miio']
+  environment:
+    frontend_module: 'static/js/views/env.js'
+    purpose: Environment sensor page, top summary, dashboard env cards, and contact sensor bridge.
+    routes: ['/api/env/status']
+    backend: ['api/env.py','services/home_assistant_bridge.py','background.py']
+    frontend: ['templates/index.html','static/js/views/env.js']
+    config_keys: ['env_sensors','home_assistant']
+    runtime_state: ['ENV_STATUS']
+    split_priority: low
+    ai_keywords: ['environment','sensor','temperature','humidity','illuminance','contact','battery']
   sequencer:
     purpose: 8-channel power sequencer status and control.
     routes: ['/api/sequencer/status','/api/sequencer/control','/api/sequencer/test']

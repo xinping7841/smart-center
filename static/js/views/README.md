@@ -10,6 +10,7 @@ This directory is the target for gradually extracting logic from `templates/inde
 - `hy-edge.js`: HY506 edge room dashboard card, `/api/hy-edge/status` polling, and offline fallback rendering.
 - `apple-audio.js`: music player page state, queue, lyrics, output list, and `/api/apple-audio/*` actions.
 - `universal.js`: protocol control center and legacy universal command button shims for `/api/control_center/execute` and `/api/universal/control`.
+- `env.js`: environment sensor polling, top/dashboard summaries, env page cards, and door/contact status bridge.
 
 Rules:
 

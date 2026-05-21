@@ -92,6 +92,7 @@
     <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
     <script src="/static/js/views/apple-audio.js?v=20260522-stage2-apple-audio-view"></script>
     <script src="/static/js/views/universal.js?v=20260522-stage2-universal-view"></script>
+    <script src="/static/js/views/env.js?v=20260522-stage2-env-view"></script>
     <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260519-sequencer-single-page">
     <style>
         /* AI map: dashboard.inline_styles. Move isolated blocks to static/css/views
@@ -10216,83 +10217,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         // 环境与自动化引擎
         const envConfigs = {{ config.env_sensors | default([]) | tojson | safe }};
         window.__envConfigsCache = envConfigs;
-        function updateEnvData() {
-            fetch('/api/env/status').then(r => r.json()).then(data => {
-                window.__envStatusCache = data || {};
-                updateHvacRoomEnvSlots();
-                const container = document.getElementById('env-grid-container');
-                const screenEnvColumn = document.getElementById('screen-env-column');
-                const screenUpsColumn = document.getElementById('screen-ups-column');
-                const topTemp = document.getElementById('top-env-temp');
-                const topHum = document.getElementById('top-env-hum');
-                const topLux = document.getElementById('top-env-lux');
-                const topSummary = document.getElementById('top-env-summary');
-                const onlineSensor = pickDashboardEnvSensor(data);
-                if (screenEnvColumn) screenEnvColumn.innerHTML = buildScreenEnvCards();
-                if (screenUpsColumn) screenUpsColumn.innerHTML = buildScreenUpsCards();
-                if (topTemp && topHum && topLux) {
-                    if (onlineSensor) {
-                        const st = onlineSensor.st;
-                        topTemp.textContent = st.temp !== null && st.temp !== undefined ? `${st.temp}°C` : '--';
-                        topHum.textContent = st.hum !== null && st.hum !== undefined ? `${st.hum}%` : '--';
-                        topLux.textContent = st.lux !== null && st.lux !== undefined ? `${st.lux}Lux` : '--';
-                        if (topSummary) topSummary.style.opacity = '1';
-                    } else {
-                        topTemp.textContent = '--';
-                        topHum.textContent = '--';
-                        topLux.textContent = '--';
-                        if (topSummary) topSummary.style.opacity = '0.75';
-                    }
-                }
-                if(Object.keys(data).length === 0) {
-                    container.innerHTML = '<div style="color:var(--text-sub); grid-column:1/-1;">暂未配置传感器。</div>';
-                    return;
-                }
-                let html = '';
-                envConfigs.forEach(cfg => {
-                    const st = data[cfg.id] || {online: false};
-                    const features = getEnvFeatures(cfg);
-                    const color = st.online ? 'var(--success)' : '#475569';
-
-                    const batteryValue = Number(st.battery);
-                    const hasBattery = Number.isFinite(batteryValue);
-                    const batteryColor = !hasBattery ? 'var(--text-sub)' : (batteryValue <= 15 ? 'var(--danger)' : (batteryValue <= 35 ? 'var(--warning)' : '#22c55e'));
-                    const metricDefs = [
-                        { key: 'temperature', label: '温度', value: st.temp, suffix: ' °C', color: 'var(--success)' },
-                        { key: 'humidity', label: '湿度', value: st.hum, suffix: ' %', color: 'var(--brand-blue)' },
-                        { key: 'noise', label: '噪声', value: st.noise, suffix: ' dB', color: 'var(--warning)' },
-                        { key: 'pm25', label: 'PM2.5', value: st.pm25, suffix: '', color: '#f97316' },
-                        { key: 'pm10', label: 'PM10', value: st.pm10, suffix: '', color: '#a78bfa' },
-                        { key: 'pressure', label: '气压', value: st.pressure, suffix: ' kPa', color: '#22c55e' }
-                    ].filter(item => features[item.key]);
-                    if (hasBattery && envFeatureEnabled(features, 'battery')) {
-                        metricDefs.push({ key: 'battery', label: '电量估算', value: batteryValue, suffix: ' %', color: batteryColor });
-                    }
-
-                    const mainMetricLabel = features.illuminance ? '核心指标：实时光照度' : '核心指标：环境监测';
-                    const mainMetricValue = features.illuminance && st.online ? (st.lux + ' Lux') : '--';
-
-                    let metricsHtml = '';
-                    metricDefs.forEach(item => {
-                        const valueText = st.online ? `${item.value}${item.suffix}` : '--';
-                        metricsHtml += `<div><div class="label">${item.label}</div><div class="val" style="font-size:24px; margin:5px 0; color:${item.color};">${valueText}</div></div>`;
-                    });
-                    if(!metricsHtml) {
-                        metricsHtml = '<div style="color:var(--text-sub);">未启用扩展指标</div>';
-                    }
-
-                    html += `<div class="env-card" style="border-top: 4px solid ${color}; min-height: 220px;">
-                        <div class="label" style="font-size:16px; font-weight:bold; color:var(--text-main); margin-bottom:15px;">${cfg.name}</div>
-                        <div class="label">${mainMetricLabel}</div>
-                        <div class="val" style="color:var(--warning)">${mainMetricValue}</div>
-                        <div style="display:flex; justify-content: space-around; flex-wrap: wrap; gap: 20px; margin-top: 20px; padding-top: 15px; border-top: 1px dashed rgba(255,255,255,0.1);">
-                            ${metricsHtml}
-                        </div>
-                    </div>`;
-                });
-                container.innerHTML = html;
-            });
-        }
+        // 环境传感器页面和首页摘要已迁移到 static/js/views/env.js。
         function toggleAutomation(ruleId, isEnabled) { if (!ensurePermission('automation.edit', '修改自动化规则')) return; fetch('/api/automation/toggle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: ruleId, enabled: isEnabled }) }).then(r => r.json()).then(d => { if(d.success) { showToast(isEnabled ? '自动化规则已启用' : '自动化规则已暂停'); const card = document.getElementById('auto-card-' + ruleId); if(card) { if(isEnabled) card.classList.remove('disabled'); else card.classList.add('disabled'); } } }); }
         function applyPermissionUI() {
             const disabledStyle = 'opacity:.55;cursor:not-allowed;pointer-events:none;filter:grayscale(.18);';
@@ -12130,86 +12055,6 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 .map(key => metricMap[key])
                 .filter(item => item && item.enabled && item.available);
         }
-
-        updateEnvData = function() {
-            fetchJson('/api/env/status', {}, '环境状态读取失败')
-                .then(data => {
-                    window.__envStatusCache = data || {};
-                    updateHvacRoomEnvSlots();
-                    const container = document.getElementById('env-grid-container');
-                    const screenEnvColumn = document.getElementById('screen-env-column');
-                    const screenUpsColumn = document.getElementById('screen-ups-column');
-                    const screenAutomationColumn = document.getElementById('screen-automation-column');
-                    const topTemp = document.getElementById('top-env-temp');
-                    const topHum = document.getElementById('top-env-hum');
-                    const topLux = document.getElementById('top-env-lux');
-                    const topSummary = document.getElementById('top-env-summary');
-                    const onlineSensor = pickDashboardEnvSensor(data);
-                    if (screenEnvColumn) screenEnvColumn.innerHTML = buildScreenEnvCards();
-                    if (screenUpsColumn) screenUpsColumn.innerHTML = buildScreenUpsCards();
-                    if (screenAutomationColumn) screenAutomationColumn.innerHTML = buildScreenAutomationCards();
-                    if (topTemp && topHum && topLux) {
-                        if (onlineSensor) {
-                            const st = onlineSensor.st;
-                            topTemp.textContent = st.temp !== null && st.temp !== undefined ? `${st.temp}°C` : '--';
-                            topHum.textContent = st.hum !== null && st.hum !== undefined ? `${st.hum}%` : '--';
-                            topLux.textContent = st.lux !== null && st.lux !== undefined ? `${st.lux}Lux` : '--';
-                            if (topSummary) topSummary.style.opacity = '1';
-                        } else {
-                            topTemp.textContent = '--';
-                            topHum.textContent = '--';
-                            topLux.textContent = '--';
-                            if (topSummary) topSummary.style.opacity = '0.75';
-                        }
-                    }
-                    updateDashboardDoorStatusFromEnv(data);
-                    renderOutdoorAutomationDashboardCard();
-                    if (Object.keys(data).length === 0) {
-                        container.innerHTML = '<div style="color:var(--text-sub); grid-column:1/-1;">暂未配置传感器。</div>';
-                        return;
-                    }
-                    let html = '';
-                    envConfigs.forEach(cfg => {
-                        const st = data[cfg.id] || { online: false };
-                        const features = getEnvFeatures(cfg);
-                        const statusLevel = String(st.status_level || (st.online ? 'online' : (st.stale ? 'stale' : 'offline'))).toLowerCase();
-                        const color = statusLevel === 'online' ? 'var(--success)' : (statusLevel === 'stale' ? 'var(--warning)' : '#475569');
-                        const metricMap = buildEnvMetricMap(features, st, cfg);
-                        const primaryMetric = getEnvPrimaryMetricDef(cfg, st, features, metricMap);
-                        const metricDefs = buildEnvStatusMetricDefs(features, st, cfg);
-                        const deviceInfo = buildEnvDeviceInfo(cfg, st);
-                        let metricsHtml = '';
-                        metricDefs.forEach(item => {
-                            if (item.key === primaryMetric.key && metricDefs.length > 1) return;
-                            const valueText = (st.online || st.stale || statusLevel === 'stale') ? item.displayText : '--';
-                            metricsHtml += `<div class="env-card-metric ${item.stale ? 'stale' : ''}"><div class="label">${escapeHtml(item.label)}</div><div class="val" style="color:${item.color};">${escapeHtml(valueText)}</div></div>`;
-                        });
-                        if (!metricsHtml) metricsHtml = '<div style="color:var(--text-sub);">未启用扩展指标</div>';
-                        const deviceInfoHtml = (deviceInfo.rows.length || deviceInfo.note)
-                            ? `<div class="env-card-device-info">
-                                    ${deviceInfo.rows.length ? `<div class="env-card-device-grid">${deviceInfo.rows.map(item => `<div class="env-card-device-item"><div class="label">${escapeHtml(item.label)}</div><div class="value">${escapeHtml(item.value)}</div></div>`).join('')}</div>` : ''}
-                                    ${deviceInfo.note ? `<div class="env-card-note">${escapeHtml(deviceInfo.note)}</div>` : ''}
-                                </div>`
-                            : '';
-                        const onlineText = st.status_label || (st.online ? '在线' : (st.stale ? '陈旧' : '离线'));
-                        const primaryText = (st.online || st.stale || statusLevel === 'stale') ? primaryMetric.displayText : '--';
-                        html += `<div class="env-card env-card-compact" style="border-top: 4px solid ${color};">
-                            <div class="env-card-head">
-                                <div class="env-card-name" title="${escapeHtml(cfg.name || cfg.id || '')}">${escapeHtml(cfg.name || cfg.id || '环境传感器')}</div>
-                                <span class="env-card-status ${escapeHtml(statusLevel)}">${escapeHtml(onlineText)}</span>
-                            </div>
-                            <div class="env-card-primary">
-                                <div class="label">${escapeHtml(primaryMetric.mainLabel || primaryMetric.label || '核心指标')}</div>
-                                <div class="val" style="color:${primaryMetric.color || 'var(--warning)'}">${escapeHtml(primaryText)}</div>
-                            </div>
-                            <div class="env-card-metrics">${metricsHtml}</div>
-                            ${deviceInfoHtml}
-                        </div>`;
-                    });
-                    container.innerHTML = html;
-                })
-                .catch(err => console.error('环境数据更新失败', err));
-        };
 
         toggleAutomation = function(ruleId, isEnabled) {
             if (!ensurePermission('automation.edit', '修改自动化规则')) return;
