@@ -16,7 +16,7 @@ from paths import DB_FILE as DB_FILE_PATH, ensure_parent_dir
 
 bp = Blueprint('server', __name__)
 DB_FILE = str(DB_FILE_PATH)
-AGENT_VERSION = "2026.05.22.02"
+AGENT_VERSION = "2026.05.22.03"
 REPORT_MAX_BYTES = 8 * 1024 * 1024
 REPORT_MIN_INTERVAL_SEC = 2.0
 REPORT_CACHE = {}
@@ -3103,7 +3103,8 @@ function Invoke-AgentJsonRequest([string]$uri, [string]$method = 'GET', [string]
     $irm = Get-CommandOrNull 'Invoke-RestMethod'
     if ($irm) {{
         if ($method.ToUpperInvariant() -eq 'POST') {{
-            return Invoke-RestMethod -Uri $uri -Method Post -ContentType $contentType -Body $body -TimeoutSec $timeoutSec -ErrorAction Stop
+            $bodyBytes = [System.Text.Encoding]::UTF8.GetBytes([string]$body)
+            return Invoke-RestMethod -Uri $uri -Method Post -ContentType ($contentType + '; charset=utf-8') -Body $bodyBytes -TimeoutSec $timeoutSec -ErrorAction Stop
         }}
         return Invoke-RestMethod -Uri $uri -Method Get -TimeoutSec $timeoutSec -ErrorAction Stop
     }}
@@ -3247,6 +3248,44 @@ function Invoke-ExternalCommandCapture([string]$filePath, [string[]]$arguments, 
         $result.error = Get-ErrorDetails $_
     }}
     return $result
+}}
+
+function Get-WindowsOsInfo([object]$os) {{
+    $productName = ''
+    $displayVersion = ''
+    $releaseId = ''
+    $build = ''
+    try {{
+        $cv = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -ErrorAction Stop
+        $productName = [string]$cv.ProductName
+        $displayVersion = [string]$cv.DisplayVersion
+        $releaseId = [string]$cv.ReleaseId
+        $build = [string]$cv.CurrentBuildNumber
+        if (-not $build) {{ $build = [string]$cv.CurrentBuild }}
+    }} catch {{}}
+    if (-not $productName -and $os) {{ $productName = [string]$os.Caption }}
+    if (-not $build -and $os) {{ $build = [string]$os.BuildNumber }}
+    $version = if ($os) {{ [string]$os.Version }} else {{ '' }}
+    $archRaw = if ($os) {{ [string]$os.OSArchitecture }} else {{ '' }}
+    $arch = if ($archRaw -match '64') {{ '64-bit' }} elseif ($archRaw -match '32|86') {{ '32-bit' }} else {{ $archRaw }}
+    $name = ($productName -replace '\?+', '').Trim()
+    if (-not $name) {{
+        $name = 'Microsoft Windows'
+    }}
+    $edition = if ($displayVersion) {{ $displayVersion }} elseif ($releaseId) {{ $releaseId }} else {{ '' }}
+    $captionParts = @($name)
+    if ($edition) {{ $captionParts += $edition }}
+    if ($build) {{ $captionParts += ('Build ' + $build) }}
+    return @{{
+        name = (($captionParts | Where-Object {{ $_ }}) -join ' ')
+        version = $version
+        build = $build
+        arch = $arch
+        kernel = $version
+        product_name = $productName
+        display_version = $displayVersion
+        release_id = $releaseId
+    }}
 }}
 
 function Get-AgentInstances([string]$className, [string]$filter = '') {{
@@ -5685,9 +5724,11 @@ function Get-StatusPayload([hashtable]$cfg) {{
         }}
     }}
     $os = $null
+    $osInfo = @{{}}
     Write-StageLog 'os' 'start'
     try {{
         $os = @(Get-AgentInstances 'Win32_OperatingSystem') | Select-Object -First 1
+        $osInfo = Get-WindowsOsInfo $os
         Write-StageLog 'os' 'ok'
     }} catch {{
         Write-StageLog 'os' ('failed: ' + (Get-ErrorDetails $_))
@@ -5798,15 +5839,9 @@ function Get-StatusPayload([hashtable]$cfg) {{
             gpu_list = @($gpuInfo)
             gpu_diagnostics = Remove-AgentDiagnosticNoise $script:GpuProbeDiagnostic
             codemeter = $codemeterInfo
-            os_info = @{{
-                name = if ($os) {{ [string]$os.Caption }} else {{ '' }}
-                version = if ($os) {{ [string]$os.Version }} else {{ '' }}
-                build = if ($os) {{ [string]$os.BuildNumber }} else {{ '' }}
-                arch = if ($os) {{ [string]$os.OSArchitecture }} else {{ '' }}
-                kernel = if ($os) {{ [string]$os.Version }} else {{ '' }}
-            }}
-            os_caption = if ($os) {{ $os.Caption }} else {{ '' }}
-            os_version = if ($os) {{ $os.Version }} else {{ '' }}
+            os_info = $osInfo
+            os_caption = if ($osInfo.name) {{ [string]$osInfo.name }} elseif ($os) {{ [string]$os.Caption }} else {{ '' }}
+            os_version = if ($osInfo.version) {{ [string]$osInfo.version }} elseif ($os) {{ [string]$os.Version }} else {{ '' }}
             hardware_refreshed_at = $hardware.hardware_refreshed_at
             report_generated_at = $reportGeneratedAt
                 agent = @{{
