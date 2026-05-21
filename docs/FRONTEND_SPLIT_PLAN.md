@@ -9,7 +9,7 @@ The dashboard currently works, so frontend splitting must be done as behavior-pr
 - `templates/index.html` is the main shell and contains large inline CSS/JS.
 - Static CSS files are large and mostly shared.
 - Most buttons still call global functions from inline `onclick` attributes.
-- The following behavior-preserving modules have been extracted to `static/js/views/`: `logs.js`, `proxy.js`, `ups.js`, `hy-edge.js`, and `apple-audio.js`.
+- The following behavior-preserving modules have been extracted to `static/js/views/`: `logs.js`, `proxy.js`, `ups.js`, `hy-edge.js`, `apple-audio.js`, and `universal.js`.
 
 ## Stage 2A: Bootstrap And Boundaries
 
@@ -39,8 +39,9 @@ Recommended order:
 3. UPS page. Completed: `static/js/views/ups.js`.
 4. HY edge room dashboard card. Completed: `static/js/views/hy-edge.js`.
 5. Apple Audio music player. Completed: `static/js/views/apple-audio.js`.
-6. Current collector page.
-7. M32R page if still isolated.
+6. Protocol/universal command shims. Completed: `static/js/views/universal.js`.
+7. Current collector page.
+8. M32R page if still isolated.
 
 ## Stage 2D: Extract Heavy Views
 

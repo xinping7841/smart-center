@@ -91,6 +91,7 @@
     <script src="/static/js/views/ups.js?v=20260522-stage2-ups-view"></script>
     <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
     <script src="/static/js/views/apple-audio.js?v=20260522-stage2-apple-audio-view"></script>
+    <script src="/static/js/views/universal.js?v=20260522-stage2-universal-view"></script>
     <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260519-sequencer-single-page">
     <style>
         /* AI map: dashboard.inline_styles. Move isolated blocks to static/css/views
@@ -9378,10 +9379,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         function moveServer(mac, direction) { if (!ensurePermission('server.control', '调整服务器排序')) return; let idx = globalServerList.findIndex(m => m.mac === mac); if (idx < 0) return; let newIdx = idx + direction; if (newIdx < 0 || newIdx >= globalServerList.length) return; let temp = globalServerList[idx]; globalServerList[idx] = globalServerList[newIdx]; globalServerList[newIdx] = temp; globalServerList.forEach((m, i) => m.sort_order = i + 1); fetch('/api/machines/sort', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({macs: globalServerList.map(m => m.mac)}) }).then(() => updateServerData()); }
         function updateServerData() { fetch('/api/machines').then(r=>r.json()).then(data => { data.sort((a, b) => { if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order; return a.mac.localeCompare(b.mac); }); globalServerList = data; let sTotal = document.getElementById('dash-server-total'); if(sTotal) sTotal.innerText = data.length; let onlineCount = 0; let html = ''; data.forEach(m => { if (m.is_online) onlineCount++; let st = m.status || {}; let agent = m.agent_status || {}; let gpuHtml = ''; if(st.gpu_list && st.gpu_list.length > 0) { gpuHtml = `<div class="gpu-list">`; st.gpu_list.forEach(g => gpuHtml += `<div>GPU ${g.index}: ${g.name} - <span style="color:var(--text-main);">${g.util_percent}% / ${g.temp}°C</span></div>`); gpuHtml += `</div>`; } let agentTaskText = agent.task_exists ? `${agent.task_state || '未知'} / ${agent.task_user || 'SYSTEM'}` : '未安装'; let statusMetaHtml = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;"><div style="background:rgba(0,0,0,0.15); border-radius:6px; padding:10px;"><div style="font-size:12px; color:var(--text-sub); margin-bottom:4px;">最近上报</div><div style="font-size:13px; color:var(--text-main);">${formatServerTime(m.last_online)}</div></div><div style="background:rgba(0,0,0,0.15); border-radius:6px; padding:10px;"><div style="font-size:12px; color:var(--text-sub); margin-bottom:4px;">硬件刷新</div><div style="font-size:13px; color:var(--text-main);">${formatServerTime(st.hardware_refreshed_at)}</div></div><div style="background:rgba(0,0,0,0.15); border-radius:6px; padding:10px;"><div style="font-size:12px; color:var(--text-sub); margin-bottom:4px;">代理状态</div><div style="font-size:13px; color:${agent.task_exists ? 'var(--success)' : 'var(--warning)'};">${agentTaskText}</div></div><div style="background:rgba(0,0,0,0.15); border-radius:6px; padding:10px;"><div style="font-size:12px; color:var(--text-sub); margin-bottom:4px;">当前接入</div><div style="font-size:13px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${agent.current_server_url || ''}">${agent.current_server_url || '未获取'}</div></div></div>`; let metricsHtml = m.is_online ? `${statusMetaHtml}<div class="hardware-info"><div class="hardware-item" title="${st.cpu_name||'未获取到CPU'}">CPU: <span>${st.cpu_name||'加载中...'}</span></div><div class="hardware-item" title="${st.motherboard||'未获取到主板'}">主板: <span>${st.motherboard||'加载中...'}</span></div><div class="hardware-item">内存频率: <span>${st.mem_speed ? st.mem_speed + ' MHz' : '未获取到'}</span></div><div class="hardware-item">Agent版本: <span>${agent.version || '--'}</span></div></div><div class="metric-row"><div class="metric-label"><span>CPU使用率</span><span>${st.cpu_percent||0}%</span></div><div class="progress-track"><div class="progress-fill ${getColor(st.cpu_percent)}" style="width:${st.cpu_percent||0}%"></div></div></div><div class="metric-row"><div class="metric-label"><span>内存 (${st.mem_used||0}/${st.mem_total||0} GB)</span><span>${st.mem_percent||0}%</span></div><div class="progress-track"><div class="progress-fill bg-blue" style="width:${st.mem_percent||0}%"></div></div></div><div class="metric-row" style="margin-bottom:0;"><div class="metric-label"><span>系统盘 (C:)</span><span>${st.disk_percent||0}%</span></div><div class="progress-track"><div class="progress-fill ${getColor(st.disk_percent)}" style="width:${st.disk_percent||0}%"></div></div></div><div class="metric-row" style="margin-top:12px; margin-bottom:0;"><div class="metric-label"><span>网络流量 (上/下)</span><span><span style="color:var(--brand-blue)">↑ ${st.net_sent_kb_s||0}</span> / <span style="color:var(--success)">↓ ${st.net_recv_kb_s||0}</span> KB/s</span></div></div>${gpuHtml}` : `${statusMetaHtml}<div style="text-align:center; color:var(--text-sub); margin:20px 0;">该节点当前离线，等待自动重连上报。</div>`; let groupHtml = m.asset_group ? `<div style="margin-top:8px; font-size:12px; color:var(--brand-blue);">资产分组: ${m.asset_group}</div>` : ''; let remarkHtml = m.remark ? `<div style="margin-top:12px; font-size:12px; color:var(--text-sub); border-top:1px dashed rgba(255,255,255,0.1); padding-top:8px;">备注: ${m.remark}</div>` : ''; remarkHtml = groupHtml + remarkHtml; html += `<div class="server-card ${m.is_online ? 'online' : 'offline'} size-${m.card_size}"><div class="server-title">${m.custom_name || m.hostname || '未知节点'}<span class="tag ${m.is_online ? 'normal' : 'error'}">${m.is_online ? '运行中' : '已离线'}</span></div><div class="server-ip" title="${escapeHtml(getServerIdentityLine(m).title)}">${escapeHtml(getServerIdentityLine(m).text)}</div>${metricsHtml}${remarkHtml}<div style="margin-top:20px; border-top:1px solid var(--panel-border); padding-top:15px; display:flex; gap:8px; align-items:center;"><button class="server-action-btn${getPermissionDisabledClass('server.control')}" ${getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限')} title="上移" onclick="moveServer('${m.mac}', -1)">↑</button><button class="server-action-btn${getPermissionDisabledClass('server.control')}" ${getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限')} title="下移" onclick="moveServer('${m.mac}', 1)">↓</button><div style="flex-grow:1;"></div><button class="server-action-btn${getPermissionDisabledClass('server.control')}" ${getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限')} onclick="sendServerCmd('${m.mac}', 'refresh')">刷新信息</button><button class="server-action-btn${getPermissionDisabledClass('server.control')}" style="color:var(--warning); border-color:var(--warning);" ${getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限')} onclick="sendServerCmd('${m.mac}', 'restart')">硬重启</button><button class="server-action-btn${getPermissionDisabledClass('server.control')}" style="color:var(--danger); border-color:var(--danger);" ${getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限')} onclick="sendServerCmd('${m.mac}', 'shutdown')">强关机</button><button class="server-action-btn${getPermissionDisabledClass('server.control')}" style="color:var(--brand-blue); border-color:var(--brand-blue);" ${getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限')} onclick="wakeServer('${m.mac}')">网络唤醒</button></div></div>`; }); let sOnline = document.getElementById('dash-server-online'); if(sOnline) sOnline.innerText = onlineCount; let sContainer = document.getElementById('server-grid-container'); if(sContainer) sContainer.innerHTML = html; }); }
 
-        // 投影与泛型设备
-        function fireUniversalCommand(devId, payload, format, wait_ms) { if (!ensurePermission('system.config', '控制泛型设备')) return; showToast("通用指令下发中...", false); fetch('/api/universal/control', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id: devId, command: { payload: payload, format: format, wait_ms: wait_ms || 0 } }) }).then(r => r.json()).then(data => { if(data.success) { showToast("执行成功"); console.log("设备返回:", data.response); } else { showToast("执行失败: " + (data.response || data.msg || data.message || '未知错误'), true); } }).catch(e => showToast("网络请求错误", true)); }
-        function handleLongPressStart(devId, startPayload, format) { fireUniversalCommand(devId, startPayload, format, 0); }
-        function handleLongPressEnd(devId, stopPayload, format) { fireUniversalCommand(devId, stopPayload, format, 0); }
+        // 投影设备逻辑仍在内联脚本中；通用协议按钮已迁移到 static/js/views/universal.js。
         const projectorCommandNameFallbacks = {
             smile: {
                 ek: {
@@ -11871,44 +11869,6 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                     renderDashboardServerCompact(data);
                 })
                 .catch(err => console.error('服务器数据更新失败', err));
-        };
-
-        fireUniversalCommand = function(devId, payload, format, wait_ms) {
-            if (!ensurePermission('light.control', '控制泛型设备')) return;
-            showToast('通用指令下发中...', false);
-            postJsonLoose('/api/universal/control', {
-                device_id: devId,
-                command: { payload: payload, format: format, wait_ms: wait_ms || 0 }
-            }, '通用指令下发失败')
-                .then(data => {
-                    if (data.success) {
-                        showToast('执行成功');
-                        console.log('设备返回:', data.response);
-                    } else {
-                        showToast('执行失败: ' + (data.response || data.msg || data.message || '未知错误'), true);
-                    }
-                })
-                .catch(() => showToast('网络请求错误', true));
-        };
-
-        fireControlCenterControl = function(controlId, options = {}) {
-            if (!ensurePermission('control_center.control', '控制协议设备')) return;
-            showToast('协议指令下发中...', false);
-            postJsonLoose('/api/control_center/execute', {
-                control_id: controlId,
-                params: options.params || {},
-                value: options.value
-            }, '协议控制下发失败')
-                .then(data => {
-                    if (data.ok) {
-                        const msg = data.msg || '执行成功';
-                        showToast(msg, false);
-                        if (Array.isArray(data.results)) console.log('协议控制结果:', data.results);
-                    } else {
-                        showToast('执行失败: ' + (data.msg || '未知错误'), true);
-                    }
-                })
-                .catch(() => showToast('网络请求错误', true));
         };
 
         fireProjectorCommand = function(devId, payload, format, name='') {

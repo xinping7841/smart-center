@@ -141,6 +141,15 @@ modules:
     runtime_state: ['music_tag_library.json']
     split_priority: low
     ai_keywords: ['apple audio','music','queue','lyrics','cover','M32']
+  universal_control:
+    frontend_module: 'static/js/views/universal.js'
+    purpose: Protocol control center buttons and legacy universal device command shims.
+    routes: ['/api/control_center/execute','/api/universal/control']
+    backend: ['app.py']
+    frontend: ['templates/index.html','static/js/views/universal.js']
+    config_keys: ['control_center','custom_devices']
+    split_priority: low
+    ai_keywords: ['universal','protocol control','control_center','custom device','TCP','UDP','serial']
   local_model:
     purpose: Local AI console and training data export metadata.
     routes: ['/local-model','/api/local-model/*']

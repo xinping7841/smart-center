@@ -9,6 +9,7 @@ This directory is the target for gradually extracting logic from `templates/inde
 - `ups.js`: UPS dashboard/page/screen companion cards, `/api/ups/status` polling, and UPS shutdown command UI.
 - `hy-edge.js`: HY506 edge room dashboard card, `/api/hy-edge/status` polling, and offline fallback rendering.
 - `apple-audio.js`: music player page state, queue, lyrics, output list, and `/api/apple-audio/*` actions.
+- `universal.js`: protocol control center and legacy universal command button shims for `/api/control_center/execute` and `/api/universal/control`.
 
 Rules:
 
