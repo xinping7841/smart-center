@@ -3663,7 +3663,9 @@
                 conf.light_devices.forEach((l, i) => {
                     initChannels(l, 'channels');
                     ensureLightDashboardButtons(l);
-                    const isRfTcpLight = String(l.brand || 'COXE') === 'RF_TCP';
+                    const lightBrand = String(l.brand || 'COXE');
+                    const isRfTcpLight = lightBrand === 'RF_TCP';
+                    const isNirenRelay = lightBrand === 'NIREN_POE_KP' || lightBrand === 'POE_KP_I101';
                     let chHtml = '';
                     l.channels_config.forEach((ch, cIdx) => {
                         chHtml += `<div class="action-row" style="background:#f8fafc;">
@@ -3681,7 +3683,7 @@
                         <h3 style="color:var(--blue)">灯光设备 ID: ${l.id}</h3>
                         <div class="grid" style="margin-bottom:15px;">
                             <div class="item"><label>设备名称</label><input value="${l.name}" onchange="upd('light_devices',${i},'name',this.value)"></div>
-                            <div class="item"><label>品牌驱动</label><select onchange="upd('light_devices',${i},'brand',this.value);renderAll()"><option value="COXE" ${String(l.brand||'COXE')==='COXE'?'selected':''}>COXE (通用 Modbus)</option><option value="RF_TCP" ${String(l.brand||'COXE')==='RF_TCP'?'selected':''}>RF TCP (庭院/氛围灯)</option></select></div>
+                            <div class="item"><label>品牌驱动</label><select onchange="upd('light_devices',${i},'brand',this.value);renderAll()"><option value="COXE" ${lightBrand==='COXE'?'selected':''}>COXE (通用 Modbus)</option><option value="NIREN_POE_KP" ${isNirenRelay?'selected':''}>泥人 POE-KP-I101</option><option value="RF_TCP" ${lightBrand==='RF_TCP'?'selected':''}>RF TCP (庭院/氛围灯)</option></select></div>
                             ${isRfTcpLight ? `<div class="item"><label>协议说明</label><input value="TCP 文本 JSON / status 轮询" disabled></div>` : `<div class="item"><label>站号</label><input type="number" value="${l.slave_id}" onchange="upd('light_devices',${i},'slave_id',this.value,true)"></div>`}
                             <div class="item"><label>IP 地址</label><input value="${l.ip}" onchange="upd('light_devices',${i},'ip',this.value)"></div>
                             <div class="item"><label>端口</label><input type="number" value="${l.port}" onchange="upd('light_devices',${i},'port',this.value,true)"></div>
@@ -3693,6 +3695,14 @@
                             <div class="item"><label>特殊命令 off3</label><input value="${l.command_off3||'off3'}" onchange="upd('light_devices',${i},'command_off3',this.value)"></div>
                             <div class="item"><label>超时(秒)</label><input type="number" step="0.1" value="${l.timeout_sec||2}" onchange="conf.light_devices[${i}].timeout_sec=Number(this.value)||2;renderAll()"></div>
                             <div class="item"><label>补轮询延时(ms)</label><input type="number" value="${l.post_command_delay_ms||500}" onchange="upd('light_devices',${i},'post_command_delay_ms',this.value,true)"></div>
+                            ` : isNirenRelay ? `
+                            <div class="item"><label>继电器协议</label><select onchange="upd('light_devices',${i},'relay_protocol',this.value)"><option value="rtu_over_tcp" ${(l.relay_protocol||'rtu_over_tcp')==='rtu_over_tcp'?'selected':''}>RTU 透传 TCP</option><option value="auto" ${(l.relay_protocol||'')==='auto'?'selected':''}>自动探测</option><option value="modbus_tcp" ${(l.relay_protocol||'')==='modbus_tcp'?'selected':''}>标准 Modbus TCP</option><option value="at" ${(l.relay_protocol||'')==='at'?'selected':''}>AT 指令</option></select></div>
+                            <div class="item"><label>状态起始地址</label><input type="number" value="${l.status_start_address||0}" onchange="upd('light_devices',${i},'status_start_address',this.value,true)"></div>
+                            <div class="item"><label>写入起始地址</label><input type="number" value="${l.write_start_address||0}" onchange="upd('light_devices',${i},'write_start_address',this.value,true)"></div>
+                            <div class="item"><label>超时(秒)</label><input type="number" step="0.1" value="${l.timeout_sec||1.2}" onchange="conf.light_devices[${i}].timeout_sec=Number(this.value)||1.2;renderAll()"></div>
+                            <div class="item"><label>写后复核(ms)</label><input type="number" value="${l.post_command_delay_ms||350}" onchange="upd('light_devices',${i},'post_command_delay_ms',this.value,true)"></div>
+                            <div class="item"><label>重试次数</label><input type="number" value="${l.retry_count||3}" onchange="upd('light_devices',${i},'retry_count',this.value,true)"></div>
+                            <div class="item"><label>重试间隔(ms)</label><input type="number" value="${l.retry_delay_ms||350}" onchange="upd('light_devices',${i},'retry_delay_ms',this.value,true)"></div>
                             ` : `
                             <div class="item"><label>状态读取方式</label><select onchange="upd('light_devices',${i},'status_read_mode',this.value)"><option value="coil" ${(l.status_read_mode||'coil')==='coil'?'selected':''}>读线圈 (READ_COILS)</option><option value="discrete" ${(l.status_read_mode||'coil')==='discrete'?'selected':''}>读离散输入</option><option value="holding" ${(l.status_read_mode||'coil')==='holding'?'selected':''}>读保持寄存器</option><option value="input" ${(l.status_read_mode||'coil')==='input'?'selected':''}>读输入寄存器</option></select></div>
                             <div class="item"><label>状态起始地址</label><input type="number" value="${l.status_start_address||0}" onchange="upd('light_devices',${i},'status_start_address',this.value,true)"></div>
@@ -3700,6 +3710,7 @@
                             `}
                         </div>
                         ${isRfTcpLight ? `<div style="margin:-2px 0 14px; padding:12px 14px; border-radius:10px; background:#eff6ff; border:1px solid #bfdbfe; color:#1e3a8a; font-size:12px; line-height:1.7;">这类灯控器按整机状态工作。主页和灯光页会展示 1 个主开关通道，并可额外显示 off3 等特殊动作按钮。</div>` : ``}
+                        ${isNirenRelay ? `<div style="margin:-2px 0 14px; padding:12px 14px; border-radius:10px; background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; font-size:12px; line-height:1.7;">设备端建议：TCPServer、Modbus TCP/RTU、地址码 1、数据加密禁用、DO 状态被动上传。默认使用 RTU 透传 TCP，支持读状态和单路开关控制。</div>` : ``}
                         ${isRfTcpLight ? `
                         <div style="border-top:1px dashed var(--border); padding-top:15px; margin-top:12px;">
                             <h4 style="margin-bottom:10px; color:#64748b;">额外动作按钮</h4>
@@ -4803,7 +4814,7 @@
                     resultBox.innerHTML = `测试失败: ${escapeHtml(String(err))}`;
                 });
         }
-        function addLight() { if (!guardConfigMutation('meter.config', '新增灯光模块')) return; let m = conf.light_devices.reduce((a,b)=>Math.max(a,b.id),0); conf.light_devices.push({id:m+1, name:"新灯光模块", brand:"COXE", slave_id:1, ip:"192.168.50.8", port:44448, channels:8, channels_config:[], status_command:'status', command_on:'on', command_off:'off', command_off3:'off3', timeout_sec:2, post_command_delay_ms:500, status_cache_ttl_ms:250, dashboard_action_buttons:[]}); renderAll(); }
+        function addLight() { if (!guardConfigMutation('meter.config', '新增灯光模块')) return; let m = conf.light_devices.reduce((a,b)=>Math.max(a,b.id),0); conf.light_devices.push({id:m+1, name:"新灯光模块", brand:"COXE", slave_id:1, ip:"192.168.50.8", port:44448, channels:8, channels_config:[], relay_protocol:'rtu_over_tcp', status_command:'status', command_on:'on', command_off:'off', command_off3:'off3', timeout_sec:2, post_command_delay_ms:500, status_cache_ttl_ms:250, dashboard_action_buttons:[]}); renderAll(); }
         function ensureLightDashboardButtons(light) {
             if (!Array.isArray(light.dashboard_action_buttons)) light.dashboard_action_buttons = [];
         }

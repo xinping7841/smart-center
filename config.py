@@ -1961,6 +1961,12 @@ def load_config():
         light["channels"] = int(light.get("channels", 8))
         if "brand" not in light: light["brand"] = "COXE"
         if "port" not in light: light["port"] = 502
+        if str(light.get("brand") or "").strip().upper() in {"NIREN_POE_KP", "POE_KP_I101"}:
+            light["port"] = int(light.get("port") or 44489)
+            light["channels"] = max(1, min(int(light.get("channels") or 1), 64))
+            if "relay_protocol" not in light: light["relay_protocol"] = "rtu_over_tcp"
+            if "retry_count" not in light: light["retry_count"] = 3
+            if "retry_delay_ms" not in light: light["retry_delay_ms"] = 350
         if "status_read_mode" not in light: light["status_read_mode"] = "coil"
         if "status_start_address" not in light: light["status_start_address"] = 0
         if "write_start_address" not in light: light["write_start_address"] = 0
