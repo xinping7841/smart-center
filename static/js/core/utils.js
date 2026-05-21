@@ -160,6 +160,126 @@
         return `${num.toFixed(digits)}${suffix}`;
     }
 
+    function isNowInTimeRange(startText, endText, now = new Date()) {
+        if (!startText || !endText) return true;
+        const parse = text => {
+            const [h, m] = String(text || '').split(':');
+            return { h: Number(h), m: Number(m) };
+        };
+        const start = parse(startText);
+        const end = parse(endText);
+        if (!Number.isFinite(start.h) || !Number.isFinite(start.m) || !Number.isFinite(end.h) || !Number.isFinite(end.m)) return true;
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        const startMinutes = start.h * 60 + start.m;
+        const endMinutes = end.h * 60 + end.m;
+        if (startMinutes <= endMinutes) return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
+        return nowMinutes >= startMinutes || nowMinutes <= endMinutes;
+    }
+
+    function isControlPermissionAllowedBySchedule(user = global.currentUser || {}, now = new Date()) {
+        if (String(user.role || '').toLowerCase() === 'admin' || String(user.account_category || '').toLowerCase() === 'admin') return true;
+        const flags = user.account_flags || {};
+        const temp = user.temporary_access || {};
+        const schedule = user.control_schedule || {};
+        if (flags.frozen || flags.temporarily_disabled) return false;
+        const disableUntil = parseDateTimeText(flags.disable_until);
+        if (disableUntil && now <= disableUntil) return false;
+        if (temp.control_blocked) {
+            const blockedUntil = parseDateTimeText(temp.control_blocked_until);
+            if (!blockedUntil || now <= blockedUntil) return false;
+        }
+        if (temp.control_enabled) {
+            const allowUntil = parseDateTimeText(temp.control_until);
+            if (!allowUntil || now <= allowUntil) return true;
+        }
+        if (!schedule.enabled) return true;
+        const mode = String(schedule.mode || 'always');
+        const weekday = (now.getDay() + 6) % 7;
+        if (mode === 'weekdays' && weekday > 4) return false;
+        if (mode === 'weekends' && weekday < 5) return false;
+        if (mode === 'custom_days') {
+            const weekdays = Array.isArray(schedule.weekdays) ? schedule.weekdays.map(v => Number(v)) : [];
+            if (weekdays.length && !weekdays.includes(weekday)) return false;
+        }
+        return isNowInTimeRange(schedule.start, schedule.end, now);
+    }
+
+    function hasPermission(permission, user = global.currentUser || {}) {
+        const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+        const allowed = permissions.includes(permission);
+        const compatibilityMap = {
+            'control_center.view': 'light.view',
+            'control_center.control': 'light.control',
+            'control_center.config': 'meter.config',
+        };
+        const compat = compatibilityMap[String(permission || '').trim()];
+        const compatAllowed = compat ? permissions.includes(compat) : false;
+        if (!(allowed || compatAllowed)) return false;
+        if (String(permission || '').endsWith('.control') || ['meter.config', 'system.config', 'auth.manage', 'automation.edit', 'control_center.config'].includes(String(permission || ''))) {
+            return isControlPermissionAllowedBySchedule(user);
+        }
+        return true;
+    }
+
+    function getPermissionDisabledAttrs(permission, titleText, user = global.currentUser || {}) {
+        return hasPermission(permission, user) ? '' : `disabled title="${escapeHtml(titleText || '当前账号无权限执行此操作')}"`;
+    }
+
+    function getPermissionDisabledClass(permission, user = global.currentUser || {}) {
+        return hasPermission(permission, user) ? '' : ' is-disabled';
+    }
+
+    function getDeviceStatusMeta(status = {}, options = {}) {
+        const fallbackOfflineText = options.offlineText || '离线';
+        const levelRaw = String(status.status_level || '').trim().toLowerCase();
+        const stale = !!status.stale;
+        const online = !!status.online;
+        const hasError = !!(status.last_error || status.error);
+        let level = levelRaw;
+        if (!['online', 'stale', 'error', 'offline'].includes(level)) {
+            if (online && stale) level = 'stale';
+            else if (online) level = 'online';
+            else if (hasError && (status.last_success_at || status.updated_at)) level = 'error';
+            else if (hasError) level = 'error';
+            else level = 'offline';
+        }
+        let chipClass = 'error';
+        let text = fallbackOfflineText;
+        if (level === 'online') {
+            chipClass = 'online';
+            text = options.onlineText || '在线';
+        } else if (level === 'stale') {
+            chipClass = 'warning';
+            text = options.staleText || '陈旧';
+        } else if (level === 'error') {
+            chipClass = 'warning';
+            text = options.errorText || '异常';
+        }
+        const lastSeen = status.last_success_at || status.updated_at || status.last_checked_at;
+        const note = status.last_error
+            ? `异常: ${String(status.last_error)}`
+            : (level === 'stale'
+                ? `最近成功 ${formatTimeShort(lastSeen)}`
+                : (lastSeen ? `更新于 ${formatTimeShort(lastSeen)}` : '等待采集'));
+        return {
+            level,
+            chipClass,
+            text,
+            note,
+            lastSeen,
+            lastCheckedAt: status.last_checked_at || null,
+            pollFailures: Number(status.poll_failures || 0),
+            isOnlineLike: level === 'online' || level === 'stale',
+            isOfflineLike: level === 'offline',
+        };
+    }
+
+    function getCardStateClass(meta) {
+        if (!meta || meta.level === 'offline') return 'offline';
+        if (meta.level === 'stale' || meta.level === 'error') return 'warning';
+        return '';
+    }
+
     const api = {
         escapeHtml,
         translateApiError,
@@ -176,6 +296,13 @@
         getTodayTargetDateTime,
         formatCountdownText,
         formatFixedNumber,
+        isNowInTimeRange,
+        isControlPermissionAllowedBySchedule,
+        hasPermission,
+        getPermissionDisabledAttrs,
+        getPermissionDisabledClass,
+        getDeviceStatusMeta,
+        getCardStateClass,
     };
 
     SmartCenter.utils = Object.assign({}, SmartCenter.utils || {}, api);

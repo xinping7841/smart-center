@@ -85,7 +85,7 @@
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
     <script src="/static/vendor/echarts.min.js?v=6.0.0"></script>
     <script src="/static/js/core/bootstrap.js?v=20260522-stage2"></script>
-    <script src="/static/js/core/utils.js?v=20260522-stage2-format-utils"></script>
+    <script src="/static/js/core/utils.js?v=20260522-stage2-permission-status"></script>
     <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260519-sequencer-single-page">
     <style>
         /* AI map: dashboard.inline_styles. Move isolated blocks to static/css/views
@@ -1732,74 +1732,10 @@
             }
         }
         ensureInitialVisibleView();
-        function isNowInTimeRange(startText, endText) {
-            if (!startText || !endText) return true;
-            const parse = text => {
-                const [h, m] = String(text || '').split(':');
-                return { h: Number(h), m: Number(m) };
-            };
-            const start = parse(startText);
-            const end = parse(endText);
-            if (!Number.isFinite(start.h) || !Number.isFinite(start.m) || !Number.isFinite(end.h) || !Number.isFinite(end.m)) return true;
-            const now = new Date();
-            const nowMinutes = now.getHours() * 60 + now.getMinutes();
-            const startMinutes = start.h * 60 + start.m;
-            const endMinutes = end.h * 60 + end.m;
-            if (startMinutes <= endMinutes) return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
-            return nowMinutes >= startMinutes || nowMinutes <= endMinutes;
-        }
-        function isControlPermissionAllowedBySchedule() {
-            if (String(currentUser.role || '').toLowerCase() === 'admin' || String(currentUser.account_category || '').toLowerCase() === 'admin') return true;
-            const flags = currentUser.account_flags || {};
-            const temp = currentUser.temporary_access || {};
-            const schedule = currentUser.control_schedule || {};
-            if (flags.frozen || flags.temporarily_disabled) return false;
-            const disableUntil = parseDateTimeText(flags.disable_until);
-            if (disableUntil && new Date() <= disableUntil) return false;
-            if (temp.control_blocked) {
-                const blockedUntil = parseDateTimeText(temp.control_blocked_until);
-                if (!blockedUntil || new Date() <= blockedUntil) return false;
-            }
-            if (temp.control_enabled) {
-                const allowUntil = parseDateTimeText(temp.control_until);
-                if (!allowUntil || new Date() <= allowUntil) return true;
-            }
-            if (!schedule.enabled) return true;
-            const mode = String(schedule.mode || 'always');
-            const weekday = (new Date().getDay() + 6) % 7;
-            if (mode === 'weekdays' && weekday > 4) return false;
-            if (mode === 'weekends' && weekday < 5) return false;
-            if (mode === 'custom_days') {
-                const weekdays = Array.isArray(schedule.weekdays) ? schedule.weekdays.map(v => Number(v)) : [];
-                if (weekdays.length && !weekdays.includes(weekday)) return false;
-            }
-            return isNowInTimeRange(schedule.start, schedule.end);
-        }
-        function hasPermission(permission) {
-            const allowed = Array.isArray(currentUser.permissions) && currentUser.permissions.includes(permission);
-            const compatibilityMap = {
-                'control_center.view': 'light.view',
-                'control_center.control': 'light.control',
-                'control_center.config': 'meter.config'
-            };
-            const compat = compatibilityMap[String(permission || '').trim()];
-            const compatAllowed = compat ? (Array.isArray(currentUser.permissions) && currentUser.permissions.includes(compat)) : false;
-            if (!(allowed || compatAllowed)) return false;
-            if (String(permission || '').endsWith('.control') || ['meter.config', 'system.config', 'auth.manage', 'automation.edit', 'control_center.config'].includes(String(permission || ''))) {
-                return isControlPermissionAllowedBySchedule();
-            }
-            return true;
-        }
         function ensurePermission(permission, actionText = '执行当前操作') {
             if (hasPermission(permission)) return true;
             showToast(`当前账号无权限${actionText}`, true);
             return false;
-        }
-        function getPermissionDisabledAttrs(permission, titleText) {
-            return hasPermission(permission) ? '' : `disabled title="${escapeHtml(titleText || '当前账号无权限执行此操作')}"`;
-        }
-        function getPermissionDisabledClass(permission) {
-            return hasPermission(permission) ? '' : ' is-disabled';
         }
         const myCharts = {};
         const pwrLocks = {};
@@ -2947,55 +2883,6 @@
                     <div class="apple-output-meta">${zone.host} · ${zone.mode}</div>
                 </div>
             `).join('');
-        }
-        function getDeviceStatusMeta(status = {}, options = {}) {
-            const fallbackOfflineText = options.offlineText || '离线';
-            const levelRaw = String(status.status_level || '').trim().toLowerCase();
-            const stale = !!status.stale;
-            const online = !!status.online;
-            const hasError = !!(status.last_error || status.error);
-            let level = levelRaw;
-            if (!['online', 'stale', 'error', 'offline'].includes(level)) {
-                if (online && stale) level = 'stale';
-                else if (online) level = 'online';
-                else if (hasError && (status.last_success_at || status.updated_at)) level = 'error';
-                else if (hasError) level = 'error';
-                else level = 'offline';
-            }
-            let chipClass = 'error';
-            let text = fallbackOfflineText;
-            if (level === 'online') {
-                chipClass = 'online';
-                text = options.onlineText || '在线';
-            } else if (level === 'stale') {
-                chipClass = 'warning';
-                text = options.staleText || '陈旧';
-            } else if (level === 'error') {
-                chipClass = 'warning';
-                text = options.errorText || '异常';
-            }
-            const lastSeen = status.last_success_at || status.updated_at || status.last_checked_at;
-            const note = status.last_error
-                ? `异常: ${String(status.last_error)}`
-                : (level === 'stale'
-                    ? `最近成功 ${formatTimeShort(lastSeen)}`
-                    : (lastSeen ? `更新于 ${formatTimeShort(lastSeen)}` : '等待采集'));
-            return {
-                level,
-                chipClass,
-                text,
-                note,
-                lastSeen,
-                lastCheckedAt: status.last_checked_at || null,
-                pollFailures: Number(status.poll_failures || 0),
-                isOnlineLike: level === 'online' || level === 'stale',
-                isOfflineLike: level === 'offline',
-            };
-        }
-        function getCardStateClass(meta) {
-            if (!meta || meta.level === 'offline') return 'offline';
-            if (meta.level === 'stale' || meta.level === 'error') return 'warning';
-            return '';
         }
         function getAutomationStatusMap() {
             return new Map((Array.isArray(automationStatusCache.rules) ? automationStatusCache.rules : []).map(item => [String(item.id), item]));
