@@ -14,7 +14,32 @@ BRANDS_FILE = str(PROJECTOR_BRANDS_FILE)
 INFERRED_PROJECTOR_STATE_FILE = str(RUNTIME_DIR / "projector_inferred_state.json")
 INFERRED_PROJECTOR_STATE_LOCK = threading.Lock()
 INFERRED_PROJECTOR_METER_CACHE = {"expires_at": 0.0, "payload": {}}
+INFERRED_PROJECTOR_CURRENT_CACHE = {"expires_at": 0.0, "payload": {}}
 
+DEFAULT_INFERRED_PROJECTOR_ZONES = [
+    {
+        "id": "ab_current",
+        "name": "AB\u5385\u6295\u5f71\u7535\u6d41",
+        "target_ids": ["zone_a", "zone_b"],
+        "cabinet_channel": 2,
+        "current_channels": [5, 6],
+        "off_baseline_a": 1.92,
+        "on_delta_threshold_a": 8.0,
+        "standby_delta_max_a": 2.0,
+        "warn_current_a": 35.0,
+    },
+    {
+        "id": "immersion_current",
+        "name": "\u6c89\u6d78\u5385\u6295\u5f71\u7535\u6d41",
+        "target_ids": ["immersion"],
+        "cabinet_channel": 4,
+        "current_channels": [9],
+        "off_baseline_a": 2.11,
+        "on_delta_threshold_a": 5.0,
+        "standby_delta_max_a": 2.0,
+        "warn_current_a": 25.0,
+    },
+]
 
 def _utc_ts():
     return time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime())
@@ -53,6 +78,197 @@ def _current_inferred_meter_power(cabinet_idx=0):
         return None, meter
 
 
+def _safe_float(value, default=None):
+    try:
+        return float(value)
+    except Exception:
+        return default
+
+
+def _safe_int(value, default=0):
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def _read_current_collector_state(timeout=1.5):
+    now = time.time()
+    cached = INFERRED_PROJECTOR_CURRENT_CACHE.get("payload") or {}
+    if now < float(INFERRED_PROJECTOR_CURRENT_CACHE.get("expires_at") or 0.0) and cached:
+        return dict(cached)
+    url = os.environ.get("SMART_CENTER_CURRENT_COLLECTOR_URL", "http://127.0.0.1:6899/api/current-collector/status")
+    try:
+        import urllib.request
+        with urllib.request.urlopen(url, timeout=timeout) as resp:
+            payload = json.loads(resp.read().decode("utf-8", "ignore"))
+        if isinstance(payload, dict):
+            INFERRED_PROJECTOR_CURRENT_CACHE.update({"expires_at": now + timeout, "payload": dict(payload)})
+            return payload
+    except Exception as http_exc:
+        try:
+            from api.current_collector import ensure_poll_thread_started, state_payload
+
+            ensure_poll_thread_started()
+            payload = state_payload()
+            if isinstance(payload, dict):
+                INFERRED_PROJECTOR_CURRENT_CACHE.update({"expires_at": now + timeout, "payload": dict(payload)})
+                return payload
+        except Exception as local_exc:
+            return {"online": False, "error": f"{http_exc}; {local_exc}"}
+    return {"online": False, "error": "current collector unavailable"}
+
+
+def _current_channel_map(current_state):
+    result = {}
+    for item in (current_state or {}).get("channels") or []:
+        if not isinstance(item, dict):
+            continue
+        channel = _safe_int(item.get("channel"), 0)
+        if channel <= 0:
+            continue
+        result[channel] = {
+            "channel": channel,
+            "name": item.get("name") or f"\u7b2c{channel}\u8def",
+            "current": _safe_float(item.get("current")),
+            "raw_register": item.get("raw_register"),
+            "visible": bool(item.get("visible", True)),
+        }
+    return result
+
+
+def _normalize_inferred_projector_zones(projector_cfg):
+    raw_zones = (projector_cfg or {}).get("inferred_evidence") or (projector_cfg or {}).get("inferred_zones")
+    if not isinstance(raw_zones, list) or not raw_zones:
+        raw_zones = DEFAULT_INFERRED_PROJECTOR_ZONES
+    zones = []
+    for idx, raw in enumerate(raw_zones, start=1):
+        if not isinstance(raw, dict):
+            continue
+        zone_id = str(raw.get("id") or f"evidence_{idx}").strip() or f"evidence_{idx}"
+        target_ids = raw.get("target_ids") or raw.get("targets") or []
+        if isinstance(target_ids, str):
+            target_ids = [item.strip() for item in target_ids.split(",") if item.strip()]
+        current_channels = raw.get("current_channels") or raw.get("current_channel") or []
+        if isinstance(current_channels, (str, int, float)):
+            current_channels = [current_channels]
+        normalized_current_channels = []
+        for value in current_channels:
+            channel = _safe_int(value, 0)
+            if channel > 0 and channel not in normalized_current_channels:
+                normalized_current_channels.append(channel)
+        zones.append({
+            "id": zone_id,
+            "name": str(raw.get("name") or zone_id).strip() or zone_id,
+            "target_ids": [str(item).strip() for item in target_ids if str(item).strip()],
+            "cabinet_channel": _safe_int(raw.get("cabinet_channel") or raw.get("power_channel"), 0),
+            "current_channels": normalized_current_channels,
+            "off_baseline_a": _safe_float(raw.get("off_baseline_a"), 0.0),
+            "on_delta_threshold_a": _safe_float(raw.get("on_delta_threshold_a"), _safe_float((projector_cfg or {}).get("inferred_on_delta_current_a"), 0.8)),
+            "standby_delta_max_a": _safe_float(raw.get("standby_delta_max_a"), _safe_float((projector_cfg or {}).get("inferred_standby_delta_max_a"), 0.25)),
+            "warn_current_a": _safe_float(raw.get("warn_current_a"), _safe_float((projector_cfg or {}).get("inferred_warn_current_a"), 30.0)),
+        })
+    return zones
+
+def _build_inferred_zone_statuses(cfg, target_status, meter, current_state):
+    target_by_id = {str(item.get("id") or ""): item for item in target_status or [] if isinstance(item, dict)}
+    target_by_name = {str(item.get("name") or ""): item for item in target_status or [] if isinstance(item, dict)}
+    channels = meter.get("channels_1_4") if isinstance(meter, dict) and isinstance(meter.get("channels_1_4"), list) else []
+    current_map = _current_channel_map(current_state)
+    current_online = bool((current_state or {}).get("online"))
+    zones = []
+    for zone in _normalize_inferred_projector_zones(cfg):
+        zone_targets = []
+        for target_id in zone.get("target_ids") or []:
+            item = target_by_id.get(target_id) or target_by_name.get(target_id)
+            if item is not None:
+                zone_targets.append(dict(item))
+        target_total = len(zone_targets)
+        target_online = sum(1 for item in zone_targets if item.get("online"))
+        cabinet_channel = _safe_int(zone.get("cabinet_channel"), 0)
+        feed_on = None
+        if 1 <= cabinet_channel <= len(channels):
+            feed_on = bool(channels[cabinet_channel - 1])
+        current_channels = []
+        current_values = []
+        for channel in zone.get("current_channels") or []:
+            item = current_map.get(channel) or {"channel": channel, "name": f"\u7b2c{channel}\u8def", "current": None, "raw_register": None}
+            current_channels.append(dict(item))
+            if item.get("current") is not None:
+                current_values.append(float(item.get("current")))
+        total_current = round(sum(current_values), 3) if current_values else None
+        baseline = float(zone.get("off_baseline_a") or 0.0)
+        delta_current = round(total_current - baseline, 3) if total_current is not None else None
+        on_delta = float(zone.get("on_delta_threshold_a") or 0.8)
+        standby_delta = float(zone.get("standby_delta_max_a") or 0.25)
+        warn_current = float(zone.get("warn_current_a") or 30.0)
+        power = "unknown"
+        lamp_state = "\u5f85\u786e\u8ba4"
+        error = ""
+        status_level = "online"
+        if feed_on is False:
+            power = "off"
+            lamp_state = "\u65e0\u4f9b\u7535"
+        elif not current_online:
+            error = str((current_state or {}).get("error") or "\u7535\u6d41\u91c7\u96c6\u5668\u79bb\u7ebf")
+            status_level = "stale"
+        elif total_current is None:
+            error = "\u672a\u7ed1\u5b9a\u7535\u6d41\u901a\u9053" if not current_channels else "\u7535\u6d41\u65e0\u8bfb\u6570"
+            status_level = "stale"
+        elif total_current >= warn_current:
+            power = "warning"
+            lamp_state = "\u7535\u6d41\u5f02\u5e38\u504f\u9ad8"
+            error = "\u7535\u6d41\u5f02\u5e38\u504f\u9ad8"
+            status_level = "stale"
+        elif delta_current is not None and delta_current >= on_delta:
+            power = "on"
+            lamp_state = "\u5df2\u5f00\u673a\u7279\u5f81"
+        elif delta_current is not None and delta_current <= standby_delta:
+            power = "off"
+            lamp_state = "\u5173\u673a\u57fa\u7ebf"
+        else:
+            power = "unknown"
+            lamp_state = "\u7535\u6d41\u5904\u4e8e\u4e2d\u95f4\u533a"
+            status_level = "stale"
+        if target_total and target_online < target_total and status_level == "online":
+            status_level = "stale"
+        feed_text = "\u4f9b\u7535\u5408\u95f8" if feed_on is True else ("\u4f9b\u7535\u65ad\u5f00" if feed_on is False else "\u4f9b\u7535\u672a\u77e5")
+        current_text = f"{total_current:.2f}A" if total_current is not None else "\u672a\u7ed1\u5b9a"
+        delta_text = f"{delta_current:+.2f}A" if delta_current is not None else "--"
+        zones.append({
+            "id": zone.get("id"),
+            "name": zone.get("name"),
+            "power": power,
+            "lamp_state": lamp_state,
+            "status_level": status_level,
+            "error": error,
+            "cabinet_channel": cabinet_channel or None,
+            "power_feed_on": feed_on,
+            "current_channels": current_channels,
+            "current_channel_numbers": zone.get("current_channels") or [],
+            "current_total_a": total_current,
+            "current_baseline_a": baseline,
+            "current_delta_a": delta_current,
+            "on_delta_threshold_a": on_delta,
+            "standby_delta_max_a": standby_delta,
+            "target_online_count": target_online,
+            "target_total_count": target_total,
+            "targets": zone_targets,
+            "summary": f"{feed_text}\uff0c\u7535\u6d41 {current_text}\uff0c\u57fa\u7ebf\u5dee {delta_text}\uff0c\u4e32\u53e3 {target_online}/{target_total} \u5728\u7ebf" if target_total else f"{feed_text}\uff0c\u7535\u6d41 {current_text}\uff0c\u57fa\u7ebf\u5dee {delta_text}",
+        })
+    return zones
+
+def _summarize_inferred_zones(zones):
+    if not zones:
+        return "unknown", "\u5f85\u786e\u8ba4", "stale", "\u672a\u914d\u7f6e\u5224\u5b9a\u8bc1\u636e"
+    if any(zone.get("power") == "warning" for zone in zones):
+        return "warning", "\u7535\u6d41\u8bc1\u636e\u5f02\u5e38", "stale", "\uff1b".join(zone.get("summary") or "" for zone in zones)
+    if any(zone.get("power") == "on" for zone in zones):
+        return "on", "\u7535\u6d41\u663e\u793a\u6295\u5f71\u5df2\u5f00\u673a", "online", "\uff1b".join(zone.get("summary") or "" for zone in zones)
+    if all(zone.get("power") == "off" for zone in zones):
+        return "off", "\u7535\u6d41\u663e\u793a\u6295\u5f71\u5df2\u5173\u673a", "online", "\uff1b".join(zone.get("summary") or "" for zone in zones)
+    level = "stale" if any(zone.get("status_level") == "stale" for zone in zones) else "online"
+    return "unknown", "\u5f85\u786e\u8ba4", level, "\uff1b".join(zone.get("summary") or "" for zone in zones)
 
 def _normalize_projector_hex(value):
     return "".join(ch for ch in str(value or "").upper() if ch in "0123456789ABCDEF")
@@ -136,8 +352,17 @@ def _inferred_targets(projector_cfg):
 def get_inferred_projector_command_baseline(projector_cfg):
     if str((projector_cfg or {}).get("control_type") or "") != "inferred_rs232":
         return None, {}
-    cabinet_idx = int((projector_cfg or {}).get("inferred_cabinet_idx", 0) or 0)
-    return _current_inferred_meter_power(cabinet_idx)
+    current_state = _read_current_collector_state()
+    current_total = 0.0
+    has_current = False
+    current_map = _current_channel_map(current_state)
+    for zone in _normalize_inferred_projector_zones(projector_cfg):
+        for channel in zone.get("current_channels") or []:
+            value = (current_map.get(channel) or {}).get("current")
+            if value is not None:
+                current_total += float(value)
+                has_current = True
+    return (round(current_total, 3) if has_current else None), current_state
 
 
 def get_inferred_projector_runtime(projector_id=None):
@@ -177,7 +402,7 @@ def record_inferred_projector_command(projector_cfg, command_config, success, re
             "last_command_ok": bool(success),
             "last_command_payload": payload,
             "last_response": str(response or "")[:500],
-            "command_meter_updated_at": meter.get("updated_at") if isinstance(meter, dict) else None,
+            "command_current_updated_at": meter.get("updated_at") if isinstance(meter, dict) else None,
             "name": projector_cfg.get("name") or proj_id,
             "ip": projector_cfg.get("ip"),
         })
@@ -185,7 +410,7 @@ def record_inferred_projector_command(projector_cfg, command_config, success, re
             item.update({
                 "last_intent": intent,
                 "last_command_at": now,
-                "command_baseline_kw": baseline_kw,
+                "command_baseline_current_a": baseline_kw,
             })
         else:
             item["last_failed_intent"] = intent
@@ -256,7 +481,6 @@ def infer_rs232_projector_status(projector_cfg):
     proj_id = str(cfg.get("id") or "")
     runtime = get_inferred_projector_runtime(proj_id)
     runtime, gateway_status = _merge_inferred_gateway_runtime(cfg, runtime)
-    now = time.time()
     targets = _inferred_targets(cfg)
     target_status = []
     for target in targets:
@@ -278,180 +502,69 @@ def infer_rs232_projector_status(projector_cfg):
     tcp_online = bool(target_total and target_online == target_total)
     tcp_degraded = bool(target_total and 0 < target_online < target_total)
     tcp_error = "; ".join(f"{item.get('name') or item.get('ip')}:{item.get('error')}" for item in target_status if not item.get("online")) or "missing targets"
+
     cabinet_idx = int(cfg.get("inferred_cabinet_idx", 0) or 0)
-    channel_idx = int(cfg.get("inferred_power_channel", 4) or 4)
     meter = _read_remote_cabinet_meter(cabinet_idx)
-    channels = meter.get("channels_1_4") if isinstance(meter.get("channels_1_4"), list) else []
-    power_feed_on = None
-    if 1 <= channel_idx <= len(channels):
-        power_feed_on = bool(channels[channel_idx - 1])
-    power_kw = meter.get("stable_realtime_power")
-    if power_kw is None:
-        power_kw = meter.get("effective_realtime_power")
-    if power_kw is None:
-        power_kw = meter.get("realtime_power")
-    try:
-        power_kw = float(power_kw)
-    except Exception:
-        power_kw = None
+    current_state = _read_current_collector_state()
+    zones = _build_inferred_zone_statuses(cfg, target_status, meter, current_state)
+    summary_power, summary_lamp, summary_level, summary_basis = _summarize_inferred_zones(zones)
 
     last_intent = str(runtime.get("last_intent") or "").lower()
-    last_command_ok = runtime.get("last_command_ok")
     last_command_at = runtime.get("last_command_at")
-    baseline_kw = runtime.get("command_baseline_kw")
-    try:
-        baseline_kw = float(baseline_kw)
-    except Exception:
-        baseline_kw = None
-    last_ts = _parse_iso_like_ts(last_command_at)
-    age_sec = (now - last_ts) if last_ts else None
-    on_threshold_kw = float(cfg.get("inferred_on_threshold_kw", 7.0) or 7.0)
-    standby_max_kw = float(cfg.get("inferred_standby_max_kw", 3.0) or 3.0)
-    on_delta_kw = float(cfg.get("inferred_on_delta_kw", 1.0) or 1.0)
-    off_delta_kw = float(cfg.get("inferred_off_delta_kw", on_delta_kw) or on_delta_kw)
-    absolute_power_enabled = bool(cfg.get("inferred_absolute_power_enabled", False))
-    warmup_sec = float(cfg.get("inferred_warmup_sec", 300) or 300)
-    cooldown_sec = float(cfg.get("inferred_cooldown_sec", 240) or 240)
-    command_trust_sec = float(cfg.get("inferred_command_trust_sec", 180) or 180)
-    power_verify_sec = float(cfg.get("inferred_power_verify_sec", 120) or 120)
-    delta_kw = (power_kw - baseline_kw) if (power_kw is not None and baseline_kw is not None) else None
-    drop_kw = (baseline_kw - power_kw) if (power_kw is not None and baseline_kw is not None) else None
-    command_success = last_command_ok is not False
+    status_level = summary_level
+    if not tcp_online:
+        status_level = "stale" if tcp_degraded else "error"
+    if any(zone.get("status_level") == "stale" for zone in zones) and status_level == "online":
+        status_level = "stale"
+
+    error_text = "\u6b63\u5e38"
+    zone_errors = [f"{zone.get('name')}: {zone.get('error')}" for zone in zones if zone.get("error")]
+    if zone_errors:
+        error_text = "\uff1b".join(zone_errors)
+    elif not tcp_online:
+        error_text = tcp_error or "\u4e32\u53e3\u670d\u52a1\u5668\u79bb\u7ebf"
+
+    current_total = None
+    zone_current_values = [zone.get("current_total_a") for zone in zones if zone.get("current_total_a") is not None]
+    if zone_current_values:
+        current_total = round(sum(float(value) for value in zone_current_values), 3)
 
     status = {
         "online": bool(tcp_online),
-        "power": "unknown",
-        "source": "推断状态",
-        "source_name": "串口服务器 + 电柜功率",
+        "power": summary_power,
+        "source": "\u63a8\u65ad\u72b6\u6001",
+        "source_name": "\u4e32\u53e3\u670d\u52a1\u5668 + \u7535\u67dc\u56de\u8def + \u7535\u6d41\u91c7\u96c6\u5668",
         "lamp_hours": None,
-        "lamp_state": None,
-        "temp_status": "不支持查询",
-        "error": "正常" if tcp_online else (tcp_error or "串口服务器离线"),
-        "manufacturer": cfg.get("fixed_manufacturer") or "RS232 控制",
-        "product_name": cfg.get("fixed_model") or "无反馈投影机",
-        "software_version": cfg.get("fixed_software_version") or "推断型",
-        "class_version": "状态推断",
-        "other_info": "",
+        "lamp_state": summary_lamp,
+        "temp_status": "\u4e0d\u652f\u6301\u67e5\u8be2",
+        "error": error_text,
+        "manufacturer": cfg.get("fixed_manufacturer") or "RS232 \u4e32\u53e3\u670d\u52a1\u5668\u7ec4",
+        "product_name": cfg.get("fixed_model") or "\u65e0\u53cd\u9988\u6295\u5f71\u673a",
+        "software_version": cfg.get("fixed_software_version") or "\u7535\u6d41\u63a8\u65ad\u578b",
+        "class_version": "\u72b6\u6001\u63a8\u65ad",
+        "other_info": summary_basis,
         "error_details": {},
         "inferred": True,
-        "inference_basis": "",
+        "inference_basis": summary_basis,
         "inferred_targets": target_status,
+        "inferred_evidence": zones,
+        "inferred_zones": zones,
         "target_online_count": target_online,
         "target_total_count": target_total,
         "last_command_at": last_command_at,
         "last_intent": last_intent or None,
         "last_command_source": runtime.get("last_command_source"),
         "gateway_status": gateway_status if isinstance(gateway_status, dict) else {},
-        "power_feed_on": power_feed_on,
-        "meter_power_kw": power_kw,
-        "command_baseline_kw": baseline_kw,
-        "power_delta_kw": delta_kw,
-        "meter_updated_at": meter.get("updated_at"),
-        "status_level": "online" if tcp_online else ("stale" if tcp_degraded else "error"),
+        "current_collector_online": bool(current_state.get("online")),
+        "current_collector_error": current_state.get("error"),
+        "current_collector_updated_at": current_state.get("updated_at"),
+        "current_total_a": current_total,
+        "meter_updated_at": meter.get("updated_at") if isinstance(meter, dict) else None,
+        "status_level": status_level,
     }
     if not tcp_online:
-        status["power"] = "unknown"
-        status["status_level"] = "stale" if tcp_degraded else "error"
-        status["inference_basis"] = f"串口服务器在线 {target_online}/{target_total}，{tcp_error}"
-        if not tcp_degraded:
-            return status
-    if power_feed_on is False:
-        status["power"] = "off"
-        status["lamp_state"] = "无供电"
-        status["inference_basis"] = f"电柜第 {channel_idx} 路断开"
-        return status
-
-    if absolute_power_enabled and power_kw is not None and power_kw >= on_threshold_kw and last_intent != "off":
-        status["power"] = "on"
-        status["lamp_state"] = "疑似运行" if not last_intent else "开启"
-    elif last_intent == "on":
-        if command_success and age_sec is not None and age_sec <= command_trust_sec:
-            status["power"] = "on"
-            status["lamp_state"] = "开启" if delta_kw is not None and delta_kw >= on_delta_kw else "网关已开机"
-            status["source_name"] = "121网关指令 + 电柜校验"
-        elif delta_kw is not None and delta_kw >= on_delta_kw:
-            status["power"] = "on"
-            status["lamp_state"] = "开启"
-        elif baseline_kw is None and absolute_power_enabled and power_kw is not None and power_kw >= on_threshold_kw:
-            status["power"] = "on"
-            status["lamp_state"] = "开启"
-        elif command_success and age_sec is not None and age_sec <= max(warmup_sec, command_trust_sec):
-            status["power"] = "on"
-            status["lamp_state"] = "网关已开机"
-            status["source_name"] = "121网关指令 + 电柜校验"
-        elif age_sec is not None and age_sec <= min(warmup_sec, power_verify_sec):
-            status["power"] = "warming"
-            status["lamp_state"] = "启动中"
-        elif delta_kw is not None and delta_kw < max(on_delta_kw * 0.35, 0.3):
-            status["power"] = "warning"
-            status["lamp_state"] = "疑似未启动"
-            status["error"] = "开机后功率未上升"
-            status["status_level"] = "stale"
-        elif baseline_kw is None and absolute_power_enabled and power_kw is not None and power_kw < standby_max_kw:
-            status["power"] = "warning"
-            status["lamp_state"] = "疑似未启动"
-            status["error"] = "开机后功率未上升"
-            status["status_level"] = "stale"
-        else:
-            status["power"] = "unknown"
-            status["lamp_state"] = "待确认"
-    elif last_intent == "off":
-        if command_success and age_sec is not None and age_sec <= command_trust_sec:
-            status["power"] = "off"
-            status["lamp_state"] = "待机" if drop_kw is not None and drop_kw >= off_delta_kw else "网关已关机"
-            status["source_name"] = "121网关指令 + 电柜校验"
-        elif drop_kw is not None and drop_kw >= off_delta_kw:
-            status["power"] = "off"
-            status["lamp_state"] = "待机"
-        elif baseline_kw is None and absolute_power_enabled and power_kw is not None and power_kw < standby_max_kw:
-            status["power"] = "off"
-            status["lamp_state"] = "待机"
-        elif command_success and age_sec is not None and age_sec <= max(cooldown_sec, command_trust_sec):
-            status["power"] = "off"
-            status["lamp_state"] = "网关已关机"
-            status["source_name"] = "121网关指令 + 电柜校验"
-        elif age_sec is not None and age_sec <= min(cooldown_sec, power_verify_sec) and (
-            drop_kw is None or drop_kw >= max(off_delta_kw * 0.35, 0.3)
-        ):
-            status["power"] = "cooling"
-            status["lamp_state"] = "冷却中"
-        elif drop_kw is not None and drop_kw < max(off_delta_kw * 0.35, 0.3):
-            status["power"] = "warning"
-            status["lamp_state"] = "疑似仍在运行"
-            status["error"] = "关机后功率仍偏高"
-            status["status_level"] = "stale"
-        elif baseline_kw is None and absolute_power_enabled and power_kw is not None and power_kw >= on_threshold_kw:
-            status["power"] = "warning"
-            status["lamp_state"] = "疑似仍在运行"
-            status["error"] = "关机后功率仍偏高"
-            status["status_level"] = "stale"
-        else:
-            status["power"] = "off"
-            status["lamp_state"] = "待机"
-    else:
-        if absolute_power_enabled and power_kw is not None and power_kw >= on_threshold_kw:
-            status["power"] = "on"
-            status["lamp_state"] = "疑似运行"
-        elif absolute_power_enabled and power_kw is not None and power_kw < standby_max_kw:
-            status["power"] = "off"
-            status["lamp_state"] = "待机"
-        else:
-            status["power"] = "unknown"
-            status["lamp_state"] = "等待控制记录"
-
-    age_text = f"，上次指令 {int(age_sec)} 秒前" if age_sec is not None else "，暂无指令记录"
-    if delta_kw is not None:
-        pwr_text = f"总功率 {power_kw:.2f}kW，变化 {delta_kw:+.2f}kW"
-    elif power_kw is not None:
-        pwr_text = f"总功率 {power_kw:.2f}kW"
-    else:
-        pwr_text = "总功率未知"
-    feed_text = "供电合闸" if power_feed_on else ("供电未知" if power_feed_on is None else "供电断开")
-    target_text = f"串口服务器 {target_online}/{target_total} 在线" if target_total else "串口服务器未配置"
-    status["inference_basis"] = f"{target_text}，{feed_text}，{pwr_text}{age_text}"
-    status["other_info"] = status["inference_basis"]
-    if status.get("error") == "正常" and status.get("power") not in ["warning", "unknown"]:
-        status["status_level"] = "online"
+        status["inference_basis"] = f"\u4e32\u53e3\u670d\u52a1\u5668\u5728\u7ebf {target_online}/{target_total}\uff0c{summary_basis}"
+        status["other_info"] = status["inference_basis"]
     return status
 
 DEFAULT_SERIES_BY_BRAND = {

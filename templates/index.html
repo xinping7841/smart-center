@@ -10932,14 +10932,54 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             return `${n >= 0 ? '+' : ''}${n.toFixed(2)} kW`;
         }
         function formatInferredFeedText(status) {
-            if (status?.power_feed_on === true) return '供电合闸';
-            if (status?.power_feed_on === false) return '供电断开';
-            return '供电未知';
+            if (status?.power_feed_on === true) return '\u4f9b\u7535\u5408\u95f8';
+            if (status?.power_feed_on === false) return '\u4f9b\u7535\u65ad\u5f00';
+            return '\u4f9b\u7535\u672a\u77e5';
+        }
+        function formatInferredZoneFeedText(zone) {
+            if (zone?.power_feed_on === true) return '\u4f9b\u7535\u5408\u95f8';
+            if (zone?.power_feed_on === false) return '\u4f9b\u7535\u65ad\u5f00';
+            return '\u4f9b\u7535\u672a\u77e5';
+        }
+        function formatProjectorAmp(value) {
+            if (value === null || value === undefined || value === '') return '--';
+            const n = Number(value);
+            if (!Number.isFinite(n)) return '--';
+            return `${n.toFixed(2)} A`;
         }
         function renderInferredTargetSummary(status) {
             const targets = Array.isArray(status?.inferred_targets) ? status.inferred_targets : [];
             if (!targets.length) return '--';
-            return targets.map((target, idx) => `控制点${idx + 1}${target.online ? '在线' : '离线'}`).join(' / ');
+            return targets.map((target) => `${target.name || target.ip || '\u63a7\u5236\u70b9'}${target.online ? '\u5728\u7ebf' : '\u79bb\u7ebf'}`).join(' / ');
+        }
+        function renderInferredEvidenceSummary(status) {
+            const rows = Array.isArray(status?.inferred_evidence) ? status.inferred_evidence : (Array.isArray(status?.inferred_zones) ? status.inferred_zones : []);
+            if (!rows.length) return formatInferredFeedText(status);
+            return rows.map(row => `${row.name || row.id || '\u8bc1\u636e'} ${formatProjectorAmp(row.current_total_a)}`).join(' / ');
+        }
+        function renderInferredEvidenceCards(status, compact=false) {
+            const zones = Array.isArray(status?.inferred_evidence) ? status.inferred_evidence : (Array.isArray(status?.inferred_zones) ? status.inferred_zones : []);
+            if (!zones.length) return '<div class="projector-zone-empty">\u672a\u914d\u7f6e\u6295\u5f71\u63a8\u65ad\u8bc1\u636e</div>';
+            return `<div class="projector-zone-grid ${compact ? 'compact' : ''}">${zones.map(zone => {
+                const powerStatus = zone.power || 'unknown';
+                const powerText = getProjectorPowerText(powerStatus);
+                const currentText = formatProjectorAmp(zone.current_total_a);
+                const deltaText = zone.current_delta_a === null || zone.current_delta_a === undefined ? '--' : `${Number(zone.current_delta_a) >= 0 ? '+' : ''}${Number(zone.current_delta_a).toFixed(2)} A`;
+                const feedText = formatInferredZoneFeedText(zone);
+                const cabinetText = zone.cabinet_channel ? `\u7535\u67dc${zone.cabinet_channel}\u8def` : '\u7535\u67dc\u672a\u7ed1\u5b9a';
+                const currentChannels = Array.isArray(zone.current_channels) ? zone.current_channels : [];
+                const currentChannelText = currentChannels.length ? currentChannels.map(ch => ch.name || `\u7b2c${ch.channel}\u8def`).join(' / ') : '\u7535\u6d41\u672a\u7ed1\u5b9a';
+                const targetText = Number(zone.target_total_count || 0) ? `${zone.target_online_count || 0}/${zone.target_total_count || 0} \u5728\u7ebf` : '\u4e32\u53e3\u672a\u7ed1\u5b9a';
+                return `<div class="projector-zone-card ${powerStatus} ${zone.status_level === 'stale' ? 'stale' : ''}">
+                    <div class="projector-zone-head">
+                        <div class="projector-zone-name">${escapeHtml(zone.name || zone.id || '\u5224\u5b9a\u8bc1\u636e')}</div>
+                        <span class="projector-zone-state">${escapeHtml(deltaText)}</span>
+                    </div>
+                    <div class="projector-zone-current">${escapeHtml(currentText)}</div>
+                    <div class="projector-zone-meta"><span>${escapeHtml(feedText)}</span><span>${escapeHtml(cabinetText)}</span><span>${escapeHtml(targetText)}</span></div>
+                    <div class="projector-zone-source" title="${escapeHtml(currentChannelText)}">${escapeHtml(currentChannelText)}</div>
+                </div>`;
+            }).join('')}</div>`;
         }
         function renderInferredProjectorPowerActions(proj, powerOnCmd, powerOffCmd, compact=false) {
             const disabledClass = getPermissionDisabledClass('projector.control');
@@ -10956,82 +10996,74 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         }
         function renderInferredProjectorCard(proj) {
             const status = getProjectorStatus(proj.id);
-            const statusMeta = getDeviceStatusMeta(status, { staleText: '待确认', errorText: '异常' });
+            const statusMeta = getDeviceStatusMeta(status, { staleText: '\u5f85\u786e\u8ba4', errorText: '\u5f02\u5e38' });
             const isOnline = statusMeta.isOnlineLike;
             const powerStatus = status.power || 'unknown';
             const powerText = getProjectorPowerText(powerStatus);
             const powerColor = getProjectorPowerColor(powerStatus);
-            const powerOnCmd = findProjectorCommand(proj, ['power_on'], ['开机']);
-            const powerOffCmd = findProjectorCommand(proj, ['power_off'], ['关机']);
+            const powerOnCmd = findProjectorCommand(proj, ['power_on'], ['\u5f00\u673a']);
+            const powerOffCmd = findProjectorCommand(proj, ['power_off'], ['\u5173\u673a']);
             const targetTotal = Number(status.target_total_count ?? 0);
             const targetOnline = Number(status.target_online_count ?? 0);
-            const targetSummary = targetTotal ? `${targetOnline}/${targetTotal} 在线` : '未配置目标';
+            const targetSummary = targetTotal ? `${targetOnline}/${targetTotal} \u5728\u7ebf` : '\u672a\u914d\u7f6e\u76ee\u6807';
             const projectorNote = status.inference_basis || status.status_note || statusMeta.note;
-            const lastIntentText = status.last_intent === 'on' ? '最近开机' : (status.last_intent === 'off' ? '最近关机' : '无指令记录');
-            const gatewayText = status.last_command_source ? '121网关' : '串口 + 电柜';
+            const lastIntentText = status.last_intent === 'on' ? '\u6700\u8fd1\u5f00\u673a' : (status.last_intent === 'off' ? '\u6700\u8fd1\u5173\u673a' : '\u65e0\u6307\u4ee4\u8bb0\u5f55');
+            const gatewayText = status.last_command_source ? '121\u7f51\u5173' : '\u4e32\u53e3 + \u7535\u6d41\u91c7\u96c6';
+            const collectorText = status.current_collector_online ? `\u5728\u7ebf ${String(status.current_collector_updated_at || '').replace('T', ' ').slice(11, 19)}` : (status.current_collector_error || '\u79bb\u7ebf');
             return `
-                <div class="projector-card ${isOnline ? 'online' : 'offline'} ${getCardStateClass(statusMeta)}">
+                <div class="projector-card inferred-projector-card ${isOnline ? 'online' : 'offline'} ${getCardStateClass(statusMeta)}">
                     <div class="projector-card-top">
                         <div>
                             <div class="projector-card-title">${escapeHtml(proj.name || proj.id)}</div>
-                            <div class="projector-card-subtitle">三区域组控 · ${escapeHtml(targetSummary)} · ${escapeHtml(formatInferredFeedText(status))}</div>
+                            <div class="projector-card-subtitle">\u6574\u4f53\u7ec4\u63a7 \u00b7 ${escapeHtml(targetSummary)} \u00b7 ${escapeHtml(renderInferredEvidenceSummary(status))}</div>
                         </div>
-                        <button class="projector-entry-btn" title="打开遥控器面板" onclick="openProjectorRemote('${escapeHtml(proj.id)}')">${getProjectorIconHtml('remote')}</button>
+                        <button class="projector-entry-btn" title="\u6253\u5f00\u9065\u63a7\u5668\u9762\u677f" onclick="openProjectorRemote('${escapeHtml(proj.id)}')">${getProjectorIconHtml('remote')}</button>
                     </div>
                     <div class="projector-status-inline">
                         <div class="projector-status-left">
                             <span class="projector-dot ${statusMeta.chipClass === 'online' ? 'online' : ''} ${statusMeta.chipClass === 'warning' ? 'warning' : ''}"></span>
                             <span>${escapeHtml(statusMeta.text)}</span>
-                            <span>·</span>
-                            <span style="color:${powerColor}; font-weight:700;">推断 ${escapeHtml(powerText)}</span>
+                            <span>\u00b7</span>
+                            <span style="color:${powerColor}; font-weight:700;">\u603b\u4f53 ${escapeHtml(powerText)}</span>
                         </div>
                         <div class="projector-status-actions">
                             ${renderInferredProjectorPowerActions(proj, powerOnCmd, powerOffCmd)}
                         </div>
                     </div>
-                    <div class="projector-meta-grid">
-                        <div class="projector-meta-item"><div class="projector-meta-label">串口服务器</div><div class="projector-meta-value">${escapeHtml(targetSummary)}</div></div>
-                        <div class="projector-meta-item"><div class="projector-meta-label">供电状态</div><div class="projector-meta-value">${escapeHtml(formatInferredFeedText(status))}</div></div>
-                        <div class="projector-meta-item"><div class="projector-meta-label">电柜总功率</div><div class="projector-meta-value">${escapeHtml(formatProjectorKw(status.meter_power_kw))}</div></div>
-                        <div class="projector-meta-item"><div class="projector-meta-label">功率变化</div><div class="projector-meta-value">${escapeHtml(formatProjectorSignedKw(status.power_delta_kw))}</div></div>
-                    </div>
+                    ${renderInferredEvidenceCards(status)}
                     <div class="projector-extra-row">
-                        <div class="projector-extra-chip"><div class="label">控制记录</div><div class="value">${escapeHtml(lastIntentText)}</div></div>
-                        <div class="projector-extra-chip"><div class="label">状态来源</div><div class="value">${escapeHtml(gatewayText)}</div></div>
-                        <div class="projector-extra-chip"><div class="label">控制点</div><div class="value" title="${escapeHtml(renderInferredTargetSummary(status))}">${escapeHtml(renderInferredTargetSummary(status))}</div></div>
+                        <div class="projector-extra-chip"><div class="label">\u63a7\u5236\u8bb0\u5f55</div><div class="value">${escapeHtml(lastIntentText)}</div></div>
+                        <div class="projector-extra-chip"><div class="label">\u72b6\u6001\u6765\u6e90</div><div class="value">${escapeHtml(gatewayText)}</div></div>
+                        <div class="projector-extra-chip"><div class="label">\u7535\u6d41\u91c7\u96c6\u5668</div><div class="value">${escapeHtml(collectorText)}</div></div>
                     </div>
-                    <div class="dashboard-mini-note">${escapeHtml(projectorNote)}</div>
+                    <div class="dashboard-mini-note" title="${escapeHtml(renderInferredTargetSummary(status))}">${escapeHtml(projectorNote)}</div>
                 </div>`;
         }
         function renderCompactInferredProjectorCard(proj) {
             const status = getProjectorStatus(proj.id);
-            const statusMeta = getDeviceStatusMeta(status, { staleText: '待确认', errorText: '异常' });
+            const statusMeta = getDeviceStatusMeta(status, { staleText: '\u5f85\u786e\u8ba4', errorText: '\u5f02\u5e38' });
             const isOnline = statusMeta.isOnlineLike;
             const powerStatus = status.power || 'unknown';
-            const powerText = getProjectorPowerText(powerStatus);
-            const powerOnCmd = findProjectorCommand(proj, ['power_on'], ['开机']);
-            const powerOffCmd = findProjectorCommand(proj, ['power_off'], ['关机']);
+            const powerOnCmd = findProjectorCommand(proj, ['power_on'], ['\u5f00\u673a']);
+            const powerOffCmd = findProjectorCommand(proj, ['power_off'], ['\u5173\u673a']);
             const powerButtonCmd = (powerStatus === 'on' || powerStatus === 'warming') ? powerOffCmd : powerOnCmd;
             const powerButtonClass = getProjectorPowerButtonClass(isOnline, powerStatus);
             const powerButtonTitle = getProjectorPowerButtonTitle(isOnline, powerStatus);
             const targetTotal = Number(status.target_total_count ?? 0);
             const targetOnline = Number(status.target_online_count ?? 0);
-            const targetSummary = targetTotal ? `串口 ${targetOnline}/${targetTotal}` : '串口未配置';
+            const targetSummary = targetTotal ? `\u4e32\u53e3 ${targetOnline}/${targetTotal}` : '\u4e32\u53e3\u672a\u914d\u7f6e';
             return `<div class="dashboard-mini-card projector-compact-card ${getCardStateClass(statusMeta)}">
                 <div class="dashboard-mini-projector-head">
                     <div class="dashboard-mini-projector-title">
                         <div class="dashboard-mini-title">${escapeHtml(proj.name || proj.id)}</div>
-                        <div class="dashboard-mini-subtitle">${escapeHtml(targetSummary)} · ${escapeHtml(formatInferredFeedText(status))}</div>
+                        <div class="dashboard-mini-subtitle">${escapeHtml(targetSummary)} \u00b7 ${escapeHtml(renderInferredEvidenceSummary(status))}</div>
                     </div>
                     <div class="dashboard-mini-projector-controls">
-                        <button class="dashboard-mini-projector-entry" type="button" title="打开遥控器面板" onclick="openProjectorRemote('${escapeHtml(proj.id)}')">${getProjectorIconHtml('remote')}</button>
-                        ${powerButtonCmd ? `<button class="projector-power-key ${powerButtonClass}${getPermissionDisabledClass('projector.control')}" ${getPermissionDisabledAttrs('projector.control', '当前账号无投影机控制权限')} title="${escapeHtml(powerButtonTitle)}" onclick="fireProjectorCommand('${escapeHtml(proj.id)}', '${escapeHtml(powerButtonCmd.payload || '')}', '${escapeHtml(powerButtonCmd.format || 'str')}', '${escapeHtml(powerButtonCmd.name || '')}')">${getProjectorIconHtml('power')}</button>` : `<button class="projector-power-key ${powerButtonClass}" title="打开遥控器" onclick="openProjectorRemote('${escapeHtml(proj.id)}')">${getProjectorIconHtml('power')}</button>`}
+                        <button class="dashboard-mini-projector-entry" type="button" title="\u6253\u5f00\u9065\u63a7\u5668\u9762\u677f" onclick="openProjectorRemote('${escapeHtml(proj.id)}')">${getProjectorIconHtml('remote')}</button>
+                        ${powerButtonCmd ? `<button class="projector-power-key ${powerButtonClass}${getPermissionDisabledClass('projector.control')}" ${getPermissionDisabledAttrs('projector.control', '\u5f53\u524d\u8d26\u53f7\u65e0\u6295\u5f71\u673a\u63a7\u5236\u6743\u9650')} title="${escapeHtml(powerButtonTitle)}" onclick="fireProjectorCommand('${escapeHtml(proj.id)}', '${escapeHtml(powerButtonCmd.payload || '')}', '${escapeHtml(powerButtonCmd.format || 'str')}', '${escapeHtml(powerButtonCmd.name || '')}')">${getProjectorIconHtml('power')}</button>` : `<button class="projector-power-key ${powerButtonClass}" title="\u6253\u5f00\u9065\u63a7\u5668" onclick="openProjectorRemote('${escapeHtml(proj.id)}')">${getProjectorIconHtml('power')}</button>`}
                     </div>
                 </div>
-                <div class="dashboard-mini-light-summary">
-                    <div class="dashboard-mini-light-count">${escapeHtml(powerText)}</div>
-                    <div class="dashboard-mini-chip-row"><span class="ups-chip ${statusMeta.chipClass}">${statusMeta.text}</span></div>
-                </div>
+                ${renderInferredEvidenceCards(status, true)}
                 <div class="dashboard-mini-note">${escapeHtml(status.inference_basis || status.status_note || statusMeta.note)}</div>
             </div>`;
         }
