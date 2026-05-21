@@ -89,6 +89,7 @@
     <script src="/static/js/views/logs.js?v=20260522-stage2-logs-view"></script>
     <script src="/static/js/views/proxy.js?v=20260522-stage2-proxy-view"></script>
     <script src="/static/js/views/ups.js?v=20260522-stage2-ups-view"></script>
+    <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
     <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260519-sequencer-single-page">
     <style>
         /* AI map: dashboard.inline_styles. Move isolated blocks to static/css/views
@@ -1761,7 +1762,6 @@
         let meterTrendOptionSignature = '';
         let meterTrendAxisKey = '';
         let meterTrendYAxisMax = 0;
-        let hyEdgeStatusCache = {};
         let snmpStatusCache = {};
         let nvrStatusCache = {};
         let snmpCardFilter = 'all';
@@ -8066,76 +8066,6 @@
                     snmpFetchMode = '';
                 });
             return snmpFetchInFlight;
-        }
-        function renderHyEdgeCards() {
-            const summaryEl = document.getElementById('dashboard-hy-edge-summary');
-            const grid = document.getElementById('dashboard-hy-edge-grid');
-            if (!summaryEl || !grid) return;
-            const payload = hyEdgeStatusCache || {};
-            const summary = payload.summary || {};
-            const cards = Array.isArray(payload.cards) ? payload.cards : [];
-            const online = payload.online !== false && payload.enabled !== false && !payload.error;
-            const stateChip = online
-                ? '<span class="ups-chip online">边缘在线</span>'
-                : `<span class="ups-chip error">边缘离线</span>`;
-            summaryEl.innerHTML = `
-                ${stateChip}
-                <span class="ups-chip">在线 <strong>${escapeHtml(String(summary.online_count ?? 0))}</strong> / ${escapeHtml(String(summary.card_total ?? 0))}</span>
-                <span class="ups-chip ${Number(summary.alert_count || 0) > 0 ? 'warning' : ''}">告警 <strong>${escapeHtml(String(summary.alert_count ?? 0))}</strong></span>
-                <span class="ups-chip">响应 ${escapeHtml(String(summary.response_time_ms ?? '--'))} ms</span>
-            `;
-            if (payload.enabled === false) {
-                grid.innerHTML = '<div style="color:var(--text-sub); grid-column:1/-1; text-align:center; padding:20px;">HY 异地机房监控已停用</div>';
-                return;
-            }
-            if (!online && !cards.length) {
-                grid.innerHTML = `<div style="color:var(--danger); grid-column:1/-1; text-align:center; padding:20px;">HY 边缘状态读取失败：${escapeHtml(payload.error || '未知错误')}</div>`;
-                return;
-            }
-            grid.innerHTML = cards.map(card => {
-                const hasAlerts = Array.isArray(card.alerts) && card.alerts.length > 0;
-                const cardClass = `${card.online ? '' : 'offline'} ${hasAlerts ? 'warning' : ''}`.trim();
-                const chips = (card.chips || []).map(chip => `<span class="ups-chip ${escapeHtml(chip.tone || '')}">${escapeHtml(chip.text || '--')}</span>`).join('');
-                const metrics = (card.metrics || []).map(metric => `
-                    <div class="hy-edge-metric ${escapeHtml(metric.level || '')}">
-                        <div class="label">${escapeHtml(metric.label || '--')}</div>
-                        <div class="value">${escapeHtml(metric.value || '--')}</div>
-                    </div>
-                `).join('');
-                const alerts = hasAlerts
-                    ? `<div class="hy-edge-alerts">${card.alerts.map(item => `<span class="ups-chip warning">${escapeHtml(item)}</span>`).join('')}</div>`
-                    : '';
-                return `<div class="hy-edge-card ${escapeHtml(cardClass)}">
-                    <div class="hy-edge-head">
-                        <div>
-                            <div class="hy-edge-title">${escapeHtml(card.title || '--')}</div>
-                            <div class="hy-edge-subtitle">${escapeHtml(card.subtitle || '--')}</div>
-                        </div>
-                        <div class="dashboard-mini-chip-row">${chips}</div>
-                    </div>
-                    <div class="hy-edge-metric-grid">${metrics}</div>
-                    ${alerts}
-                    <div class="hy-edge-note">${escapeHtml(card.note || '')}</div>
-                </div>`;
-            }).join('');
-        }
-        function updateHyEdgeStatus() {
-            return fetchJson('/api/hy-edge/status', {}, 'HY 异地状态读取失败')
-                .then(data => {
-                    hyEdgeStatusCache = data || {};
-                    renderHyEdgeCards();
-                })
-                .catch(err => {
-                    console.error('HY 异地状态更新失败', err);
-                    hyEdgeStatusCache = {
-                        enabled: true,
-                        online: false,
-                        error: translateApiError(err?.message, 'HY 异地状态读取失败'),
-                        summary: { online_count: 0, card_total: 0, alert_count: 0, response_time_ms: null, high_age_text: '--', low_age_text: '--' },
-                        cards: []
-                    };
-                    renderHyEdgeCards();
-                });
         }
         function applyAdaptiveDensity() {
             const width = window.innerWidth || document.documentElement.clientWidth || 0;
