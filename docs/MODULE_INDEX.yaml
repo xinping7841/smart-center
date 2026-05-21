@@ -171,6 +171,16 @@ modules:
     runtime_state: ['m32r_service.state','music_tag_library.json']
     split_priority: low
     ai_keywords: ['m32r','midas','mixer','osc','channel','template','apple audio route']
+  driver_hub:
+    frontend_module: 'static/js/views/driver-hub.js'
+    purpose: Standalone driver hub snapshot page for driver health counters, group filtering, and driver table rendering.
+    routes: ['/driver_hub','/api/driver_hub/manifest','/api/driver_hub/snapshot']
+    backend: ['api/driver_hub.py','runtime/driver_hub.py']
+    frontend: ['templates/driver_hub.html','static/js/views/driver-hub.js']
+    config_keys: ['custom_devices','cabinets','meter_service','light_scenes']
+    runtime_state: ['runtime.driver_hub snapshot']
+    split_priority: low
+    ai_keywords: ['driver hub','driver_hub','driver','node-red','snapshot','manifest']
   universal_control:
     frontend_module: 'static/js/views/universal.js'
     purpose: Protocol control center buttons and legacy universal device command shims.
