@@ -57,6 +57,10 @@ OPERATION_LOG_FILE = _resolve_env_path(
     "SMART_CENTER_OPERATION_LOG_FILE",
     default=DATA_DIR / "operation_logs.json",
 )
+EVENT_LOG_DB_FILE = _resolve_env_path(
+    "SMART_CENTER_EVENT_LOG_DB_FILE",
+    default=DATA_DIR / "event_logs.db",
+)
 AUDIT_LOG_FILE = _resolve_env_path(
     "SMART_CENTER_AUDIT_LOG_FILE",
     default=DATA_DIR / "audit_logs.json",
@@ -93,6 +97,7 @@ def ensure_runtime_layout() -> None:
     ensure_parent_dir(DB_FILE)
     ensure_parent_dir(ENERGY_LOG_FILE)
     ensure_parent_dir(OPERATION_LOG_FILE)
+    ensure_parent_dir(EVENT_LOG_DB_FILE)
     ensure_parent_dir(AUDIT_LOG_FILE)
     ensure_parent_dir(AUTH_USERS_FILE)
 

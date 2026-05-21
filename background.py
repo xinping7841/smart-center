@@ -1252,10 +1252,20 @@ def poll_single_light(dev_id, light_cfg=None):
             changed_text = _observed_channel_change_text(f"light:{dev_id}:channels:observed", channels, cfg)
             if changed_text:
                 device_name = str(cfg.get("name") or cfg.get("id") or dev_id)
-                _record_detected_change(
-                    f"light:{dev_id}:channels",
-                    f"[状态变化][灯光] {device_name} {changed_text}（轮询识别）",
-                )
+                message = f"[状态变化][灯光] {device_name} {changed_text}（轮询识别）"
+                _record_detected_change(f"light:{dev_id}:channels", message)
+                try:
+                    record_state_change(
+                        category="light",
+                        device_id=str(dev_id),
+                        device_name=device_name,
+                        message=message,
+                        source="poller",
+                        changes=[{"text": changed_text}],
+                        raw={"channels": channels},
+                    )
+                except Exception:
+                    pass
             next_meta = _build_poll_success(
                 previous_meta,
                 {
@@ -2215,11 +2225,21 @@ def poll_single_cabinet(idx):
                 changed_text = _observed_channel_change_text(f"cabinet:{idx}:channels:observed", bits, conf)
                 if changed_text:
                     cabinet_name = str(conf.get("cabinet_name") or conf.get("name") or f"电柜{idx + 1}")
-                    _record_detected_change(
-                        f"cabinet:{idx}:channels",
-                        f"[状态变化][强电柜] {cabinet_name} {changed_text}（外部/轮询识别）",
-                        cab_idx=idx,
-                    )
+                    message = f"[状态变化][强电柜] {cabinet_name} {changed_text}（外部/轮询识别）"
+                    _record_detected_change(f"cabinet:{idx}:channels", message, cab_idx=idx)
+                    try:
+                        record_state_change(
+                            category="power",
+                            device_id=f"cabinet:{idx}",
+                            device_name=cabinet_name,
+                            message=message,
+                            source="poller",
+                            cab_idx=idx,
+                            changes=[{"text": changed_text}],
+                            raw={"channels": bits},
+                        )
+                    except Exception:
+                        pass
 
             hum, temp = mc.parse_av100_env(p_env)
             DEVICE_STATUS[idx].update({"cabinet_humidity": hum, "cabinet_temp": temp})
@@ -2262,11 +2282,21 @@ def poll_single_cabinet(idx):
                 changed_text = _observed_channel_change_text(f"cabinet:{idx}:channels:observed", bits, conf)
                 if changed_text:
                     cabinet_name = str(conf.get("cabinet_name") or conf.get("name") or f"电柜{idx + 1}")
-                    _record_detected_change(
-                        f"cabinet:{idx}:channels",
-                        f"[状态变化][强电柜] {cabinet_name} {changed_text}（外部/轮询识别）",
-                        cab_idx=idx,
-                    )
+                    message = f"[状态变化][强电柜] {cabinet_name} {changed_text}（外部/轮询识别）"
+                    _record_detected_change(f"cabinet:{idx}:channels", message, cab_idx=idx)
+                    try:
+                        record_state_change(
+                            category="power",
+                            device_id=f"cabinet:{idx}",
+                            device_name=cabinet_name,
+                            message=message,
+                            source="poller",
+                            cab_idx=idx,
+                            changes=[{"text": changed_text}],
+                            raw={"channels": bits},
+                        )
+                    except Exception:
+                        pass
             if p_energy:
                 e = int.from_bytes(p_energy[3:7], "big") * 0.1
                 DEVICE_STATUS[idx]["electric_energy"] = e

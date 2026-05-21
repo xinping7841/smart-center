@@ -151,6 +151,34 @@
         #automationNodeModal .auto-node-inspector-list div { border-radius:12px !important; padding:9px 10px !important; color:#334155 !important; background:#fff !important; border:1px solid rgba(100,116,139,.12) !important; font-size:12px !important; font-weight:760 !important; line-height:1.42 !important; }
         #automationNodeModal .auto-node-inspector-note { color:#64748b !important; font-size:12px !important; line-height:1.55 !important; border-left:3px solid rgba(37,99,235,.35) !important; padding-left:10px !important; }
         #automationNodeModal .auto-node-inspector-actions { display:flex !important; gap:8px !important; flex-wrap:wrap !important; }
+
+        .event-log-page { display:flex; flex-direction:column; gap:12px; }
+        .event-log-toolbar { display:grid; grid-template-columns:repeat(6,minmax(110px,1fr)); gap:8px; align-items:center; }
+        .event-log-toolbar select,
+        .event-log-toolbar input { min-height:36px; border-radius:8px; border:1px solid rgba(148,163,184,.22); background:rgba(15,23,42,.62); color:var(--text-main); padding:0 10px; font-size:12px; font-weight:750; outline:none; }
+        .event-log-toolbar button { min-height:36px; border:0; border-radius:8px; color:#fff; background:#2563eb; font-size:12px; font-weight:900; cursor:pointer; }
+        .event-log-summary { display:flex; align-items:center; gap:8px; flex-wrap:wrap; color:var(--text-sub); font-size:12px; font-weight:800; }
+        .event-log-table-wrap { overflow:auto; border:1px solid rgba(148,163,184,.14); border-radius:8px; background:rgba(15,23,42,.34); }
+        .event-log-table { width:100%; border-collapse:collapse; min-width:980px; font-size:12px; }
+        .event-log-table th,
+        .event-log-table td { padding:9px 10px; border-bottom:1px solid rgba(148,163,184,.10); text-align:left; vertical-align:top; }
+        .event-log-table th { position:sticky; top:0; z-index:1; color:var(--text-sub); background:rgba(15,23,42,.94); font-size:11px; font-weight:950; }
+        .event-log-table td { color:var(--text-main); }
+        .event-log-table tr:hover td { background:rgba(56,189,248,.06); }
+        .event-chip { display:inline-flex; align-items:center; min-height:22px; border-radius:999px; padding:0 8px; background:rgba(148,163,184,.14); color:var(--text-sub); font-size:11px; font-weight:900; white-space:nowrap; }
+        .event-chip.hvac { background:rgba(56,189,248,.14); color:#7dd3fc; }
+        .event-chip.power { background:rgba(250,204,21,.14); color:#fde047; }
+        .event-chip.light { background:rgba(34,197,94,.14); color:#86efac; }
+        .event-chip.sequencer { background:rgba(168,85,247,.14); color:#d8b4fe; }
+        .event-chip.external { background:rgba(249,115,22,.16); color:#fdba74; }
+        .event-chip.confirmed { background:rgba(34,197,94,.14); color:#86efac; }
+        .event-message { max-width:440px; line-height:1.45; }
+        .event-detail { margin-top:4px; color:var(--text-sub); font-size:11px; line-height:1.35; }
+        .event-log-pager { display:flex; justify-content:flex-end; align-items:center; gap:8px; }
+        .event-log-pager button { min-height:32px; border:1px solid rgba(148,163,184,.18); border-radius:8px; background:rgba(15,23,42,.64); color:var(--text-main); padding:0 12px; font-size:12px; font-weight:850; cursor:pointer; }
+        .event-log-pager button:disabled { opacity:.45; cursor:not-allowed; }
+        @media screen and (max-width: 900px) { .event-log-toolbar { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
         body.auto-node-modal-open { overflow:hidden !important; }
         @media screen and (max-width: 1400px) {
             #automationNodeModal .auto-node-modal-shell { inset:14px !important; left:14px !important; right:14px !important; top:14px !important; bottom:14px !important; transform:none !important; width:auto !important; height:auto !important; }
@@ -187,6 +215,9 @@
                 </li>
                 {% endif %}
             {% endfor %}
+            <li onclick="switchTab('logs', '????', this)">
+                <span>??</span> ????
+            </li>
             {% if not (config.sidebar|default([])|selectattr('id', 'equalto', 'sequencer')|list) %}
             <li onclick="switchTab('sequencer', '时序电源', this)">
                 <span>🔌</span> 时序电源
@@ -1209,6 +1240,62 @@
                         {% if not has_cmd.value %}
                         <div style="color:var(--text-sub); grid-column: 1/-1;">请先前往系统配置定义快捷指令，并勾选主页显示。</div>
                         {% endif %}
+                    </div>
+                </div>
+            </div>
+
+
+
+            <div id="view-logs" class="view-section">
+                <div class="card event-log-page">
+                    <div class="card-title">
+                        <span>日志中心</span>
+                        <span style="font-size:12px; color:var(--text-sub);">控制命令 / 状态变化 / 外部变化</span>
+                    </div>
+                    <div class="event-log-toolbar">
+                        <select id="event-filter-category" onchange="refreshEventLogs(true)">
+                            <option value="">全部</option>
+                            <option value="hvac">空调</option>
+                            <option value="power">强电</option>
+                            <option value="light">灯光</option>
+                            <option value="sequencer">时序电源</option>
+                            <option value="automation">自动化</option>
+                            <option value="system">系统</option>
+                        </select>
+                        <select id="event-filter-type" onchange="refreshEventLogs(true)">
+                            <option value="">全部</option>
+                            <option value="command">控制命令</option>
+                            <option value="state_change">状态变化</option>
+                            <option value="automation">自动化</option>
+                            <option value="error">错误</option>
+                        </select>
+                        <select id="event-filter-result" onchange="refreshEventLogs(true)">
+                            <option value="">全部</option>
+                            <option value="success">成功</option>
+                            <option value="failed">失败</option>
+                            <option value="confirmed">已确认</option>
+                            <option value="external_detected">外部变化</option>
+                        </select>
+                        <select id="event-filter-hours" onchange="refreshEventLogs(true)">
+                            <option value="24">最近24小时</option>
+                            <option value="1">最近1小时</option>
+                            <option value="168">最近7天</option>
+                            <option value="">全部</option>
+                        </select>
+                        <input id="event-filter-q" placeholder="搜索设备、动作、实体、来源" onkeydown="if(event.key==='Enter') refreshEventLogs(true)">
+                        <button type="button" onclick="refreshEventLogs(true)">刷新</button>
+                    </div>
+                    <div class="event-log-summary" id="event-log-summary">等待加载...</div>
+                    <div class="event-log-table-wrap">
+                        <table class="event-log-table">
+                            <thead><tr><th>时间</th><th>系统</th><th>类型</th><th>来源/结果</th><th>设备</th><th>内容</th></tr></thead>
+                            <tbody id="event-log-tbody"><tr><td colspan="6">正在加载日志...</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="event-log-pager">
+                        <button type="button" id="event-prev-btn" onclick="pageEventLogs(-1)">上一页</button>
+                        <span id="event-page-text" class="event-log-summary">第 1 页</span>
+                        <button type="button" id="event-next-btn" onclick="pageEventLogs(1)">下一页</button>
                     </div>
                 </div>
             </div>
@@ -10211,6 +10298,82 @@
                     showToast(translateApiError(err?.message, '空调控制失败'), true);
                 });
         }
+
+        const eventLogState = { offset: 0, limit: 80, total: 0 };
+        function getEventFilterValue(id) {
+            const el = document.getElementById(id);
+            return el ? String(el.value || '').trim() : '';
+        }
+        function formatEventTime(value) {
+            if (!value) return '--';
+            const d = new Date(value);
+            if (Number.isNaN(d.getTime())) return value;
+            return d.toLocaleString('zh-CN', { hour12: false });
+        }
+        function renderEventLogs(payload) {
+            const tbody = document.getElementById('event-log-tbody');
+            const summary = document.getElementById('event-log-summary');
+            const pageText = document.getElementById('event-page-text');
+            const prevBtn = document.getElementById('event-prev-btn');
+            const nextBtn = document.getElementById('event-next-btn');
+            if (!tbody) return;
+            const items = Array.isArray(payload?.items) ? payload.items : [];
+            eventLogState.total = Number(payload?.total || 0);
+            if (!items.length) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-sub);padding:24px;">??????</td></tr>';
+            } else {
+                tbody.innerHTML = items.map(item => {
+                    const category = escapeHtml(item.category || 'system');
+                    const result = escapeHtml(item.result || '--');
+                    const source = escapeHtml(item.source_label || item.source || '--');
+                    const device = escapeHtml(item.device_name || item.device_id || item.entity_id || '--');
+                    const detailParts = [];
+                    if (item.action) detailParts.push(`?? ${escapeHtml(item.action)}`);
+                    if (item.channel) detailParts.push(`?? ${escapeHtml(item.channel)}`);
+                    if (item.old_state || item.new_state) detailParts.push(`${escapeHtml(item.old_state || '--')} -> ${escapeHtml(item.new_state || '--')}`);
+                    if (item.correlation_id) detailParts.push(`?? ${escapeHtml(item.correlation_id)}`);
+                    return `<tr>
+                        <td>${escapeHtml(formatEventTime(item.time))}</td>
+                        <td><span class="event-chip ${category}">${escapeHtml(item.category_label || item.category || '--')}</span></td>
+                        <td>${escapeHtml(item.event_type_label || item.event_type || '--')}</td>
+                        <td><span class="event-chip ${item.result === 'external_detected' ? 'external' : (item.confidence === 'confirmed' ? 'confirmed' : '')}">${source} / ${result}</span></td>
+                        <td>${device}<div class="event-detail">${escapeHtml(item.entity_id || item.device_id || '')}</div></td>
+                        <td><div class="event-message">${escapeHtml(item.message || '--')}</div><div class="event-detail">${detailParts.join(' / ')}</div></td>
+                    </tr>`;
+                }).join('');
+            }
+            const pageNo = Math.floor(eventLogState.offset / eventLogState.limit) + 1;
+            const pageCount = Math.max(1, Math.ceil(eventLogState.total / eventLogState.limit));
+            if (summary) summary.textContent = `共 ${eventLogState.total} 条，当前显示 ${items.length} 条`;
+            if (pageText) pageText.textContent = `第 ${pageNo} / ${pageCount} 页`;
+            if (prevBtn) prevBtn.disabled = eventLogState.offset <= 0;
+            if (nextBtn) nextBtn.disabled = eventLogState.offset + eventLogState.limit >= eventLogState.total;
+        }
+        function refreshEventLogs(reset = false) {
+            if (reset) eventLogState.offset = 0;
+            const params = new URLSearchParams();
+            params.set('limit', String(eventLogState.limit));
+            params.set('offset', String(eventLogState.offset));
+            const filters = {
+                category: getEventFilterValue('event-filter-category'),
+                event_type: getEventFilterValue('event-filter-type'),
+                result: getEventFilterValue('event-filter-result'),
+                hours: getEventFilterValue('event-filter-hours'),
+                q: getEventFilterValue('event-filter-q')
+            };
+            Object.entries(filters).forEach(([key, value]) => { if (value) params.set(key, value); });
+            return fetchJson(`/api/logs/events?${params.toString()}`, {}, '????????')
+                .then(renderEventLogs)
+                .catch(err => {
+                    const tbody = document.getElementById('event-log-tbody');
+                    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="color:#fca5a5;padding:18px;">${escapeHtml(translateApiError(err?.message, '????????'))}</td></tr>`;
+                });
+        }
+        function pageEventLogs(delta) {
+            eventLogState.offset = Math.max(0, eventLogState.offset + delta * eventLogState.limit);
+            refreshEventLogs(false);
+        }
+
         function renderDashboardLogs(logs) {
             const logList = document.getElementById('dashboard-logs');
             if (!logList) return;
@@ -11667,6 +11830,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         registerPollingTask('screen', 4500, () => updateScreenStatus(), () => ['dashboard', 'screen'].includes(getActiveViewId()) || isDashboardSectionVisible('screen'));
         registerPollingTask('apple_audio', 3200, () => loadAppleAudioStatus(), () => ['apple_audio'].includes(getActiveViewId()));
         registerPollingTask('logs', 5000, () => updateDashboardLogs(), () => getActiveViewId() === 'dashboard');
+        registerPollingTask('event_logs', 5000, () => refreshEventLogs(false), () => getActiveViewId() === 'logs');
         setTimeout(() => { try { updateDashboardSummary(); } catch (_) {} }, 220);
 
         function saveDoorRegionSelection(regionPayload) {

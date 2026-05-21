@@ -19,6 +19,7 @@ from auth.permissions import has_permission
 from auth.session import get_current_user
 from background import init_light_drivers, onekey_start, onekey_stop
 from config import CONFIG, DEFAULT_UI_TEXT, DEVICE_STATUS, get_default_status, save_config
+from event_logger import record_event
 from data_logger import (
     add_log,
     export_energy_history_rows,
@@ -1105,11 +1106,32 @@ def api_set():
             "status_channels": ((result or {}).get("status") or {}).get("channels_1_4"),
         })
         ok = bool((result or {}).get("ok"))
+        cabinets = CONFIG.get("cabinets", []) or []
+        cab_cfg = cabinets[cab] if 0 <= int(cab) < len(cabinets) else {}
+        label_channel = _safe_cab_ui_text(cab_cfg, "label_channel", "通道")
+        label_action = _safe_cab_ui_text(cab_cfg, "label_on" if on else "label_off", "合闸" if on else "断开")
+        channel_cfg = next((item for item in (cab_cfg.get("channels_config") or []) if int(item.get("channel", -1) or -1) == int(ch)), {})
+        device_name = str(cab_cfg.get("name") or f"强电柜{cab}")
+        channel_name = str(channel_cfg.get("remark") or channel_cfg.get("name") or f"{label_channel}{ch}")
+        try:
+            record_event(
+                category="power",
+                event_type="command",
+                source="api",
+                source_detail=current_user.username,
+                device_id=f"cabinet:{cab}",
+                device_name=device_name,
+                channel=str(ch),
+                action="power_on" if on else "power_off",
+                message=f"[强电柜] 控制命令 {device_name} {channel_name} {label_action}",
+                result="success" if ok else "failed",
+                confidence="confirmed" if ok else "unknown",
+                cab_idx=int(cab),
+                raw={"request": d, "result": result, "channel_name": channel_name},
+            )
+        except Exception:
+            pass
         if ok:
-            cabinets = CONFIG.get("cabinets", []) or []
-            cab_cfg = cabinets[cab] if 0 <= int(cab) < len(cabinets) else {}
-            label_channel = _safe_cab_ui_text(cab_cfg, "label_channel", "通道")
-            label_action = _safe_cab_ui_text(cab_cfg, "label_on" if on else "label_off", "合闸" if on else "断开")
             add_log(
                 cab,
                 f"操作: {label_channel}{ch} {label_action}",

@@ -9,6 +9,7 @@ from auth.session import get_current_user
 from background import LIGHT_DRIVERS, LIGHT_META
 from config import CONFIG, LIGHT_ONLINE, LIGHT_STATUS
 from data_logger import add_log, load_logs
+from event_logger import record_event, record_state_change
 from runtime.automation import execute_scene
 
 bp = Blueprint("light", __name__)
@@ -309,6 +310,24 @@ def api_light_control():
                     if fresh.get("online"):
                         LIGHT_STATUS[dev_id] = list(fresh.get("channels", []) or [])
                     add_log(-1, f"[灯光] 调光控制: 通道{d.get('channel')} {'开启' if requested_state else '关闭'}")
+                    try:
+                        device_name = str((next((item.get("name") for item in CONFIG.get("light_devices", []) if str(item.get("id")) == str(dev_id)), "") or dev_id))
+                        record_event(
+                            category="light",
+                            event_type="command",
+                            source="api",
+                            source_detail=current_user.username,
+                            device_id=str(dev_id),
+                            device_name=device_name,
+                            channel=str(channel),
+                            action="power_on" if requested_state else "power_off",
+                            message=f"[灯光] 控制命令 {device_name} 通道{channel} {"开启" if requested_state else "关闭"}",
+                            result="success",
+                            confidence="confirmed" if fresh.get("online") else "unknown",
+                            raw={"request": d, "fresh": fresh},
+                        )
+                    except Exception:
+                        pass
                     log_audit_event(
                         "light.channel.set",
                         target=f"light:{dev_id}:channel:{channel}",
@@ -348,6 +367,23 @@ def api_light_control():
                     LIGHT_STATUS[dev_id] = list(fresh.get("channels", []) or [])
                 if result.get("success"):
                     add_log(-1, f"[灯光] 特殊动作: {action_name}")
+                    try:
+                        device_name = str((next((item.get("name") for item in CONFIG.get("light_devices", []) if str(item.get("id")) == str(dev_id)), "") or dev_id))
+                        record_event(
+                            category="light",
+                            event_type="command",
+                            source="api",
+                            source_detail=current_user.username,
+                            device_id=str(dev_id),
+                            device_name=device_name,
+                            action=action_name,
+                            message=f"[灯光] 特殊动作 {device_name} {action_name}",
+                            result="success",
+                            confidence="confirmed" if result.get("verified") else "unknown",
+                            raw={"result": result, "fresh": fresh},
+                        )
+                    except Exception:
+                        pass
                     log_audit_event(
                         "light.action.execute",
                         target=f"light:{dev_id}:action:{action_name}",

@@ -4,6 +4,7 @@ import json
 import os
 from datetime import datetime, timedelta, date
 from config import CONFIG, DEVICE_STATUS
+from event_logger import record_legacy_operation
 from paths import (
     DATA_DIR,
     ENERGY_LOG_FILE as ENERGY_LOG_PATH,
@@ -267,6 +268,10 @@ def add_log(cab_idx, operation):
     except Exception:
         _LOG_CACHE["mtime"] = 0.0
         _LOG_CACHE["logs"] = logs[:500]
+    try:
+        record_legacy_operation(cab_idx, operation)
+    except Exception:
+        pass
 
 
 def add_structured_log(cab_idx, operation, category="system", detail=None, actor=None, status="ok"):
@@ -301,6 +306,12 @@ def add_structured_log(cab_idx, operation, category="system", detail=None, actor
     except Exception:
         _LOG_CACHE["mtime"] = 0.0
         _LOG_CACHE["logs"] = logs[:500]
+    try:
+        event_detail = dict(detail)
+        event_detail.setdefault("source", "system")
+        record_legacy_operation(cab_idx, operation, category=category, status=status, detail=event_detail, actor=actor)
+    except Exception:
+        pass
 
 def load_energy_log():
     return _normalize_energy_log(_read_json_file(ENERGY_LOG_FILE, {}))

@@ -7,6 +7,7 @@ from audit import log_audit_event
 from auth.decorators import require_permission
 from config import CONFIG, save_config
 from data_logger import add_log
+from event_logger import record_event, record_state_change
 from services.home_assistant_bridge import control_hvac as ha_control_hvac
 from services.home_assistant_bridge import get_hvac_status as get_ha_hvac_status
 from services.miio_hvac import miio_hvac_service
@@ -212,6 +213,20 @@ def control_hvac():
 
     device_name = str(device.get("name") or device_id or "未命名空调")
 
+    correlation_id = record_event(
+        category="hvac",
+        event_type="command",
+        source="api",
+        source_detail=str(getattr(getattr(request, "headers", {}), "get", lambda *_: "")("X-Forwarded-For", request.remote_addr) or request.remote_addr or ""),
+        device_id=str(device_id or ""),
+        device_name=device_name,
+        entity_id=str(((device.get("home_assistant") or {}).get("entity_id") or device.get("entity_id") or "")),
+        action=action,
+        message=f"[空调] 控制命令 [{device_name}] -> {action}",
+        result="sent",
+        raw={"payload": data},
+    ).get("correlation_id", "")
+
     try:
         ok, result, driver_class = _execute_control(device, action, data)
         if not ok:
@@ -234,11 +249,45 @@ def control_hvac():
             detail["fan_mode"] = data.get("fan_mode") or data.get("fan_speed")
 
         add_log(-1, f"[空调] 控制成功 [{device_name}] -> {action}")
+        try:
+            record_event(
+                category="hvac",
+                event_type="command",
+                source="api",
+                device_id=str(device_id or ""),
+                device_name=device_name,
+                entity_id=str(((device.get("home_assistant") or {}).get("entity_id") or device.get("entity_id") or "")),
+                action=action,
+                message=f"[空调] 控制成功 [{device_name}] -> {action}",
+                result="success",
+                confidence="confirmed",
+                correlation_id=correlation_id,
+                raw={"detail": detail, "result": str(result), "status": refreshed},
+            )
+        except Exception:
+            pass
         log_audit_event("hvac.control", target=str(device_id), detail=detail)
         return jsonify({"success": True, "msg": "控制成功", "result": str(result), "status": refreshed})
 
     except Exception as exc:
         add_log(-1, f"[空调] 设备 [{device_name}] 控制失败: {exc}")
+        try:
+            record_event(
+                category="hvac",
+                event_type="command",
+                source="api",
+                device_id=str(device_id or ""),
+                device_name=device_name,
+                entity_id=str(((device.get("home_assistant") or {}).get("entity_id") or device.get("entity_id") or "")),
+                action=action,
+                message=f"[空调] 设备 [{device_name}] 控制失败: {exc}",
+                result="failed",
+                confidence="confirmed",
+                correlation_id=correlation_id,
+                raw={"error": str(exc)},
+            )
+        except Exception:
+            pass
         log_audit_event(
             "hvac.control",
             target=str(device_id),

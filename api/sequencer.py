@@ -14,6 +14,7 @@ from auth.operation_lock import acquire_operation_lock, release_operation_lock
 from auth.session import get_current_user
 from config import CONFIG, save_config
 from data_logger import add_log, load_logs
+from event_logger import record_event, record_state_change
 
 bp = Blueprint("sequencer", __name__)
 
@@ -681,7 +682,25 @@ def control_sequencer(seq, action, channel=None):
         poll_sequencer_once(seq, retries=3, retry_delay=0.14)
         state["last_action"] = action_text if ok_all else f"{action_text}未完全确认"
         state["error"] = "" if ok_all else f"未确认: {'、'.join(failed_steps)}"
-    add_log(-1, build_log_message(seq, action_text))
+    log_message = build_log_message(seq, action_text)
+    add_log(-1, log_message)
+    try:
+        seq_id = str(seq.get("id") or seq.get("ip") or seq.get("name") or "")
+        record_event(
+            category="sequencer",
+            event_type="command",
+            source="api",
+            device_id=seq_id,
+            device_name=str(seq.get("name") or seq_id or "时序电源"),
+            action=str(action or action_text or ""),
+            channel=str(channel or ""),
+            message=log_message,
+            result="success" if ok_all else "failed",
+            confidence="confirmed" if ok_all else "unknown",
+            raw={"commands": [frame_to_hex(item) for item in commands], "responses": [frame_to_hex(item) for item in responses]},
+        )
+    except Exception:
+        pass
     command_text = " ; ".join(frame_to_hex(item) for item in commands)
     response_text = " ; ".join(frame_to_hex(item) for item in responses)
     return {
