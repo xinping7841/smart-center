@@ -16,7 +16,7 @@ from paths import DB_FILE as DB_FILE_PATH, ensure_parent_dir
 
 bp = Blueprint('server', __name__)
 DB_FILE = str(DB_FILE_PATH)
-AGENT_VERSION = "2026.05.21.03"
+AGENT_VERSION = "2026.05.21.06"
 REPORT_MAX_BYTES = 8 * 1024 * 1024
 REPORT_MIN_INTERVAL_SEC = 2.0
 REPORT_CACHE = {}
@@ -1912,6 +1912,8 @@ def _mark_payload_as_full_report(payload, server_received_at="", prefer_server=T
 def _classify_machine_report(payload, data=None):
     payload = payload if isinstance(payload, dict) else {}
     data = data if isinstance(data, dict) else {}
+    if isinstance(data.get("command_result"), dict):
+        return "command_result"
     if isinstance(data.get("wake_proxy_result"), dict):
         return "wake_proxy_result"
     if _payload_has_runtime_metrics(payload):
@@ -2285,6 +2287,8 @@ def _merge_machine_payload(existing_payload, incoming_payload):
             merged["last_bootstrap_report_at"] = incoming_server_at
         elif report_kind == "wake_proxy_result":
             merged["last_wake_proxy_report_at"] = incoming_server_at
+        elif report_kind == "command_result":
+            merged["last_command_report_at"] = incoming_server_at
     runtime_keys = {
         "cpu_name",
         "cpu_percent",
@@ -2313,6 +2317,7 @@ def _merge_machine_payload(existing_payload, incoming_payload):
         "last_agent_heartbeat_at",
         "last_bootstrap_report_at",
         "last_wake_proxy_report_at",
+        "last_command_report_at",
     }
     for key, value in incoming_payload.items():
         if key == "agent":
@@ -2556,6 +2561,40 @@ def _record_machine_wake_proxy_result(relay_mac, result):
             conn.close()
 
 
+def _record_machine_command_result(machine_mac, result):
+    machine_mac = normalize_machine_mac(machine_mac)
+    if not machine_mac:
+        return
+    result_payload = result if isinstance(result, dict) else {}
+    conn = None
+    try:
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        c.execute("SELECT data, custom_name, hostname FROM machines WHERE mac=? LIMIT 1", (machine_mac,))
+        row = c.fetchone()
+        payload = _parse_machine_payload(row[0]) if row else {}
+        payload["command_result"] = result_payload
+        payload["last_command_report_at"] = datetime.now().isoformat()
+        c.execute(
+            "UPDATE machines SET data=? WHERE mac=?",
+            (json.dumps(payload, ensure_ascii=False, separators=(",", ":")), machine_mac),
+        )
+        conn.commit()
+        invalidate_machines_cache()
+        action_name = {"shutdown": "关机", "restart": "重启", "refresh": "刷新"}.get(
+            str(result_payload.get("action") or ""), str(result_payload.get("action") or "未知")
+        )
+        status_text = "成功" if result_payload.get("ok") else "失败"
+        display_name = (row[1] if row and len(row) > 1 else "") or (row[2] if row and len(row) > 2 else "") or machine_mac
+        detail = result_payload.get("error") or result_payload.get("method") or ""
+        add_log(-1, f"[服务器] 节点命令结果: {display_name} [{action_name}] {status_text} {detail}")
+    except Exception as exc:
+        add_log(-1, f"[服务器] 记录节点命令结果失败: {machine_mac} {exc}")
+    finally:
+        if conn is not None:
+            conn.close()
+
+
 def local_server_monitor_loop():
     if platform.system().lower() != "linux":
         return
@@ -2595,6 +2634,7 @@ $AgentDir = Join-Path $env:ProgramData 'SmartCenterAgent'
 $ConfigPath = Join-Path $AgentDir 'agent_config.json'
 $LogPath = Join-Path $AgentDir 'agent.log'
 $NetSamplePath = Join-Path $AgentDir 'net_sample.json'
+$CommandResultPath = Join-Path $AgentDir 'last_command_result.json'
 $WorkerPath = if ($PSCommandPath) {{ $PSCommandPath }} else {{ Join-Path $AgentDir 'agent_worker.ps1' }}
 $LauncherPath = Join-Path $AgentDir 'agent_launcher.ps1'
 $lastNetBytesSent = $null
@@ -2607,6 +2647,7 @@ $script:LastTaskInfoAt = $null
 	$script:LastSuccessfulReportAt = $null
 	$script:GpuProbeDiagnostic = @{{}}
 	$script:WakeProxyResult = $null
+	$script:CommandResult = $null
 	$script:SelfUpdateStatus = @{{}}
 	$script:AgentRunMutex = $null
 	$script:AgentRunMutexAcquired = $false
@@ -2645,6 +2686,122 @@ function Append-TextFile([string]$path, [string]$content) {{
 
 function Write-AgentLog([string]$msg) {{
     Append-TextFile $LogPath ("[" + (Get-Date).ToString('yyyy-MM-dd HH:mm:ss') + "] " + $msg)
+}}
+
+function Get-AgentLogTail([int]$lines = 30) {{
+    try {{
+        if (Test-Path $LogPath) {{
+            return @((Get-Content -LiteralPath $LogPath -Tail $lines -Encoding UTF8 -ErrorAction Stop) | ForEach-Object {{ [string]$_ }})
+        }}
+    }} catch {{}}
+    return @()
+}}
+
+function Write-CommandResult([hashtable]$result) {{
+    $result['reported_at'] = (Get-Date).ToString('o')
+    $result['agent_version'] = $AgentVersion
+    $result['log_tail'] = @(Get-AgentLogTail 40)
+    $script:CommandResult = $result
+    try {{
+        Write-TextFile $CommandResultPath (ConvertTo-AgentJson $result 8)
+    }} catch {{
+        Write-AgentLog ('command result persist failed: ' + (Get-ErrorDetails $_))
+    }}
+}}
+
+function Load-CommandResult() {{
+    try {{
+        if (Test-Path $CommandResultPath) {{
+            $raw = Get-Content -LiteralPath $CommandResultPath -Raw -Encoding UTF8 -ErrorAction Stop
+            if ($raw) {{
+                $obj = $raw | ConvertFrom-Json -ErrorAction Stop
+                if ($obj -and -not $obj.report_acknowledged_at) {{
+                    return Convert-ToHashtable $obj
+                }}
+            }}
+        }}
+    }} catch {{
+        Write-AgentLog ('command result load failed: ' + (Get-ErrorDetails $_))
+    }}
+    return $null
+}}
+
+function Acknowledge-CommandResult([object]$result) {{
+    try {{
+        if ($result) {{
+            if ($result -is [hashtable]) {{
+                $result['report_acknowledged_at'] = (Get-Date).ToString('o')
+                Write-TextFile $CommandResultPath (ConvertTo-AgentJson $result 8)
+            }} else {{
+                Remove-Item -LiteralPath $CommandResultPath -Force -ErrorAction SilentlyContinue
+            }}
+        }}
+    }} catch {{
+        Write-AgentLog ('command result acknowledge failed: ' + (Get-ErrorDetails $_))
+    }}
+}}
+
+function Invoke-AgentPowerCommand([string]$action) {{
+    $shutdownExe = Join-Path $env:SystemRoot 'System32\shutdown.exe'
+    $args = if ($action -eq 'restart') {{ @('/r','/f','/t','0') }} else {{ @('/s','/f','/t','0') }}
+    $startedAt = (Get-Date).ToString('o')
+    try {{
+        $proc = Start-Process -FilePath $shutdownExe -ArgumentList $args -WindowStyle Hidden -PassThru -ErrorAction Stop
+        Write-AgentLog ($action + ' shutdown.exe started pid=' + $proc.Id)
+        Write-CommandResult @{{
+            action = $action
+            ok = $true
+            method = 'shutdown.exe'
+            executable = $shutdownExe
+            arguments = ($args -join ' ')
+            pid = $proc.Id
+            started_at = $startedAt
+        }}
+    }} catch {{
+        $err = Get-ErrorDetails $_
+        Write-AgentLog ($action + ' shutdown.exe failed: ' + $err)
+        Write-CommandResult @{{
+            action = $action
+            ok = $false
+            method = 'shutdown.exe'
+            executable = $shutdownExe
+            arguments = ($args -join ' ')
+            started_at = $startedAt
+            error = $err
+        }}
+        try {{
+            if ($action -eq 'restart') {{ Restart-Computer -Force -ErrorAction Stop }} else {{ Stop-Computer -Force -ErrorAction Stop }}
+            Write-AgentLog ($action + ' PowerShell fallback invoked')
+        }} catch {{
+            Write-AgentLog ($action + ' PowerShell fallback failed: ' + (Get-ErrorDetails $_))
+        }}
+    }}
+}}
+
+function Report-CommandResult([hashtable]$cfg, [object]$result) {{
+    if (-not $result) {{ return }}
+    try {{
+        $reportUrl = $cfg['current_server_url'].TrimEnd('/') + $cfg['report_path']
+        $resultPayload = @{{
+            mac = Get-MacAddress
+            hostname = $env:COMPUTERNAME
+            ip = Get-PrimaryIPv4
+            timestamp = (Get-Date).ToString('o')
+            command_result = $result
+            status = @{{
+                agent = @{{
+                    version = $AgentVersion
+                    current_server_url = $cfg['current_server_url']
+                    heartbeat = $true
+                }}
+            }}
+        }}
+        Invoke-AgentJsonRequest -Uri $reportUrl -Method Post -ContentType 'application/json' -Body (ConvertTo-AgentJson $resultPayload 8) -TimeoutSec 8 | Out-Null
+        Acknowledge-CommandResult $result
+        Write-AgentLog ('command result reported action=' + [string]$result.action + ' ok=' + [string]$result.ok)
+    }} catch {{
+        Write-AgentLog ('command result report failed: ' + (Get-ErrorDetails $_))
+    }}
 }}
 
 function Write-StageLog([string]$stage, [string]$status = 'start') {{
@@ -5482,6 +5639,7 @@ function Get-StatusPayload([hashtable]$cfg) {{
         ip = $machineIp
         timestamp = $reportGeneratedAt
         wake_proxy_result = $script:WakeProxyResult
+        command_result = $script:CommandResult
         status = @{{
             cpu_name = $hardware.cpu_name
             motherboard = $hardware.motherboard
@@ -5558,6 +5716,8 @@ try {{
     New-Item -ItemType Directory -Force -Path $AgentDir | Out-Null
     Enter-AgentRunLock
     Write-AgentLog ('worker run starting version=' + $AgentVersion)
+    $script:CommandResult = Load-CommandResult
+    if ($script:CommandResult) {{ Write-AgentLog ('loaded pending command result action=' + [string]$script:CommandResult.action) }}
     $config = Load-AgentConfig
     Write-AgentLog ('config loaded current=' + [string]$config['current_server_url'])
     $config = Find-AvailableServer $config
@@ -5601,6 +5761,9 @@ try {{
         Write-AgentLog ('payload timestamp=' + [string]$payloadProbe.timestamp + ' status_generated=' + [string]$payloadProbe.status.report_generated_at)
     }} catch {{}}
     $reportUrl = $config['current_server_url'].TrimEnd('/') + $config['report_path']
+    if ($script:CommandResult) {{
+        Report-CommandResult $config $script:CommandResult
+    }}
     $response = Invoke-AgentJsonRequest -Uri $reportUrl -Method Post -ContentType 'application/json' -Body $payload -TimeoutSec 8
     if ($response -and $response.status -eq 'ignored') {{
         Write-AgentLog ('report ignored by server: ' + [string]$response.reason + ' -> ' + $reportUrl)
@@ -5620,12 +5783,21 @@ try {{
     if ($response.command -eq 'refresh') {{
         $script:HardwareCache = $null
         Write-AgentLog 'refresh command received'
+        Write-CommandResult @{{
+            action = 'refresh'
+            ok = $true
+            method = 'agent_cache'
+            started_at = (Get-Date).ToString('o')
+        }}
+        Report-CommandResult $config $script:CommandResult
     }} elseif ($response.command -eq 'shutdown') {{
         Write-AgentLog 'shutdown command received'
-        Stop-Computer -Force
+        Invoke-AgentPowerCommand 'shutdown'
+        Report-CommandResult $config $script:CommandResult
     }} elseif ($response.command -eq 'restart') {{
         Write-AgentLog 'restart command received'
-        Restart-Computer -Force
+        Invoke-AgentPowerCommand 'restart'
+        Report-CommandResult $config $script:CommandResult
     }} elseif ($response.command -and $response.command.action -eq 'wake_proxy') {{
         $targetMac = [string]$response.command.mac
         $targetIp = [string]$response.command.ip
@@ -5695,6 +5867,7 @@ try {{
                         ip = Get-PrimaryIPv4
                         timestamp = (Get-Date).ToString('o')
                         wake_proxy_result = $script:WakeProxyResult
+                        command_result = $script:CommandResult
                         status = @{{
                             agent = @{{
                                 version = $AgentVersion
@@ -6679,7 +6852,7 @@ def report_data():
     status_payload = data.get("status") if isinstance(data.get("status"), dict) else {}
     if not status_payload and _payload_has_runtime_metrics(data):
         status_payload = dict(data)
-        for envelope_key in ("mac", "hostname", "ip", "timestamp", "wake_proxy_result"):
+        for envelope_key in ("mac", "hostname", "ip", "timestamp", "wake_proxy_result", "command_result"):
             status_payload.pop(envelope_key, None)
     agent_payload = status_payload.get("agent") if isinstance(status_payload.get("agent"), dict) else {}
     mac = normalize_machine_mac(
@@ -6744,6 +6917,8 @@ def report_data():
 
     if isinstance(data.get("wake_proxy_result"), dict):
         _record_machine_wake_proxy_result(mac, data.get("wake_proxy_result"))
+    if isinstance(data.get("command_result"), dict):
+        _record_machine_command_result(mac, data.get("command_result"))
 
     if _is_test_machine_report(mac, hostname, report_ip or request.remote_addr, status_payload):
         add_log(
