@@ -1213,6 +1213,245 @@ def _read_linux_memory_speed():
     return None
 
 
+def _linux_command_output(command, timeout=3):
+    try:
+        result = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            encoding="utf-8",
+            errors="ignore",
+        )
+        if result.returncode == 0:
+            return result.stdout or ""
+    except Exception:
+        pass
+    return ""
+
+
+def _read_linux_os_info():
+    values = {}
+    for line in _read_text_file("/etc/os-release").splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip().strip('"')
+    return {
+        "name": values.get("PRETTY_NAME") or platform.platform(),
+        "id": values.get("ID") or "",
+        "version": values.get("VERSION_ID") or "",
+        "codename": values.get("VERSION_CODENAME") or values.get("UBUNTU_CODENAME") or "",
+        "kernel": platform.release(),
+        "arch": platform.machine(),
+    }
+
+
+def _parse_linux_size_bytes(text):
+    match = re.search(r"([0-9]+(?:\.[0-9]+)?)\s*([KMGTPE]?B)", str(text or ""), flags=re.IGNORECASE)
+    if not match:
+        return 0
+    unit = match.group(2).upper()
+    scale = {"KB": 1024, "MB": 1024 ** 2, "GB": 1024 ** 3, "TB": 1024 ** 4, "PB": 1024 ** 5}.get(unit, 1)
+    try:
+        return int(float(match.group(1)) * scale)
+    except Exception:
+        return 0
+
+
+def _read_linux_memory_topology():
+    text = _linux_command_output(["dmidecode", "-t", "memory"], timeout=4)
+    modules = []
+    current = None
+    for line in text.splitlines():
+        if line and not line.startswith("\t") and line.strip() == "Memory Device":
+            if current:
+                modules.append(current)
+            current = {}
+            continue
+        if current is None or ":" not in line:
+            continue
+        key, value = line.strip().split(":", 1)
+        key = key.strip().lower()
+        value = value.strip()
+        if key == "size":
+            current["size"] = value
+            current["size_bytes"] = _parse_linux_size_bytes(value)
+        elif key in ("locator", "bank locator", "manufacturer", "part number", "speed", "configured memory speed"):
+            current[key.replace(" ", "_")] = value
+    if current:
+        modules.append(current)
+    installed = [
+        item for item in modules
+        if item.get("size_bytes", 0) > 0 and "no module" not in str(item.get("size", "")).lower()
+    ]
+    channels = []
+    for item in installed:
+        label = " ".join([str(item.get("locator") or ""), str(item.get("bank_locator") or "")])
+        match = re.search(r"channel\s*([a-z0-9]+)", label, flags=re.IGNORECASE) or re.search(r"channel([a-z])", label, flags=re.IGNORECASE)
+        if match:
+            channel = match.group(1).upper()
+            if channel and channel not in channels:
+                channels.append(channel)
+    channel_count = len(channels)
+    if channel_count >= 2:
+        mode = "dual"
+    elif channel_count == 1 and installed:
+        mode = "single"
+    else:
+        mode = "unknown"
+    total_bytes = sum(int(item.get("size_bytes") or 0) for item in installed)
+    summary_bits = [f"{len(installed)} DIMM"]
+    if total_bytes:
+        summary_bits.append(f"{round(total_bytes / (1024 ** 3), 1):g} GB")
+    summary_bits.append(f"{mode} channel inferred" if mode != "unknown" else "channel unknown")
+    return {
+        "summary": " / ".join(summary_bits),
+        "channel_mode": mode,
+        "channel_count": channel_count,
+        "channel_inferred": channel_count > 0,
+        "channels": channels,
+        "installed_count": len(installed),
+        "slot_count": len(modules),
+        "total_bytes": total_bytes,
+        "modules": installed[:16],
+    }
+
+
+def _linux_mounts_from_lsblk_node(node):
+    mounts = node.get("mountpoints")
+    if isinstance(mounts, list):
+        return [str(item) for item in mounts if item]
+    mount = node.get("mountpoint")
+    return [str(mount)] if mount else []
+
+
+def _read_linux_storage_devices():
+    output = _linux_command_output(["lsblk", "-b", "-J", "-o", "NAME,TYPE,SIZE,FSTYPE,MOUNTPOINTS,MOUNTPOINT,MODEL,SERIAL,TRAN,ROTA,RM,PKNAME"], timeout=4)
+    try:
+        parsed = json.loads(output) if output else {}
+    except Exception:
+        parsed = {}
+    devices = []
+    filesystems = []
+    for node in parsed.get("blockdevices", []) if isinstance(parsed, dict) else []:
+        if not isinstance(node, dict) or node.get("type") in ("loop", "rom"):
+            continue
+        children = []
+        for child in node.get("children") or []:
+            if not isinstance(child, dict):
+                continue
+            mounts = _linux_mounts_from_lsblk_node(child)
+            part = {
+                "name": child.get("name") or "",
+                "type": child.get("type") or "",
+                "size_bytes": int(child.get("size") or 0),
+                "fstype": child.get("fstype") or "",
+                "mountpoints": mounts,
+                "is_system": "/" in mounts,
+            }
+            children.append(part)
+            if mounts:
+                filesystems.append({**part, "disk": node.get("name") or "", "model": node.get("model") or ""})
+        mounts = _linux_mounts_from_lsblk_node(node)
+        devices.append({
+            "name": node.get("name") or "",
+            "type": node.get("type") or "",
+            "size_bytes": int(node.get("size") or 0),
+            "model": str(node.get("model") or "").strip(),
+            "serial": str(node.get("serial") or "").strip(),
+            "tran": node.get("tran") or "",
+            "rotational": str(node.get("rota") or "0") == "1",
+            "removable": str(node.get("rm") or "0") == "1",
+            "mountpoints": mounts,
+            "partitions": children,
+            "is_system": "/" in mounts or any(item.get("is_system") for item in children),
+        })
+    return {
+        "devices": devices[:16],
+        "filesystems": filesystems[:32],
+        "disk_count": len([item for item in devices if item.get("type") == "disk"]),
+        "mounted_count": len(filesystems),
+    }
+
+
+def _read_linux_network_adapters():
+    output = _linux_command_output(["ip", "-j", "addr"], timeout=3)
+    try:
+        rows = json.loads(output) if output else []
+    except Exception:
+        rows = []
+    adapters = []
+    wireless_items = []
+    virtual_pattern = re.compile(r"^(lo|docker|veth|br-|virbr|tun|tap|wg|tailscale|p2p-)", re.IGNORECASE)
+    for row in rows if isinstance(rows, list) else []:
+        ifname = str(row.get("ifname") or "")
+        if not ifname or ifname == "lo":
+            continue
+        is_virtual = bool(virtual_pattern.search(ifname))
+        try:
+            speed_mbps = int(_read_text_file(f"/sys/class/net/{ifname}/speed"))
+        except Exception:
+            speed_mbps = 0
+        ipv4 = []
+        ipv6 = []
+        for addr in row.get("addr_info") or []:
+            if addr.get("family") == "inet":
+                ipv4.append(addr.get("local") or "")
+            elif addr.get("family") == "inet6":
+                ipv6.append(addr.get("local") or "")
+        is_wireless = Path(f"/sys/class/net/{ifname}/wireless").exists()
+        item = {
+            "name": ifname,
+            "mac": _read_text_file(f"/sys/class/net/{ifname}/address"),
+            "state": str(row.get("operstate") or "").lower(),
+            "speed_mbps": speed_mbps,
+            "ipv4": [value for value in ipv4 if value],
+            "ipv6": [value for value in ipv6 if value],
+            "is_wireless": is_wireless,
+            "is_virtual": is_virtual,
+        }
+        adapters.append(item)
+        if is_wireless:
+            wireless_items.append(dict(item))
+    nmcli = _linux_command_output(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "dev", "status"], timeout=3)
+    ssid_by_iface = {}
+    for line in nmcli.splitlines():
+        parts = line.split(":", 3)
+        if len(parts) >= 4 and parts[1] in ("wifi", "wifi-p2p"):
+            ssid_by_iface[parts[0]] = parts[3] if "connected" in parts[2] else ""
+    for item in wireless_items:
+        item["ssid"] = ssid_by_iface.get(item.get("name") or "", "")
+        item["connected"] = bool(item.get("ssid"))
+    connected = next((item for item in wireless_items if item.get("connected")), None)
+    return {
+        "adapters": adapters[:32],
+        "physical_count": len([item for item in adapters if not item.get("is_virtual")]),
+        "active_count": len([item for item in adapters if item.get("state") == "up" and not item.get("is_virtual")]),
+        "wireless": {
+            "present": bool(wireless_items),
+            "connected": bool(connected),
+            "ssid": connected.get("ssid") if connected else "",
+            "interfaces": wireless_items[:8],
+        },
+    }
+
+
+def _read_linux_bluetooth_info():
+    controllers = []
+    for line in _linux_command_output(["bluetoothctl", "list"], timeout=3).splitlines():
+        match = re.match(r"Controller\s+([0-9A-Fa-f:]+)\s+(.+)", line.strip())
+        if match:
+            controllers.append({"mac": match.group(1).upper(), "name": match.group(2).strip()})
+    rfkill_text = _linux_command_output(["rfkill", "list"], timeout=3)
+    lsusb_text = _linux_command_output(["lsusb"], timeout=3)
+    return {
+        "present": bool(controllers or re.search(r"Bluetooth", rfkill_text, flags=re.IGNORECASE) or re.search(r"bluetooth", lsusb_text, flags=re.IGNORECASE)),
+        "blocked": bool(re.search(r"Hard blocked:\s*yes|Soft blocked:\s*yes", rfkill_text, flags=re.IGNORECASE)),
+        "controllers": controllers[:8],
+    }
+
+
 def _read_linux_hardware_profile():
     now_ts = time.time()
     with LOCAL_MACHINE_STATE_LOCK:
@@ -1231,10 +1470,21 @@ def _read_linux_hardware_profile():
     board_vendor = _read_text_file("/sys/class/dmi/id/board_vendor")
     board_name = _read_text_file("/sys/class/dmi/id/board_name")
     motherboard = " / ".join([item for item in [board_vendor, board_name] if item]) or platform.platform()
+    storage = _read_linux_storage_devices()
+    network = _read_linux_network_adapters()
     payload = {
         "cpu_name": cpu_name or platform.processor() or platform.machine() or "Linux Host",
         "motherboard": motherboard,
         "mem_speed": _read_linux_memory_speed(),
+        "os_info": _read_linux_os_info(),
+        "memory_topology": _read_linux_memory_topology(),
+        "storage_devices": storage.get("devices") or [],
+        "storage_filesystems": storage.get("filesystems") or [],
+        "storage_summary": {"disk_count": storage.get("disk_count") or 0, "mounted_count": storage.get("mounted_count") or 0},
+        "network_adapters": network.get("adapters") or [],
+        "network_summary": {"physical_count": network.get("physical_count") or 0, "active_count": network.get("active_count") or 0},
+        "wireless": network.get("wireless") or {},
+        "bluetooth": _read_linux_bluetooth_info(),
         "gpu_list": _read_linux_gpu_snapshot(),
     }
     with LOCAL_MACHINE_STATE_LOCK:
@@ -1510,6 +1760,15 @@ def _build_local_machine_status():
         "cpu_name": hardware.get("cpu_name"),
         "motherboard": hardware.get("motherboard"),
         "mem_speed": hardware.get("mem_speed"),
+        "os_info": hardware.get("os_info") or {},
+        "memory_topology": hardware.get("memory_topology") or {},
+        "storage_devices": hardware.get("storage_devices") or [],
+        "storage_filesystems": hardware.get("storage_filesystems") or [],
+        "storage_summary": hardware.get("storage_summary") or {},
+        "network_adapters": hardware.get("network_adapters") or [],
+        "network_summary": hardware.get("network_summary") or {},
+        "wireless": hardware.get("wireless") or {},
+        "bluetooth": hardware.get("bluetooth") or {},
         "gpu_list": hardware.get("gpu_list") or [],
         "codemeter": _read_codemeter_info(),
         "cpu_percent": _read_linux_cpu_percent(),
@@ -4785,14 +5044,244 @@ function Get-BoardText([object]$board) {{
     return 'unknown'
 }}
 
+function Get-MemoryTopology {{
+    $modules = @()
+    try {{
+        foreach ($m in @(Get-AgentInstances 'Win32_PhysicalMemory')) {{
+            $sizeBytes = 0
+            try {{ $sizeBytes = [int64]$m.Capacity }} catch {{}}
+            if ($sizeBytes -le 0) {{ continue }}
+            $modules += @{{
+                bank_locator = [string]$m.BankLabel
+                locator = [string]$m.DeviceLocator
+                manufacturer = [string]$m.Manufacturer
+                part_number = ([string]$m.PartNumber).Trim()
+                size = ([math]::Round($sizeBytes / 1GB, 1).ToString() + ' GB')
+                size_bytes = $sizeBytes
+                speed = if ($m.Speed) {{ ([string]$m.Speed + ' MHz') }} else {{ '' }}
+                configured_memory_speed = if ($m.ConfiguredClockSpeed) {{ ([string]$m.ConfiguredClockSpeed + ' MHz') }} else {{ '' }}
+            }}
+        }}
+    }} catch {{}}
+    $slotCount = $modules.Count
+    try {{
+        $array = @(Get-AgentInstances 'Win32_PhysicalMemoryArray') | Select-Object -First 1
+        if ($array -and $array.MemoryDevices) {{ $slotCount = [int]$array.MemoryDevices }}
+    }} catch {{}}
+    $channels = New-Object System.Collections.ArrayList
+    $seen = @{{}}
+    $controllers = New-Object System.Collections.ArrayList
+    $seenControllers = @{{}}
+    foreach ($m in $modules) {{
+        $label = (([string]$m.locator) + ' ' + ([string]$m.bank_locator))
+        $match = [regex]::Match($label, 'Channel\s*([A-Za-z0-9]+)', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        if (-not $match.Success) {{ $match = [regex]::Match($label, 'Channel([A-Za-z0-9]+)', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase) }}
+        if ($match.Success) {{
+            $value = $match.Groups[1].Value.ToUpper()
+            if ($value -and -not $seen.ContainsKey($value)) {{ $seen[$value] = $true; [void]$channels.Add($value) }}
+        }}
+        $controllerMatch = [regex]::Match($label, 'Controller\s*([0-9]+)', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
+        if ($controllerMatch.Success) {{
+            $value = ('C' + $controllerMatch.Groups[1].Value)
+            if (-not $seenControllers.ContainsKey($value)) {{ $seenControllers[$value] = $true; [void]$controllers.Add($value) }}
+        }}
+    }}
+    $channelCount = [Math]::Max($channels.Count, $controllers.Count)
+    $mode = 'unknown'
+    if ($channelCount -ge 2) {{ $mode = 'dual' }} elseif ($channelCount -eq 1 -and $modules.Count -gt 0) {{ $mode = 'single' }}
+    $totalBytes = [int64]0
+    foreach ($m in $modules) {{ try {{ $totalBytes += [int64]$m.size_bytes }} catch {{}} }}
+    $summary = ([string]$modules.Count + ' DIMM')
+    if ($totalBytes -gt 0) {{ $summary += (' / ' + ([math]::Round($totalBytes / 1GB, 1).ToString()) + ' GB') }}
+    if ($mode -ne 'unknown') {{ $summary += (' / ' + $mode + ' channel inferred') }} else {{ $summary += ' / channel unknown' }}
+    return @{{
+        summary = $summary
+        channel_mode = $mode
+        channel_count = $channelCount
+        channel_inferred = ($channelCount -gt 0)
+        channels = @($channels)
+        installed_count = $modules.Count
+        slot_count = $slotCount
+        total_bytes = $totalBytes
+        modules = @($modules)
+    }}
+}}
+
+function Get-StorageInventory {{
+    $logicalByPartition = @{{}}
+    try {{
+        foreach ($link in @(Get-AgentInstances 'Win32_LogicalDiskToPartition')) {{
+            $partMatch = [regex]::Match([string]$link.Antecedent, 'Disk #(\d+), Partition #(\d+)')
+            $driveMatch = [regex]::Match([string]$link.Dependent, 'DeviceID="([^"]+)"')
+            if ($partMatch.Success -and $driveMatch.Success) {{
+                $logicalByPartition[($partMatch.Groups[1].Value + ':' + $partMatch.Groups[2].Value)] = $driveMatch.Groups[1].Value
+            }}
+        }}
+    }} catch {{}}
+    $logicalByDrive = @{{}}
+    try {{
+        foreach ($ld in @(Get-AgentInstances 'Win32_LogicalDisk')) {{
+            $logicalByDrive[[string]$ld.DeviceID] = $ld
+        }}
+    }} catch {{}}
+    $partitionsByDisk = @{{}}
+    try {{
+        foreach ($p in @(Get-AgentInstances 'Win32_DiskPartition')) {{
+            $key = [string]$p.DiskIndex
+            if (-not $partitionsByDisk.ContainsKey($key)) {{ $partitionsByDisk[$key] = @() }}
+            $drive = $logicalByPartition[([string]$p.DiskIndex + ':' + [string]$p.Index)]
+            $ld = if ($drive -and $logicalByDrive.ContainsKey($drive)) {{ $logicalByDrive[$drive] }} else {{ $null }}
+            $mounts = @()
+            if ($drive) {{ $mounts += $drive }}
+            $partitionsByDisk[$key] += @{{
+                name = [string]$p.Name
+                type = [string]$p.Type
+                size_bytes = [int64]$p.Size
+                fstype = if ($ld) {{ [string]$ld.FileSystem }} else {{ '' }}
+                mountpoints = @($mounts)
+                is_system = ($drive -eq $env:SystemDrive)
+                free_bytes = if ($ld) {{ [int64]$ld.FreeSpace }} else {{ 0 }}
+            }}
+        }}
+    }} catch {{}}
+    $devices = @()
+    try {{
+        foreach ($d in @(Get-AgentInstances 'Win32_DiskDrive')) {{
+            $key = [string]$d.Index
+            $parts = if ($partitionsByDisk.ContainsKey($key)) {{ @($partitionsByDisk[$key]) }} else {{ @() }}
+            $devices += @{{
+                name = ('Disk ' + [string]$d.Index)
+                type = 'disk'
+                size_bytes = [int64]$d.Size
+                model = [string]$d.Model
+                serial = ([string]$d.SerialNumber).Trim()
+                tran = [string]$d.InterfaceType
+                rotational = ([string]$d.MediaType -match 'hard disk')
+                removable = ([string]$d.MediaType -match 'removable')
+                mountpoints = @()
+                partitions = @($parts)
+                is_system = [bool](@($parts | Where-Object {{ $_.is_system }} | Select-Object -First 1))
+            }}
+        }}
+    }} catch {{}}
+    $filesystems = @()
+    foreach ($device in $devices) {{
+        foreach ($part in @($device.partitions)) {{
+            if ($part.mountpoints -and $part.mountpoints.Count -gt 0) {{
+                $fs = @{{}}
+                foreach ($k in $part.Keys) {{ $fs[$k] = $part[$k] }}
+                $fs['disk'] = $device.name
+                $fs['model'] = $device.model
+                $filesystems += $fs
+            }}
+        }}
+    }}
+    return @{{
+        devices = @($devices)
+        filesystems = @($filesystems)
+        disk_count = $devices.Count
+        mounted_count = $filesystems.Count
+    }}
+}}
+
+function Get-NetworkInventory {{
+    $profiles = @{{}}
+    try {{
+        if (Get-CommandOrNull 'Get-NetConnectionProfile') {{
+            foreach ($p in @(Get-NetConnectionProfile -ErrorAction SilentlyContinue)) {{
+                $profiles[[string]$p.InterfaceAlias] = [string]$p.Name
+            }}
+        }}
+    }} catch {{}}
+    $ipByMac = @{{}}
+    try {{
+        foreach ($cfg in @(Get-AgentInstances 'Win32_NetworkAdapterConfiguration') | Where-Object {{ $_.MACAddress }}) {{
+            $mac = ([string]$cfg.MACAddress).ToUpper()
+            $ipv4 = @()
+            $ipv6 = @()
+            foreach ($ip in @($cfg.IPAddress)) {{
+                $text = [string]$ip
+                if ($text -match '^\d+\.\d+\.\d+\.\d+$') {{ $ipv4 += $text }}
+                elseif ($text -and $text -match ':') {{ $ipv6 += $text }}
+            }}
+            $ipByMac[$mac] = @{{ ipv4 = @($ipv4); ipv6 = @($ipv6) }}
+        }}
+    }} catch {{}}
+    $adapters = @()
+    try {{
+        foreach ($a in @(Get-AgentInstances 'Win32_NetworkAdapter') | Where-Object {{ $_.PhysicalAdapter -eq $true }}) {{
+            $name = if ($a.NetConnectionID) {{ [string]$a.NetConnectionID }} else {{ [string]$a.Name }}
+            $desc = [string]$a.Name
+            $isWireless = ($desc -match 'Wi-?Fi|Wireless|WLAN|802\.11')
+            $isBluetooth = ($desc -match 'Bluetooth')
+            $mac = [string]$a.MACAddress
+            $ipInfo = if ($mac -and $ipByMac.ContainsKey($mac.ToUpper())) {{ $ipByMac[$mac.ToUpper()] }} else {{ @{{ ipv4 = @(); ipv6 = @() }} }}
+            $adapters += @{{
+                name = $name
+                description = $desc
+                mac = $mac
+                state = if ($a.NetEnabled) {{ 'up' }} else {{ 'down' }}
+                speed_mbps = if ($a.Speed) {{ [math]::Round(([double]$a.Speed) / 1000000, 0) }} else {{ 0 }}
+                ipv4 = @($ipInfo.ipv4)
+                ipv6 = @($ipInfo.ipv6)
+                is_wireless = $isWireless
+                is_bluetooth = $isBluetooth
+                is_virtual = ($desc -match 'Virtual|Tunnel|Tailscale|Wintun|Hyper-V|Loopback')
+                ssid = if ($isWireless -and $profiles.ContainsKey($name)) {{ $profiles[$name] }} else {{ '' }}
+            }}
+        }}
+    }} catch {{}}
+    $wireless = @($adapters | Where-Object {{ $_.is_wireless }})
+    $connectedWifi = @($wireless | Where-Object {{ $_.ssid }} | Select-Object -First 1)
+    return @{{
+        adapters = @($adapters)
+        physical_count = @($adapters | Where-Object {{ -not $_.is_virtual }}).Count
+        active_count = @($adapters | Where-Object {{ $_.state -eq 'up' -and -not $_.is_virtual }}).Count
+        wireless = @{{
+            present = ($wireless.Count -gt 0)
+            connected = ($connectedWifi.Count -gt 0)
+            ssid = if ($connectedWifi.Count -gt 0) {{ [string]$connectedWifi[0].ssid }} else {{ '' }}
+            interfaces = @($wireless)
+        }}
+    }}
+}}
+
+function Get-BluetoothInventory {{
+    $controllers = @()
+    try {{
+        foreach ($b in @(Get-AgentInstances 'Win32_PnPEntity') | Where-Object {{ ([string]$_.Name) -match 'Bluetooth' }}) {{
+            $controllers += @{{
+                name = [string]$b.Name
+                status = [string]$b.Status
+                device_id = [string]$b.DeviceID
+            }}
+        }}
+    }} catch {{}}
+    return @{{
+        present = ($controllers.Count -gt 0)
+        blocked = $false
+        controllers = @($controllers | Select-Object -First 12)
+    }}
+}}
+
 function Get-HardwareSnapshot {{
     if (-not $script:HardwareCache) {{
         $cpu = @(Get-AgentInstances 'Win32_Processor') | Select-Object -First 1
         $board = @(Get-AgentInstances 'Win32_BaseBoard') | Select-Object -First 1
+        $storage = Get-StorageInventory
+        $network = Get-NetworkInventory
         $script:HardwareCache = @{{
             cpu_name = if ($cpu -and $cpu.Name) {{ $cpu.Name }} else {{ 'Unknown CPU' }}
             motherboard = if ($board) {{ Get-BoardText $board }} else {{ 'Unknown motherboard' }}
             mem_speed = Get-MemorySpeed
+            memory_topology = Get-MemoryTopology
+            storage_devices = @($storage.devices)
+            storage_filesystems = @($storage.filesystems)
+            storage_summary = @{{ disk_count = $storage.disk_count; mounted_count = $storage.mounted_count }}
+            network_adapters = @($network.adapters)
+            network_summary = @{{ physical_count = $network.physical_count; active_count = $network.active_count }}
+            wireless = $network.wireless
+            bluetooth = Get-BluetoothInventory
             hardware_refreshed_at = (Get-Date).ToString('o')
         }}
     }}
@@ -4908,6 +5397,14 @@ function Get-StatusPayload([hashtable]$cfg) {{
             cpu_name = $hardware.cpu_name
             motherboard = $hardware.motherboard
             mem_speed = $hardware.mem_speed
+            memory_topology = $hardware.memory_topology
+            storage_devices = @($hardware.storage_devices)
+            storage_filesystems = @($hardware.storage_filesystems)
+            storage_summary = $hardware.storage_summary
+            network_adapters = @($hardware.network_adapters)
+            network_summary = $hardware.network_summary
+            wireless = $hardware.wireless
+            bluetooth = $hardware.bluetooth
             cpu_percent = $cpuPercent
             mem_used = $memUsed
             mem_total = $memTotal
@@ -4925,6 +5422,13 @@ function Get-StatusPayload([hashtable]$cfg) {{
             gpu_list = @($gpuInfo)
             gpu_diagnostics = Remove-AgentDiagnosticNoise $script:GpuProbeDiagnostic
             codemeter = $codemeterInfo
+            os_info = @{{
+                name = if ($os) {{ [string]$os.Caption }} else {{ '' }}
+                version = if ($os) {{ [string]$os.Version }} else {{ '' }}
+                build = if ($os) {{ [string]$os.BuildNumber }} else {{ '' }}
+                arch = if ($os) {{ [string]$os.OSArchitecture }} else {{ '' }}
+                kernel = if ($os) {{ [string]$os.Version }} else {{ '' }}
+            }}
             os_caption = if ($os) {{ $os.Caption }} else {{ '' }}
             os_version = if ($os) {{ $os.Version }} else {{ '' }}
             hardware_refreshed_at = $hardware.hardware_refreshed_at

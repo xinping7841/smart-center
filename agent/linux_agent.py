@@ -782,6 +782,249 @@ def read_codemeter_info():
     return payload
 
 
+def command_output(command, timeout=3):
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=timeout, encoding="utf-8", errors="ignore")
+        if result.returncode == 0:
+            return result.stdout or ""
+    except Exception:
+        pass
+    return ""
+
+
+def parse_os_release():
+    values = {}
+    for line in read_text("/etc/os-release").splitlines():
+        if "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip().strip('"')
+    return values
+
+
+def read_os_info():
+    release = parse_os_release()
+    return {
+        "name": release.get("PRETTY_NAME") or platform.platform(),
+        "id": release.get("ID") or "",
+        "version": release.get("VERSION_ID") or "",
+        "codename": release.get("VERSION_CODENAME") or release.get("UBUNTU_CODENAME") or "",
+        "kernel": platform.release(),
+        "arch": platform.machine(),
+    }
+
+
+def parse_size_bytes(text):
+    raw = str(text or "").strip()
+    match = re.search(r"([0-9]+(?:\.[0-9]+)?)\s*([KMGTPE]?B)", raw, flags=re.IGNORECASE)
+    if not match:
+        return 0
+    value = float(match.group(1))
+    unit = match.group(2).upper()
+    scale = {"KB": 1024, "MB": 1024 ** 2, "GB": 1024 ** 3, "TB": 1024 ** 4, "PB": 1024 ** 5}.get(unit, 1)
+    return int(value * scale)
+
+
+def read_memory_topology():
+    text = command_output(["dmidecode", "-t", "memory"], timeout=4)
+    modules = []
+    current = None
+    for line in text.splitlines():
+        if line and not line.startswith("\t") and line.strip() == "Memory Device":
+            if current:
+                modules.append(current)
+            current = {}
+            continue
+        if current is None or ":" not in line:
+            continue
+        key, value = line.strip().split(":", 1)
+        key = key.strip().lower()
+        value = value.strip()
+        if key == "size":
+            current["size"] = value
+            current["size_bytes"] = parse_size_bytes(value)
+        elif key in ("locator", "bank locator", "manufacturer", "part number", "speed", "configured memory speed"):
+            current[key.replace(" ", "_")] = value
+    if current:
+        modules.append(current)
+    installed = [
+        item for item in modules
+        if item.get("size_bytes", 0) > 0 and "no module" not in str(item.get("size", "")).lower()
+    ]
+    channels = []
+    for item in installed:
+        label = " ".join([str(item.get("locator") or ""), str(item.get("bank_locator") or "")])
+        match = re.search(r"channel\s*([a-z0-9]+)", label, flags=re.IGNORECASE) or re.search(r"channel([a-z])", label, flags=re.IGNORECASE)
+        if match:
+            channel = match.group(1).upper()
+            if channel and channel not in channels:
+                channels.append(channel)
+    channel_count = len(channels)
+    if channel_count >= 2:
+        mode = "dual"
+    elif channel_count == 1 and installed:
+        mode = "single"
+    else:
+        mode = "unknown"
+    total_bytes = sum(int(item.get("size_bytes") or 0) for item in installed)
+    summary_bits = [f"{len(installed)} DIMM"]
+    if total_bytes:
+        summary_bits.append(f"{round(total_bytes / (1024 ** 3), 1):g} GB")
+    if mode != "unknown":
+        summary_bits.append(f"{mode} channel inferred")
+    else:
+        summary_bits.append("channel unknown")
+    return {
+        "summary": " / ".join(summary_bits),
+        "channel_mode": mode,
+        "channel_count": channel_count,
+        "channel_inferred": channel_count > 0,
+        "channels": channels,
+        "installed_count": len(installed),
+        "slot_count": len(modules),
+        "total_bytes": total_bytes,
+        "modules": installed[:16],
+    }
+
+
+def _mounts_from_lsblk_node(node):
+    mounts = node.get("mountpoints")
+    if isinstance(mounts, list):
+        return [str(item) for item in mounts if item]
+    mount = node.get("mountpoint")
+    return [str(mount)] if mount else []
+
+
+def read_storage_devices():
+    output = command_output(["lsblk", "-b", "-J", "-o", "NAME,TYPE,SIZE,FSTYPE,MOUNTPOINTS,MOUNTPOINT,MODEL,SERIAL,TRAN,ROTA,RM,PKNAME"], timeout=4)
+    try:
+        parsed = json.loads(output) if output else {}
+    except Exception:
+        parsed = {}
+    devices = []
+    filesystems = []
+    for node in parsed.get("blockdevices", []) if isinstance(parsed, dict) else []:
+        if not isinstance(node, dict) or node.get("type") in ("loop", "rom"):
+            continue
+        children = []
+        for child in node.get("children") or []:
+            if not isinstance(child, dict):
+                continue
+            mounts = _mounts_from_lsblk_node(child)
+            part = {
+                "name": child.get("name") or "",
+                "type": child.get("type") or "",
+                "size_bytes": int(child.get("size") or 0),
+                "fstype": child.get("fstype") or "",
+                "mountpoints": mounts,
+                "is_system": "/" in mounts,
+            }
+            children.append(part)
+            if mounts:
+                filesystems.append({**part, "disk": node.get("name") or "", "model": node.get("model") or ""})
+        mounts = _mounts_from_lsblk_node(node)
+        devices.append({
+            "name": node.get("name") or "",
+            "type": node.get("type") or "",
+            "size_bytes": int(node.get("size") or 0),
+            "model": str(node.get("model") or "").strip(),
+            "serial": str(node.get("serial") or "").strip(),
+            "tran": node.get("tran") or "",
+            "rotational": str(node.get("rota") or "0") == "1",
+            "removable": str(node.get("rm") or "0") == "1",
+            "mountpoints": mounts,
+            "partitions": children,
+            "is_system": "/" in mounts or any(item.get("is_system") for item in children),
+        })
+    return {
+        "devices": devices[:16],
+        "filesystems": filesystems[:32],
+        "disk_count": len([item for item in devices if item.get("type") == "disk"]),
+        "mounted_count": len(filesystems),
+    }
+
+
+def read_network_adapters():
+    output = command_output(["ip", "-j", "addr"], timeout=3)
+    try:
+        rows = json.loads(output) if output else []
+    except Exception:
+        rows = []
+    adapters = []
+    wireless_items = []
+    virtual_pattern = re.compile(r"^(lo|docker|veth|br-|virbr|tun|tap|wg|tailscale|p2p-)", re.IGNORECASE)
+    for row in rows if isinstance(rows, list) else []:
+        ifname = str(row.get("ifname") or "")
+        if not ifname or ifname == "lo":
+            continue
+        is_virtual = bool(virtual_pattern.search(ifname))
+        speed = read_text(f"/sys/class/net/{ifname}/speed")
+        try:
+            speed_mbps = int(speed)
+        except Exception:
+            speed_mbps = 0
+        ipv4 = []
+        ipv6 = []
+        for addr in row.get("addr_info") or []:
+            if addr.get("family") == "inet":
+                ipv4.append(addr.get("local") or "")
+            elif addr.get("family") == "inet6":
+                ipv6.append(addr.get("local") or "")
+        is_wireless = Path(f"/sys/class/net/{ifname}/wireless").exists()
+        item = {
+            "name": ifname,
+            "mac": read_text(f"/sys/class/net/{ifname}/address"),
+            "state": str(row.get("operstate") or "").lower(),
+            "speed_mbps": speed_mbps,
+            "ipv4": [value for value in ipv4 if value],
+            "ipv6": [value for value in ipv6 if value],
+            "is_wireless": is_wireless,
+            "is_virtual": is_virtual,
+        }
+        adapters.append(item)
+        if is_wireless:
+            wireless_items.append(dict(item))
+    nmcli = command_output(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "dev", "status"], timeout=3)
+    ssid_by_iface = {}
+    for line in nmcli.splitlines():
+        parts = line.split(":", 3)
+        if len(parts) >= 4 and parts[1] in ("wifi", "wifi-p2p"):
+            ssid_by_iface[parts[0]] = parts[3] if "connected" in parts[2] else ""
+    for item in wireless_items:
+        item["ssid"] = ssid_by_iface.get(item.get("name") or "", "")
+        item["connected"] = bool(item.get("ssid"))
+    connected = next((item for item in wireless_items if item.get("connected")), None)
+    return {
+        "adapters": adapters[:32],
+        "physical_count": len([item for item in adapters if not item.get("is_virtual")]),
+        "active_count": len([item for item in adapters if item.get("state") == "up" and not item.get("is_virtual")]),
+        "wireless": {
+            "present": bool(wireless_items),
+            "connected": bool(connected),
+            "ssid": connected.get("ssid") if connected else "",
+            "interfaces": wireless_items[:8],
+        },
+    }
+
+
+def read_bluetooth_info():
+    controllers = []
+    for line in command_output(["bluetoothctl", "list"], timeout=3).splitlines():
+        match = re.match(r"Controller\s+([0-9A-Fa-f:]+)\s+(.+)", line.strip())
+        if match:
+            controllers.append({"mac": match.group(1).upper(), "name": match.group(2).strip()})
+    rfkill_text = command_output(["rfkill", "list"], timeout=3)
+    has_rfkill_bt = bool(re.search(r"Bluetooth", rfkill_text, flags=re.IGNORECASE))
+    lsusb_text = command_output(["lsusb"], timeout=3)
+    has_usb_bt = bool(re.search(r"bluetooth", lsusb_text, flags=re.IGNORECASE))
+    blocked = bool(re.search(r"Hard blocked:\s*yes|Soft blocked:\s*yes", rfkill_text, flags=re.IGNORECASE))
+    return {
+        "present": bool(controllers or has_rfkill_bt or has_usb_bt),
+        "blocked": blocked,
+        "controllers": controllers[:8],
+    }
+
+
 def read_hardware_profile():
     now_ts = time.time()
     cached = HW_CACHE["payload"]
@@ -797,7 +1040,23 @@ def read_hardware_profile():
     board_vendor = read_text("/sys/class/dmi/id/board_vendor")
     board_name = read_text("/sys/class/dmi/id/board_name")
     motherboard = " / ".join([item for item in [board_vendor, board_name] if item]) or platform.platform()
-    payload = {"cpu_name": cpu_name or platform.processor() or platform.machine() or "Linux Host", "motherboard": motherboard, "mem_speed": read_memory_speed(), "gpu_list": read_gpu_snapshot()}
+    storage = read_storage_devices()
+    network = read_network_adapters()
+    payload = {
+        "cpu_name": cpu_name or platform.processor() or platform.machine() or "Linux Host",
+        "motherboard": motherboard,
+        "mem_speed": read_memory_speed(),
+        "os_info": read_os_info(),
+        "memory_topology": read_memory_topology(),
+        "storage_devices": storage.get("devices") or [],
+        "storage_filesystems": storage.get("filesystems") or [],
+        "storage_summary": {"disk_count": storage.get("disk_count") or 0, "mounted_count": storage.get("mounted_count") or 0},
+        "network_adapters": network.get("adapters") or [],
+        "network_summary": {"physical_count": network.get("physical_count") or 0, "active_count": network.get("active_count") or 0},
+        "wireless": network.get("wireless") or {},
+        "bluetooth": read_bluetooth_info(),
+        "gpu_list": read_gpu_snapshot(),
+    }
     HW_CACHE.update({"payload": payload, "expires_at": now_ts + 300.0})
     return payload
 
@@ -818,6 +1077,15 @@ def build_status():
         "cpu_name": hardware.get("cpu_name"),
         "motherboard": hardware.get("motherboard"),
         "mem_speed": hardware.get("mem_speed"),
+        "os_info": hardware.get("os_info") or {},
+        "memory_topology": hardware.get("memory_topology") or {},
+        "storage_devices": hardware.get("storage_devices") or [],
+        "storage_filesystems": hardware.get("storage_filesystems") or [],
+        "storage_summary": hardware.get("storage_summary") or {},
+        "network_adapters": hardware.get("network_adapters") or [],
+        "network_summary": hardware.get("network_summary") or {},
+        "wireless": hardware.get("wireless") or {},
+        "bluetooth": hardware.get("bluetooth") or {},
         "gpu_list": read_gpu_snapshot(),
         "gpu_diagnostics": read_gpu_diagnostics(),
         "codemeter": read_codemeter_info(),

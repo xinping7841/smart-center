@@ -962,6 +962,10 @@
                     <div class="card-title" style="margin-bottom: 20px;">
                         <span>物理服务器与工作站节点大屏</span>
                         <div style="display:flex; gap:10px;">
+                            <div class="server-view-toggle" role="group" aria-label="服务器显示模式">
+                                <button class="active" type="button" data-server-view-mode="compact" onclick="setServerViewMode('compact')">简洁</button>
+                                <button type="button" data-server-view-mode="detail" onclick="setServerViewMode('detail')">详细</button>
+                            </div>
                             <button class="btn-base" style="background:#475569;" onclick="openDeployModal()">获取 Agent 部署命令</button>
                         </div>
                     </div>
@@ -12735,6 +12739,88 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             if (mbps >= 10) return mbps.toFixed(1);
             return mbps.toFixed(2).replace(/\.?0+$/, '');
         }
+        let serverViewMode = (() => {
+            try { return localStorage.getItem('smart-center-server-view-mode') || 'compact'; } catch (_) { return 'compact'; }
+        })();
+        function applyServerViewMode(mode) {
+            serverViewMode = mode === 'detail' ? 'detail' : 'compact';
+            document.querySelectorAll('[data-server-view-mode]').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.serverViewMode === serverViewMode);
+            });
+            const container = document.getElementById('server-grid-container');
+            if (container) container.classList.toggle('server-detail-mode', serverViewMode === 'detail');
+        }
+        function setServerViewMode(mode) {
+            applyServerViewMode(mode);
+            try { localStorage.setItem('smart-center-server-view-mode', serverViewMode); } catch (_) {}
+            if (Array.isArray(globalServerList) && globalServerList.length) {
+                updateServerData();
+            }
+        }
+        function formatBytesGiB(bytes) {
+            const num = Number(bytes);
+            if (!Number.isFinite(num) || num <= 0) return '--';
+            const gib = num / (1024 ** 3);
+            if (gib >= 1024) return `${(gib / 1024).toFixed(gib >= 10240 ? 0 : 1)} TB`;
+            return `${gib.toFixed(gib >= 100 ? 0 : 1)} GB`;
+        }
+        function compactHardwareName(value, fallback = '--') {
+            return String(value || fallback).replace(/\s+/g, ' ').trim();
+        }
+        function memoryChannelText(topology) {
+            const mode = String(topology?.channel_mode || '').toLowerCase();
+            if (mode === 'dual') return '双通道推断';
+            if (mode === 'single') return '单通道推断';
+            return '通道未知';
+        }
+        function renderServerHardwareSummary(st) {
+            const os = st.os_info || {};
+            const mem = st.memory_topology || {};
+            const storage = st.storage_summary || {};
+            const network = st.network_summary || {};
+            const wifi = st.wireless || {};
+            const bt = st.bluetooth || {};
+            const chips = [
+                ['系统', os.name || st.os_caption || st.os_version || '未采到'],
+                ['内存', `${mem.installed_count || 0}条 ${memoryChannelText(mem)}`],
+                ['硬盘', `${storage.disk_count ?? (Array.isArray(st.storage_devices) ? st.storage_devices.length : 0)}盘 / ${storage.mounted_count ?? (Array.isArray(st.storage_filesystems) ? st.storage_filesystems.length : 0)}挂载`],
+                ['网卡', `${network.active_count ?? 0}/${network.physical_count ?? 0}启用`],
+                ['Wi-Fi', wifi.present ? (wifi.connected ? `SSID ${wifi.ssid || '--'}` : '未连接') : '无'],
+                ['蓝牙', bt.present ? (bt.blocked ? '已阻塞' : '存在') : '无'],
+            ];
+            return `<div class="server-hardware-summary">${chips.map(([label, value]) => `<div class="server-hw-chip"><span>${escapeHtml(label)}</span><strong title="${escapeHtml(value)}">${escapeHtml(value)}</strong></div>`).join('')}</div>`;
+        }
+        function renderServerHardwareDetails(st) {
+            if (serverViewMode !== 'detail') return '';
+            const memModules = Array.isArray(st.memory_topology?.modules) ? st.memory_topology.modules : [];
+            const disks = Array.isArray(st.storage_devices) ? st.storage_devices : [];
+            const adapters = Array.isArray(st.network_adapters) ? st.network_adapters : [];
+            const os = st.os_info || {};
+            const memRows = memModules.slice(0, 8).map((m, idx) => {
+                const title = [m.locator, m.bank_locator].filter(Boolean).join(' / ') || `DIMM ${idx + 1}`;
+                const value = [m.size || formatBytesGiB(m.size_bytes), m.configured_memory_speed || m.speed, m.manufacturer, m.part_number].filter(Boolean).join(' · ');
+                return `<li><span>${escapeHtml(title)}</span><strong>${escapeHtml(value || '--')}</strong></li>`;
+            }).join('') || '<li><span>内存</span><strong>未采到槽位信息</strong></li>';
+            const diskRows = disks.slice(0, 8).map((d, idx) => {
+                const parts = Array.isArray(d.partitions) ? d.partitions : [];
+                const mounts = parts.flatMap(p => Array.isArray(p.mountpoints) ? p.mountpoints : []).filter(Boolean);
+                const suffix = mounts.length ? ` · ${mounts.join(', ')}` : '';
+                return `<li><span>${escapeHtml(d.name || `Disk ${idx}`)}</span><strong title="${escapeHtml(compactHardwareName(d.model))}">${escapeHtml([compactHardwareName(d.model), formatBytesGiB(d.size_bytes), d.tran || '', d.is_system ? '系统盘' : ''].filter(Boolean).join(' · '))}${escapeHtml(suffix)}</strong></li>`;
+            }).join('') || '<li><span>磁盘</span><strong>未采到磁盘清单</strong></li>';
+            const nicRows = adapters.filter(a => !a.is_virtual).slice(0, 10).map(a => {
+                const ips = Array.isArray(a.ipv4) ? a.ipv4.join(', ') : '';
+                const bits = [a.state === 'up' ? '启用' : '停用', a.speed_mbps ? `${a.speed_mbps}Mbps` : '', a.is_wireless ? '无线' : '有线', ips].filter(Boolean).join(' · ');
+                return `<li><span>${escapeHtml(a.name || a.description || '网卡')}</span><strong title="${escapeHtml(a.mac || '')}">${escapeHtml(bits || '--')}</strong></li>`;
+            }).join('') || '<li><span>网卡</span><strong>未采到物理网卡</strong></li>';
+            return `<div class="server-hardware-detail">
+                <div class="server-detail-head"><span>硬件详情</span><strong>${escapeHtml(os.kernel ? `${os.name || ''} · ${os.kernel}` : (os.name || ''))}</strong></div>
+                <div class="server-detail-columns">
+                    <div><h4>内存</h4><ul>${memRows}</ul></div>
+                    <div><h4>磁盘</h4><ul>${diskRows}</ul></div>
+                    <div><h4>网卡 / 无线 / 蓝牙</h4><ul>${nicRows}</ul></div>
+                </div>
+            </div>`;
+        }
         function getNetworkPrimaryLabel(st) {
             const nic = st && typeof st.network_primary === 'object' ? st.network_primary : {};
             const rawName = String(nic.adapter_name || nic.name || '').trim();
@@ -13241,9 +13327,11 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             const netRecv = normalizeServerBytes(st.net_recv_kb_s);
             const networkPrimaryLabel = getNetworkPrimaryLabel(st);
             const codeMeterHtml = renderServerCodeMeterLine(st.codemeter);
+            const hardwareSummaryHtml = renderServerHardwareSummary(st);
+            const hardwareDetailHtml = renderServerHardwareDetails(st);
             const showLastMetrics = !!(m.is_online || (diagnostic.reportOnline && diagnostic.hasRuntime));
             const metricsHtml = showLastMetrics
-                ? `${statusMetaHtml}${diagnosticHtml}<div class="hardware-info"><div class="hardware-item" title="${escapeHtml(st.cpu_name||'未获取到CPU')}">CPU: <span>${escapeHtml(st.cpu_name||'加载中...')}</span></div><div class="hardware-item" title="${escapeHtml(st.motherboard||'未获取到主板')}">主板: <span>${escapeHtml(st.motherboard||'加载中...')}</span></div>${st.mem_speed ? `<div class="hardware-item">内存频率: <span>${escapeHtml(st.mem_speed)} MHz</span></div>` : ''}</div><div class="metric-row"><div class="metric-label"><span>CPU</span><span>${formatServerMetric(cpuPercent)}</span></div><div class="progress-track"><div class="progress-fill ${getColor(cpuPercent)}" style="width:${Math.max(0, Math.min(100, cpuPercent))}%"></div></div></div><div class="metric-row"><div class="metric-label"><span>内存 (${escapeHtml(st.mem_used||0)}/${escapeHtml(st.mem_total||0)} GB)</span><span>${formatServerMetric(memPercent)}</span></div><div class="progress-track"><div class="progress-fill bg-blue" style="width:${Math.max(0, Math.min(100, memPercent))}%"></div></div></div><div class="metric-row"><div class="metric-label"><span>系统盘</span><span>${formatServerMetric(diskPercent)}</span></div><div class="progress-track"><div class="progress-fill ${getColor(diskPercent)}" style="width:${Math.max(0, Math.min(100, diskPercent))}%"></div></div></div><div class="server-network-line" title="${escapeHtml(networkPrimaryLabel)}"><span>网络 上/下</span><strong><span style="color:var(--brand-blue)">↑ ${formatNetworkMbps(netSent)}</span><span style="color:var(--success)">↓ ${formatNetworkMbps(netRecv)} Mbps</span></strong></div>${codeMeterHtml}${gpuHtml}`
+                ? `${statusMetaHtml}${diagnosticHtml}<div class="hardware-info"><div class="hardware-item" title="${escapeHtml(st.cpu_name||'未获取到CPU')}">CPU: <span>${escapeHtml(st.cpu_name||'加载中...')}</span></div><div class="hardware-item" title="${escapeHtml(st.motherboard||'未获取到主板')}">主板: <span>${escapeHtml(st.motherboard||'加载中...')}</span></div>${st.mem_speed ? `<div class="hardware-item">内存频率: <span>${escapeHtml(st.mem_speed)} MHz</span></div>` : ''}</div>${hardwareSummaryHtml}<div class="metric-row"><div class="metric-label"><span>CPU</span><span>${formatServerMetric(cpuPercent)}</span></div><div class="progress-track"><div class="progress-fill ${getColor(cpuPercent)}" style="width:${Math.max(0, Math.min(100, cpuPercent))}%"></div></div></div><div class="metric-row"><div class="metric-label"><span>内存 (${escapeHtml(st.mem_used||0)}/${escapeHtml(st.mem_total||0)} GB)</span><span>${formatServerMetric(memPercent)}</span></div><div class="progress-track"><div class="progress-fill bg-blue" style="width:${Math.max(0, Math.min(100, memPercent))}%"></div></div></div><div class="metric-row"><div class="metric-label"><span>系统盘</span><span>${formatServerMetric(diskPercent)}</span></div><div class="progress-track"><div class="progress-fill ${getColor(diskPercent)}" style="width:${Math.max(0, Math.min(100, diskPercent))}%"></div></div></div><div class="server-network-line" title="${escapeHtml(networkPrimaryLabel)}"><span>网络 上/下</span><strong><span style="color:var(--brand-blue)">↑ ${formatNetworkMbps(netSent)}</span><span style="color:var(--success)">↓ ${formatNetworkMbps(netRecv)} Mbps</span></strong></div>${codeMeterHtml}${gpuHtml}${hardwareDetailHtml}`
                 : `${statusMetaHtml}${diagnosticHtml}<div style="text-align:center; color:var(--text-sub); margin:14px 0;">该节点当前离线，等待自动重连上报。</div>`;
             const groupHtml = m.asset_group ? `<div style="margin-top:8px; font-size:12px; color:var(--brand-blue);">区域/分组: ${escapeHtml(m.asset_group)}</div>` : '';
             let remarkHtml = m.remark ? `<div style="margin-top:12px; font-size:12px; color:var(--text-sub); border-top:1px dashed rgba(255,255,255,0.1); padding-top:8px;">备注: ${escapeHtml(m.remark)}</div>` : '';
@@ -13289,6 +13377,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         updateServerData = function() {
             fetchJson('/api/machines', {}, '服务器列表读取失败')
                 .then(data => {
+                    applyServerViewMode(serverViewMode);
                     data.sort((a, b) => {
                         if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
                         return a.mac.localeCompare(b.mac);
