@@ -12,6 +12,7 @@ This directory is the target for gradually extracting logic from `templates/inde
 - `universal.js`: protocol control center and legacy universal command button shims for `/api/control_center/execute` and `/api/universal/control`.
 - `env.js`: environment sensor polling, top/dashboard summaries, env page cards, and door/contact status bridge.
 - `current-collector.js`: standalone current collector page, live polling, pause/resume display, group totals, raw channel cards, and `/api/current-collector/*` actions.
+- `m32r.js`: standalone M32R virtual console page, mixer status polling, channel/main controls, templates, and Apple Audio route helpers.
 
 Rules:
 

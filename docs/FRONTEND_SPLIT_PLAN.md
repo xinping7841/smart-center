@@ -9,7 +9,7 @@ The dashboard currently works, so frontend splitting must be done as behavior-pr
 - `templates/index.html` is the main shell and contains large inline CSS/JS.
 - Static CSS files are large and mostly shared.
 - Most buttons still call global functions from inline `onclick` attributes.
-- The following behavior-preserving modules have been extracted to `static/js/views/`: `logs.js`, `proxy.js`, `ups.js`, `hy-edge.js`, `apple-audio.js`, `universal.js`, and `env.js`.
+- The following behavior-preserving modules have been extracted to `static/js/views/`: `logs.js`, `proxy.js`, `ups.js`, `hy-edge.js`, `apple-audio.js`, `universal.js`, `env.js`, `current-collector.js`, and `m32r.js`.
 
 ## Stage 2A: Bootstrap And Boundaries
 
@@ -42,7 +42,7 @@ Recommended order:
 6. Protocol/universal command shims. Completed: `static/js/views/universal.js`.
 7. Environment sensor page and dashboard summary. Completed: `static/js/views/env.js`.
 8. Current collector page. Completed: `static/js/views/current-collector.js`.
-9. M32R page if still isolated.
+9. M32R page. Completed: `static/js/views/m32r.js`.
 
 ## Stage 2D: Extract Heavy Views
 

@@ -161,6 +161,16 @@ modules:
     runtime_state: ['music_tag_library.json']
     split_priority: low
     ai_keywords: ['apple audio','music','queue','lyrics','cover','M32']
+  m32r:
+    frontend_module: 'static/js/views/m32r.js'
+    purpose: Standalone M32R virtual console page, mixer status polling, channel/main controls, templates, and Apple Audio route helpers.
+    routes: ['/m32r','/api/m32r/status','/api/m32r/connect','/api/m32r/channel','/api/m32r/main','/api/m32r/templates']
+    backend: ['api/m32r.py','m32r_core.py','background.py']
+    frontend: ['templates/m32r.html','templates/config.html','static/js/views/m32r.js']
+    config_keys: ['m32r','apple_audio']
+    runtime_state: ['m32r_service.state','music_tag_library.json']
+    split_priority: low
+    ai_keywords: ['m32r','midas','mixer','osc','channel','template','apple audio route']
   universal_control:
     frontend_module: 'static/js/views/universal.js'
     purpose: Protocol control center buttons and legacy universal device command shims.
