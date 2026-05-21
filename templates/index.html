@@ -85,6 +85,7 @@
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
     <script src="/static/vendor/echarts.min.js?v=6.0.0"></script>
     <script src="/static/js/core/bootstrap.js?v=20260522-stage2"></script>
+    <script src="/static/js/core/utils.js?v=20260522-stage2-utils"></script>
     <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260519-sequencer-single-page">
     <style>
         /* AI map: dashboard.inline_styles. Move isolated blocks to static/css/views
@@ -2620,73 +2621,6 @@
         }
 
         function showToast(msg, isError=false) { const t = document.getElementById('toast'); t.innerText = msg; t.className = 'toast-msg show' + (isError ? ' toast-error' : ''); setTimeout(() => t.className = 'toast-msg', 2500); }
-        function translateApiError(error, fallbackText='请求失败') {
-            const text = String(error ?? '').trim();
-            if (!text) return fallbackText;
-            const map = {
-                login_required: '当前会话未登录，请先登录后再操作',
-                account_disabled: '当前账号已停用',
-                permission_denied: '当前账号没有此功能权限',
-                permission_time_restricted: '当前时段不允许执行此操作',
-                account_frozen: '当前账号已冻结',
-                account_temporarily_disabled: '当前账号已被临时停用',
-                account_temporarily_disabled_until: '当前账号处于临时停用时段',
-                temporary_control_blocked: '当前账号的控制权限已被临时关闭',
-                outside_control_schedule: '当前不在允许控制的时间段内',
-                permission_not_granted: '当前账号没有此功能权限'
-            };
-            if (map[text]) return map[text];
-            if (text.startsWith('http_')) {
-                const code = text.split('_')[1] || '';
-                return `请求失败（HTTP ${code}）`;
-            }
-            return text;
-        }
-        async function parseJsonResponse(response, fallbackText='请求失败', options={}) {
-            let data = {};
-            try {
-                data = await response.json();
-            } catch (_) {
-                data = {};
-            }
-            const allowBusinessError = !!options.allowBusinessError;
-            if (!response.ok || (!allowBusinessError && data?.ok === false)) {
-                const message = data?.msg || data?.message || data?.error || fallbackText;
-                throw new Error(translateApiError(message, fallbackText));
-            }
-            return data;
-        }
-        const fetchJsonInFlight = new Map();
-        function getFetchJsonDedupeKey(url, options={}) {
-            const method = String(options?.method || 'GET').toUpperCase();
-            if (method !== 'GET') return '';
-            const body = options?.body;
-            if (body !== undefined && body !== null) return '';
-            const headers = options?.headers;
-            let headerKey = '';
-            if (headers instanceof Headers) {
-                headerKey = Array.from(headers.entries()).sort().map(([k, v]) => `${k}:${v}`).join('|');
-            } else if (headers && typeof headers === 'object') {
-                headerKey = Object.keys(headers).sort().map(k => `${k}:${headers[k]}`).join('|');
-            }
-            return `${method} ${url} ${headerKey}`;
-        }
-        async function fetchJson(url, options={}, fallbackText='请求失败', parseOptions={}) {
-            const dedupeKey = getFetchJsonDedupeKey(url, options);
-            if (dedupeKey && fetchJsonInFlight.has(dedupeKey)) {
-                return fetchJsonInFlight.get(dedupeKey);
-            }
-            const requestPromise = fetch(url, options)
-                .then(response => parseJsonResponse(response, fallbackText, parseOptions))
-                .finally(() => {
-                    if (dedupeKey) fetchJsonInFlight.delete(dedupeKey);
-                });
-            if (dedupeKey) fetchJsonInFlight.set(dedupeKey, requestPromise);
-            return requestPromise;
-        }
-        async function fetchJsonLoose(url, options={}, fallbackText='请求失败') {
-            return fetchJson(url, options, fallbackText, { allowBusinessError: true });
-        }
         function toggleUserMenu(forceOpen = null) {
             const menu = document.getElementById('top-user-menu');
             if (!menu) return;
@@ -10799,7 +10733,6 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         function fireUniversalCommand(devId, payload, format, wait_ms) { if (!ensurePermission('system.config', '控制泛型设备')) return; showToast("通用指令下发中...", false); fetch('/api/universal/control', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ device_id: devId, command: { payload: payload, format: format, wait_ms: wait_ms || 0 } }) }).then(r => r.json()).then(data => { if(data.success) { showToast("执行成功"); console.log("设备返回:", data.response); } else { showToast("执行失败: " + (data.response || data.msg || data.message || '未知错误'), true); } }).catch(e => showToast("网络请求错误", true)); }
         function handleLongPressStart(devId, startPayload, format) { fireUniversalCommand(devId, startPayload, format, 0); }
         function handleLongPressEnd(devId, stopPayload, format) { fireUniversalCommand(devId, stopPayload, format, 0); }
-        function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
         const projectorCommandNameFallbacks = {
             smile: {
                 ek: {
@@ -11962,14 +11895,6 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
 
         function postDoorAction(action) {
             return fetchJsonLoose(`/door_control/${action}`, {}, '门禁指令下发失败');
-        }
-
-        function postJsonLoose(url, payload, fallbackText='请求失败') {
-            return fetchJsonLoose(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            }, fallbackText);
         }
 
         refreshPowerSupplement = function(cabId, force = false) {
