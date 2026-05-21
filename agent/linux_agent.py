@@ -895,6 +895,42 @@ def _mounts_from_lsblk_node(node):
     return [str(mount)] if mount else []
 
 
+def read_filesystem_usage():
+    usage = {}
+    text = command_output(["df", "-T", "-B1", "-P"], timeout=4)
+    for line in text.splitlines()[1:]:
+        parts = line.split(None, 6)
+        if len(parts) < 7:
+            continue
+        source, fstype, total, used, avail, percent, mountpoint = parts
+        if fstype in {"devtmpfs", "tmpfs", "squashfs", "overlay", "proc", "sysfs", "efivarfs", "cgroup2", "debugfs", "tracefs"}:
+            continue
+        try:
+            total_bytes = int(total)
+            used_bytes = int(used)
+            free_bytes = int(avail)
+        except Exception:
+            continue
+        percent_value = 0.0
+        try:
+            percent_value = float(str(percent).rstrip("%"))
+        except Exception:
+            pass
+        usage[mountpoint] = {
+            "source": source,
+            "fstype": fstype,
+            "size_bytes": total_bytes,
+            "used_bytes": used_bytes,
+            "free_bytes": free_bytes,
+            "percent": round(percent_value, 1),
+            "mountpoints": [mountpoint],
+            "is_network": fstype.lower() in {"nfs", "nfs4", "cifs", "smb3", "sshfs"} or ":" in source or source.startswith("//"),
+            "is_removable": mountpoint.startswith("/media/") or mountpoint.startswith("/run/media/"),
+            "is_system": mountpoint == "/",
+        }
+    return usage
+
+
 def read_storage_devices():
     output = command_output(["lsblk", "-b", "-J", "-o", "NAME,TYPE,SIZE,FSTYPE,MOUNTPOINTS,MOUNTPOINT,MODEL,SERIAL,TRAN,ROTA,RM,PKNAME"], timeout=4)
     try:
@@ -903,6 +939,7 @@ def read_storage_devices():
         parsed = {}
     devices = []
     filesystems = []
+    fs_usage = read_filesystem_usage()
     for node in parsed.get("blockdevices", []) if isinstance(parsed, dict) else []:
         if not isinstance(node, dict) or node.get("type") in ("loop", "rom"):
             continue
@@ -919,6 +956,10 @@ def read_storage_devices():
                 "mountpoints": mounts,
                 "is_system": "/" in mounts,
             }
+            for mount in mounts:
+                if mount in fs_usage:
+                    part.update(fs_usage[mount])
+                    break
             children.append(part)
             if mounts:
                 filesystems.append({**part, "disk": node.get("name") or "", "model": node.get("model") or ""})
@@ -935,6 +976,17 @@ def read_storage_devices():
             "mountpoints": mounts,
             "partitions": children,
             "is_system": "/" in mounts or any(item.get("is_system") for item in children),
+        })
+    known_mounts = {mount for item in filesystems for mount in item.get("mountpoints", [])}
+    for mount, item in fs_usage.items():
+        if mount in known_mounts:
+            continue
+        filesystems.append({
+            **item,
+            "name": mount,
+            "type": "network" if item.get("is_network") else "mount",
+            "disk": item.get("source") or "",
+            "model": "NAS / 网络存储" if item.get("is_network") else "",
         })
     return {
         "devices": devices[:16],

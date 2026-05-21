@@ -16,7 +16,7 @@ from paths import DB_FILE as DB_FILE_PATH, ensure_parent_dir
 
 bp = Blueprint('server', __name__)
 DB_FILE = str(DB_FILE_PATH)
-AGENT_VERSION = "2026.05.21.01"
+AGENT_VERSION = "2026.05.21.02"
 REPORT_MAX_BYTES = 8 * 1024 * 1024
 REPORT_MIN_INTERVAL_SEC = 2.0
 REPORT_CACHE = {}
@@ -1326,6 +1326,41 @@ def _linux_mounts_from_lsblk_node(node):
     return [str(mount)] if mount else []
 
 
+def _read_linux_filesystem_usage():
+    usage = {}
+    text = _linux_command_output(["df", "-T", "-B1", "-P"], timeout=4)
+    for line in text.splitlines()[1:]:
+        parts = line.split(None, 6)
+        if len(parts) < 7:
+            continue
+        source, fstype, total, used, avail, percent, mountpoint = parts
+        if fstype in {"devtmpfs", "tmpfs", "squashfs", "overlay", "proc", "sysfs", "efivarfs", "cgroup2", "debugfs", "tracefs"}:
+            continue
+        try:
+            total_bytes = int(total)
+            used_bytes = int(used)
+            free_bytes = int(avail)
+        except Exception:
+            continue
+        try:
+            percent_value = float(str(percent).rstrip("%"))
+        except Exception:
+            percent_value = 0.0
+        usage[mountpoint] = {
+            "source": source,
+            "fstype": fstype,
+            "size_bytes": total_bytes,
+            "used_bytes": used_bytes,
+            "free_bytes": free_bytes,
+            "percent": round(percent_value, 1),
+            "mountpoints": [mountpoint],
+            "is_network": fstype.lower() in {"nfs", "nfs4", "cifs", "smb3", "sshfs"} or ":" in source or source.startswith("//"),
+            "is_removable": mountpoint.startswith("/media/") or mountpoint.startswith("/run/media/"),
+            "is_system": mountpoint == "/",
+        }
+    return usage
+
+
 def _read_linux_storage_devices():
     output = _linux_command_output(["lsblk", "-b", "-J", "-o", "NAME,TYPE,SIZE,FSTYPE,MOUNTPOINTS,MOUNTPOINT,MODEL,SERIAL,TRAN,ROTA,RM,PKNAME"], timeout=4)
     try:
@@ -1334,6 +1369,7 @@ def _read_linux_storage_devices():
         parsed = {}
     devices = []
     filesystems = []
+    fs_usage = _read_linux_filesystem_usage()
     for node in parsed.get("blockdevices", []) if isinstance(parsed, dict) else []:
         if not isinstance(node, dict) or node.get("type") in ("loop", "rom"):
             continue
@@ -1350,6 +1386,10 @@ def _read_linux_storage_devices():
                 "mountpoints": mounts,
                 "is_system": "/" in mounts,
             }
+            for mount in mounts:
+                if mount in fs_usage:
+                    part.update(fs_usage[mount])
+                    break
             children.append(part)
             if mounts:
                 filesystems.append({**part, "disk": node.get("name") or "", "model": node.get("model") or ""})
@@ -1366,6 +1406,17 @@ def _read_linux_storage_devices():
             "mountpoints": mounts,
             "partitions": children,
             "is_system": "/" in mounts or any(item.get("is_system") for item in children),
+        })
+    known_mounts = {mount for item in filesystems for mount in item.get("mountpoints", [])}
+    for mount, item in fs_usage.items():
+        if mount in known_mounts:
+            continue
+        filesystems.append({
+            **item,
+            "name": mount,
+            "type": "network" if item.get("is_network") else "mount",
+            "disk": item.get("source") or "",
+            "model": "NAS / 网络存储" if item.get("is_network") else "",
         })
     return {
         "devices": devices[:16],
@@ -5140,7 +5191,13 @@ function Get-StorageInventory {{
                 fstype = if ($ld) {{ [string]$ld.FileSystem }} else {{ '' }}
                 mountpoints = @($mounts)
                 is_system = ($drive -eq $env:SystemDrive)
+                used_bytes = if ($ld -and $ld.Size -gt 0) {{ [int64]($ld.Size - $ld.FreeSpace) }} else {{ 0 }}
                 free_bytes = if ($ld) {{ [int64]$ld.FreeSpace }} else {{ 0 }}
+                percent = if ($ld -and $ld.Size -gt 0) {{ [math]::Round((($ld.Size - $ld.FreeSpace) / $ld.Size) * 100, 1) }} else {{ 0 }}
+                volume_name = if ($ld) {{ [string]$ld.VolumeName }} else {{ '' }}
+                drive_type = if ($ld) {{ [int]$ld.DriveType }} else {{ 0 }}
+                is_network = if ($ld) {{ [int]$ld.DriveType -eq 4 }} else {{ $false }}
+                is_removable = if ($ld) {{ [int]$ld.DriveType -in @(2, 5) }} else {{ $false }}
             }}
         }}
     }} catch {{}}
@@ -5174,6 +5231,33 @@ function Get-StorageInventory {{
                 $fs['model'] = $device.model
                 $filesystems += $fs
             }}
+        }}
+    }}
+    foreach ($drive in $logicalByDrive.Keys) {{
+        $exists = @($filesystems | Where-Object {{ $_.mountpoints -contains $drive }} | Select-Object -First 1)
+        if ($exists.Count -gt 0) {{ continue }}
+        $ld = $logicalByDrive[$drive]
+        $sizeBytes = 0
+        $freeBytes = 0
+        try {{ $sizeBytes = [int64]$ld.Size }} catch {{}}
+        try {{ $freeBytes = [int64]$ld.FreeSpace }} catch {{}}
+        $usedBytes = [Math]::Max(0, $sizeBytes - $freeBytes)
+        $filesystems += @{{
+            name = [string]$drive
+            type = 'logical'
+            disk = if ([int]$ld.DriveType -eq 4) {{ 'network' }} else {{ '' }}
+            model = if ([int]$ld.DriveType -eq 4) {{ 'NAS / 网络存储' }} else {{ '' }}
+            fstype = [string]$ld.FileSystem
+            mountpoints = @([string]$drive)
+            size_bytes = $sizeBytes
+            used_bytes = $usedBytes
+            free_bytes = $freeBytes
+            percent = if ($sizeBytes -gt 0) {{ [math]::Round(($usedBytes / $sizeBytes) * 100, 1) }} else {{ 0 }}
+            is_system = ([string]$drive -eq $env:SystemDrive)
+            is_network = ([int]$ld.DriveType -eq 4)
+            is_removable = ([int]$ld.DriveType -in @(2, 5))
+            drive_type = [int]$ld.DriveType
+            volume_name = [string]$ld.VolumeName
         }}
     }}
     return @{{
