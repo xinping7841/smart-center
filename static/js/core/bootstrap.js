@@ -1,0 +1,54 @@
+(function bootstrapSmartCenter(global) {
+    'use strict';
+
+    const existing = global.SmartCenter || {};
+    const modules = existing.modules || {};
+    const readyQueue = existing.readyQueue || [];
+
+    function registerModule(name, definition) {
+        const key = String(name || '').trim();
+        if (!key) return null;
+        modules[key] = Object.assign({ name: key, registeredAt: new Date().toISOString() }, definition || {});
+        return modules[key];
+    }
+
+    function getModule(name) {
+        return modules[String(name || '').trim()] || null;
+    }
+
+    function onReady(callback) {
+        if (typeof callback !== 'function') return;
+        if (document.readyState === 'loading') {
+            readyQueue.push(callback);
+            return;
+        }
+        callback(existing);
+    }
+
+    function flushReadyQueue() {
+        while (readyQueue.length) {
+            const callback = readyQueue.shift();
+            try {
+                callback(existing);
+            } catch (err) {
+                if (typeof global.reportFrontendError === 'function') {
+                    global.reportFrontendError('smart_center.ready', err);
+                } else {
+                    console.error('[smart_center.ready]', err);
+                }
+            }
+        }
+    }
+
+    Object.assign(existing, {
+        version: '2026.05.22-stage2',
+        modules,
+        readyQueue,
+        registerModule,
+        getModule,
+        onReady,
+    });
+
+    global.SmartCenter = existing;
+    document.addEventListener('DOMContentLoaded', flushReadyQueue, { once: true });
+})(window);

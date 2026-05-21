@@ -84,8 +84,11 @@
     </script>
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
     <script src="/static/vendor/echarts.min.js?v=6.0.0"></script>
+    <script src="/static/js/core/bootstrap.js?v=20260522-stage2"></script>
     <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260519-sequencer-single-page">
     <style>
+        /* AI map: dashboard.inline_styles. Move isolated blocks to static/css/views
+           without changing selectors or layout behavior in the same commit. */
         /* Automation node canvas is kept inline to avoid stale immutable CSS caches on remote browsers. */
         #automationNodeModal.auto-node-modal { display:none !important; position:fixed !important; inset:0 !important; z-index:2147483000 !important; color:#0f172a !important; font-family:'Segoe UI', Microsoft YaHei, sans-serif !important; }
         #automationNodeModal.auto-node-modal.open { display:block !important; }
@@ -1715,6 +1718,8 @@
     </div>
 
     <script>
+        // AI map: dashboard.inline_runtime. This large script is being split
+        // gradually; preserve global function names until inline onclick usage is gone.
         const configData = {{ config | tojson | safe }};
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
