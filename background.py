@@ -35,6 +35,12 @@ from paths import resolve_report_dir
 from services.home_assistant_bridge import get_env_state as get_ha_env_state
 from services.mqtt_env_bridge import get_env_state as get_mqtt_env_state, sync_env_sensor_configs
 
+# Module role: shared background pollers and automation loops.
+# Boundaries: each poller should update runtime.state caches; API routes should
+# read those caches instead of touching slow or fragile devices directly.
+# Safety: loops here talk to physical devices, so keep concurrency limits and
+# per-device intervals explicit when adding new modules.
+
 LIGHT_META = {}
 
 SNMP_MAX_WORKERS = int(os.environ.get("SMART_CENTER_SNMP_MAX_WORKERS", "4"))

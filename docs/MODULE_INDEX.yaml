@@ -1,0 +1,132 @@
+version: 1
+updated_at: '2026-05-22'
+source_root: /srv/git-work/smart-center-main
+notes:
+  - Keep this index small and current. It is used by local AI before broad search.
+  - Runtime backups and generated files are not source of truth.
+modules:
+  dashboard:
+    purpose: Main overview page and summary cards.
+    routes: ['/','/api/dashboard/summary']
+    backend: ['api/power.py','api/dashboard.py']
+    frontend: ['templates/index.html']
+    config_keys: ['dashboard','ui_text']
+    split_priority: high
+    ai_keywords: ['dashboard','summary','home','overview']
+  power:
+    purpose: Strong-current cabinet control, meter payloads, energy statistics, logs, exports.
+    routes: ['/api/status','/api/meters','/api/7days_energy','/api/30days_energy','/api/export/meter_statistics','/api/set','/api/onekey_start','/api/onekey_stop','/api/logs']
+    backend: ['api/power.py','background.py','services/meter_center.py','services/meter_payloads.py','services/meter_remote.py','services/cabinet_gateway.py','meter_service/']
+    frontend: ['templates/index.html','templates/config.html']
+    config_keys: ['cabinets','meter_service','meter_statistics','cabinet_gateway']
+    runtime_state: ['DEVICE_STATUS','METER_STATUS','runtime/remote_meter_payload_cache.json']
+    split_priority: very_high
+    ai_keywords: ['power','meter','cabinet','energy','current','channel']
+  server_monitor:
+    purpose: Windows/Linux machine reporting, hardware cards, CodeMeter, WOL, shutdown/restart commands.
+    routes: ['/api/machines','/api/machines/*','/report','/agent/config','/agent/worker.json','/deploy_agent.bat','/api/wake/<mac>']
+    backend: ['api/server.py','agent/linux_agent.py','scripts/install_local_user_agent.ps1']
+    frontend: ['templates/index.html','templates/config.html']
+    config_keys: ['server_monitor','SERVER_COMMANDS']
+    runtime_state: ['monitor.db','machines','metrics_history','machine_commands']
+    split_priority: very_high
+    ai_keywords: ['server','agent','machines','wol','codemeter','gpu','shutdown']
+  snmp_monitor:
+    purpose: SNMP polling and display for NAS, router, switch, UPS-like network devices.
+    routes: ['/api/snmp/status','/api/snmp/test']
+    backend: ['api/snmp.py','snmp_core.py','background.py']
+    frontend: ['templates/index.html','templates/config.html']
+    config_keys: ['snmp_devices']
+    runtime_state: ['SNMP_STATUS']
+    split_priority: high
+    ai_keywords: ['snmp','qnap','ikuai','h3c','switch','storage','interface','oid']
+  automation:
+    purpose: Scene automation rules, node canvas display, condition evaluation and execution logs.
+    routes: ['/api/automation/status','/api/automation/logs','/api/automation/toggle','/api/automation/update']
+    backend: ['api/automation.py','runtime/automation.py','background.py']
+    frontend: ['templates/index.html','templates/config.html']
+    config_keys: ['automation_rules','scene_links']
+    runtime_state: ['automation runtime snapshot','operation_logs.json']
+    split_priority: high
+    ai_keywords: ['automation','scene','condition','rule','node canvas']
+  hvac:
+    purpose: Air conditioner control and room environment sensor display.
+    routes: ['/api/hvac/status','/api/hvac/control','/api/hvac/devices','/api/env/status']
+    backend: ['api/hvac.py','hvac_core.py','api/env.py','services/home_assistant_bridge.py','services/miio_hvac.py','background.py']
+    frontend: ['templates/index.html','templates/config.html']
+    config_keys: ['hvac_devices','hvac_rooms','env_sensors','home_assistant']
+    runtime_state: ['ENV_STATUS']
+    split_priority: high
+    ai_keywords: ['hvac','air conditioner','temperature','humidity','home assistant','miio']
+  sequencer:
+    purpose: 8-channel power sequencer status and control.
+    routes: ['/api/sequencer/status','/api/sequencer/control','/api/sequencer/test']
+    backend: ['api/sequencer.py','background.py']
+    frontend: ['templates/index.html','templates/config.html']
+    config_keys: ['sequencers']
+    runtime_state: ['SEQUENCER_STATUS']
+    split_priority: medium
+    ai_keywords: ['sequencer','DS-608','DGH','channel','hex']
+  projector_screen:
+    purpose: Projector control/status inference and screen lift control.
+    routes: ['/api/projector/status','/api/projector/control','/api/screens','/api/screen/control']
+    backend: ['api/projector.py','projector_core.py','api/screen.py','screen_core.py','background.py']
+    frontend: ['templates/index.html','templates/config.html']
+    config_keys: ['projectors','screens','projector_brands']
+    runtime_state: ['PROJECTOR_STATUS','SCREEN_STATUS']
+    split_priority: medium
+    ai_keywords: ['projector','pjlink','rs232','screen','inferred']
+  nvr:
+    purpose: Hikvision NVR status, snapshots, player proxy, live preview.
+    routes: ['/api/nvr/status','/api/nvr/snapshot/*','/api/nvr/player/*','/api/nvr/live/*']
+    backend: ['api/nvr.py','services/hikvision_nvr.py','background.py']
+    frontend: ['templates/index.html','templates/config.html']
+    config_keys: ['nvr_devices']
+    runtime_state: ['NVR_STATUS']
+    split_priority: medium
+    ai_keywords: ['nvr','hikvision','camera','live','snapshot','player']
+  door_vision:
+    purpose: Door camera detection, video feed, AI wizard, recording and model rebuild.
+    routes: ['/video_feed','/get_door_status','/api/door/*','/door_control/<action>']
+    backend: ['api/door.py','runtime/door_probe/','scripts/rebuild_door_model.py']
+    frontend: ['templates/index.html','templates/config.html']
+    config_keys: ['door','door_cameras','door_vision']
+    runtime_state: ['runtime/door_refs','runtime/door_recordings','runtime/door_dataset*']
+    split_priority: medium
+    ai_keywords: ['door','vision','camera','recording','dataset','wizard']
+  light:
+    purpose: Lighting controller polling, control, logs, and debug tools.
+    routes: ['/api/light/status','/api/light/control','/api/light/logs','/light_debug']
+    backend: ['api/light.py','background.py','drivers/light_*.py']
+    frontend: ['templates/index.html','templates/config.html']
+    config_keys: ['custom_devices','lights','light_scenes']
+    runtime_state: ['LIGHT_STATUS','LIGHT_ONLINE','LIGHT_DRIVERS']
+    split_priority: medium
+    ai_keywords: ['light','relay','channel','scene','niren']
+  ups:
+    purpose: Local RS232 UPS status and shutdown control.
+    routes: ['/api/ups/status','/api/ups/control']
+    backend: ['api/ups.py','ups_core.py','background.py']
+    frontend: ['templates/index.html','templates/config.html']
+    config_keys: ['ups_devices']
+    runtime_state: ['UPS_STATUS']
+    split_priority: medium
+    ai_keywords: ['ups','rs232','serial','SANTAK']
+  proxy_monitor:
+    purpose: node-121 proxy health, link checks, client usage and NIC traffic.
+    routes: ['/api/proxy/status']
+    backend: ['api/proxy.py','background.py']
+    frontend: ['templates/index.html']
+    config_keys: ['proxy_monitor']
+    runtime_state: ['PROXY_STATUS']
+    split_priority: low
+    ai_keywords: ['proxy','squid','node-121','traffic','google','youtube','github']
+  local_model:
+    purpose: Local AI console and training data export metadata.
+    routes: ['/local-model','/api/local-model/*']
+    backend: ['api/local_model.py','scripts/export_local_model_training.py']
+    frontend: ['templates/local_model.html']
+    config_keys: ['local_model']
+    runtime_state: ['runtime/local_model']
+    split_priority: low
+    ai_keywords: ['local model','training','export','ai']

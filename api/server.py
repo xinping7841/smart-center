@@ -14,6 +14,13 @@ from config import CONFIG, SERVER_COMMANDS
 from data_logger import add_log
 from paths import DB_FILE as DB_FILE_PATH, ensure_parent_dir
 
+# Module role: server_monitor API plus Windows/Linux Agent distribution.
+# Boundaries: keep route compatibility here, but move generated agent templates,
+# hardware normalization, and command queue helpers into a future
+# modules/server_monitor package before adding more features.
+# Compatibility: external Windows clients depend on /agent/config,
+# /agent/worker.json, /deploy_agent.bat, /report, and /api/machines.
+
 bp = Blueprint('server', __name__)
 DB_FILE = str(DB_FILE_PATH)
 AGENT_VERSION = "2026.05.22.04"
@@ -60,6 +67,8 @@ MAX_HOSTS_PER_NETWORK = 254
 MAX_TOTAL_SCAN_HOSTS = 1024
 
 def init_db():
+    # Legacy SQLite schema is shared by the Windows/Linux agents and the UI.
+    # Additive migrations are safe; destructive changes need a data migration.
     ensure_parent_dir(DB_FILE_PATH)
     conn = sqlite3.connect(DB_FILE); c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS machines (mac TEXT PRIMARY KEY, hostname TEXT, ip TEXT, last_online TEXT, data TEXT, is_manual INTEGER DEFAULT 0, custom_name TEXT)''')
@@ -2755,6 +2764,9 @@ def get_server_host_from_request():
     return host
 
 def build_agent_worker_script(server_host):
+    # AI map: server_monitor.agent_generation.
+    # Bump AGENT_VERSION whenever this embedded PowerShell worker changes, or
+    # installed Windows agents will not auto-update to the new behavior.
     initial_config_json = json.dumps(build_agent_runtime_config(server_host), ensure_ascii=False, indent=2)
     return f"""$ErrorActionPreference = 'Continue'
 $AgentVersion = '{AGENT_VERSION}'

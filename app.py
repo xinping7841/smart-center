@@ -35,6 +35,10 @@ from api.universal import bp as universal_bp
 from auth import get_current_user, set_default_user, set_guest_user
 from runtime import ensure_runtime_started, init_runtime, start_background_services
 
+# Module role: Flask application composition and HTTP serving only.
+# Keep business logic in api/* route modules and service/core helpers so views,
+# devices, and background pollers can be split into modules safely.
+
 # Keep FFmpeg transport selection dynamic in the door camera module.
 # Some cameras only become stable over TCP, while others still need UDP fallback.
 os.environ.pop("OPENCV_FFMPEG_CAPTURE_OPTIONS", None)
@@ -188,6 +192,8 @@ app.register_blueprint(ups_bp)
 app.register_blueprint(m32r_bp)
 
 
+# Static assets are large today, so serving precompressed files here avoids
+# repeatedly gzipping the dashboard CSS/JS while preserving existing URLs.
 class QuietWSGIRequestHandler(WSGIRequestHandler):
     def log_request(self, code="-", size="-"):
         if _HTTP_ACCESS_LOG:

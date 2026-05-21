@@ -14,6 +14,17 @@ __pycache__/
 backups/
 reports/
 */data/reports/
+runtime/*.log
+runtime/*.jsonl
+runtime/*.csv
+runtime/app_*.log*
+runtime/config_save_sync_trace.log*
+runtime/power_control_trace.log*
+runtime/door_recordings/
+runtime/door_dataset_from_recording*/
+runtime/door_retrain_runs/
+runtime/local_model/
+models/
 audit_logs.json
 operation_logs.json
 energy_log.json
@@ -25,7 +36,17 @@ _edge_dump_log.txt
 # Local/runtime backups and generated dumps
 *.bak
 *.bak_*
+*.bak.*
+*.prune_*.bak
 *.tmp
+_agent_*.ps1
+_generated_agent_*.ps1
+_downloaded_agent_*.ps1
+_remote_agent_*.ps1
+_chrome_dump_log.txt
+_edge_dump_log.txt
+._*
+=
 
 # Local environments
 .venv/
@@ -37,3 +58,7 @@ node_modules/
 *.mov
 *.avi
 *.mkv
+*.tar
+*.tar.gz
+*.tgz
+*.zip

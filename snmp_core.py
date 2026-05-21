@@ -33,6 +33,12 @@ from pysnmp.hlapi.asyncio import (
     usmNoPrivProtocol,
 )
 
+# Module role: SNMP polling, vendor parsing, and normalized status summaries.
+# Boundaries: raw OID collection, vendor-specific interpretation, and UI-facing
+# summary shaping are still in this file; split them before adding more vendors.
+# Performance: API routes should use background SNMP_STATUS snapshots and compact
+# payloads instead of running full walks during page refresh.
+
 
 def _close_snmp_engine(engine: Any) -> None:
     """Release pysnmp UDP transports; older/newer pysnmp expose different names."""

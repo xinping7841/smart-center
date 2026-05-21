@@ -54,6 +54,11 @@ from services.cabinet_gateway import (
 from paths import DB_FILE as DB_FILE_PATH, RUNTIME_DIR, ensure_parent_dir, resolve_report_dir
 from api.server import get_cached_machine_payload
 
+# Module role: power and meter-facing HTTP API.
+# Boundaries: routes should stay compatible while statistics, remote meter
+# payload shaping, and cabinet-gateway control move toward services/modules.
+# Safety: /api/set and one-key actions control physical strong-current circuits.
+
 bp = Blueprint("power", __name__)
 DB_FILE = str(DB_FILE_PATH)
 LOG_RESPONSE_CACHE = {}
@@ -782,6 +787,8 @@ def api_status():
 @bp.route("/api/meters")
 @require_permission("meter.view")
 def api_meters():
+    # Keep this route stable for dashboard, meter page, and exports. Expensive
+    # remote reads are cached so UI refreshes do not overload the NAS service.
     target = request.args.get("target", "total")
     period = request.args.get("period", "day")
     days = request.args.get("days", 7, type=int)
