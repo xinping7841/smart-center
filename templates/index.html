@@ -288,7 +288,7 @@
                 <div class="dash-grid" id="dashboard-section-stats" data-section-id="stats">
                     <div class="dash-stat-card"><span class="label">强电柜在线 / 总数</span><span class="value blue"><span id="dash-power-online">0</span> / {{ config.cabinets | length }}</span><span class="dash-stat-icon">⚡</span></div>
                     <div class="dash-stat-card"><span class="label">灯光模块在线 / 总数</span><span class="value blue"><span id="dash-light-online">0</span> / {{ config.light_devices | length }}</span><span class="dash-stat-icon">💡</span></div>
-                    <div class="dash-stat-card"><span class="label">投影机在线 / 总数</span><span class="value blue"><span id="dash-projector-online">0</span> / {{ config.projectors | length }}</span><span class="dash-stat-icon">📽</span></div>
+                    <div class="dash-stat-card"><span class="label">投影机在线 / 总数</span><span class="value blue"><span id="dash-projector-online">0</span> / <span id="dash-projector-total">{{ config.projectors | length }}</span></span><span class="dash-stat-icon">📽</span></div>
                     <div class="dash-stat-card"><span class="label">空调在线 / 总数</span><span class="value blue"><span id="dash-hvac-online">0</span> / {{ config.hvac_devices | default([]) | length }}</span><span class="dash-stat-icon">❄</span></div>
                     <div class="dash-stat-card"><span class="label">时序电源在线 / 总数</span><span class="value blue"><span id="dash-sequencer-online">0</span> / <span id="dash-sequencer-total">0</span></span><span class="dash-stat-icon">〽</span></div>
                     <div class="dash-stat-card">
@@ -10921,7 +10921,21 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 </button>`).join('')}</div>`;
         }
         function isInferredProjector(proj, status) {
-            return String(proj?.control_type || '') === 'inferred_rs232' || status?.inferred === true;
+            const id = String(proj?.id || '').toLowerCase();
+            const controlType = String(proj?.control_type || '').toLowerCase();
+            const type = String(proj?.type || proj?.kind || proj?.status_type || '').toLowerCase();
+            const classVersion = String(status?.class_version || '').toLowerCase();
+            return controlType === 'inferred_rs232'
+                || id.includes('infer')
+                || type.includes('infer')
+                || status?.inferred === true
+                || classVersion.includes('状态推断')
+                || status?.current_collector_online !== undefined
+                || Array.isArray(status?.inferred_evidence)
+                || Array.isArray(status?.inferred_zones);
+        }
+        function getDashboardProjectors() {
+            return projectorConfigs.filter(proj => !isInferredProjector(proj, getProjectorStatus(proj.id)));
         }
         function formatProjectorKw(value) {
             if (value === null || value === undefined || value === '') return '--';
@@ -11210,11 +11224,12 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         function renderProjectorCards(targetId, scope) {
             const container = document.getElementById(targetId);
             if (!container) return;
-            if (!projectorConfigs.length) {
+            const visibleProjectors = scope === 'dashboard' ? getDashboardProjectors() : projectorConfigs;
+            if (!visibleProjectors.length) {
                 container.innerHTML = '<div style="color:var(--text-sub); grid-column: 1/-1; text-align:center; padding:20px;">未配置投影机，请前往系统配置添加。</div>';
                 return;
             }
-            container.innerHTML = projectorConfigs.map(proj => scope === 'dashboard' ? renderCompactProjectorCard(proj) : renderProjectorCard(proj, scope)).join('');
+            container.innerHTML = visibleProjectors.map(proj => scope === 'dashboard' ? renderCompactProjectorCard(proj) : renderProjectorCard(proj, scope)).join('');
         }
         function openProjectorRemote(projId) {
             currentProjectorRemoteId = String(projId);
@@ -11552,11 +11567,14 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                     renderProjectorCards('dashboard-projector-grid', 'dashboard');
                     renderProjectorCards('projector-page-grid', 'page');
                     let onlineCount = 0;
-                    projectorConfigs.forEach(proj => {
+                    const dashboardProjectors = getDashboardProjectors();
+                    dashboardProjectors.forEach(proj => {
                         if ((projectorStatusCache[proj.id] || {}).online) onlineCount++;
                     });
                     const dashProjectorOnline = document.getElementById('dash-projector-online');
                     if (dashProjectorOnline) dashProjectorOnline.innerText = onlineCount;
+                    const dashProjectorTotal = document.getElementById('dash-projector-total');
+                    if (dashProjectorTotal) dashProjectorTotal.innerText = dashboardProjectors.length;
                     if (currentProjectorRemoteId) renderProjectorRemote(currentProjectorRemoteId);
                 })
                 .catch(e => {
@@ -13520,11 +13538,14 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                     renderProjectorCards('dashboard-projector-grid', 'dashboard');
                     renderProjectorCards('projector-page-grid', 'page');
                     let onlineCount = 0;
-                    projectorConfigs.forEach(proj => {
+                    const dashboardProjectors = getDashboardProjectors();
+                    dashboardProjectors.forEach(proj => {
                         if ((projectorStatusCache[proj.id] || {}).online) onlineCount++;
                     });
                     const dashProjectorOnline = document.getElementById('dash-projector-online');
                     if (dashProjectorOnline) dashProjectorOnline.innerText = onlineCount;
+                    const dashProjectorTotal = document.getElementById('dash-projector-total');
+                    if (dashProjectorTotal) dashProjectorTotal.innerText = dashboardProjectors.length;
                     if (currentProjectorRemoteId) renderProjectorRemote(currentProjectorRemoteId);
                 })
                 .catch(err => console.error('投影机状态更新失败', err));
