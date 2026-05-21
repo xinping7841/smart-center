@@ -87,6 +87,7 @@
     <script src="/static/js/core/bootstrap.js?v=20260522-stage2"></script>
     <script src="/static/js/core/utils.js?v=20260522-stage2-automation-utils"></script>
     <script src="/static/js/views/logs.js?v=20260522-stage2-logs-view"></script>
+    <script src="/static/js/views/proxy.js?v=20260522-stage2-proxy-view"></script>
     <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260519-sequencer-single-page">
     <style>
         /* AI map: dashboard.inline_styles. Move isolated blocks to static/css/views
@@ -1761,7 +1762,6 @@
         let meterTrendYAxisMax = 0;
         let upsStatusCache = {};
         let hyEdgeStatusCache = {};
-        let proxyStatusCache = {};
         let snmpStatusCache = {};
         let nvrStatusCache = {};
         let snmpCardFilter = 'all';
@@ -2141,33 +2141,6 @@
                 if (topSummary) topSummary.style.opacity = picked.st.online ? '1' : '0.75';
             }
         }
-        function renderDashboardProxySummary(payload = {}) {
-            const statusEl = document.getElementById('dash-proxy-status');
-            const metaEl = document.getElementById('dash-proxy-meta');
-            const meta = getDeviceStatusMeta(payload, { onlineText: '在线', staleText: '陈旧', errorText: '异常', offlineText: '离线' });
-            if (statusEl) {
-                statusEl.textContent = meta.text;
-                statusEl.className = `value ${meta.level === 'online' ? 'green' : (meta.level === 'stale' || meta.level === 'error' ? 'danger' : 'blue')}`;
-            }
-            if (metaEl) {
-                const endpoint = getProxyEndpoint(payload);
-                const healthy = Number(payload.healthy_target_count || 0);
-                const total = Number(payload.check_count || 0);
-                const checkedAt = formatServerTime(payload.last_checked_at || payload.updated_at);
-                const lastErr = String(payload.last_error || payload.error || '').trim();
-                const requiredCheck = getProxyRequiredCheck(payload);
-                const googleOk = requiredCheck ? !!requiredCheck.healthy : !!payload.google_ok;
-                const googleLatency = Number(requiredCheck?.latency_ms ?? payload.google_latency_ms);
-                const googleCode = Number(requiredCheck?.status_code ?? payload.google_status_code);
-                const clients = payload.clients || {};
-                const flow = getProxyFlowSummary(payload);
-                const googleHint = `${googleOk ? 'Google正常' : 'Google异常'}${Number.isFinite(googleLatency) && googleLatency > 0 ? ` ${googleLatency}ms` : ''}${Number.isFinite(googleCode) && googleCode > 0 ? `/${googleCode}` : ''}`;
-                const clientHint = `IP ${Number(clients.active_client_count || 0)} / 连接 ${Number(clients.total_active_connections || 0)}`;
-                const flowHint = `↓${flow.rxText} ↑${flow.txText}`;
-                const checkHint = total > 0 ? `${healthy}/${total} 探活` : '无探活数据';
-                metaEl.innerHTML = `${escapeHtml(endpoint)} · ${escapeHtml(googleHint)} · ${escapeHtml(checkHint)} · ${escapeHtml(clientHint)} · ${escapeHtml(flowHint)} · ${escapeHtml(checkedAt || '--')}${lastErr ? ` <br><strong>${escapeHtml(lastErr)}</strong>` : ''}`;
-            }
-        }
         function updateDashboardSummary() {
             if (dashboardSummaryInFlight) return dashboardSummaryInFlight;
             dashboardSummaryInFlight = fetchJson('/api/dashboard/summary', {}, '首页汇总状态读取失败')
@@ -2180,8 +2153,7 @@
                         renderDashboardServerCompact(dashboardServerCompactList);
                     }
                     if (getActiveViewId() === 'proxy' && dashboardSummaryCache.modules?.proxy) {
-                        proxyStatusCache = dashboardSummaryCache.modules.proxy;
-                        renderProxyDetail(proxyStatusCache);
+                        renderProxyDetail(dashboardSummaryCache.modules.proxy);
                     }
                     return dashboardSummaryCache;
                 })
@@ -11518,207 +11490,6 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 })
                 .catch(err => console.error('UPS 状态更新失败', err));
         };
-
-        function formatProxyRateText(value) {
-            const num = Number(value || 0);
-            const mbps = Number.isFinite(num) ? num / 1000 / 1000 : 0;
-            if (mbps <= 0) return '0.000 Mbps';
-            return `${mbps < 1 ? mbps.toFixed(3) : mbps.toFixed(2)} Mbps`;
-        }
-        function formatProxyBytesText(value) {
-            const num = Number(value || 0);
-            if (!Number.isFinite(num) || num <= 0) return '0 B';
-            const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-            let size = num;
-            let idx = 0;
-            while (size >= 1024 && idx < units.length - 1) {
-                size /= 1024;
-                idx += 1;
-            }
-            return idx === 0 ? `${Math.round(size)} ${units[idx]}` : `${size.toFixed(1)} ${units[idx]}`;
-        }
-        function getProxyEndpoint(payload = {}) {
-            const host = String(payload.host || payload?.config?.host || '--');
-            const port = Number(payload.port || payload?.config?.port || 0);
-            return port > 0 ? `${host}:${port}` : host;
-        }
-        function getProxyRequiredCheck(payload = {}) {
-            if (payload.required_check && typeof payload.required_check === 'object') return payload.required_check;
-            const checks = Array.isArray(payload.checks) ? payload.checks : [];
-            return checks.find(item => item && item.required) || checks.find(item => /google/i.test(String(item?.name || item?.url || ''))) || null;
-        }
-        function renderProxyChecks(checks) {
-            const grid = document.getElementById('proxy-check-grid');
-            if (!grid) return;
-            const items = Array.isArray(checks) ? checks : [];
-            if (!items.length) {
-                grid.innerHTML = '<div class="proxy-card-note">暂无站点探活数据。</div>';
-                return;
-            }
-            grid.innerHTML = items.map(item => {
-                const healthy = !!item.healthy;
-                const latency = Number(item.latency_ms);
-                const code = Number(item.status_code);
-                const name = String(item.name || item.url || '--');
-                const meta = [
-                    Number.isFinite(latency) && latency > 0 ? `${latency}ms` : '',
-                    Number.isFinite(code) && code > 0 ? `HTTP ${code}` : '',
-                    item.required ? '核心判定' : ''
-                ].filter(Boolean).join(' · ') || (healthy ? '连通正常' : '暂无返回');
-                const err = String(item.error || '').trim();
-                return `<div class="proxy-check-card ${healthy ? 'ok' : 'error'}">
-                    <div class="proxy-check-name">
-                        <span>${escapeHtml(name)}</span>
-                        <span class="proxy-pill ${healthy ? 'online' : 'error'}">${healthy ? '正常' : '异常'}</span>
-                    </div>
-                    <div class="proxy-check-meta">${escapeHtml(meta)}${err ? `<br><strong style="color:#fecaca;">${escapeHtml(err.slice(0, 90))}</strong>` : ''}</div>
-                </div>`;
-            }).join('');
-        }
-        function renderProxyClients(clientsPayload = {}) {
-            const noteEl = document.getElementById('proxy-clients-note');
-            const body = document.getElementById('proxy-client-table-body');
-            if (!body) return;
-            const clients = Array.isArray(clientsPayload.clients) ? clientsPayload.clients : [];
-            const recentSeconds = Number(clientsPayload.recent_seconds || 300);
-            const recentText = recentSeconds >= 60 ? `${Math.round(recentSeconds / 60)} 分钟` : `${recentSeconds} 秒`;
-            if (noteEl) {
-                const err = String(clientsPayload.error || '').trim();
-                noteEl.textContent = clientsPayload.available === false
-                    ? `客户端采集暂不可用${err ? '：' + err : ''}`
-                    : `近 ${recentText} 汇总，只展示 IP、连接数与流量，不展示访问网址。`;
-            }
-            if (!clientsPayload.enabled) {
-                body.innerHTML = '<tr><td colspan="8">客户端监控未启用。</td></tr>';
-                return;
-            }
-            if (!clientsPayload.available) {
-                body.innerHTML = `<tr><td colspan="8">${escapeHtml(String(clientsPayload.error || '客户端采集暂不可用'))}</td></tr>`;
-                return;
-            }
-            if (!clients.length) {
-                body.innerHTML = '<tr><td colspan="8">当前没有检测到正在使用代理的局域网客户端。</td></tr>';
-                return;
-            }
-            body.innerHTML = clients.map(item => {
-                const active = !!item.active;
-                const lastSeen = item.last_seen_at ? formatServerTime(item.last_seen_at) : '--';
-                const rx = item.rx_text || formatProxyRateText(item.rx_bps);
-                const tx = item.tx_text || formatProxyRateText(item.tx_bps);
-                const recentBytes = item.recent_bytes_text || formatProxyBytesText(item.recent_bytes);
-                return `<tr>
-                    <td><span class="proxy-client-ip">${escapeHtml(item.ip || '--')}</span></td>
-                    <td><span class="proxy-client-active-dot ${active ? 'on' : ''}"></span>${active ? '活跃' : '最近使用'}</td>
-                    <td>${escapeHtml(String(item.active_connections ?? 0))}</td>
-                    <td>${escapeHtml(rx)}</td>
-                    <td>${escapeHtml(tx)}</td>
-                    <td>${escapeHtml(String(item.recent_requests ?? 0))}</td>
-                    <td>${escapeHtml(recentBytes)}</td>
-                    <td>${escapeHtml(lastSeen)}</td>
-                </tr>`;
-            }).join('');
-        }
-        function renderProxyDetail(payload = {}) {
-            const meta = getDeviceStatusMeta(payload, { onlineText: '在线', staleText: '陈旧', errorText: '异常', offlineText: '离线' });
-            const clients = payload.clients || {};
-            const traffic = payload.traffic || {};
-            const flow = getProxyFlowSummary(payload);
-            const healthy = Number(payload.healthy_target_count || 0);
-            const total = Number(payload.check_count || 0);
-            const endpoint = getProxyEndpoint(payload);
-            const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
-            const statusEl = document.getElementById('proxy-detail-status');
-            if (statusEl) {
-                statusEl.textContent = meta.text;
-                statusEl.className = `proxy-pill ${meta.chipClass}`;
-            }
-            setText('proxy-detail-endpoint', endpoint);
-            setText('proxy-detail-subtitle', `${endpoint} · 更新 ${formatServerTime(payload.last_checked_at || payload.updated_at)}`);
-            setText('proxy-detail-checks', total > 0 ? `${healthy}/${total}` : '--');
-            setText('proxy-detail-active', `${Number(clients.active_client_count || 0)} / ${Number(clients.total_active_connections || 0)}`);
-            setText('proxy-detail-rx', flow.rxText);
-            setText('proxy-detail-tx', flow.txText);
-            setText('proxy-traffic-rx', flow.rxText);
-            setText('proxy-traffic-tx', flow.txText);
-            const sourceLabelMap = { nic_ssh: '172出口网卡', snmp: 'SNMP参考', server: '服务器上报', '客户端汇总': '客户端汇总' };
-            setText('proxy-traffic-source', `${sourceLabelMap[flow.source] || flow.source}${traffic.ifname ? ' · ' + traffic.ifname : ''}`);
-            const trafficNote = document.getElementById('proxy-traffic-note');
-            if (trafficNote) {
-                const err = String(traffic.error || '').trim();
-                trafficNote.textContent = traffic.available
-                    ? `来源 ${traffic.host || traffic.device_id || traffic.source || '--'} · 更新时间 ${formatServerTime(traffic.updated_at || payload.updated_at)}`
-                    : `SNMP 出口流量暂不可用，当前用客户端连接汇总兜底${err ? '：' + err : ''}`;
-            }
-            renderProxyChecks(payload.checks || []);
-            renderProxyClients(clients);
-        }
-        function getProxyFlowSummary(payload = {}) {
-            const traffic = payload.traffic || {};
-            const clients = payload.clients || {};
-            const trafficAvailable = !!traffic.available;
-            const rxBps = trafficAvailable ? Number(traffic.rx_bps || 0) : Number(clients.download_bps || 0);
-            const txBps = trafficAvailable ? Number(traffic.tx_bps || 0) : Number(clients.upload_bps || 0);
-            return {
-                rxText: trafficAvailable ? (traffic.rx_text || formatProxyRateText(rxBps)) : (clients.download_text || formatProxyRateText(rxBps)),
-                txText: trafficAvailable ? (traffic.tx_text || formatProxyRateText(txBps)) : (clients.upload_text || formatProxyRateText(txBps)),
-                source: trafficAvailable ? (traffic.source || '出口') : '客户端汇总',
-                available: trafficAvailable || !!clients.available,
-            };
-        }
-        function updateProxyStatus() {
-            fetchJson('/api/proxy/status', {}, '代理状态读取失败')
-                .then(data => {
-                    const payload = data || {};
-                    proxyStatusCache = payload;
-                    const statusEl = document.getElementById('dash-proxy-status');
-                    const metaEl = document.getElementById('dash-proxy-meta');
-                    const meta = getDeviceStatusMeta(payload, { onlineText: '在线', staleText: '陈旧', errorText: '异常', offlineText: '离线' });
-                    if (statusEl) {
-                        statusEl.textContent = meta.text;
-                        statusEl.className = `value ${meta.level === 'online' ? 'green' : (meta.level === 'stale' || meta.level === 'error' ? 'danger' : 'blue')}`;
-                    }
-                    if (metaEl) {
-                        const endpoint = getProxyEndpoint(payload);
-                        const healthy = Number(payload.healthy_target_count || 0);
-                        const total = Number(payload.check_count || 0);
-                        const checkedAt = formatServerTime(payload.last_checked_at || payload.updated_at);
-                        const lastErr = String(payload.last_error || payload.error || '').trim();
-                        const requiredCheck = getProxyRequiredCheck(payload);
-                        const googleOk = requiredCheck ? !!requiredCheck.healthy : !!payload.google_ok;
-                        const googleLatency = Number(requiredCheck?.latency_ms ?? payload.google_latency_ms);
-                        const googleCode = Number(requiredCheck?.status_code ?? payload.google_status_code);
-                        const clients = payload.clients || {};
-                        const flow = getProxyFlowSummary(payload);
-                        const googleHint = `${googleOk ? 'Google正常' : 'Google异常'}${Number.isFinite(googleLatency) && googleLatency > 0 ? ` ${googleLatency}ms` : ''}${Number.isFinite(googleCode) && googleCode > 0 ? `/${googleCode}` : ''}`;
-                        const clientHint = `IP ${Number(clients.active_client_count || 0)} / 连接 ${Number(clients.total_active_connections || 0)}`;
-                        const flowHint = `↓${flow.rxText} ↑${flow.txText}`;
-                        const checkHint = total > 0 ? `${healthy}/${total} 探活` : '无探活数据';
-                        metaEl.innerHTML = `${escapeHtml(endpoint)} · ${escapeHtml(googleHint)} · ${escapeHtml(checkHint)} · ${escapeHtml(clientHint)} · ${escapeHtml(flowHint)} · ${escapeHtml(checkedAt || '--')}${lastErr ? ` <br><strong>${escapeHtml(lastErr)}</strong>` : ''}`;
-                    }
-                    if (getActiveViewId() === 'proxy') renderProxyDetail(payload);
-                })
-                .catch(err => {
-                    const statusEl = document.getElementById('dash-proxy-status');
-                    const metaEl = document.getElementById('dash-proxy-meta');
-                    if (statusEl) {
-                        statusEl.textContent = '异常';
-                        statusEl.className = 'value danger';
-                    }
-                    if (metaEl) {
-                        metaEl.textContent = String(err?.message || '代理状态读取失败');
-                    }
-                    if (getActiveViewId() === 'proxy') {
-                        renderProxyDetail({
-                            online: false,
-                            status_level: 'error',
-                            error: String(err?.message || '代理状态读取失败'),
-                            checks: [],
-                            clients: { enabled: true, available: false, clients: [], error: String(err?.message || '代理状态读取失败') },
-                            traffic: { available: false, rx_bps: 0, tx_bps: 0, error: String(err?.message || '代理状态读取失败') }
-                        });
-                    }
-                });
-        }
 
         sendUpsShutdown = function(id, delay) {
             if (!ensurePermission('ups.control', '操作 UPS')) return;
