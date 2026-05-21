@@ -16,7 +16,7 @@ from paths import DB_FILE as DB_FILE_PATH, ensure_parent_dir
 
 bp = Blueprint('server', __name__)
 DB_FILE = str(DB_FILE_PATH)
-AGENT_VERSION = "2026.05.22.03"
+AGENT_VERSION = "2026.05.22.04"
 REPORT_MAX_BYTES = 8 * 1024 * 1024
 REPORT_MIN_INTERVAL_SEC = 2.0
 REPORT_CACHE = {}
@@ -3268,7 +3268,12 @@ function Get-WindowsOsInfo([object]$os) {{
     $version = if ($os) {{ [string]$os.Version }} else {{ '' }}
     $archRaw = if ($os) {{ [string]$os.OSArchitecture }} else {{ '' }}
     $arch = if ($archRaw -match '64') {{ '64-bit' }} elseif ($archRaw -match '32|86') {{ '32-bit' }} else {{ $archRaw }}
+    $buildNumber = 0
+    try {{ $buildNumber = [int]$build }} catch {{}}
     $name = ($productName -replace '\?+', '').Trim()
+    if ($buildNumber -ge 22000 -and $name -match '^Windows 10(.*)$') {{
+        $name = 'Windows 11' + $Matches[1]
+    }}
     if (-not $name) {{
         $name = 'Microsoft Windows'
     }}
