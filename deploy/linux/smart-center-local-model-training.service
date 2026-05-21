@@ -1,0 +1,15 @@
+[Unit]
+Description=Export Smart Center Local Model Training Data
+After=network-online.target
+Wants=network-online.target
+ConditionPathIsDirectory=/mnt/ubuntu01/smart-center-backups
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/smart-center/current
+EnvironmentFile=-/etc/smart-center.env
+Environment=SMART_CENTER_LOCAL_MODEL_TRAINING_NAS_DIR=/mnt/ubuntu01/smart-center-backups/local-model-training
+Environment=SMART_CENTER_LOCAL_MODEL_TRAINING_KEEP_DAYS=180
+ExecStart=/srv/smart-center/.venv/bin/python /srv/smart-center/current/scripts/export_local_model_training.py --sync-nas
+StandardOutput=append:/srv/smart-center-data/runtime/local_model_training_export.log
+StandardError=append:/srv/smart-center-data/runtime/local_model_training_export.log
