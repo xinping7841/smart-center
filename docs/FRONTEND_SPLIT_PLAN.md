@@ -9,6 +9,7 @@ The dashboard currently works, so frontend splitting must be done as behavior-pr
 - `templates/index.html` is the main shell and contains large inline CSS/JS.
 - Static CSS files are large and mostly shared.
 - Most buttons still call global functions from inline `onclick` attributes.
+- The following behavior-preserving modules have been extracted to `static/js/views/`: `logs.js`, `proxy.js`, `ups.js`, `hy-edge.js`, and `apple-audio.js`.
 
 ## Stage 2A: Bootstrap And Boundaries
 
@@ -33,11 +34,13 @@ window.fetchJsonLoose = SmartCenter.api.fetchJsonLoose;
 
 Recommended order:
 
-1. Logs/event window.
-2. Proxy monitor.
-3. UPS page.
-4. Current collector page.
-5. M32R page if still isolated.
+1. Logs/event window. Completed: `static/js/views/logs.js`.
+2. Proxy monitor. Completed: `static/js/views/proxy.js`.
+3. UPS page. Completed: `static/js/views/ups.js`.
+4. HY edge room dashboard card. Completed: `static/js/views/hy-edge.js`.
+5. Apple Audio music player. Completed: `static/js/views/apple-audio.js`.
+6. Current collector page.
+7. M32R page if still isolated.
 
 ## Stage 2D: Extract Heavy Views
 
@@ -49,6 +52,13 @@ Recommended order after utilities are stable:
 4. Automation node canvas.
 5. HVAC room cards.
 6. NVR preview.
+
+## Stage 2 Safety Notes
+
+- Do not combine view extraction with behavior changes. If a bug is found during extraction, either fix it in a separate commit or explicitly call out the coupled change.
+- For physical-control views, preserve current command payloads, lock timing, pending state, delayed verification, and status fallback behavior.
+- For modules still using inline `onclick`, exported globals are intentional compatibility shims. Remove them only after templates have been migrated to event binding.
+- Static files are cached aggressively by browsers and the public reverse proxy. Bump the query string in `templates/index.html` whenever a view module changes.
 
 ## Validation Checklist
 

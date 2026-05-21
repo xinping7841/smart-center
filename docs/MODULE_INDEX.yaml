@@ -104,23 +104,43 @@ modules:
     split_priority: medium
     ai_keywords: ['light','relay','channel','scene','niren']
   ups:
+    frontend_module: 'static/js/views/ups.js'
     purpose: Local RS232 UPS status and shutdown control.
     routes: ['/api/ups/status','/api/ups/control']
     backend: ['api/ups.py','ups_core.py','background.py']
-    frontend: ['templates/index.html','templates/config.html']
+    frontend: ['templates/index.html','templates/config.html','static/js/views/ups.js']
     config_keys: ['ups_devices']
     runtime_state: ['UPS_STATUS']
     split_priority: medium
     ai_keywords: ['ups','rs232','serial','SANTAK']
   proxy_monitor:
+    frontend_module: 'static/js/views/proxy.js'
     purpose: node-121 proxy health, link checks, client usage and NIC traffic.
     routes: ['/api/proxy/status']
     backend: ['api/proxy.py','background.py']
-    frontend: ['templates/index.html']
+    frontend: ['templates/index.html','static/js/views/proxy.js']
     config_keys: ['proxy_monitor']
     runtime_state: ['PROXY_STATUS']
     split_priority: low
     ai_keywords: ['proxy','squid','node-121','traffic','google','youtube','github']
+  hy_edge:
+    purpose: HY506 edge room status card and summary pulled from the remote edge node.
+    routes: ['/api/hy-edge/status']
+    backend: ['api/hy_edge.py','background.py']
+    frontend: ['templates/index.html','static/js/views/hy-edge.js']
+    config_keys: ['hy_edge']
+    runtime_state: ['HY_EDGE_STATUS']
+    split_priority: low
+    ai_keywords: ['hy','edge','HY506','remote room','edge node']
+  apple_audio:
+    purpose: Music player UI, library search, queue, lyrics, output zones, and M32 preparation actions.
+    routes: ['/api/apple-audio/status','/api/apple-audio/queue','/api/apple-audio/transport','/api/apple-audio/lyrics/*','/api/apple-audio/m32/prepare']
+    backend: ['api/apple_audio.py','apple_audio_core.py']
+    frontend: ['templates/index.html','static/js/views/apple-audio.js']
+    config_keys: ['apple_audio','universal_devices','m32r']
+    runtime_state: ['music_tag_library.json']
+    split_priority: low
+    ai_keywords: ['apple audio','music','queue','lyrics','cover','M32']
   local_model:
     purpose: Local AI console and training data export metadata.
     routes: ['/local-model','/api/local-model/*']

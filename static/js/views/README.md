@@ -2,6 +2,14 @@
 
 This directory is the target for gradually extracting logic from `templates/index.html`.
 
+## Current Modules
+
+- `logs.js`: event log, automation log, dashboard total log, and power detail log render helpers.
+- `proxy.js`: node-121 proxy health page, dashboard proxy summary, link checks, client table, and traffic cards.
+- `ups.js`: UPS dashboard/page/screen companion cards, `/api/ups/status` polling, and UPS shutdown command UI.
+- `hy-edge.js`: HY506 edge room dashboard card, `/api/hy-edge/status` polling, and offline fallback rendering.
+- `apple-audio.js`: music player page state, queue, lyrics, output list, and `/api/apple-audio/*` actions.
+
 Rules:
 
 - Move one view at a time.
@@ -9,3 +17,4 @@ Rules:
 - Register each module with `window.SmartCenter.registerModule(name, metadata)`.
 - Keep API URLs and payload fields stable.
 - Validate the affected view in the 16:9 preview after each extraction.
+- Keep physical-control modules extra conservative: power cabinet, sequencer, projector, screen, door, light, and server shutdown/WOL code must keep existing lock, delay, and verification behavior unless testing on approved hardware.
