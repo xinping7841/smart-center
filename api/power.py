@@ -62,6 +62,7 @@ from services.cabinet_gateway import (
 )
 from paths import DB_FILE as DB_FILE_PATH, RUNTIME_DIR, ensure_parent_dir, resolve_report_dir
 from api.server import get_cached_machine_payload
+from runtime.control_safety import guard_device_control
 
 # Module role: power and meter-facing HTTP API.
 # Boundaries: routes should stay compatible while statistics, remote meter
@@ -1083,6 +1084,16 @@ def api_set():
     cab = d.get("cab", 0)
     ch = d.get("ch")
     on = d.get("on")
+    guard = guard_device_control(
+        "set_channel",
+        f"cabinet:{cab}:channel:{ch}",
+        payload={"cab": cab, "ch": ch, "on": bool(on)},
+        category="power",
+    )
+    if guard:
+        response, status_code = guard
+        _append_power_control_trace("120_api_set_blocked", response)
+        return jsonify(response), status_code
     _append_power_control_trace("120_api_set_in", {
         "cab": cab,
         "ch": ch,
@@ -1174,6 +1185,10 @@ def api_set():
 @require_permission("power.control")
 def api_start():
     cab_idx = request.args.get("cab", 0, type=int)
+    guard = guard_device_control("onekey_start", f"cabinet:{cab_idx}", payload={"cab": cab_idx}, category="power")
+    if guard:
+        response, status_code = guard
+        return jsonify(response), status_code
     current_user = get_current_user()
     lock_key = f"power:{cab_idx}:onekey"
     locked, lock_info = acquire_operation_lock(lock_key, current_user.username, "onekey_start", timeout_sec=5.0)
@@ -1202,6 +1217,10 @@ def api_start():
 @require_permission("power.control")
 def api_stop():
     cab_idx = request.args.get("cab", 0, type=int)
+    guard = guard_device_control("onekey_stop", f"cabinet:{cab_idx}", payload={"cab": cab_idx}, category="power")
+    if guard:
+        response, status_code = guard
+        return jsonify(response), status_code
     current_user = get_current_user()
     lock_key = f"power:{cab_idx}:onekey"
     locked, lock_info = acquire_operation_lock(lock_key, current_user.username, "onekey_stop", timeout_sec=5.0)

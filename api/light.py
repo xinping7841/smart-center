@@ -19,6 +19,7 @@ from background import LIGHT_DRIVERS, LIGHT_META
 from config import CONFIG, LIGHT_ONLINE, LIGHT_STATUS
 from data_logger import add_log, load_logs
 from event_logger import record_event, record_state_change
+from runtime.control_safety import guard_device_control
 from runtime.automation import execute_scene
 
 bp = Blueprint("light", __name__)
@@ -307,6 +308,15 @@ def api_light_control():
             drv = LIGHT_DRIVERS.get(int(device_id))
         except Exception:
             drv = None
+    guard = guard_device_control(
+        str(d.get("action") or d.get("type") or "light_control"),
+        device_id or d.get("scene_id"),
+        payload=d,
+        category="light",
+    )
+    if guard:
+        response, status_code = guard
+        return jsonify(response), status_code
     if d.get("type") == "single":
         if drv:
             dev_id = device_id

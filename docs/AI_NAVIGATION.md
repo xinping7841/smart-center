@@ -10,6 +10,7 @@ Use this file first when a local AI model needs to understand or modify Smart Ce
 - Runtime symlink: `/srv/smart-center/current`
 - Main service: `smart-center.service`
 - Main app entry: `app.py`
+- App assembly: `modules/app/`
 - Main UI shell: `templates/index.html`
 - Main config: `config.json` loaded through `config.py`
 
@@ -32,7 +33,7 @@ These can contain stale or generated content and should not be treated as curren
 
 - `index.html`
 - `power.py`
-- `api/server_new.py`
+- `api/server_new.py` is deleted in the clean-lab branch; use `api/server.py`.
 - `*_agent*.ps1`
 - `*.bak*`
 - `operation_logs.json`, `audit_logs.json`, `energy_log.json`
@@ -50,6 +51,8 @@ For production work:
 4. Validate the relevant API with `curl` from node-120.
 5. If agent code changed, bump `AGENT_VERSION` and verify `/agent/worker.json`.
 6. Deploy by creating a new release instead of editing `/srv/smart-center/current` in place.
+
+For unattended or overnight validation, set `SMART_CENTER_CONTROL_MODE=dry_run` before calling device-control APIs. Use `normal` only when现场确认允许真实控制动作.
 
 ## Module Keywords
 

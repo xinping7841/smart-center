@@ -6,7 +6,7 @@ This document is the human and local-AI map for the Smart Center codebase. Keep 
 
 ## Runtime Shape
 
-Smart Center is a Flask application running on node-120. The service entry is `app.py`, registered blueprints live under `api/`, long-running pollers live in `background.py` and `runtime/`, and device/protocol helpers live in `*_core.py`, `drivers/`, and `services/`.
+Smart Center is a Flask application running on node-120. The service entry is `app.py`; application assembly lives in `modules/app/`; registered blueprints live under `api/`; long-running pollers live in `background.py` and `runtime/`; and device/protocol helpers live in `*_core.py`, `drivers/`, and `services/`.
 
 The current production source of truth is `/srv/git-work/smart-center-main`. Runtime releases are copied to `/srv/smart-center/releases/*` and exposed through `/srv/smart-center/current`.
 
@@ -58,6 +58,7 @@ Primary optimization direction: keep current routes but add compact/default payl
 - Prefer adapters around legacy functions over rewriting protocol code in one step.
 - Do not keep backups, generated files, local recordings, datasets, or runtime DBs in Git.
 - If a module controls physical devices, keep locks, delays, and verification behavior unchanged unless explicitly testing on safe hardware.
+- For unattended validation, set `SMART_CENTER_CONTROL_MODE=dry_run` or `read_only` so physical device routes return controlled responses without sending commands.
 
 ## Recommended Target Structure
 

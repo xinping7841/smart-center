@@ -22,6 +22,7 @@ from auth.decorators import require_permission
 from config import CONFIG, SERVER_COMMANDS
 from data_logger import add_log
 from paths import DB_FILE as DB_FILE_PATH, ensure_parent_dir
+from runtime.control_safety import guard_device_control
 
 bp = Blueprint('server', __name__)
 DB_FILE = str(DB_FILE_PATH)
@@ -7538,6 +7539,15 @@ def discover_machines():
 def wake_machine(mac):
     try:
         normalized_mac = normalize_machine_mac(mac)
+        guard = guard_device_control(
+            "wake",
+            normalized_mac or mac,
+            payload={"mac": normalized_mac or mac},
+            category="server",
+        )
+        if guard:
+            response, status_code = guard
+            return jsonify(response), status_code
         wake_mac = normalized_mac.replace("-", "") if "-" in normalized_mac else normalized_mac
         if not wake_mac or normalized_mac.startswith(("LOCAL-", "TEMP-")):
             return jsonify({"error": "invalid mac"}), 400
@@ -7582,7 +7592,17 @@ def wake_machine(mac):
 @require_permission("server.control")
 def send_machine_cmd(mac):
     normalized_mac = normalize_machine_mac(mac)
-    cmd = request.json.get("command"); _set_machine_command(normalized_mac, cmd)
+    cmd = request.json.get("command")
+    guard = guard_device_control(
+        str(cmd or "machine_command"),
+        normalized_mac or mac,
+        payload={"mac": normalized_mac or mac, "command": cmd},
+        category="server",
+    )
+    if guard:
+        response, status_code = guard
+        return jsonify(response), status_code
+    _set_machine_command(normalized_mac, cmd)
     action_name = {"shutdown": "关机", "restart": "重启", "refresh": "刷新信息"}.get(cmd, cmd)
     add_log(-1, f"[服务器] 已向节点 {normalized_mac or mac} 下发指令: [{action_name}]")
     log_audit_event("server.command.execute", target=normalized_mac or mac, detail={"mac": normalized_mac or mac, "command": cmd, "action_name": action_name})

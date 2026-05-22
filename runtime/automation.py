@@ -15,6 +15,7 @@ import modbus_core as mc
 from config import CONFIG, SERVER_COMMANDS
 from data_logger import add_log
 from .env_history import build_env_lux_trend
+from runtime.control_safety import guard_device_control
 
 from .state import LIGHT_DRIVERS, get_state_value
 
@@ -253,6 +254,17 @@ def _execute_scene_action(action):
     sys_type = action.get("sub_system", "light")
     act_type = action.get("action_type", "on" if action.get("is_open", True) else "off")
     jog_ms = int(action.get("jog_time_ms", 1000) or 1000)
+
+    if sys_type != "wait":
+        guard = guard_device_control(
+            act_type,
+            action.get("device_id") or action.get("scene_id") or sys_type,
+            payload=action,
+            category=f"automation:{sys_type}",
+        )
+        if guard:
+            response, _ = guard
+            return bool(response.get("dry_run")), response.get("msg", "automation action blocked")
 
     if sys_type == "hvac":
         return _execute_hvac_action(action)

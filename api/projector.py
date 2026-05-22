@@ -15,6 +15,7 @@ from auth.operation_lock import acquire_operation_lock, release_operation_lock
 from auth.session import get_current_user
 from config import CONFIG
 from data_logger import add_log
+from runtime.control_safety import guard_device_control
 from runtime.state import PROJECTOR_STATUS
 from api.node_red import get_node_red_device_status
 
@@ -73,6 +74,17 @@ def api_projector_control():
         return jsonify({"success": False, "msg": "未找到投影机配置"})
 
     from projector_core import ProjectorDriver
+
+    command_payload = data.get("command", {})
+    guard = guard_device_control(
+        str(command_payload.get("name") or command_payload.get("action") or "projector_command"),
+        proj_cfg.get("id"),
+        payload={"device_id": data.get("device_id"), "command": command_payload},
+        category="projector",
+    )
+    if guard:
+        response, status_code = guard
+        return jsonify(response), status_code
 
     current_user = get_current_user()
     lock_key = f"projector:{proj_cfg.get('id')}"

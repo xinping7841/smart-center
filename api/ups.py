@@ -15,6 +15,7 @@ from auth.operation_lock import acquire_operation_lock, release_operation_lock
 from auth.session import get_current_user
 from config import CONFIG
 from data_logger import add_log
+from runtime.control_safety import guard_device_control
 from runtime.state import UPS_STATUS
 
 bp = Blueprint("ups", __name__)
@@ -70,6 +71,11 @@ def api_ups_control():
     cfg = next((item for item in CONFIG.get("ups_devices", []) if str(item.get("id")) == ups_id), None)
     if not cfg:
         return jsonify({"success": False, "message": "未找到 UPS 配置"}), 404
+
+    guard = guard_device_control(action, ups_id, payload=data, category="ups")
+    if guard:
+        response, status_code = guard
+        return jsonify(response), status_code
 
     current_user = get_current_user()
     lock_key = f"ups:{ups_id}"

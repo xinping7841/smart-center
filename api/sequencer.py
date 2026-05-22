@@ -24,6 +24,7 @@ from auth.session import get_current_user
 from config import CONFIG, save_config
 from data_logger import add_log, load_logs
 from event_logger import record_event, record_state_change
+from runtime.control_safety import guard_device_control
 
 bp = Blueprint("sequencer", __name__)
 
@@ -818,6 +819,10 @@ def api_sequencer_control():
             status="error",
         )
         return jsonify({"success": False, "message": "未找到时序电源设备"}), 404
+    guard = guard_device_control(action, seq_id, payload={"id": seq_id, "action": action, "channel": channel}, category="sequencer")
+    if guard:
+        response, status_code = guard
+        return jsonify(response), status_code
     lock_key = f"sequencer:{seq_id}"
     locked, lock_info = acquire_operation_lock(lock_key, current_user.username, action, timeout_sec=2.5)
     if not locked:

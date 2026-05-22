@@ -5,6 +5,24 @@ notes:
   - Keep this index small and current. It is used by local AI before broad search.
   - Runtime backups and generated files are not source of truth.
 modules:
+  app_entry:
+    purpose: Thin Flask service entrypoint plus app factory, blueprint registry, request hooks, and bounded HTTP server.
+    routes: ['/', '/config', '/login', '/static/*', '/api/*', '/agent/*', '/report']
+    backend: ['app.py', 'modules/app/factory.py', 'modules/app/blueprints.py', 'modules/app/request_hooks.py', 'modules/app/server.py']
+    frontend: []
+    config_keys: []
+    runtime_state: ['runtime background services']
+    split_priority: low
+    ai_keywords: ['app entry', 'app factory', 'blueprint registry', 'request hooks', 'gzip', 'static cache', 'WSGI']
+  control_safety:
+    purpose: Shared guard for read-only, dry-run, and disabled physical-control validation modes.
+    routes: []
+    backend: ['runtime/control_safety.py']
+    frontend: []
+    config_keys: ['SMART_CENTER_CONTROL_MODE', 'SMART_CENTER_DEVICE_CONTROL_MODE', 'SMART_CENTER_DISABLE_DEVICE_CONTROL']
+    runtime_state: []
+    split_priority: low
+    ai_keywords: ['dry_run', 'read_only', 'disabled control', 'physical device safety', 'unattended validation']
   core_frontend:
     purpose: Shared frontend namespace, module registry, API wrappers, permissions, formatting, toast, and frontend error guards.
     routes: []

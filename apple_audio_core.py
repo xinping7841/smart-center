@@ -390,7 +390,7 @@ def _derive_category(relative_path: str, root_name: str):
 
 
 class AppleAudioService:
-    def __init__(self):
+    def __init__(self, *, auto_scan=None):
         self.lock = threading.Lock()
         self.last_tick = time.monotonic()
         self.library = []
@@ -423,7 +423,8 @@ class AppleAudioService:
         }
         self.configure()
         self._load_library_cache()
-        if self._config().get("nas_auto_scan_on_start", True):
+        should_scan = self._config().get("nas_auto_scan_on_start", True) if auto_scan is None else bool(auto_scan)
+        if should_scan:
             self.scan_library()
 
     def _config(self):
@@ -1304,4 +1305,22 @@ class AppleAudioService:
         return self.snapshot()
 
 
-apple_audio_service = AppleAudioService()
+class LazyAppleAudioService:
+    # Importing the API should never scan NAS folders. The real service is built
+    # only when an Apple Audio endpoint is used.
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._service = None
+
+    def _get_service(self):
+        if self._service is None:
+            with self._lock:
+                if self._service is None:
+                    self._service = AppleAudioService()
+        return self._service
+
+    def __getattr__(self, name):
+        return getattr(self._get_service(), name)
+
+
+apple_audio_service = LazyAppleAudioService()

@@ -15,6 +15,7 @@ from auth.operation_lock import acquire_operation_lock, release_operation_lock
 from auth.session import get_current_user
 from config import CONFIG, save_config
 from data_logger import add_log
+from runtime.control_safety import guard_device_control
 from runtime.state import SCREEN_STATUS
 
 bp = Blueprint("screen", __name__)
@@ -87,6 +88,17 @@ def api_screen_control():
     if not screen_cfg:
         return jsonify({"success": False, "msg": "未找到幕布配置"})
 
+    command_payload = data.get("command", {})
+    guard = guard_device_control(
+        str(command_payload.get("name") or command_payload.get("action") or "screen_command"),
+        screen_cfg.get("id"),
+        payload={"screen_id": data.get("screen_id"), "command": command_payload},
+        category="screen",
+    )
+    if guard:
+        response, status_code = guard
+        return jsonify(response), status_code
+
     current_user = get_current_user()
     lock_key = f"screen:{screen_cfg.get('id')}"
     locked, lock_info = acquire_operation_lock(lock_key, current_user.username, "screen_control", timeout_sec=3.0)
@@ -156,6 +168,15 @@ def api_screen_calibrate():
     screen_cfg = _find_screen(data.get("screen_id"))
     if not screen_cfg:
         return jsonify({"success": False, "msg": "未找到幕布配置"})
+    guard = guard_device_control(
+        "screen_calibrate",
+        screen_cfg.get("id"),
+        payload={"screen_id": data.get("screen_id"), "position": data.get("position")},
+        category="screen",
+    )
+    if guard:
+        response, status_code = guard
+        return jsonify(response), status_code
     current_user = get_current_user()
     lock_key = f"screen_calibrate:{screen_cfg.get('id')}"
     locked, lock_info = acquire_operation_lock(lock_key, current_user.username, "screen_calibrate", timeout_sec=4.0)

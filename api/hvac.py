@@ -17,6 +17,7 @@ from auth.decorators import require_permission
 from config import CONFIG, save_config
 from data_logger import add_log
 from event_logger import record_event, record_state_change
+from runtime.control_safety import guard_device_control
 from services.home_assistant_bridge import control_hvac as ha_control_hvac
 from services.home_assistant_bridge import get_hvac_status as get_ha_hvac_status
 from services.miio_hvac import miio_hvac_service
@@ -256,6 +257,11 @@ def control_hvac():
         return jsonify({"success": False, "msg": "找不到空调设备配置"}), 404
 
     device_name = str(device.get("name") or device_id or "未命名空调")
+
+    guard = guard_device_control(action, device_id, payload=data, category="hvac")
+    if guard:
+        response, status_code = guard
+        return jsonify(response), status_code
 
     correlation_id = record_event(
         category="hvac",

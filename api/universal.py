@@ -15,6 +15,7 @@ from auth.session import get_current_user
 from config import CONFIG
 from control_center_core import execute_control_center_command, normalize_control_center
 from data_logger import add_log
+from runtime.control_safety import guard_device_control
 
 bp = Blueprint('universal', __name__)
 
@@ -25,6 +26,15 @@ def api_universal_control():
     dev_cfg = next((d for d in CONFIG.get("custom_devices", []) if str(d.get("id")) == str(data.get("device_id"))), None)
     if not dev_cfg:
         return jsonify({"success": False, "msg": "找不到设备配置"})
+    guard = guard_device_control(
+        str((data.get("command") or {}).get("name") or "universal_control"),
+        dev_cfg.get("id"),
+        payload=data,
+        category="universal",
+    )
+    if guard:
+        response, status_code = guard
+        return jsonify(response), status_code
     current_user = get_current_user()
     lock_key = f"universal:{dev_cfg.get('id')}"
     locked, lock_info = acquire_operation_lock(lock_key, current_user.username, "universal_control", timeout_sec=3.0)

@@ -25,6 +25,7 @@ from control_center_core import (
     normalize_control_center,
 )
 from data_logger import add_log
+from runtime.control_safety import guard_device_control
 
 
 bp = Blueprint("control_center", __name__)
@@ -56,6 +57,15 @@ def api_control_center_execute():
     target_group_id = str(payload.get("target_group_id") or "").strip()
     runtime_params = payload.get("params") if isinstance(payload.get("params"), dict) else {}
     value = payload.get("value")
+    guard = guard_device_control(
+        control_id or command_id or "control_center_execute",
+        target_group_id or control_id or command_id,
+        payload=payload,
+        category="control_center",
+    )
+    if guard:
+        response, status_code = guard
+        return jsonify(response), status_code
     lock_key = f"control-center:{control_id or f'{command_id}@{target_group_id}'}"
     locked, lock_info = acquire_operation_lock(lock_key, current_user.username, "control_center_execute", timeout_sec=3.0)
     if not locked:
