@@ -54,6 +54,15 @@ bash scripts/collab/start-work.sh --task server-monitor-refactor --module server
 bash scripts/collab/finish-work.sh --message "refactor: split server monitor module" --release-lock server_monitor
 ```
 
+Windows PowerShell without Git Bash:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/collab/setup-git-collab.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/collab/check-sync.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/collab/start-work.ps1 -Task server-monitor-refactor -Module server_monitor -Machine 12700k
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/collab/finish-work.ps1 -Message "refactor: split server monitor module" -ReleaseLock server_monitor
+```
+
 ## 工作方式
 
 代码隔离依靠 Git worktree；模块占用依靠 worklock；任务记忆依靠 TASK.md；长期共识依靠 shared-decisions.md；最终可追溯依靠 Git commit。

@@ -38,6 +38,15 @@ git clone node-120-ts:/srv/git/smart-center.git smart-center-git
 cd smart-center-git
 ```
 
+Windows PowerShell 示例：
+
+```powershell
+New-Item -ItemType Directory -Force D:\SmartCenter
+Set-Location D:\SmartCenter
+git clone node-120-ts:/srv/git/smart-center.git smart-center-git
+Set-Location D:\SmartCenter\smart-center-git
+```
+
 macOS/Linux 示例：
 
 ```bash
@@ -81,12 +90,26 @@ git config user.email "codex-laptop@smart-center.local"
 bash scripts/collab/bootstrap-other-machine.sh --machine 12700k
 ```
 
+如果当前机器没有 Git Bash，使用 PowerShell：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/collab/bootstrap-other-machine.ps1 -Machine 12700k
+```
+
 如果想指定 worktree 目录：
 
 ```bash
 bash scripts/collab/bootstrap-other-machine.sh \
   --machine 12700k \
   --worktree-base /d/SmartCenter/smart-center-worktrees
+```
+
+PowerShell 指定 worktree 目录：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/collab/bootstrap-other-machine.ps1 `
+  -Machine 12700k `
+  -WorktreeBase D:\SmartCenter\smart-center-worktrees
 ```
 
 这个脚本会做：
@@ -107,6 +130,16 @@ bash scripts/collab/start-work.sh \
   --module server_monitor \
   --machine 12700k \
   --kind heavy
+```
+
+PowerShell 示例：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/collab/start-work.ps1 `
+  -Task server-monitor-refactor `
+  -Module server_monitor `
+  -Machine 12700k `
+  -Kind heavy
 ```
 
 启动后会生成：
@@ -132,6 +165,13 @@ bash scripts/collab/check-sync.sh
 bash scripts/collab/status-worktasks.sh
 ```
 
+PowerShell：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/collab/check-sync.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/collab/status-worktasks.ps1
+```
+
 ## 7. 结束任务
 
 进入任务 worktree，例如：
@@ -146,6 +186,14 @@ cd ../smart-center-worktrees/server-monitor-refactor
 bash scripts/collab/finish-work.sh \
   --message "refactor: split server monitor module" \
   --release-lock server_monitor
+```
+
+PowerShell：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/collab/finish-work.ps1 `
+  -Message "refactor: split server monitor module" `
+  -ReleaseLock server_monitor
 ```
 
 ## 8. 重要提醒
