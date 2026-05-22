@@ -714,7 +714,7 @@
             } else {
                 bodyHtml = `<strong><em class="serial">${escapeHtml(serialText)}</em><em class="validity">${escapeHtml(validityText)}</em>${upgradeHtml}</strong>`;
             }
-            return `<div class="server-codemeter-line ${cls}" title="${escapeHtml(titleParts.join('\n'))}"><div class="codemeter-line-head"><span>CodeMeter</span><strong>${escapeHtml(validityText)}${upgradeHtml}</strong></div>${bodyHtml}</div>`;
+            return `<div class="server-codemeter-line ${cls}" title="${escapeHtml(titleParts.join('\n'))}">${bodyHtml}</div>`;
         }
 
     function getServerGroupName(machine) {
