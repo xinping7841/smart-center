@@ -825,6 +825,26 @@
         .ch-btn .state { position: absolute; top: 10px; right: 10px; min-width: 38px; padding: 3px 8px; border-radius: 999px; background: rgba(15,23,42,0.26); border: 1px solid rgba(255,255,255,0.12); color: rgba(248,250,252,0.9); font-size: 11px; font-weight: 850; line-height: 1; z-index: 2; text-align: center;}
         .ch-off .state { color: #cbd5e1; background: rgba(15,23,42,0.24); border-color: rgba(148,163,184,0.16); }
         .ch-on .state { color: #ffffff; background: rgba(6,95,70,0.16); border-color: rgba(187,247,208,0.30); }
+        .node-red-device-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 280px)); gap:10px; margin-bottom:18px; align-items:stretch; }
+        .node-red-device-card { min-height:96px; border:1px solid rgba(148,163,184,.18); border-radius:10px; background:linear-gradient(180deg, rgba(15,23,42,.92), rgba(30,41,59,.72)); color:#e2e8f0; padding:10px 11px; display:flex; flex-direction:column; gap:8px; position:relative; overflow:hidden; }
+        .node-red-device-card.is-on { border-color:rgba(34,197,94,.42); background:linear-gradient(135deg, rgba(6,95,70,.74), rgba(15,23,42,.90)); }
+        .node-red-device-card.is-off { border-color:rgba(71,85,105,.72); }
+        .node-red-device-card.is-busy { border-color:rgba(245,158,11,.48); background:linear-gradient(135deg, rgba(120,53,15,.46), rgba(15,23,42,.90)); }
+        .node-red-device-card.is-error { border-color:rgba(239,68,68,.42); background:linear-gradient(135deg, rgba(127,29,29,.46), rgba(15,23,42,.90)); }
+        .node-red-device-card.is-offline { opacity:.78; }
+        .node-red-device-head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; min-width:0; }
+        .node-red-device-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; font-weight:900; color:#f8fafc; }
+        .node-red-device-type { margin-top:2px; font-size:10px; color:#94a3b8; font-weight:750; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .node-red-status-pill { flex:none; border-radius:999px; padding:4px 8px; background:rgba(15,23,42,.42); border:1px solid rgba(255,255,255,.12); color:#dbeafe; font-size:11px; font-weight:900; line-height:1; }
+        .node-red-device-meta { color:#94a3b8; font-size:11px; line-height:1.35; min-height:16px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+        .node-red-device-foot { margin-top:auto; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+        .node-red-updated { color:#64748b; font-size:10px; font-family:monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .node-red-actions { display:flex; gap:6px; flex:none; }
+        .node-red-action-btn { min-width:42px; height:30px; border:none; border-radius:8px; padding:0 10px; color:#e2e8f0; background:rgba(51,65,85,.92); border:1px solid rgba(148,163,184,.18); font-size:12px; font-weight:900; cursor:pointer; }
+        .node-red-action-btn.primary { color:#ecfdf5; background:linear-gradient(135deg, rgba(16,185,129,.92), rgba(5,150,105,.92)); border-color:rgba(52,211,153,.42); }
+        .node-red-action-btn.stop { color:#fee2e2; background:rgba(127,29,29,.82); border-color:rgba(248,113,113,.28); }
+        .node-red-action-btn:disabled { opacity:.52; cursor:not-allowed; }
+        .node-red-empty { grid-column:1/-1; color:var(--text-sub); padding:12px; border:1px dashed rgba(148,163,184,.24); border-radius:10px; background:rgba(15,23,42,.38); }
         .ch-btn.power-channel-btn {
             min-height: 78px;
             height: 78px;

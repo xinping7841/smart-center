@@ -234,11 +234,15 @@ def _validate_push_token():
 def api_node_red_devices():
     refresh = str(request.args.get("refresh") or "1").lower() not in {"0", "false", "no"}
     devices = []
+    include_unavailable = str(request.args.get("include_unavailable") or "0").lower() in {"1", "true", "yes"}
     for device_id, meta in sorted(DEVICE_REGISTRY.items(), key=lambda item: int(item[1].get("sort", 999))):
         if refresh:
-            devices.append(get_node_red_device_status(device_id))
+            device = get_node_red_device_status(device_id)
         else:
-            devices.append(deepcopy(STATE_CACHE.get(device_id)) or _normalize_device_payload(device_id, {}, meta=meta))
+            device = deepcopy(STATE_CACHE.get(device_id)) or _normalize_device_payload(device_id, {}, meta=meta)
+        health_status = str((device.get("health") or {}).get("status") or "")
+        if include_unavailable or device.get("online") or health_status != "node_red_unreachable":
+            devices.append(device)
     return jsonify({"ok": 1, "devices": devices, "gateway": NODE_RED_BASE_URL})
 
 
