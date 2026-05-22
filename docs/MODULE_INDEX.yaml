@@ -18,7 +18,7 @@ modules:
     purpose: Main overview page and summary cards.
     routes: ['/','/api/dashboard/summary']
     backend: ['api/power.py','api/dashboard.py']
-    frontend: ['templates/index.html']
+    frontend: ['templates/index.html','static/css/views/dashboard-inline.css']
     config_keys: ['dashboard','ui_text']
     split_priority: high
     ai_keywords: ['dashboard','summary','home','overview']

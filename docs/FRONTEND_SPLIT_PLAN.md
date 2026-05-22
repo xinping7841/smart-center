@@ -7,7 +7,7 @@ The dashboard currently works, so frontend splitting must be done as behavior-pr
 ## Current State
 
 - `templates/index.html` is the main shell and contains large inline CSS/JS.
-- Static CSS files are large and mostly shared.
+- Static CSS files are large and mostly shared; the first dashboard-specific leftovers are now in `static/css/views/dashboard-inline.css`.
 - Most buttons still call global functions from inline `onclick` attributes.
 - The following behavior-preserving modules have been extracted to `static/js/views/`: `logs.js`, `proxy.js`, `ups.js`, `hy-edge.js`, `apple-audio.js`, `universal.js`, `env.js`, `snmp.js`, `server-monitor.js`, `power-meter.js`, `automation-view.js`, `hvac-view.js`, `nvr-view.js`, `current-collector.js`, `m32r.js`, `driver-hub.js`, `local-model.js`, `login.js`, and `lighting.js`.
 
@@ -66,6 +66,11 @@ Recommended order after utilities are stable:
    - Completed: `static/js/views/hvac-view.js` now holds status/mode/fan/power display helpers, room grouping/sorting, room environment chips, dashboard overview HTML, and HVAC card/group rendering. `templates/index.html` still keeps polling, status cache, temperature/mode popover state, and `/api/hvac/control` actions.
 6. NVR preview.
    - Completed: `static/js/views/nvr-view.js` now holds preview mode/grid helpers, stream/snapshot/MJPEG URL builders, channel buttons, and preview wall/single-frame markup. `templates/index.html` still keeps selection state, stream stop/cleanup, lazy iframe activation, snapshot refresh timers, and SNMP/NVR status polling.
+
+## Stage 2E: Extract View CSS
+
+1. Dashboard inline CSS.
+   - Completed: `static/css/views/dashboard-inline.css` now holds the automation node canvas modal and event-log table styles. `templates/index.html` keeps the stylesheet link only.
 
 ## Stage 2 Safety Notes
 
