@@ -15,6 +15,8 @@ This directory is the target for gradually extracting logic from `templates/inde
 - `server-monitor.js`: server monitor render helpers, hardware metric cards, CodeMeter display, diagnostic badges, and grouped server grid rendering.
 - `power-meter.js`: shared power cabinet and meter display helpers, cabinet/channel labels, meter cards, reference summaries, and source badges.
 - `automation-view.js`: automation runtime/status helpers, condition chips, schedule summaries, node data builders, and node HTML rendering.
+- `hvac-view.js`: HVAC room grouping, status text, mode/fan/power display helpers, dashboard overview cards, and room temperature/humidity chips.
+- `nvr-view.js`: NVR preview mode/grid helpers, live/snapshot URL builders, channel buttons, and preview wall markup.
 - `current-collector.js`: standalone current collector page, live polling, pause/resume display, group totals, raw channel cards, and `/api/current-collector/*` actions.
 - `m32r.js`: standalone M32R virtual console page, mixer status polling, channel/main controls, templates, and Apple Audio route helpers.
 - `driver-hub.js`: standalone driver hub snapshot page, group filtering, health counters, and driver table rendering.
