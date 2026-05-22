@@ -681,33 +681,36 @@
             const noAuth = serials.length > 0 && !activeLicenses.length;
             const daysClass = Number.isFinite(minDaysLeft) ? (minDaysLeft < 15 ? 'error' : (minDaysLeft < 30 ? 'warning' : '')) : '';
             const cls = (!installed || level === 'muted') ? 'muted' : (level === 'error' || hasExpiredOnly || daysClass === 'error' ? 'error' : ((!running || level === 'warning' || runtimeOutdated || noDongle || noAuth || !hasCompanyLicense || daysClass === 'warning' || expiryStatus.cls === 'warning') ? 'warning' : ''));
-            const licenseLabel = getCodeMeterLicenseLabel(info);
             const serialText = serials.length ? serials.slice(0, 1).join('') + (serials.length > 1 ? ` +${serials.length - 1}` : '') : (installed ? '无加密锁' : '未安装');
             const validityText = getCodeMeterValidityText(info);
-            const titleParts = [
-                licenseLabel ? `公司授权: ${licenseLabel}` : '',
-                `编号: ${serials.length ? serials.join(' / ') : serialText}`,
-                `状态: ${validityText}`,
-                `服务: ${info.service_state || '--'}`,
-            ].filter(Boolean);
+            const titleParts = [`CodeMeter ${validityText}`];
+            titleParts.push(`加密锁: ${serials.length ? serials.join(' / ') : serialText}`);
+            if (info.service_state) titleParts.push(`服务: ${info.service_state}`);
             if (normalizedLicenses.length) {
-                titleParts.push('授权明细:');
+                titleParts.push('');
+                titleParts.push('加密锁编号        产品码   到期时间      剩余天数');
                 normalizedLicenses.forEach(row => {
                     const daysText = row.permanent ? '长期' : (Number.isFinite(row.daysLeft) && row.daysLeft >= 0 ? `${row.daysLeft}天` : (row.expired ? '已过期' : '--'));
-                    titleParts.push(`${row.serial || serialText} | ${row.code || '--'} | ${row.expiryText || '长期有效'} | ${daysText}`);
+                    const serialPart = String(row.serial || serialText).padEnd(15, ' ');
+                    const codePart = String(row.code || '--').padEnd(6, ' ');
+                    const expiryPart = String(row.expiryText || '长期有效').padEnd(11, ' ');
+                    titleParts.push(`${serialPart} ${codePart} ${expiryPart} ${daysText}`);
                 });
             }
             if (Number.isFinite(minDaysLeft) && minDaysLeft >= 0) titleParts.push(`最近剩余: ${minDaysLeft} 天`);
             if (runtimeVersion) titleParts.push(`Runtime: ${runtimeVersion}${runtimeOutdated ? '，建议升级到 8.0+' : ''}`);
             if (info.checked_at) titleParts.push(`检测: ${formatServerTime(info.checked_at)}`);
-            if (info.error) titleParts.push(`错误: ${info.error}`);
             const upgradeHtml = runtimeOutdated ? `<em class="upgrade">升级8.0+</em>` : '';
             let bodyHtml = '';
             if (displayRows.length) {
+                const shownSerials = new Set();
                 const rowsHtml = displayRows.map(row => {
                     const daysText = row.permanent ? '长期' : (Number.isFinite(row.daysLeft) ? `${row.daysLeft}天` : '--');
                     const rowClass = row.permanent ? 'permanent' : (Number.isFinite(row.daysLeft) && row.daysLeft < 15 ? 'danger' : (Number.isFinite(row.daysLeft) && row.daysLeft < 30 ? 'warn' : ''));
-                    return `<div class="codemeter-license-row ${rowClass}"><span class="cm-serial">${escapeHtml(row.serial || serialText)}</span><span class="cm-code">${escapeHtml(row.code || '--')}</span><span class="cm-expiry">${escapeHtml(row.expiryText || '长期')}</span><span class="cm-days">${escapeHtml(daysText)}</span></div>`;
+                    const serialValue = row.serial || serialText;
+                    const serialDisplay = shownSerials.has(serialValue) ? '' : serialValue;
+                    if (serialValue) shownSerials.add(serialValue);
+                    return `<div class="codemeter-license-row ${rowClass}"><span class="cm-serial">${escapeHtml(serialDisplay)}</span><span class="cm-code">${escapeHtml(row.code || '--')}</span><span class="cm-expiry">${escapeHtml(row.expiryText || '长期')}</span><span class="cm-days">${escapeHtml(daysText)}</span></div>`;
                 }).join('');
                 const moreText = activeLicenses.length > displayRows.length ? `<em class="codemeter-more">+${activeLicenses.length - displayRows.length}</em>` : '';
                 bodyHtml = `<div class="codemeter-license-table"><div class="codemeter-license-head"><span class="cm-serial">加密锁编号</span><span class="cm-code">产品码</span><span class="cm-expiry">到期时间</span><span class="cm-days">剩余天数</span></div>${rowsHtml}</div>${moreText}`;
