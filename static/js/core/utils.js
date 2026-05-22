@@ -3,6 +3,7 @@
 
     const SmartCenter = global.SmartCenter || (global.SmartCenter = {});
     const inFlight = new Map();
+    let toastTimer = null;
 
     function escapeHtml(value) {
         return String(value ?? '').replace(/[&<>"']/g, ch => ({
@@ -160,6 +161,87 @@
         return `${num.toFixed(digits)}${suffix}`;
     }
 
+    function showToast(message, isError = false, options = {}) {
+        const text = String(message ?? '');
+        const doc = global.document;
+        const el = options.element || (doc ? doc.getElementById(options.toastId || 'toast') : null);
+        if (!el) {
+            if (options.fallback === 'alert' && typeof global.alert === 'function') {
+                global.alert(text);
+            }
+            return;
+        }
+        if ('innerText' in el) el.innerText = text;
+        else el.textContent = text;
+        const baseClass = options.baseClass || 'toast-msg';
+        const showClass = options.showClass || 'show';
+        const errorClass = options.errorClass || 'toast-error';
+        el.className = `${baseClass} ${showClass}${isError ? ` ${errorClass}` : ''}`;
+        const timeoutMs = Number.isFinite(Number(options.timeoutMs)) ? Number(options.timeoutMs) : 2500;
+        if (toastTimer) global.clearTimeout(toastTimer);
+        toastTimer = global.setTimeout(() => {
+            el.className = baseClass;
+            toastTimer = null;
+        }, timeoutMs);
+    }
+
+    function reportFrontendError(scope, err, options = {}) {
+        const errorText = err && err.stack ? err.stack : String(err || 'unknown_error');
+        if (global.console && typeof global.console.error === 'function') {
+            global.console.error(`[frontend:${scope}]`, err);
+        }
+        const endpoint = options.endpoint || '/api/logs/frontend';
+        try {
+            if (typeof global.fetch === 'function') {
+                global.fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        scope,
+                        message: errorText,
+                        url: global.location ? global.location.href : '',
+                        ts: new Date().toISOString(),
+                    }),
+                }).catch(() => {});
+            }
+        } catch (_) {}
+        return errorText;
+    }
+
+    function guardFrontendStep(scope, fn, fallbackMessage = '', options = {}) {
+        const handleError = err => {
+            reportFrontendError(scope, err, options.reportOptions || {});
+            if (fallbackMessage) {
+                showToast(fallbackMessage, true, options.toastOptions || {});
+            }
+            return null;
+        };
+        try {
+            const result = fn();
+            if (result && typeof result.then === 'function') {
+                return result.catch(handleError);
+            }
+            return result;
+        } catch (err) {
+            return handleError(err);
+        }
+    }
+
+    function formatNetworkMbps(kbPerSec) {
+        const mbps = (Number(kbPerSec) || 0) * 8 / 1024;
+        if (mbps >= 100) return mbps.toFixed(0);
+        if (mbps >= 10) return mbps.toFixed(1);
+        return mbps.toFixed(2).replace(/\.?0+$/, '');
+    }
+
+    function formatBytesGiB(bytes) {
+        const num = Number(bytes);
+        if (!Number.isFinite(num) || num <= 0) return '--';
+        const gib = num / (1024 ** 3);
+        if (gib >= 1024) return `${(gib / 1024).toFixed(gib >= 10240 ? 0 : 1)} TB`;
+        return `${gib.toFixed(gib >= 100 ? 0 : 1)} GB`;
+    }
+
     function isNowInTimeRange(startText, endText, now = new Date()) {
         if (!startText || !endText) return true;
         const parse = text => {
@@ -219,6 +301,20 @@
             return isControlPermissionAllowedBySchedule(user);
         }
         return true;
+    }
+
+    function ensurePermission(permission, actionText = '执行当前操作', options = {}) {
+        const user = options.user || global.currentUser || {};
+        if (hasPermission(permission, user)) return true;
+        const message = options.message || `当前账号无权限${actionText}`;
+        if (typeof options.notifier === 'function') {
+            options.notifier(message, true);
+        } else if (options.mode === 'alert' && typeof global.alert === 'function') {
+            global.alert(message);
+        } else {
+            showToast(message, true, options.toastOptions || {});
+        }
+        return false;
     }
 
     function getPermissionDisabledAttrs(permission, titleText, user = global.currentUser || {}) {
@@ -359,9 +455,15 @@
         getTodayTargetDateTime,
         formatCountdownText,
         formatFixedNumber,
+        showToast,
+        reportFrontendError,
+        guardFrontendStep,
+        formatNetworkMbps,
+        formatBytesGiB,
         isNowInTimeRange,
         isControlPermissionAllowedBySchedule,
         hasPermission,
+        ensurePermission,
         getPermissionDisabledAttrs,
         getPermissionDisabledClass,
         getDeviceStatusMeta,

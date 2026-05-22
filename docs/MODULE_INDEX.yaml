@@ -5,6 +5,15 @@ notes:
   - Keep this index small and current. It is used by local AI before broad search.
   - Runtime backups and generated files are not source of truth.
 modules:
+  core_frontend:
+    purpose: Shared frontend namespace, module registry, API wrappers, permissions, formatting, toast, and frontend error guards.
+    routes: []
+    backend: []
+    frontend: ['static/js/core/bootstrap.js','static/js/core/utils.js']
+    config_keys: []
+    runtime_state: []
+    split_priority: low
+    ai_keywords: ['frontend core','SmartCenter','utils','toast','fetchJson','permission','module registry']
   dashboard:
     purpose: Main overview page and summary cards.
     routes: ['/','/api/dashboard/summary']

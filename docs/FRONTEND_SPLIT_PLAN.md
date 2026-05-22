@@ -17,6 +17,8 @@ Completed by adding `static/js/core/bootstrap.js` and this plan. This creates `w
 
 ## Stage 2B: Extract Shared Utilities
 
+In progress. `static/js/core/utils.js` now provides shared API helpers, time/number formatting, permission helpers, toast display, frontend error reporting, and guarded execution helpers. Inline copies remain in templates until each page can be switched in small behavior-preserving commits.
+
 Candidate utilities to move first:
 
 - API wrappers: `fetchJsonLoose`, `postJsonLoose`, error translation.
