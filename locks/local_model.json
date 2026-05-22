@@ -1,0 +1,11 @@
+﻿{
+    "module":  "local_model",
+    "owner_machine":  "12700k",
+    "owner_branch":  "codex/12700k-local-model-chat-config-20260522",
+    "task":  "local-model-chat-config",
+    "kind":  "heavy",
+    "worktree":  "D:\\smart-center-work\\smart-center-worktrees\\local-model-chat-config",
+    "started_at":  "2026-05-22 18:26:32",
+    "expected_until":  "",
+    "note":  "created by scripts/collab/start-work.ps1"
+}
