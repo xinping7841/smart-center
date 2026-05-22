@@ -31,15 +31,20 @@ DEFAULT_LOCAL_MODEL = {
     "enabled": True,
     "name": "122 本地模型",
     "provider": "openai-compatible",
-    "base_url": "http://192.168.50.122:8000/v1",
-    "model": "gemma-4-26b-a4b",
+    "base_url": "http://192.168.50.122:8001/v1",
+    "vllm_base_url": "http://192.168.50.122:8000/v1",
+    "model": "gemma-4-e4b-awq-int4",
     "api_key": "dummy",
     "timeout_sec": 120,
     "temperature": 0.2,
     "max_tokens": 512,
+    "max_model_len": 32768,
     "system_prompt": "你是演播中控系统的本地助手，回答要基于中控设备、协议、日志和运行状态。涉及真实控制动作时，先说明风险并等待人工确认。",
     "training_export": {"enabled": True, "include_logs": True, "recent_log_limit": 500},
 }
+
+LEGACY_LOCAL_MODEL_BASE_URLS = {"http://192.168.50.122:8000/v1"}
+LEGACY_LOCAL_MODEL_MODELS = {"gemma-4-26b-a4b"}
 
 DEVICE_SECTIONS = {
     "cabinets": "强电柜",
@@ -98,8 +103,9 @@ def _redact(value, key=""):
 
 def normalize_local_model_config(raw_config=None, *, keep_secret=True):
     merged = deepcopy(DEFAULT_LOCAL_MODEL)
-    if isinstance(raw_config, dict):
-        for key, value in raw_config.items():
+    source_config = raw_config if isinstance(raw_config, dict) else {}
+    if source_config:
+        for key, value in source_config.items():
             if key == "training_export" and isinstance(value, dict):
                 merged["training_export"].update(value)
             else:
@@ -108,7 +114,12 @@ def normalize_local_model_config(raw_config=None, *, keep_secret=True):
     merged["name"] = str(merged.get("name") or DEFAULT_LOCAL_MODEL["name"]).strip() or DEFAULT_LOCAL_MODEL["name"]
     merged["provider"] = str(merged.get("provider") or DEFAULT_LOCAL_MODEL["provider"]).strip() or DEFAULT_LOCAL_MODEL["provider"]
     merged["base_url"] = str(merged.get("base_url") or DEFAULT_LOCAL_MODEL["base_url"]).strip().rstrip("/") or DEFAULT_LOCAL_MODEL["base_url"]
+    if merged["base_url"] in LEGACY_LOCAL_MODEL_BASE_URLS and not source_config.get("vllm_base_url"):
+        merged["base_url"] = DEFAULT_LOCAL_MODEL["base_url"]
+    merged["vllm_base_url"] = str(merged.get("vllm_base_url") or DEFAULT_LOCAL_MODEL["vllm_base_url"]).strip().rstrip("/") or DEFAULT_LOCAL_MODEL["vllm_base_url"]
     merged["model"] = str(merged.get("model") or DEFAULT_LOCAL_MODEL["model"]).strip() or DEFAULT_LOCAL_MODEL["model"]
+    if merged["model"] in LEGACY_LOCAL_MODEL_MODELS:
+        merged["model"] = DEFAULT_LOCAL_MODEL["model"]
     merged["api_key"] = str(merged.get("api_key") or "").strip()
     merged["system_prompt"] = str(merged.get("system_prompt") or DEFAULT_LOCAL_MODEL["system_prompt"]).strip() or DEFAULT_LOCAL_MODEL["system_prompt"]
     for key, default, minimum, maximum in (("timeout_sec", 120, 3, 600), ("temperature", 0.2, 0, 2)):
@@ -120,6 +131,10 @@ def normalize_local_model_config(raw_config=None, *, keep_secret=True):
         merged["max_tokens"] = max(64, min(int(merged.get("max_tokens", 512) or 512), 4096))
     except Exception:
         merged["max_tokens"] = 512
+    try:
+        merged["max_model_len"] = max(1024, min(int(merged.get("max_model_len", 32768) or 32768), 262144))
+    except Exception:
+        merged["max_model_len"] = 32768
     export_cfg = merged.get("training_export") if isinstance(merged.get("training_export"), dict) else {}
     merged_export = deepcopy(DEFAULT_LOCAL_MODEL["training_export"])
     merged_export.update(export_cfg)
@@ -164,6 +179,62 @@ def _request_json(url, payload=None, timeout=30, api_key=""):
         except Exception:
             data = {"raw": text}
         return {"status": resp.status, "elapsed_ms": int((time.time() - started) * 1000), "data": data}
+
+
+def _parse_openai_model_list(data):
+    if not isinstance(data, dict):
+        return []
+    model_rows = data.get("data")
+    if not isinstance(model_rows, list):
+        return []
+    rows = []
+    for item in model_rows:
+        if not isinstance(item, dict):
+            continue
+        docs_count = _extract_docs_count(item)
+        rows.append({
+            "id": item.get("id") or item.get("model") or "",
+            "max_model_len": item.get("max_model_len") or item.get("max_context_len") or item.get("context_length"),
+            "owned_by": item.get("owned_by") or "",
+            "docs_count": docs_count,
+        })
+    return [row for row in rows if row["id"]]
+
+
+def _extract_docs_count(data):
+    if not isinstance(data, dict):
+        return None
+    keys = ("docs_count", "document_count", "knowledge_docs", "loaded_docs", "docs")
+    for key in keys:
+        value = data.get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return int(value)
+    for value in data.values():
+        if isinstance(value, dict):
+            nested = _extract_docs_count(value)
+            if nested is not None:
+                return nested
+    return None
+
+
+def _check_model_endpoint(label, base_url, cfg, timeout):
+    url = f"{str(base_url or '').rstrip('/')}/models"
+    try:
+        result = _request_json(url, timeout=timeout, api_key=cfg.get("api_key", ""))
+        data = result.get("data", {})
+        models = _parse_openai_model_list(data)
+        return {
+            "label": label,
+            "ok": True,
+            "online": True,
+            "url": url,
+            "elapsed_ms": result.get("elapsed_ms"),
+            "models": models,
+            "model_ids": [item["id"] for item in models],
+            "docs_count": _extract_docs_count(data),
+        }
+    except Exception as exc:
+        return {"label": label, "ok": False, "online": False, "url": url, "error": str(exc)}
 
 
 def _read_json_file(path, default):
@@ -698,13 +769,38 @@ def api_local_model_save_config():
 @require_permission("local_model.view")
 def api_local_model_health():
     cfg = normalize_local_model_config(CONFIG.get("local_model"))
-    url = f"{cfg['base_url']}/models"
-    try:
-        result = _request_json(url, timeout=min(float(cfg.get("timeout_sec", 120)), 10), api_key=cfg.get("api_key", ""))
-        models = [item.get("id") for item in result.get("data", {}).get("data", []) if isinstance(item, dict)]
-        return jsonify({"ok": True, "online": True, "url": url, "model": cfg.get("model"), "models": models, "elapsed_ms": result.get("elapsed_ms")})
-    except Exception as exc:
-        return jsonify({"ok": False, "online": False, "url": url, "error": str(exc)})
+    timeout = min(float(cfg.get("timeout_sec", 120)), 10)
+    proxy_status = _check_model_endpoint("knowledge_proxy", cfg.get("base_url"), cfg, timeout)
+    vllm_status = _check_model_endpoint("vllm_upstream", cfg.get("vllm_base_url"), cfg, timeout)
+    online = bool(proxy_status.get("online"))
+    model_rows = proxy_status.get("models") or vllm_status.get("models") or []
+    docs_count = proxy_status.get("docs_count")
+    max_model_len = cfg.get("max_model_len")
+    for row in model_rows:
+        if row.get("id") != cfg.get("model"):
+            continue
+        if row.get("max_model_len"):
+            max_model_len = row.get("max_model_len")
+        if row.get("docs_count") is not None:
+            docs_count = row.get("docs_count")
+        break
+    return jsonify({
+        "ok": online,
+        "online": online,
+        "proxy_online": bool(proxy_status.get("online")),
+        "vllm_online": bool(vllm_status.get("online")),
+        "url": proxy_status.get("url"),
+        "vllm_url": vllm_status.get("url"),
+        "model": cfg.get("model"),
+        "models": [item.get("id") for item in model_rows if item.get("id")],
+        "model_details": model_rows,
+        "docs_count": docs_count,
+        "max_model_len": max_model_len,
+        "elapsed_ms": proxy_status.get("elapsed_ms"),
+        "proxy": proxy_status,
+        "vllm": vllm_status,
+        "error": proxy_status.get("error") if not online else "",
+    }), (200 if online else 502)
 
 
 @bp.route("/api/local-model/chat", methods=["POST"])

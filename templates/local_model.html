@@ -36,6 +36,7 @@
     .msg.user { align-self:flex-end; background:#1d4ed8; color:white; }
     .msg.assistant { align-self:flex-start; background:#111c30; color:#dbeafe; }
     .msg.system { align-self:center; max-width:96%; background:#172033; color:#fbbf24; font-size:13px; }
+    .local-model-msg {}
     .composer { padding:12px; border-top:1px solid rgba(148,163,184,.12); display:grid; grid-template-columns:1fr auto; gap:10px; }
     textarea, input { width:100%; background:#08111f; color:#e5edf8; border:1px solid rgba(148,163,184,.20); border-radius:7px; padding:9px 10px; font:inherit; }
     textarea { min-height:76px; resize:vertical; }
@@ -54,6 +55,11 @@
     .file-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px; background:#0b1424; border:1px solid rgba(148,163,184,.10); border-radius:7px; }
     .file-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:Consolas,monospace; font-size:12px; color:#dbeafe; }
     .file-meta { color:#94a3b8; font-size:12px; }
+    .local-model-status {}
+    .local-model-hint {}
+    .local-model-file-row {}
+    .local-model-file-name {}
+    .local-model-file-meta {}
     @media (max-width: 980px) { main { grid-template-columns:1fr; } .messages { max-height:none; } }
     @media (max-width: 760px) { .layout { display:block; } .sidebar { display:none; } header { align-items:flex-start; flex-direction:column; } main { padding:10px; } .row2 { grid-template-columns:1fr; } }
   </style>
@@ -80,33 +86,34 @@
     <div class="content">
       <header>
         <div><h1>本地模型</h1><div class="meta"><a href="/">返回中控主页</a> · <span id="modelLine">读取配置中...</span></div></div>
-        <span class="status" id="healthBadge">未检测</span>
+        <span class="status local-model-status" id="healthBadge">未检测</span>
       </header>
       <main>
         <section class="panel chat">
           <div class="panel-head"><div class="panel-title">对话入口</div><div class="actions"><button class="secondary" onclick="clearChat()">清空</button><button onclick="checkHealth()">检测服务</button></div></div>
-          <div class="messages" id="messages"></div>
+          <div class="messages local-model-messages" id="messages"></div>
           <div class="composer"><textarea id="prompt" placeholder="问本地模型，例如：整理当前投影机、空调、强电柜的协议和状态关注点"></textarea><button id="sendBtn" onclick="sendChat()">发送</button></div>
         </section>
         <aside class="side">
           <section class="panel">
-            <div class="panel-head"><div class="panel-title">模型配置</div><span class="status" id="saveBadge">未保存</span></div>
+            <div class="panel-head"><div class="panel-title">模型配置</div><span class="status local-model-status" id="saveBadge">未保存</span></div>
             <div class="form">
               <div><label>名称</label><input id="cfgName"></div>
-              <div><label>Base URL</label><input id="cfgBaseUrl"></div>
+              <div><label>对话入口 / 知识代理</label><input id="cfgBaseUrl"></div>
+              <div><label>vLLM 上游服务</label><input id="cfgVllmBaseUrl"></div>
               <div><label>模型</label><input id="cfgModel"></div>
               <div><label>API Key</label><input id="cfgApiKey" placeholder="留空则保留原值，可填 dummy"></div>
               <div class="row2"><div><label>温度</label><input id="cfgTemperature" type="number" step="0.1" min="0" max="2"></div><div><label>输出上限</label><input id="cfgMaxTokens" type="number" min="64" max="4096"></div></div>
-              <div><label>超时秒数</label><input id="cfgTimeout" type="number" min="3" max="600"></div>
+              <div class="row2"><div><label>上下文长度</label><input id="cfgMaxModelLen" type="number" min="1024" max="262144"></div><div><label>超时秒数</label><input id="cfgTimeout" type="number" min="3" max="600"></div></div>
               <div><label>系统提示词</label><textarea id="cfgSystemPrompt"></textarea></div>
               <div class="actions"><button class="success" onclick="saveConfig()">保存配置</button><button class="secondary" onclick="loadConfig()">重新读取</button></div>
-              <div class="hint">默认对接 122 的 vLLM OpenAI 兼容接口。真实控制类建议只让模型给建议，最终动作仍由中控按钮和权限确认。</div>
+              <div class="hint">默认使用 122 的知识代理 8001 作为对话入口，vLLM 8000 作为上游状态校验。真实控制类建议只让模型给建议，最终动作仍由中控按钮和权限确认。</div>
             </div>
           </section>
           <section class="panel">
             <div class="panel-head"><div class="panel-title">训练数据导出</div><button class="warning" onclick="exportTraining()">生成</button></div>
-            <div class="form"><div class="hint" id="exportInfo">将设备、协议配置、事件日志和操作日志归一化为 JSON/JSONL，并自动脱敏凭据。</div></div>
-            <div class="files" id="files"></div>
+            <div class="form"><div class="hint local-model-hint" id="exportInfo">将设备、协议配置、事件日志和操作日志归一化为 JSON/JSONL，并自动脱敏凭据。</div></div>
+            <div class="files local-model-files" id="files"></div>
           </section>
         </aside>
       </main>

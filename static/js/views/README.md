@@ -21,7 +21,7 @@ This directory is the target for gradually extracting logic from `templates/inde
 - `current-collector.js`: standalone current collector page, live polling, pause/resume display, group totals, raw channel cards, and `/api/current-collector/*` actions.
 - `m32r.js`: standalone M32R virtual console page, mixer status polling, channel/main controls, templates, and Apple Audio route helpers.
 - `driver-hub.js`: standalone driver hub snapshot page, group filtering, health counters, and driver table rendering.
-- `local-model.js`: standalone local AI model console, configuration form, health check, chat, and training data export UI.
+- `local-model.js`: local AI model console for the main sidebar view and standalone page, configuration form, health check, chat, and training data export UI.
 - `login.js`: login page submit handler, remember-me local storage, and Enter-key shortcut.
 - `lighting.js`: standalone legacy stage lighting page polling, log refresh, and unchanged jQuery control event bindings.
 

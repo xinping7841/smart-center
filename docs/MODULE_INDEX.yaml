@@ -219,11 +219,11 @@ modules:
     ai_keywords: ['universal','protocol control','control_center','custom device','TCP','UDP','serial']
   local_model:
     frontend_module: 'static/js/views/local-model.js'
-    purpose: Local AI console and training data export metadata.
+    purpose: Local AI console in the main sidebar/standalone page, OpenAI-compatible chat config, health checks, and training data export metadata.
     routes: ['/local-model','/api/local-model/*']
     backend: ['api/local_model.py','scripts/export_local_model_training.py']
-    frontend: ['templates/local_model.html','static/js/views/local-model.js']
+    frontend: ['templates/index.html','templates/local_model.html','static/js/views/local-model.js','static/css/views/local-model.css']
     config_keys: ['local_model']
     runtime_state: ['runtime/local_model']
     split_priority: low
-    ai_keywords: ['local model','training','export','ai']
+    ai_keywords: ['local model','training','export','ai','vLLM','OpenAI compatible','knowledge proxy']
