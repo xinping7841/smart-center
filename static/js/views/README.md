@@ -32,3 +32,7 @@ Rules:
 - Keep API URLs and payload fields stable.
 - Validate the affected view in the 16:9 preview after each extraction.
 - Keep physical-control modules extra conservative: power cabinet, sequencer, projector, screen, door, light, and server shutdown/WOL code must keep existing lock, delay, and verification behavior unless testing on approved hardware.
+
+Core-only note:
+
+- `../core/viewport-layout.js`: early viewport preset detection for mobile, foldable/tablet, and desktop-site rendering. It must stay before CSS and view scripts in `templates/index.html`.

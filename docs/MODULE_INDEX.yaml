@@ -9,11 +9,11 @@ modules:
     purpose: Shared frontend namespace, module registry, API wrappers, permissions, formatting, toast, and frontend error guards.
     routes: []
     backend: []
-    frontend: ['static/js/core/bootstrap.js','static/js/core/utils.js']
+    frontend: ['static/js/core/viewport-layout.js','static/js/core/bootstrap.js','static/js/core/utils.js']
     config_keys: []
     runtime_state: []
     split_priority: low
-    ai_keywords: ['frontend core','SmartCenter','utils','toast','fetchJson','permission','module registry']
+    ai_keywords: ['frontend core','SmartCenter','utils','toast','fetchJson','permission','module registry','viewport','layout preset','mobile desktop']
   dashboard:
     purpose: Main overview page and summary cards.
     routes: ['/','/api/dashboard/summary']
