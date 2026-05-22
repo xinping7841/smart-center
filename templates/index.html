@@ -1985,20 +1985,20 @@
         }
         const DASHBOARD_POLLING_INITIAL_DELAYS = {
             dashboard_summary: 80,
-            hvac: 360,
-            power: 680,
-            light: 920,
-            sequencer: 1160,
-            ups: 1380,
-            env: 1580,
-            door: 1780,
-            hy_edge: 2020,
-            snmp: 2350,
-            projector: 2700,
-            screen: 3000,
-            automation: 3300,
-            logs: 3650,
-            meter: 3900,
+            hvac: 900,
+            light: 1400,
+            power: 1800,
+            sequencer: 2400,
+            ups: 3000,
+            env: 3600,
+            projector: 4400,
+            screen: 5200,
+            automation: 6000,
+            hy_edge: 7000,
+            door: 7800,
+            logs: 8600,
+            snmp: 9800,
+            meter: 12500,
         };
         function getPollingInitialDelay(task, index) {
             const activeView = getActiveViewId();
@@ -6227,7 +6227,6 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         registerPollingTask('apple_audio', 3200, () => loadAppleAudioStatus(), () => ['apple_audio'].includes(getActiveViewId()));
         registerPollingTask('logs', 5000, () => updateDashboardLogs(), () => getActiveViewId() === 'dashboard');
         registerPollingTask('event_logs', 5000, () => refreshEventLogs(false), () => getActiveViewId() === 'logs');
-        setTimeout(() => { try { updateDashboardSummary(); } catch (_) {} }, 220);
 
         function saveDoorRegionSelection(regionPayload) {
             return fetchJsonLoose('/update_door_region', {
