@@ -5467,7 +5467,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 || Array.isArray(status?.inferred_zones);
         }
         function getDashboardProjectors() {
-            return projectorConfigs.filter(proj => !isInferredProjector(proj, getProjectorStatus(proj.id)));
+            return projectorConfigs.filter(proj => proj.visible !== false && proj.dashboard_visible !== false);
         }
         function formatProjectorKw(value) {
             if (value === null || value === undefined || value === '') return '--';

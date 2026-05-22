@@ -198,6 +198,7 @@
         <button class="btn btn-blue" data-tab="ups" onclick="switchTab('ups')">UPS配置</button>
         <button class="btn btn-blue" data-tab="snmp" onclick="switchTab('snmp')">SNMP配置</button>
         <button class="btn btn-blue" data-tab="m32r" onclick="switchTab('m32r')">M32R控台</button>
+        <button class="btn btn-blue" data-tab="current_collector" onclick="switchTab('current_collector')">电流采集</button>
         <button class="btn btn-blue" data-tab="sequencer" onclick="switchTab('sequencer')">时序电源</button>
         <button class="btn btn-blue" data-tab="light" onclick="switchTab('light')">灯光配置</button>
         <button class="btn btn-blue" data-tab="scene" onclick="switchTab('scene')">全局场景</button>
@@ -224,6 +225,7 @@
     </div>
     <div id="tab-ups" class="tab-content"><button class="btn btn-green" style="margin-bottom: 15px;" onclick="addUps()">+ 添加UPS</button><div id="list-ups"></div></div>
     <div id="tab-snmp" class="tab-content"><button class="btn btn-green" style="margin-bottom: 15px;" onclick="addSnmp()">+ 添加SNMP设备</button><div id="list-snmp"></div></div>
+    <div id="tab-current_collector" class="tab-content"><div id="list-current-collector"></div></div>
     <div id="tab-m32r" class="tab-content"><div id="list-m32r"></div></div>
     <div id="tab-sequencer" class="tab-content"><button class="btn btn-green" style="margin-bottom: 15px;" onclick="addSequencer()">+ 添加时序电源</button><div id="list-sequencer"></div></div>
     <div id="tab-light" class="tab-content"><button class="btn btn-green" style="margin-bottom: 15px;" onclick="addLight()">+ 添加灯光模块</button><div id="list-light"></div></div>
@@ -578,6 +580,9 @@
         if(!conf.door_config) conf.door_config = { rtsp_url: "", match_threshold: 1500, ip: "192.168.50.51", port: 50000 };
         if(!conf.server_monitor) conf.server_monitor = { agent_host: "", agent_port: 6899, scan_networks: [] };
         if(!conf.m32r || typeof conf.m32r !== 'object') conf.m32r = { enabled: false, host: '192.168.50.32', port: 10023, name: 'Midas M32R', channel_count: 8, bank_start: 1, poll_interval_ms: 1200, keepalive_sec: 5, auto_connect: false };
+        if(!conf.current_collector || typeof conf.current_collector !== 'object') conf.current_collector = { enabled: true, name: '16路电流采集器', transport: 'tcp-rtu', host: '192.168.50.109', port: 502, serial_port: 'COM7', baudrate: 9600, bytesize: 8, parity: 'N', stopbits: 1, slave: 1, register: 0, count: 16, scale: 100, multiplier: 1, timeout: 2, poll_interval: 5, channels: [], groups: [] };
+        if(!Array.isArray(conf.current_collector.channels)) conf.current_collector.channels = [];
+        if(!Array.isArray(conf.current_collector.groups)) conf.current_collector.groups = [];
         if(!conf.meter_statistics || typeof conf.meter_statistics !== 'object') conf.meter_statistics = { summary_mode: 'include_flag', display_reset_enabled: false, display_reset_from: '', energy_display_mode: 'display', report_dir: 'reports\\energy', auto_export_enabled: true, history_keep_days: 90, default_trend_mode: 'total', remote_service_enabled: false, remote_service_mode: 'remote_overlay_local', remote_service_url: '', remote_service_timeout_sec: 5, remote_sync_on_save: false, reference_total_meter_source_key: '', cabinet_gateway_enabled: false, cabinet_gateway_url: '', cabinet_gateway_timeout_sec: 5, cabinet_gateway_sync_on_save: false };
         if(!conf.login_page_text || typeof conf.login_page_text !== 'object') conf.login_page_text = {
             browser_title: '中控系统登录',
@@ -637,6 +642,7 @@
             {id: "power", icon: "⚡", name: "强电控制", sort: 2, visible: true},
             {id: "m32r", icon: "🎛", name: "M32R 控台", sort: 3, visible: true},
             {id: "meter", icon: "🔋", name: "电表中心", sort: 3, visible: true},
+            {id: "current_collector", icon: "∿", name: "电流采集", sort: 3.4, visible: true},
             {id: "ups", icon: "🔌", name: "UPS监测", sort: 4, visible: true},
             {id: "sequencer", icon: "🔌", name: "时序电源", sort: 3, visible: true},
             {id: "light", icon: "💡", name: "场馆灯光", sort: 4, visible: true},
@@ -796,6 +802,108 @@
         }
         function upd(g, i, k, val, isNum=false) { if (i !== null) { conf[g][i][k] = isNum ? (parseInt(val) || 0) : val; } else { conf[g][k] = isNum ? (parseInt(val) || 0) : val; } renderAll(); }
         function updDeepValue(group, key, val, isNum=false) { conf[group][key] = isNum ? (parseInt(val) || 0) : val; renderAll(); }
+
+        function currentCollectorConfig() {
+            if(!conf.current_collector || typeof conf.current_collector !== 'object') conf.current_collector = {};
+            const cc = conf.current_collector;
+            if(!Array.isArray(cc.channels)) cc.channels = [];
+            if(!Array.isArray(cc.groups)) cc.groups = [];
+            const count = Math.max(1, Math.min(64, parseInt(cc.count || 16, 10) || 16));
+            cc.count = count;
+            for (let i = 0; i < count; i++) {
+                if(!cc.channels[i] || typeof cc.channels[i] !== 'object') cc.channels[i] = { index: i + 1, name: `回路 ${i + 1}`, visible: true, sort: i + 1 };
+                cc.channels[i].index = i + 1;
+                if(!cc.channels[i].name) cc.channels[i].name = `回路 ${i + 1}`;
+                if(typeof cc.channels[i].visible === 'undefined') cc.channels[i].visible = true;
+                if(!cc.channels[i].sort) cc.channels[i].sort = i + 1;
+            }
+            cc.channels = cc.channels.slice(0, count);
+            return cc;
+        }
+        function updateCurrentCollectorValue(key, value, isNum=false) {
+            const cc = currentCollectorConfig();
+            cc[key] = isNum ? Number(value) : value;
+            if (isNum && !Number.isFinite(cc[key])) cc[key] = 0;
+            renderAll();
+        }
+        function updateCurrentCollectorChannel(index, key, value, isNum=false) {
+            const cc = currentCollectorConfig();
+            if(!cc.channels[index]) cc.channels[index] = { index: index + 1, name: `回路 ${index + 1}`, visible: true, sort: index + 1 };
+            cc.channels[index][key] = isNum ? (parseInt(value, 10) || 0) : value;
+            renderAll();
+        }
+        function updateCurrentCollectorGroup(index, key, value, isNum=false) {
+            const cc = currentCollectorConfig();
+            if(!cc.groups[index]) cc.groups[index] = { name: '组合回路', channels: [], visible: true, sort: index + 1 };
+            if (key === 'channels') {
+                cc.groups[index].channels = String(value || '').split(/[,，\s]+/).map(v => parseInt(v, 10)).filter(v => Number.isFinite(v) && v > 0);
+            } else {
+                cc.groups[index][key] = isNum ? (parseInt(value, 10) || 0) : value;
+            }
+            renderAll();
+        }
+        function addCurrentCollectorGroup() {
+            if (!guardConfigMutation('meter.config', '新增电流采集组合')) return;
+            const cc = currentCollectorConfig();
+            cc.groups.push({ name: '新组合', channels: [], visible: true, sort: cc.groups.length + 1 });
+            renderAll();
+        }
+        function removeCurrentCollectorGroup(index) {
+            if (!guardConfigMutation('meter.config', '删除电流采集组合')) return;
+            currentCollectorConfig().groups.splice(index, 1);
+            renderAll();
+        }
+        function renderCurrentCollectorConfig() {
+            const cc = currentCollectorConfig();
+            const channelsHtml = cc.channels.map((ch, i) => `
+                <div class="action-row" style="background:#fff;">
+                    <div class="item"><label>回路</label><input value="${i + 1}" disabled style="background:#f1f5f9;"></div>
+                    <div class="item"><label>名称</label><input value="${escapeHtml(ch.name || '')}" onchange="updateCurrentCollectorChannel(${i},'name',this.value)"></div>
+                    <div class="item"><label>显示</label><select onchange="updateCurrentCollectorChannel(${i},'visible',this.value==='true')"><option value="true" ${ch.visible !== false ? 'selected' : ''}>显示</option><option value="false" ${ch.visible === false ? 'selected' : ''}>隐藏</option></select></div>
+                    <div class="item"><label>排序</label><input type="number" value="${ch.sort || (i + 1)}" onchange="updateCurrentCollectorChannel(${i},'sort',this.value,true)"></div>
+                </div>`).join('');
+            const groupsHtml = cc.groups.map((g, i) => `
+                <div class="action-row" style="background:#fff;">
+                    <div class="item"><label>组合名称</label><input value="${escapeHtml(g.name || '')}" onchange="updateCurrentCollectorGroup(${i},'name',this.value)"></div>
+                    <div class="item"><label>回路编号</label><input value="${(g.channels || []).join(',')}" placeholder="例如 2,4,8" onchange="updateCurrentCollectorGroup(${i},'channels',this.value)"></div>
+                    <div class="item"><label>显示</label><select onchange="updateCurrentCollectorGroup(${i},'visible',this.value==='true')"><option value="true" ${g.visible !== false ? 'selected' : ''}>显示</option><option value="false" ${g.visible === false ? 'selected' : ''}>隐藏</option></select></div>
+                    <div class="item"><label>排序</label><input type="number" value="${g.sort || (i + 1)}" onchange="updateCurrentCollectorGroup(${i},'sort',this.value,true)"></div>
+                    <button class="btn btn-red" onclick="removeCurrentCollectorGroup(${i})">删除</button>
+                </div>`).join('') || '<div class="proj-empty-state">暂无组合，可用于投影机、区域设备等多回路合并判断。</div>';
+            return `<div class="card">
+                <div class="meter-config-head">
+                    <div>
+                        <h3>电流采集器配置</h3>
+                        <div class="meter-config-head-copy">配置采集器接入方式、采集周期、回路名称和组合卡片。保存后主页与电流采集页面会使用这些名称。</div>
+                    </div>
+                    <div class="meter-config-actions">
+                        <a class="btn btn-blue" style="text-decoration:none;" href="/current-collector">查看采集页面</a>
+                        <button class="btn btn-green" onclick="addCurrentCollectorGroup()">+ 添加组合</button>
+                    </div>
+                </div>
+                <div class="grid meter-config-grid">
+                    <div class="item"><label>启用</label><select onchange="updateCurrentCollectorValue('enabled',this.value==='true')"><option value="true" ${cc.enabled !== false ? 'selected' : ''}>启用</option><option value="false" ${cc.enabled === false ? 'selected' : ''}>停用</option></select></div>
+                    <div class="item"><label>设备名称</label><input value="${escapeHtml(cc.name || '')}" onchange="updateCurrentCollectorValue('name',this.value)"></div>
+                    <div class="item"><label>接入协议</label><select onchange="updateCurrentCollectorValue('transport',this.value)"><option value="tcp-rtu" ${cc.transport === 'tcp-rtu' ? 'selected' : ''}>TCP RTU 透传</option><option value="modbus-tcp" ${cc.transport === 'modbus-tcp' ? 'selected' : ''}>Modbus TCP</option><option value="serial" ${cc.transport === 'serial' ? 'selected' : ''}>本机串口</option></select></div>
+                    <div class="item"><label>IP 地址</label><input value="${escapeHtml(cc.host || '')}" onchange="updateCurrentCollectorValue('host',this.value)"></div>
+                    <div class="item"><label>端口</label><input type="number" value="${cc.port || 502}" onchange="updateCurrentCollectorValue('port',this.value,true)"></div>
+                    <div class="item"><label>串口</label><input value="${escapeHtml(cc.serial_port || '')}" onchange="updateCurrentCollectorValue('serial_port',this.value)"></div>
+                    <div class="item"><label>波特率</label><input type="number" value="${cc.baudrate || 9600}" onchange="updateCurrentCollectorValue('baudrate',this.value,true)"></div>
+                    <div class="item"><label>数据位</label><input type="number" value="${cc.bytesize || 8}" onchange="updateCurrentCollectorValue('bytesize',this.value,true)"></div>
+                    <div class="item"><label>校验</label><select onchange="updateCurrentCollectorValue('parity',this.value)"><option value="N" ${(cc.parity || 'N') === 'N' ? 'selected' : ''}>N</option><option value="E" ${cc.parity === 'E' ? 'selected' : ''}>E</option><option value="O" ${cc.parity === 'O' ? 'selected' : ''}>O</option></select></div>
+                    <div class="item"><label>停止位</label><input type="number" value="${cc.stopbits || 1}" onchange="updateCurrentCollectorValue('stopbits',this.value,true)"></div>
+                    <div class="item"><label>站号</label><input type="number" value="${cc.slave || 1}" onchange="updateCurrentCollectorValue('slave',this.value,true)"></div>
+                    <div class="item"><label>起始寄存器</label><input type="number" value="${cc.register || 0}" onchange="updateCurrentCollectorValue('register',this.value,true)"></div>
+                    <div class="item"><label>回路数量</label><input type="number" value="${cc.count || 16}" min="1" max="64" onchange="updateCurrentCollectorValue('count',this.value,true)"></div>
+                    <div class="item"><label>缩放系数</label><input type="number" step="0.001" value="${cc.scale || 100}" onchange="updateCurrentCollectorValue('scale',this.value,true)"></div>
+                    <div class="item"><label>倍率</label><input type="number" step="0.001" value="${cc.multiplier || 1}" onchange="updateCurrentCollectorValue('multiplier',this.value,true)"></div>
+                    <div class="item"><label>超时秒</label><input type="number" step="0.1" value="${cc.timeout || 2}" onchange="updateCurrentCollectorValue('timeout',this.value,true)"></div>
+                    <div class="item"><label>轮询秒</label><input type="number" value="${cc.poll_interval || 5}" onchange="updateCurrentCollectorValue('poll_interval',this.value,true)"></div>
+                </div>
+            </div>
+            <div class="card"><h3 style="color:var(--blue); margin-top:0;">组合卡片</h3>${groupsHtml}</div>
+            <div class="card"><h3 style="color:var(--blue); margin-top:0;">回路名称</h3>${channelsHtml}</div>`;
+        }
         const ENV_FEATURE_DEFAULTS = {
             temperature: true,
             humidity: true,
@@ -3273,6 +3381,8 @@
                     </div>`;
                 });
                 document.getElementById('list-cab').innerHTML = hc;
+                const currentCollectorConfigPanel = document.getElementById('list-current-collector');
+                if (currentCollectorConfigPanel) currentCollectorConfigPanel.innerHTML = renderCurrentCollectorConfig();
                 const meterStatisticsConfig = document.getElementById('meter-statistics-config');
                 if (meterStatisticsConfig) meterStatisticsConfig.innerHTML = renderMeterStatisticsConfigCard();
 
@@ -6168,6 +6278,10 @@
         }
         loadControlCenterPacks(true).catch(() => {});
         renderAll();
+        const requestedTab = new URLSearchParams(window.location.search).get('tab');
+        const tabAliases = { current: 'current_collector', collector: 'current_collector' };
+        const initialTab = tabAliases[requestedTab] || requestedTab;
+        if (initialTab && document.getElementById('tab-' + initialTab)) switchTab(initialTab);
         applyConfigPermissionUI();
     </script>
 </body>
