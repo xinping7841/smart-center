@@ -9,7 +9,7 @@ The dashboard currently works, so frontend splitting must be done as behavior-pr
 - `templates/index.html` is the main shell and contains large inline CSS/JS.
 - Static CSS files are large and mostly shared.
 - Most buttons still call global functions from inline `onclick` attributes.
-- The following behavior-preserving modules have been extracted to `static/js/views/`: `logs.js`, `proxy.js`, `ups.js`, `hy-edge.js`, `apple-audio.js`, `universal.js`, `env.js`, `snmp.js`, `server-monitor.js`, `power-meter.js`, `current-collector.js`, `m32r.js`, `driver-hub.js`, `local-model.js`, `login.js`, and `lighting.js`.
+- The following behavior-preserving modules have been extracted to `static/js/views/`: `logs.js`, `proxy.js`, `ups.js`, `hy-edge.js`, `apple-audio.js`, `universal.js`, `env.js`, `snmp.js`, `server-monitor.js`, `power-meter.js`, `automation-view.js`, `current-collector.js`, `m32r.js`, `driver-hub.js`, `local-model.js`, `login.js`, and `lighting.js`.
 
 ## Stage 2A: Bootstrap And Boundaries
 
@@ -61,6 +61,7 @@ Recommended order after utilities are stable:
 3. Power/meter dashboard.
    - In progress: `static/js/views/power-meter.js` now holds low-risk display helpers for cabinet names, channel labels, meter cards, reference summaries, meter chips, and source badges. `templates/index.html` still keeps live polling, ECharts instances, one-key start/stop, channel switching, locks, and delayed verification.
 4. Automation node canvas.
+   - In progress: `static/js/views/automation-view.js` now holds runtime status helpers, condition chips, schedule summaries, action labels, and node-flow data/HTML builders. `templates/index.html` still keeps modal state, drag/zoom, inline panel rendering, API status polling, rule enable/disable, and save actions.
 5. HVAC room cards.
 6. NVR preview.
 

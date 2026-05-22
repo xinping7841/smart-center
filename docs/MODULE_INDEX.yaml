@@ -73,10 +73,11 @@ modules:
     split_priority: high
     ai_keywords: ['snmp','qnap','ikuai','h3c','switch','storage','interface','oid']
   automation:
+    frontend_module: 'static/js/views/automation-view.js'
     purpose: Scene automation rules, node canvas display, condition evaluation and execution logs.
     routes: ['/api/automation/status','/api/automation/logs','/api/automation/toggle','/api/automation/update']
     backend: ['api/automation.py','runtime/automation.py','background.py']
-    frontend: ['templates/index.html','templates/config.html']
+    frontend: ['templates/index.html','templates/config.html','static/js/views/automation-view.js']
     config_keys: ['automation_rules','scene_links']
     runtime_state: ['automation runtime snapshot','operation_logs.json']
     split_priority: high
