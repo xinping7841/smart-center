@@ -1655,9 +1655,9 @@
         .codemeter-line-head strong { color:#bbf7d0; font-size:11px; }
         .codemeter-license-table { display:grid; gap:2px; min-width:0; width:100%; }
         .codemeter-license-head,
-        .codemeter-license-row { display:grid; grid-template-columns:minmax(84px, 1.2fr) 50px minmax(96px, 1fr) 64px; column-gap:12px; align-items:center; min-width:0; width:100%; }
+        .codemeter-license-row { display:grid; grid-template-columns:88px 42px 86px 52px; column-gap:6px; align-items:center; min-width:0; width:100%; }
         .codemeter-license-head { color:#64748b; font-size:9px; font-weight:800; line-height:1.1; }
-        .codemeter-license-row { color:#dbeafe; font-size:10.5px; font-weight:800; line-height:1.25; }
+        .codemeter-license-row { color:#dbeafe; font-size:10px; font-weight:800; line-height:1.25; }
         .codemeter-license-row span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .codemeter-license-head span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
         .codemeter-license-head .cm-code,
