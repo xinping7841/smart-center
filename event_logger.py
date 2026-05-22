@@ -149,7 +149,7 @@ def init_event_log_db():
 
 def _prune_pending(now_ts=None):
     now_ts = float(now_ts or time.time())
-    cutoff = now_ts - PENDING_TTL_SEC
+    cutoff = now_ts - _PENDING_TTL_SEC
     _PENDING_COMMANDS[:] = [item for item in _PENDING_COMMANDS if float(item.get("ts", 0.0) or 0.0) >= cutoff]
 
 

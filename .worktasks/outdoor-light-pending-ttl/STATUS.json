@@ -1,0 +1,10 @@
+{
+  "task": "outdoor-light-pending-ttl",
+  "module": "light",
+  "machine": "local-codex",
+  "kind": "light",
+  "branch": "codex/local-codex-outdoor-light-pending-ttl-20260522",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/outdoor-light-pending-ttl",
+  "started_at": "2026-05-22 18:35:41",
+  "status": "in_progress"
+}

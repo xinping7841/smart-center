@@ -12,6 +12,7 @@ from copy import deepcopy
 from datetime import datetime
 import json
 import os
+import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
@@ -29,6 +30,7 @@ bp = Blueprint("node_red", __name__)
 NODE_RED_BASE_URL = os.environ.get("SMART_CENTER_NODE_RED_URL", "http://192.168.50.121:1880").rstrip("/")
 HTTP_TIMEOUT_SEC = float(os.environ.get("SMART_CENTER_NODE_RED_TIMEOUT_SEC", "5"))
 PUSH_TOKEN = os.environ.get("SMART_CENTER_NODE_RED_PUSH_TOKEN", "").strip()
+CONTROL_COOLDOWN_SEC = float(os.environ.get("SMART_CENTER_NODE_RED_CONTROL_COOLDOWN_SEC", "0"))
 
 DEVICE_REGISTRY = {
     "courtyard_light": {
@@ -40,6 +42,7 @@ DEVICE_REGISTRY = {
         "capabilities": ["on", "off", "status", "push_state", "health.serial"],
         "sort": 10,
         "single_toggle": True,
+        "control_cooldown_sec": 8,
     },
     "hall1_projector": {
         "device_id": "hall1_projector",
@@ -84,6 +87,7 @@ DEVICE_REGISTRY = {
 }
 
 STATE_CACHE = {}
+CONTROL_COOLDOWNS = {}
 
 STATUS_TEXT = {
     "on": "\u4eae",
@@ -134,6 +138,31 @@ def _device_meta(device_id):
     return deepcopy(DEVICE_REGISTRY.get(str(device_id) or "") or {})
 
 
+def _cooldown_seconds(meta):
+    try:
+        return max(float(meta.get("control_cooldown_sec", CONTROL_COOLDOWN_SEC) or 0), 0.0)
+    except Exception:
+        return CONTROL_COOLDOWN_SEC
+
+
+def _cooldown_key(device_id):
+    return str(device_id or "").strip()
+
+
+def _cooldown_remaining(device_id, meta=None, now_ts=None):
+    meta = meta or _device_meta(device_id)
+    cooldown_sec = _cooldown_seconds(meta)
+    if cooldown_sec <= 0:
+        return 0.0
+    now_ts = float(now_ts or time.monotonic())
+    last_ts = float(CONTROL_COOLDOWNS.get(_cooldown_key(device_id), 0.0) or 0.0)
+    return max(cooldown_sec - (now_ts - last_ts), 0.0)
+
+
+def _mark_control_cooldown(device_id, now_ts=None):
+    CONTROL_COOLDOWNS[_cooldown_key(device_id)] = float(now_ts or time.monotonic())
+
+
 def _extract_status(payload, state):
     status = payload.get("status") or state.get("status")
     power = payload.get("power")
@@ -180,6 +209,8 @@ def _normalize_device_payload(device_id, payload, meta=None, transport_error="")
         "raw": payload,
         "meta": {k: v for k, v in meta.items() if k not in {"status_path", "control_path"}},
     }
+    normalized["control_cooldown_sec"] = _cooldown_seconds(meta)
+    normalized["cooldown_remaining_sec"] = round(_cooldown_remaining(device_id, meta=meta), 1)
     if isinstance(payload.get("power"), dict):
         normalized["power"] = payload.get("power")
     return normalized
@@ -213,10 +244,15 @@ def control_node_red_device(device_id, action, source="central_control"):
     if normalized_action == "toggle":
         current = get_node_red_device_status(device_id)
         normalized_action = "off" if str(current.get("status") or "").lower() == "on" else "on"
+    remaining = _cooldown_remaining(device_id, meta=meta)
+    if remaining > 0:
+        raise RuntimeError(f"开关保护冷却中，请 {max(1, int(round(remaining)))} 秒后再试")
     code, result = _node_red_request(meta["control_path"], "POST", {"action": normalized_action, "source": source})
     if code >= 400:
         raise RuntimeError(f"HTTP {code}: {result}")
     success = bool(result.get("success", True)) if isinstance(result, dict) else True
+    if success:
+        _mark_control_cooldown(device_id)
     normalized = _normalize_device_payload(device_id, result if isinstance(result, dict) else {}, meta=meta)
     STATE_CACHE[device_id] = normalized
     return success, normalized, "node_red"
@@ -279,10 +315,23 @@ def api_node_red_device_control(device_id):
     if not locked:
         return jsonify({"ok": 0, "success": False, "error": "device_busy", "msg": f"device is being operated by {lock_info.get('owner')}, retry later"}), 409
     try:
+        remaining = _cooldown_remaining(device_id, meta=meta)
+        if remaining > 0:
+            seconds = max(1, int(round(remaining)))
+            return jsonify({
+                "ok": 0,
+                "success": False,
+                "error": "cooldown",
+                "msg": f"开关保护冷却中，请 {seconds} 秒后再试",
+                "retry_after_sec": seconds,
+                "device": _normalize_device_payload(device_id, deepcopy(STATE_CACHE.get(device_id) or {}), meta=meta),
+            }), 429
         code, result = _node_red_request(meta["control_path"], "POST", {"action": action, "source": "central_control"})
         if code >= 400:
             raise RuntimeError(f"HTTP {code}: {result}")
         success = bool(result.get("success", True)) if isinstance(result, dict) else True
+        if success:
+            _mark_control_cooldown(device_id)
         normalized = _normalize_device_payload(device_id, result if isinstance(result, dict) else {}, meta=meta)
         STATE_CACHE[device_id] = normalized
         add_log(-1, f"[Node-RED] {meta.get('device_name')} -> {action} {'ok' if success else 'failed'}")
