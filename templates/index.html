@@ -5625,21 +5625,24 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             const targetTotal = Number(status.target_total_count ?? 0);
             const targetOnline = Number(status.target_online_count ?? 0);
             const targetSummary = targetTotal ? `\u4e32\u53e3 ${targetOnline}/${targetTotal}` : '\u4e32\u53e3\u672a\u914d\u7f6e';
+            const evidenceSummary = renderInferredEvidenceSummary(status);
+            const noteText = status.inference_basis || status.status_note || statusMeta.note;
             return `<div class="dashboard-mini-card projector-compact-card ${getCardStateClass(statusMeta)}">
                 <div class="dashboard-mini-projector-head">
-                    <div class="dashboard-mini-projector-title">
+                    <div class="dashboard-mini-projector-title" style="min-width:0;">
                         <div class="dashboard-mini-title">${escapeHtml(proj.name || proj.id)}</div>
-                        <div class="dashboard-mini-subtitle">${escapeHtml(targetSummary)} \u00b7 ${escapeHtml(renderInferredEvidenceSummary(status))}</div>
+                        <div class="dashboard-mini-subtitle">${escapeHtml(targetSummary)} \u00b7 ${escapeHtml(statusMeta.text)}</div>
                     </div>
                     <div class="dashboard-mini-projector-controls">
                         <button class="dashboard-mini-projector-entry" type="button" title="\u6253\u5f00\u9065\u63a7\u5668\u9762\u677f" onclick="openProjectorRemote('${escapeHtml(proj.id)}')">${getProjectorIconHtml('remote')}</button>
                         ${powerButtonCmd ? `<button class="projector-power-key ${powerButtonClass}${getPermissionDisabledClass('projector.control')}" ${getPermissionDisabledAttrs('projector.control', '\u5f53\u524d\u8d26\u53f7\u65e0\u6295\u5f71\u673a\u63a7\u5236\u6743\u9650')} title="${escapeHtml(powerButtonTitle)}" onclick="fireProjectorCommand('${escapeHtml(proj.id)}', '${escapeHtml(powerButtonCmd.payload || '')}', '${escapeHtml(powerButtonCmd.format || 'str')}', '${escapeHtml(powerButtonCmd.name || '')}')">${getProjectorIconHtml('power')}</button>` : `<button class="projector-power-key ${powerButtonClass}" title="\u6253\u5f00\u9065\u63a7\u5668" onclick="openProjectorRemote('${escapeHtml(proj.id)}')">${getProjectorIconHtml('power')}</button>`}
                     </div>
                 </div>
-                ${renderInferredEvidenceCards(status, true)}
-                <div class="dashboard-mini-note">${escapeHtml(status.inference_basis || status.status_note || statusMeta.note)}</div>
+                <div class="dashboard-mini-note" title="${escapeHtml(evidenceSummary)}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(evidenceSummary)}</div>
+                <div class="dashboard-mini-note" title="${escapeHtml(noteText)}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(noteText)}</div>
             </div>`;
         }
+
         function renderProjectorCard(proj, scope) {
             const status = getProjectorStatus(proj.id);
             if (isInferredProjector(proj, status)) return renderInferredProjectorCard(proj);
