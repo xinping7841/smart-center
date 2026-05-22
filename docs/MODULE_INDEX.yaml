@@ -61,10 +61,11 @@ modules:
     split_priority: very_high
     ai_keywords: ['server','agent','machines','wol','codemeter','gpu','shutdown']
   snmp_monitor:
+    frontend_module: 'static/js/views/snmp.js'
     purpose: SNMP polling and display for NAS, router, switch, UPS-like network devices.
     routes: ['/api/snmp/status','/api/snmp/test']
     backend: ['api/snmp.py','snmp_core.py','background.py']
-    frontend: ['templates/index.html','templates/config.html']
+    frontend: ['templates/index.html','templates/config.html','static/js/views/snmp.js']
     config_keys: ['snmp_devices']
     runtime_state: ['SNMP_STATUS']
     split_priority: high

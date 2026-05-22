@@ -55,6 +55,7 @@ Recommended order:
 Recommended order after utilities are stable:
 
 1. SNMP monitor.
+   - Started: `static/js/views/snmp.js` holds SNMP formatting, filter, interface, and switch-port helper utilities while `templates/index.html` keeps compatibility wrappers.
 2. Server monitor.
 3. Power/meter dashboard.
 4. Automation node canvas.

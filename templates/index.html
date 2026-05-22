@@ -93,6 +93,7 @@
     <script src="/static/js/views/apple-audio.js?v=20260522-stage2-apple-audio-view"></script>
     <script src="/static/js/views/universal.js?v=20260522-stage2-universal-view"></script>
     <script src="/static/js/views/env.js?v=20260522-stage2-env-view"></script>
+    <script src="/static/js/views/snmp.js?v=20260522-stage2-snmp-helpers"></script>
     <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260519-sequencer-single-page">
     <style>
         /* AI map: dashboard.inline_styles. Move isolated blocks to static/css/views
@@ -4541,108 +4542,40 @@
             updateMeterCenter();
         }
         function formatSnmpMetricValue(metric) {
-            if (!metric || metric.value === undefined || metric.value === null || metric.value === '') return '--';
-            const unit = metric.unit ? ` ${metric.unit}` : '';
-            return `${metric.value}${unit}`;
+            return SmartCenter.snmp.formatSnmpMetricValue(metric);
         }
         function formatSnmpSummaryValue(value, suffix = '') {
-            if (value === undefined || value === null || value === '' || value === '--') return '--';
-            return `${value}${suffix}`;
+            return SmartCenter.snmp.formatSnmpSummaryValue(value, suffix);
         }
         function snmpProvidedText(value, fallback = '设备未提供') {
-            if (value === undefined || value === null || value === '' || value === '--') return fallback;
-            return String(value);
+            return SmartCenter.snmp.snmpProvidedText(value, fallback);
         }
         function compactSnmpText(value, maxLen = 88) {
-            const text = String(value || '').trim();
-            if (!text) return '--';
-            if (text.length <= maxLen) return text;
-            return `${text.slice(0, maxLen)}...`;
+            return SmartCenter.snmp.compactSnmpText(value, maxLen);
         }
         function getSnmpInterfaceKindText(kind) {
-            const normalized = String(kind || '').trim().toLowerCase();
-            const map = {
-                wan: 'WAN',
-                lan: 'LAN',
-                physical: '物理口',
-                bond: '聚合口',
-                bridge: '桥接口',
-                virtual: '虚拟口',
-                other: '其他口'
-            };
-            return map[normalized] || '接口';
+            return SmartCenter.snmp.getSnmpInterfaceKindText(kind);
         }
         function hasSnmpUsableRate(row) {
-            if (!row) return false;
-            if (Number(row.total_rate_bps || 0) > 0) return true;
-            const text = String(row.total_rate_text || row.traffic_text || '').trim();
-            return !!text && text !== '--' && text !== '-- / --';
+            return SmartCenter.snmp.hasSnmpUsableRate(row);
         }
         function getSnmpUsefulTrafficRows(summary, interfaceSummary, options = {}) {
-            const sourceSummary = summary || {};
-            const sourceInterface = interfaceSummary || sourceSummary.interface_summary || {};
-            const includeZero = !!options.includeZero;
-            const candidates = [
-                ...(Array.isArray(sourceSummary.wan_top_rows) ? sourceSummary.wan_top_rows : []),
-                ...(Array.isArray(sourceSummary.lan_top_rows) ? sourceSummary.lan_top_rows : []),
-                ...(Array.isArray(sourceSummary.network_top_rows) ? sourceSummary.network_top_rows : []),
-                ...(Array.isArray(sourceSummary.physical_top_rows) ? sourceSummary.physical_top_rows : []),
-                ...(Array.isArray(sourceInterface.active_top_rows) ? sourceInterface.active_top_rows : []),
-                ...(Array.isArray(sourceInterface.switch_port_rows) ? sourceInterface.switch_port_rows : []),
-                ...(Array.isArray(sourceSummary.interface_rows) ? sourceSummary.interface_rows : [])
-            ];
-            const seen = new Set();
-            return candidates
-                .filter(row => {
-                    if (!row) return false;
-                    const key = `${row.index ?? ''}:${row.name || ''}`;
-                    if (seen.has(key)) return false;
-                    seen.add(key);
-                    return includeZero || hasSnmpUsableRate(row);
-                })
-                .sort((a, b) => Number(b.total_rate_bps || 0) - Number(a.total_rate_bps || 0));
+            return SmartCenter.snmp.getSnmpUsefulTrafficRows(summary, interfaceSummary, options);
         }
         function getSnmpInterfaceCountText(interfaceSummary, status = {}) {
-            const summary = interfaceSummary || {};
-            const total = summary.interface_total_count ?? status.if_number ?? summary.interface_sample_count ?? summary.up_count ?? '--';
-            const sample = summary.interface_sample_count ?? (Array.isArray(summary.top_names) ? summary.top_names.length : null);
-            if (total !== '--' && sample !== null && sample !== undefined && String(total) !== String(sample)) {
-                return `${total} / 已采 ${sample}`;
-            }
-            return String(total);
+            return SmartCenter.snmp.getSnmpInterfaceCountText(interfaceSummary, status);
         }
         function getSnmpInterfaceRoleText(interfaceSummary) {
-            const summary = interfaceSummary || {};
-            const parts = [
-                `物理 ${summary.physical_count ?? 0}`,
-                `聚合 ${summary.bond_count ?? 0}`,
-                `桥接 ${summary.bridge_count ?? 0}`,
-                `虚拟 ${summary.virtual_count ?? 0}`
-            ];
-            const wanCount = Number(summary.wan_count || 0);
-            const lanCount = Number(summary.lan_count || 0);
-            if (wanCount || lanCount) parts.unshift(`WAN/LAN ${wanCount}/${lanCount}`);
-            return parts.join(' · ');
+            return SmartCenter.snmp.getSnmpInterfaceRoleText(interfaceSummary);
         }
         function getSnmpBestThroughputText(interfaceSummary) {
-            const summary = interfaceSummary || {};
-            return summary.aggregate_total_rate_text && summary.aggregate_total_rate_text !== '--'
-                ? summary.aggregate_total_rate_text
-                : (summary.active_total_rate_text || '--');
+            return SmartCenter.snmp.getSnmpBestThroughputText(interfaceSummary);
         }
         function getSnmpBestThroughputDisplay(interfaceSummary) {
-            const value = getSnmpBestThroughputText(interfaceSummary);
-            return value && value !== '--' ? value : '采集中';
+            return SmartCenter.snmp.getSnmpBestThroughputDisplay(interfaceSummary);
         }
         function getSnmpBestThroughputPair(interfaceSummary) {
-            const summary = interfaceSummary || {};
-            const inText = summary.aggregate_in_rate_text && summary.aggregate_in_rate_text !== '--'
-                ? summary.aggregate_in_rate_text
-                : (summary.active_in_rate_text || '--');
-            const outText = summary.aggregate_out_rate_text && summary.aggregate_out_rate_text !== '--'
-                ? summary.aggregate_out_rate_text
-                : (summary.active_out_rate_text || '--');
-            return `${inText} / ${outText}`;
+            return SmartCenter.snmp.getSnmpBestThroughputPair(interfaceSummary);
         }
         function getSnmpCapacityDisplay(summary) {
             const capacity = summarizeSnmpStorageCapacity(summary);
@@ -4674,42 +4607,13 @@
             };
         }
         function getSnmpDeviceTypeLabel(deviceType) {
-            const normalized = String(deviceType || '').trim().toLowerCase();
-            const labelMap = {
-                nas: 'NAS 存储',
-                router: '路由网关',
-                switch: '交换机',
-                nvr: '录像机',
-                firewall: '防火墙',
-                server: '服务器',
-                network: '网络设备'
-            };
-            return labelMap[normalized] || (normalized ? normalized.toUpperCase() : '网络设备');
+            return SmartCenter.snmp.getSnmpDeviceTypeLabel(deviceType);
         }
         function normalizeSnmpDeviceName(cfg, status) {
-            const raw = String((cfg && (cfg.name || cfg.id)) || '').trim();
-            const host = String((cfg && cfg.host) || '').trim();
-            if (host === '192.168.50.254') return '飞牛 NAS';
-            if (host === '192.168.30.145') return '威联通 NAS';
-            if (host === '192.168.99.3') return '爱快网关';
-            if (host === '192.168.99.1') return 'H3C Switch';
-            if (/[�]|椋炵墰|濞佽仈|鐖卞揩/.test(raw)) {
-                return status && status.sys_name ? String(status.sys_name) : raw;
-            }
-            return raw || '--';
+            return SmartCenter.snmp.normalizeSnmpDeviceName(cfg, status);
         }
         function getSnmpFilterMeta(filterKey) {
-            const key = String(filterKey || 'all').trim().toLowerCase() || 'all';
-            const map = {
-                all: { label: '全部设备', hint: '展示当前所有已启用网络与录像机设备', level: '' },
-                critical: { label: '高风险设备', hint: '优先关注 critical 级设备', level: 'critical' },
-                warning: { label: '中风险设备', hint: '重点跟进 warning 级设备', level: 'warning' },
-                nas: { label: 'NAS 设备', hint: '聚焦 CPU / 内存 / 存储 / 网卡', level: '' },
-                router: { label: '网关设备', hint: '聚焦 WAN / LAN / 总吞吐', level: '' },
-                switch: { label: '交换机设备', hint: '聚焦端口 / 上联 / 异常', level: '' },
-                nvr: { label: '录像机设备', hint: '聚焦通道、硬盘、固件与预览', level: '' }
-            };
-            return map[key] || map.all;
+            return SmartCenter.snmp.getSnmpFilterMeta(filterKey);
         }
         function getSnmpSummaryCards(summaries) {
             const list = Array.isArray(summaries) ? summaries : [];
