@@ -33,10 +33,11 @@ modules:
     split_priority: low
     ai_keywords: ['login','auth','remember me','permission','account']
   power:
+    frontend_module: 'static/js/views/power-meter.js'
     purpose: Strong-current cabinet control, meter payloads, energy statistics, logs, exports.
     routes: ['/api/status','/api/meters','/api/7days_energy','/api/30days_energy','/api/export/meter_statistics','/api/set','/api/onekey_start','/api/onekey_stop','/api/logs']
     backend: ['api/power.py','background.py','services/meter_center.py','services/meter_payloads.py','services/meter_remote.py','services/cabinet_gateway.py','meter_service/']
-    frontend: ['templates/index.html','templates/config.html']
+    frontend: ['templates/index.html','templates/config.html','static/js/views/power-meter.js']
     config_keys: ['cabinets','meter_service','meter_statistics','cabinet_gateway']
     runtime_state: ['DEVICE_STATUS','METER_STATUS','runtime/remote_meter_payload_cache.json']
     split_priority: very_high
