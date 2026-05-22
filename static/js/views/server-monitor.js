@@ -707,10 +707,10 @@
                 const rowsHtml = displayRows.map(row => {
                     const daysText = row.permanent ? '长期' : (Number.isFinite(row.daysLeft) ? `${row.daysLeft}天` : '--');
                     const rowClass = row.permanent ? 'permanent' : (Number.isFinite(row.daysLeft) && row.daysLeft < 10 ? 'danger' : (Number.isFinite(row.daysLeft) && row.daysLeft < 30 ? 'warn' : ''));
-                    return `<div class="codemeter-license-row ${rowClass}"><span>${escapeHtml(row.serial || serialText)}</span><span>${escapeHtml(row.code || '--')}</span><span>${escapeHtml(row.expiryText || '长期')}</span><span>${escapeHtml(daysText)}</span></div>`;
+                    return `<div class="codemeter-license-row ${rowClass}"><span class="cm-serial">${escapeHtml(row.serial || serialText)}</span><span class="cm-code">${escapeHtml(row.code || '--')}</span><span class="cm-expiry">${escapeHtml(row.expiryText || '长期')}</span><span class="cm-days">${escapeHtml(daysText)}</span></div>`;
                 }).join('');
                 const moreText = activeLicenses.length > displayRows.length ? `<em class="codemeter-more">+${activeLicenses.length - displayRows.length}</em>` : '';
-                bodyHtml = `<div class="codemeter-license-table"><div class="codemeter-license-head"><span>锁号</span><span>代码</span><span>到期</span><span>剩余</span></div>${rowsHtml}</div>${moreText}`;
+                bodyHtml = `<div class="codemeter-license-table"><div class="codemeter-license-head"><span class="cm-serial">加密锁编号</span><span class="cm-code">授权编号</span><span class="cm-expiry">到期时间</span><span class="cm-days">剩余天数</span></div>${rowsHtml}</div>${moreText}`;
             } else {
                 bodyHtml = `<strong><em class="serial">${escapeHtml(serialText)}</em><em class="validity">${escapeHtml(validityText)}</em>${upgradeHtml}</strong>`;
             }
