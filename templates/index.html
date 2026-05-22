@@ -1740,9 +1740,9 @@
         }
         ensureInitialVisibleView();
         function ensurePermission(permission, actionText = '执行当前操作') {
-            if (hasPermission(permission)) return true;
-            showToast(`当前账号无权限${actionText}`, true);
-            return false;
+            return SmartCenter.utils.ensurePermission(permission, actionText, {
+                notifier: showToast,
+            });
         }
         const myCharts = {};
         const pwrLocks = {};
@@ -2510,7 +2510,9 @@
             };
         }
 
-        function showToast(msg, isError=false) { const t = document.getElementById('toast'); t.innerText = msg; t.className = 'toast-msg show' + (isError ? ' toast-error' : ''); setTimeout(() => t.className = 'toast-msg', 2500); }
+        function showToast(msg, isError=false) {
+            return SmartCenter.utils.showToast(msg, isError);
+        }
         function toggleUserMenu(forceOpen = null) {
             const menu = document.getElementById('top-user-menu');
             if (!menu) return;
@@ -10002,32 +10004,11 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         }
 
         function reportFrontendError(scope, err) {
-            const errorText = err && err.stack ? err.stack : String(err || 'unknown_error');
-            console.error(`[frontend:${scope}]`, err);
-            try {
-                fetch('/api/logs/frontend', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        scope,
-                        message: errorText,
-                        url: window.location.href,
-                        ts: new Date().toISOString()
-                    })
-                }).catch(() => {});
-            } catch (_) {}
+            return SmartCenter.utils.reportFrontendError(scope, err);
         }
 
         function guardFrontendStep(scope, fn, fallbackMessage = '') {
-            try {
-                return fn();
-            } catch (err) {
-                reportFrontendError(scope, err);
-                if (fallbackMessage) {
-                    showToast(fallbackMessage, true);
-                }
-                return null;
-            }
+            return SmartCenter.utils.guardFrontendStep(scope, fn, fallbackMessage);
         }
 
         window.addEventListener('error', event => {
@@ -10785,10 +10766,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             return Number.isFinite(num) ? num : 0;
         }
         function formatNetworkMbps(kbPerSec) {
-            const mbps = normalizeServerBytes(kbPerSec) * 8 / 1024;
-            if (mbps >= 100) return mbps.toFixed(0);
-            if (mbps >= 10) return mbps.toFixed(1);
-            return mbps.toFixed(2).replace(/\.?0+$/, '');
+            return SmartCenter.utils.formatNetworkMbps(normalizeServerBytes(kbPerSec));
         }
         let serverViewMode = (() => {
             try { return localStorage.getItem('smart-center-server-view-mode') || 'compact'; } catch (_) { return 'compact'; }
@@ -10809,11 +10787,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             }
         }
         function formatBytesGiB(bytes) {
-            const num = Number(bytes);
-            if (!Number.isFinite(num) || num <= 0) return '--';
-            const gib = num / (1024 ** 3);
-            if (gib >= 1024) return `${(gib / 1024).toFixed(gib >= 10240 ? 0 : 1)} TB`;
-            return `${gib.toFixed(gib >= 100 ? 0 : 1)} GB`;
+            return SmartCenter.utils.formatBytesGiB(bytes);
         }
         function compactHardwareName(value, fallback = '--') {
             return String(value || fallback).replace(/\s+/g, ' ').trim();
