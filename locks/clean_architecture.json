@@ -1,0 +1,11 @@
+﻿{
+    "module":  "clean_architecture",
+    "owner_machine":  "12700k",
+    "owner_branch":  "codex/12700k-clean-architecture-lab-20260522",
+    "task":  "clean-architecture-lab",
+    "kind":  "heavy",
+    "worktree":  "D:\\smart-center-work\\smart-center-worktrees\\clean-architecture-lab",
+    "started_at":  "2026-05-22 21:49:31",
+    "expected_until":  "",
+    "note":  "created by scripts/collab/start-work.ps1"
+}
