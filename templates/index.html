@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="/static/js/core/viewport-layout.js?v=20260522-stage7-viewport"></script>
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
-    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260522-node-red-card-fix">
+    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260522-projector-light-card">
     <link rel="stylesheet" href="/static/css/views/dashboard-inline.css?v=20260522-stage6-inline-css">
     <style id="codemeter-four-column-hotfix">
         .server-codemeter-line { display:block !important; margin:8px 0 0 !important; padding:6px 8px !important; border-radius:8px !important; background:rgba(2,6,23,0.24) !important; border:1px solid rgba(148,163,184,0.10) !important; overflow:hidden !important; min-width:0 !important; }
@@ -1563,7 +1563,7 @@
     <script src="/static/js/views/ups.js?v=20260522-stage2-ups-view"></script>
     <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
     <script src="/static/js/views/apple-audio.js?v=20260522-stage2-apple-audio-view"></script>
-    <script src="/static/js/views/universal.js?v=20260522-node-red-unified"></script>
+    <script src="/static/js/views/universal.js?v=20260522-light-switch-card"></script>
     <script src="/static/js/views/env.js?v=20260522-stage2-env-view"></script>
     <script src="/static/js/views/snmp.js?v=20260522-stage3-snmp-render"></script>
     <script src="/static/js/views/server-monitor.js?v=20260522-codemeter-days-visible"></script>
@@ -5594,12 +5594,18 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             const lastIntentText = status.last_intent === 'on' ? '\u6700\u8fd1\u5f00\u673a' : (status.last_intent === 'off' ? '\u6700\u8fd1\u5173\u673a' : '\u65e0\u6307\u4ee4\u8bb0\u5f55');
             const gatewayText = status.last_command_source ? '121\u7f51\u5173' : '\u4e32\u53e3 + \u7535\u6d41\u91c7\u96c6';
             const collectorText = status.current_collector_online ? `\u5728\u7ebf ${String(status.current_collector_updated_at || '').replace('T', ' ').slice(11, 19)}` : (status.current_collector_error || '\u79bb\u7ebf');
+            const zones = Array.isArray(status.inferred_evidence) ? status.inferred_evidence : (Array.isArray(status.inferred_zones) ? status.inferred_zones : []);
+            const abZone = zones.find(zone => /AB|A\s*B|\u4e00\u53f7\u5385|1\u53f7\u5385/i.test(String(zone.name || zone.id || ''))) || zones[0] || {};
+            const immersionZone = zones.find(zone => /\u6c89\u6d78/i.test(String(zone.name || zone.id || ''))) || zones[1] || {};
+            const abCurrent = formatProjectorAmp(abZone.current_total_a);
+            const immersionCurrent = formatProjectorAmp(immersionZone.current_total_a);
+            const feedText = formatInferredFeedText(status);
             return `
                 <div class="projector-card inferred-projector-card ${isOnline ? 'online' : 'offline'} ${getCardStateClass(statusMeta)}">
                     <div class="projector-card-top">
                         <div>
                             <div class="projector-card-title">${escapeHtml(proj.name || proj.id)}</div>
-                            <div class="projector-card-subtitle">\u6574\u4f53\u7ec4\u63a7 \u00b7 ${escapeHtml(targetSummary)} \u00b7 ${escapeHtml(renderInferredEvidenceSummary(status))}</div>
+                            <div class="projector-card-subtitle">\u6574\u4f53\u7ec4\u63a7 \u00b7 ${escapeHtml(targetSummary)}</div>
                         </div>
                         <button class="projector-entry-btn" title="\u6253\u5f00\u9065\u63a7\u5668\u9762\u677f" onclick="openProjectorRemote('${escapeHtml(proj.id)}')">${getProjectorIconHtml('remote')}</button>
                     </div>
@@ -5614,13 +5620,18 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                             ${renderInferredProjectorPowerActions(proj, powerOnCmd, powerOffCmd)}
                         </div>
                     </div>
-                    ${renderInferredEvidenceCards(status)}
+                    <div class="projector-meta-grid inferred-projector-meta">
+                        <div class="projector-meta-item"><div class="projector-meta-label">AB\u5385\u7535\u6d41</div><div class="projector-meta-value">${escapeHtml(abCurrent)}</div></div>
+                        <div class="projector-meta-item"><div class="projector-meta-label">\u6c89\u6d78\u5385\u7535\u6d41</div><div class="projector-meta-value">${escapeHtml(immersionCurrent)}</div></div>
+                        <div class="projector-meta-item"><div class="projector-meta-label">\u4f9b\u7535\u72b6\u6001</div><div class="projector-meta-value">${escapeHtml(feedText)}</div></div>
+                        <div class="projector-meta-item"><div class="projector-meta-label">\u63a8\u65ad\u72b6\u6001</div><div class="projector-meta-value" style="color:${powerColor};">${escapeHtml(powerText)}</div></div>
+                    </div>
                     <div class="projector-extra-row">
                         <div class="projector-extra-chip"><div class="label">\u63a7\u5236\u8bb0\u5f55</div><div class="value">${escapeHtml(lastIntentText)}</div></div>
                         <div class="projector-extra-chip"><div class="label">\u72b6\u6001\u6765\u6e90</div><div class="value">${escapeHtml(gatewayText)}</div></div>
                         <div class="projector-extra-chip"><div class="label">\u7535\u6d41\u91c7\u96c6\u5668</div><div class="value">${escapeHtml(collectorText)}</div></div>
                     </div>
-                    <div class="dashboard-mini-note" title="${escapeHtml(renderInferredTargetSummary(status))}">${escapeHtml(projectorNote)}</div>
+                    <div class="dashboard-mini-note projector-card-note" title="${escapeHtml(renderInferredEvidenceSummary(status))}">${escapeHtml(projectorNote)}</div>
                 </div>`;
         }
         function renderCompactInferredProjectorCard(proj) {

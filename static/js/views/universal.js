@@ -93,8 +93,8 @@
 
     function nodeRedActionLabel(device) {
         const status = String(device?.status || '').toLowerCase();
-        if (status === 'on' || status === 'starting' || status === 'pending_ack') return '\u5173\u95ed';
-        return '\u5f00\u542f';
+        if (status === 'on' || status === 'starting' || status === 'pending_ack') return '\u5173\u706f';
+        return '\u5f00\u706f';
     }
 
     function nodeRedActionForToggle(device) {
@@ -111,34 +111,42 @@
         return `${onlineText} / ${detail}`;
     }
 
+    function nodeRedLightStateText(device) {
+        const status = String(device?.status || '').toLowerCase();
+        if (status === 'on') return '\u4eae';
+        if (status === 'off') return '\u6697';
+        return device?.display_text || '\u672a\u77e5';
+    }
+
     function renderNodeRedDeviceCard(device) {
         const id = String(device?.device_id || '');
-        const name = escapeHtml(device?.device_name || id || '\u672a\u547d\u540d\u8bbe\u5907');
-        const type = escapeHtml(device?.device_type || 'node_red_device');
-        const displayText = escapeHtml(device?.display_text || device?.status || '\u672a\u77e5');
+        const lightName = id === 'courtyard_light' ? '\u6237\u5916\u706f' : (device?.device_name || id || '\u672a\u547d\u540d\u706f\u5177');
+        const name = escapeHtml(lightName);
+        const displayText = escapeHtml(nodeRedLightStateText(device));
         const statusClass = nodeRedStatusClass(device);
         const healthText = escapeHtml(nodeRedHealthText(device));
         const updated = escapeHtml(formatTimeShort(device?.updated_at || ''));
         const disabled = id ? '' : 'disabled';
-        const isSingle = device?.meta?.single_toggle === true;
         const safeId = escapeHtml(id);
-        const actionHtml = isSingle
-            ? `<button class="node-red-action-btn primary" type="button" ${disabled} onclick="controlNodeRedDevice('${safeId}', '${nodeRedActionForToggle(device)}')">${nodeRedActionLabel(device)}</button>`
-            : `<button class="node-red-action-btn primary" type="button" ${disabled} onclick="controlNodeRedDevice('${safeId}', 'on')">\u5f00</button><button class="node-red-action-btn stop" type="button" ${disabled} onclick="controlNodeRedDevice('${safeId}', 'off')">\u5173</button>`;
-        return `<div class="node-red-device-card ${statusClass}" data-node-red-device="${safeId}">
+        const action = nodeRedActionForToggle(device);
+        const actionLabel = nodeRedActionLabel(device);
+        return `<button class="node-red-device-card protocol-light-card ${statusClass}" type="button" ${disabled} data-node-red-device="${safeId}" onclick="controlNodeRedDevice('${safeId}', '${action}')">
             <div class="node-red-device-head">
-                <div style="min-width:0;">
+                <div class="node-red-device-title-wrap">
                     <div class="node-red-device-name">${name}</div>
-                    <div class="node-red-device-type">${type}</div>
+                    <div class="node-red-device-type">\u5355\u706f\u5f00\u5173 \u00b7 \u7f51\u5173\u72b6\u6001\u786e\u8ba4</div>
                 </div>
                 <span class="node-red-status-pill">${displayText}</span>
             </div>
-            <div class="node-red-device-meta">${healthText}</div>
-            <div class="node-red-device-foot">
-                <span class="node-red-updated">${updated}</span>
-                <div class="node-red-actions">${actionHtml}</div>
+            <div class="protocol-light-body">
+                <span class="protocol-light-icon" aria-hidden="true"></span>
+                <span class="protocol-light-action">${actionLabel}</span>
             </div>
-        </div>`;
+            <div class="node-red-device-foot">
+                <span class="node-red-device-meta">${healthText}</span>
+                <span class="node-red-updated">${updated}</span>
+            </div>
+        </button>`;
     }
 
     function updateNodeRedDevices(force = false) {
