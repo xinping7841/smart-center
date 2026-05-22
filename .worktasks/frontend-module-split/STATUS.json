@@ -1,0 +1,12 @@
+{
+  "task": "frontend-module-split",
+  "module": "templates_index",
+  "kind": "heavy",
+  "branch": "",
+  "worktree": "../smart-center-worktrees/frontend-module-split",
+  "status": "planned",
+  "created_at": "2026-05-22 16:04:34",
+  "started_at": "",
+  "updated_at": "2026-05-22 16:04:34"
+}
+

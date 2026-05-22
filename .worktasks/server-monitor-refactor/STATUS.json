@@ -1,0 +1,12 @@
+{
+  "task": "server-monitor-refactor",
+  "module": "server_monitor",
+  "kind": "heavy",
+  "branch": "",
+  "worktree": "../smart-center-worktrees/server-monitor-refactor",
+  "status": "planned",
+  "created_at": "2026-05-22 16:04:34",
+  "started_at": "",
+  "updated_at": "2026-05-22 16:04:34"
+}
+
