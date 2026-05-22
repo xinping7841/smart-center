@@ -129,24 +129,23 @@
         const disabled = id ? '' : 'disabled';
         const safeId = escapeHtml(id);
         const action = nodeRedActionForToggle(device);
-        const actionLabel = nodeRedActionLabel(device);
-        return `<button class="node-red-device-card protocol-light-card ${statusClass}" type="button" ${disabled} data-node-red-device="${safeId}" onclick="controlNodeRedDevice('${safeId}', '${action}')">
-            <div class="node-red-device-head">
-                <div class="node-red-device-title-wrap">
-                    <div class="node-red-device-name">${name}</div>
-                    <div class="node-red-device-type">\u5355\u706f\u5f00\u5173 \u00b7 \u7f51\u5173\u72b6\u6001\u786e\u8ba4</div>
+        const checked = String(device?.status || '').toLowerCase() === 'on' ? 'checked' : '';
+        return `<div class="protocol-light-switch-card ${statusClass}" data-node-red-device="${safeId}">
+            <div class="protocol-light-switch-head">
+                <div style="min-width:0;">
+                    <div class="protocol-light-switch-title">${name}</div>
+                    <div class="protocol-light-switch-subtitle">\u7f51\u5173\u72b6\u6001\u786e\u8ba4</div>
                 </div>
-                <span class="node-red-status-pill">${displayText}</span>
+                <span class="protocol-light-switch-state">${displayText}</span>
             </div>
-            <div class="protocol-light-body">
-                <span class="protocol-light-icon" aria-hidden="true"></span>
-                <span class="protocol-light-action">${actionLabel}</span>
+            <div class="protocol-light-switch-row">
+                <div class="protocol-light-switch-meta">${healthText}<br>${updated}</div>
+                <label class="protocol-light-toggle" title="${escapeHtml(nodeRedActionLabel(device))}">
+                    <input type="checkbox" ${checked} ${disabled} onchange="controlNodeRedDevice('${safeId}', '${action}')">
+                    <span></span>
+                </label>
             </div>
-            <div class="node-red-device-foot">
-                <span class="node-red-device-meta">${healthText}</span>
-                <span class="node-red-updated">${updated}</span>
-            </div>
-        </button>`;
+        </div>`;
     }
 
     function updateNodeRedDevices(force = false) {

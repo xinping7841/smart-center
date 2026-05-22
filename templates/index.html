@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="/static/js/core/viewport-layout.js?v=20260522-stage7-viewport"></script>
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
-    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260522-projector-light-card">
+    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260522-mini-projector-switch">
     <link rel="stylesheet" href="/static/css/views/dashboard-inline.css?v=20260522-stage6-inline-css">
     <style id="codemeter-four-column-hotfix">
         .server-codemeter-line { display:block !important; margin:8px 0 0 !important; padding:6px 8px !important; border-radius:8px !important; background:rgba(2,6,23,0.24) !important; border:1px solid rgba(148,163,184,0.10) !important; overflow:hidden !important; min-width:0 !important; }
@@ -26,6 +26,47 @@
         .server-codemeter-line .codemeter-license-row.warn .cm-days { color:#fde68a !important; }
         .server-codemeter-line .codemeter-license-row.danger span { color:#fecaca !important; }
         .server-codemeter-line .codemeter-license-row.permanent .cm-days { color:#93c5fd !important; }
+    </style>
+    <style id="projector-protocol-ui-hotfix">
+        #view-projector #projector-page-grid { display:grid !important; grid-template-columns:repeat(auto-fill, minmax(260px, 288px)) !important; gap:12px !important; justify-content:start !important; align-items:start !important; }
+        #view-projector .projector-mini-card { width:100% !important; min-height:226px !important; padding:14px !important; border-radius:10px !important; border:1px solid rgba(71,85,105,.55) !important; border-top:4px solid #10b981 !important; background:linear-gradient(180deg, rgba(15,23,42,.96), rgba(8,15,28,.96)) !important; box-shadow:0 12px 28px rgba(0,0,0,.22) !important; color:#e5eefb !important; display:flex !important; flex-direction:column !important; gap:10px !important; }
+        #view-projector .projector-mini-card.warning { border-top-color:#f59e0b !important; }
+        #view-projector .projector-mini-card.offline { border-top-color:#64748b !important; opacity:.86; }
+        #view-projector .projector-mini-head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+        #view-projector .projector-mini-title { min-width:0; font-size:16px; line-height:1.2; font-weight:900; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        #view-projector .projector-mini-subtitle { margin-top:4px; font-size:11px; line-height:1.3; color:#9fb0c9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        #view-projector .projector-mini-status { flex:none; padding:4px 9px; border-radius:999px; border:1px solid rgba(16,185,129,.30); background:rgba(16,185,129,.14); color:#86efac; font-size:11px; font-weight:900; }
+        #view-projector .projector-mini-card.offline .projector-mini-status { border-color:rgba(148,163,184,.22); background:rgba(100,116,139,.16); color:#cbd5e1; }
+        #view-projector .projector-mini-card.warning .projector-mini-status { border-color:rgba(245,158,11,.34); background:rgba(245,158,11,.14); color:#fcd34d; }
+        #view-projector .projector-mini-primary { min-height:72px; border:1px solid rgba(148,163,184,.12); border-radius:10px; background:rgba(15,23,42,.58); display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; }
+        #view-projector .projector-mini-primary .label { color:#9fb0c9; font-size:12px; line-height:1.2; }
+        #view-projector .projector-mini-primary .value { margin-top:8px; font-size:26px; line-height:1; font-weight:900; color:#10b981; }
+        #view-projector .projector-mini-metrics { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; }
+        #view-projector .projector-mini-metric { min-height:48px; border:1px solid rgba(148,163,184,.10); border-radius:8px; background:rgba(15,23,42,.48); padding:8px 9px; min-width:0; }
+        #view-projector .projector-mini-metric .label { font-size:11px; color:#9fb0c9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        #view-projector .projector-mini-metric .value { margin-top:4px; font-size:13px; font-weight:900; color:#f8fafc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        #view-projector .projector-mini-actions { margin-top:auto; padding-top:2px; display:flex; gap:8px; justify-content:flex-end; }
+        #view-projector .projector-mini-btn { height:32px; min-width:58px; border:0; border-radius:8px; padding:0 12px; color:#fff; font-size:12px; font-weight:900; cursor:pointer; background:#334155; }
+        #view-projector .projector-mini-btn.detail { background:rgba(59,130,246,.28); border:1px solid rgba(96,165,250,.35); color:#dbeafe; }
+        #view-projector .projector-mini-btn.on { background:linear-gradient(135deg,#10b981,#059669); }
+        #view-projector .projector-mini-btn.off { background:linear-gradient(135deg,#ef4444,#dc2626); }
+        #view-universal .node-red-device-grid { display:grid !important; grid-template-columns:repeat(auto-fill, 280px) !important; gap:12px !important; justify-content:start !important; align-items:start !important; }
+        #view-universal .protocol-light-switch-card { width:280px !important; min-height:122px !important; padding:14px !important; border-radius:10px !important; border:1px solid rgba(71,85,105,.55) !important; border-top:4px solid #64748b !important; background:linear-gradient(180deg, rgba(15,23,42,.96), rgba(8,15,28,.96)) !important; color:#e5eefb !important; display:flex !important; flex-direction:column !important; gap:12px !important; }
+        #view-universal .protocol-light-switch-card.is-on { border-top-color:#10b981 !important; box-shadow:0 12px 28px rgba(16,185,129,.12) !important; }
+        #view-universal .protocol-light-switch-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+        #view-universal .protocol-light-switch-title { font-size:16px; font-weight:900; color:#f8fafc; line-height:1.2; }
+        #view-universal .protocol-light-switch-subtitle { margin-top:4px; font-size:11px; color:#9fb0c9; }
+        #view-universal .protocol-light-switch-state { flex:none; border-radius:999px; padding:4px 9px; font-size:11px; font-weight:900; background:rgba(100,116,139,.18); border:1px solid rgba(148,163,184,.22); color:#cbd5e1; }
+        #view-universal .protocol-light-switch-card.is-on .protocol-light-switch-state { background:rgba(16,185,129,.14); border-color:rgba(16,185,129,.34); color:#86efac; }
+        #view-universal .protocol-light-switch-row { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+        #view-universal .protocol-light-switch-meta { min-width:0; color:#9fb0c9; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        #view-universal .protocol-light-toggle { position:relative; width:58px; height:32px; flex:none; display:inline-block; }
+        #view-universal .protocol-light-toggle input { position:absolute; opacity:0; width:0; height:0; }
+        #view-universal .protocol-light-toggle span { position:absolute; inset:0; border-radius:999px; background:#475569; border:1px solid rgba(148,163,184,.25); transition:.18s ease; box-shadow:inset 0 1px 3px rgba(0,0,0,.35); }
+        #view-universal .protocol-light-toggle span::before { content:''; position:absolute; width:24px; height:24px; left:4px; top:3px; border-radius:50%; background:#e2e8f0; transition:.18s ease; box-shadow:0 2px 8px rgba(0,0,0,.30); }
+        #view-universal .protocol-light-toggle input:checked + span { background:#10b981; border-color:rgba(52,211,153,.50); }
+        #view-universal .protocol-light-toggle input:checked + span::before { transform:translateX(25px); background:#ecfdf5; }
+        @media screen and (max-width:760px) { #view-projector #projector-page-grid, #view-universal .node-red-device-grid { grid-template-columns:1fr !important; } #view-universal .protocol-light-switch-card { width:100% !important; } }
     </style>
 </head>
 <body>
@@ -1563,7 +1604,7 @@
     <script src="/static/js/views/ups.js?v=20260522-stage2-ups-view"></script>
     <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
     <script src="/static/js/views/apple-audio.js?v=20260522-stage2-apple-audio-view"></script>
-    <script src="/static/js/views/universal.js?v=20260522-light-switch-card"></script>
+    <script src="/static/js/views/universal.js?v=20260522-real-light-switch"></script>
     <script src="/static/js/views/env.js?v=20260522-stage2-env-view"></script>
     <script src="/static/js/views/snmp.js?v=20260522-stage3-snmp-render"></script>
     <script src="/static/js/views/server-monitor.js?v=20260522-codemeter-days-visible"></script>
@@ -5809,7 +5850,63 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 container.innerHTML = '<div style="color:var(--text-sub); grid-column: 1/-1; text-align:center; padding:20px;">未配置投影机，请前往系统配置添加。</div>';
                 return;
             }
-            container.innerHTML = visibleProjectors.map(proj => scope === 'dashboard' ? renderCompactProjectorCard(proj) : renderProjectorCard(proj, scope)).join('');
+            container.innerHTML = visibleProjectors.map(proj => scope === 'dashboard' ? renderCompactProjectorCard(proj) : renderProjectorMiniCard(proj)).join('');
+        }
+        function renderProjectorMiniCard(proj) {
+            const status = getProjectorStatus(proj.id);
+            const statusMeta = getDeviceStatusMeta(status, { staleText: '\u9648\u65e7', errorText: '\u5f02\u5e38' });
+            const isOnline = statusMeta.isOnlineLike;
+            const powerStatus = status.power || 'unknown';
+            const powerText = getProjectorPowerText(powerStatus);
+            const powerColor = getProjectorPowerColor(powerStatus);
+            const powerOnCmd = findProjectorCommand(proj, ['power_on'], ['\u5f00\u673a']);
+            const powerOffCmd = findProjectorCommand(proj, ['power_off'], ['\u5173\u673a']);
+            const powerButtonCmd = (powerStatus === 'on' || powerStatus === 'warming') ? powerOffCmd : powerOnCmd;
+            const powerButtonClass = (powerStatus === 'on' || powerStatus === 'warming') ? 'off' : 'on';
+            const powerButtonText = (powerStatus === 'on' || powerStatus === 'warming') ? '\u5173\u673a' : '\u5f00\u673a';
+            const statusClass = !isOnline ? 'offline' : (statusMeta.chipClass === 'warning' ? 'warning' : 'online');
+            let subtitle = '';
+            let metrics = [];
+            if (isInferredProjector(proj, status)) {
+                const zones = Array.isArray(status.inferred_evidence) ? status.inferred_evidence : (Array.isArray(status.inferred_zones) ? status.inferred_zones : []);
+                const abZone = zones.find(zone => /AB|A\s*B|\u4e00\u53f7\u5385|1\u53f7\u5385/i.test(String(zone.name || zone.id || ''))) || zones[0] || {};
+                const immersionZone = zones.find(zone => /\u6c89\u6d78/i.test(String(zone.name || zone.id || ''))) || zones[1] || {};
+                subtitle = `\u6574\u4f53\u7ec4\u63a7 \u00b7 ${Number(status.target_online_count || 0)}/${Number(status.target_total_count || 0)} \u5728\u7ebf`;
+                metrics = [
+                    ['AB\u5385\u7535\u6d41', formatProjectorAmp(abZone.current_total_a)],
+                    ['\u6c89\u6d78\u5385\u7535\u6d41', formatProjectorAmp(immersionZone.current_total_a)],
+                    ['\u4f9b\u7535', formatInferredFeedText(status)],
+                    ['\u6765\u6e90', status.source === 'node-red' ? 'Node-RED' : (status.last_command_source ? '121\u7f51\u5173' : '\u63a8\u65ad')]
+                ];
+            } else {
+                subtitle = `${proj.ip || '--'}:${proj.port || '--'} \u00b7 ${formatProjectorModelText(proj, status)}`;
+                metrics = [
+                    ['\u4fe1\u53f7', formatProjectorSourceText(status)],
+                    ['\u706f\u65f6', status.lamp_hours !== null && status.lamp_hours !== undefined ? `${status.lamp_hours} h` : '--'],
+                    ['\u6e29\u5ea6', status.temp !== null && status.temp !== undefined ? `${status.temp}\u00b0C` : (status.temp_status || '--')],
+                    ['\u8f93\u5165', Array.isArray(status.input_list_labels) && status.input_list_labels.length ? `${status.input_list_labels.length} \u8def` : '--']
+                ];
+            }
+            return `<div class="projector-mini-card ${statusClass}">
+                <div class="projector-mini-head">
+                    <div style="min-width:0;">
+                        <div class="projector-mini-title">${escapeHtml(proj.name || proj.id)}</div>
+                        <div class="projector-mini-subtitle">${escapeHtml(subtitle)}</div>
+                    </div>
+                    <span class="projector-mini-status">${escapeHtml(statusMeta.text)}</span>
+                </div>
+                <div class="projector-mini-primary">
+                    <div class="label">\u6838\u5fc3\u72b6\u6001</div>
+                    <div class="value" style="color:${powerColor};">${escapeHtml(powerText)}</div>
+                </div>
+                <div class="projector-mini-metrics">
+                    ${metrics.map(([label, value]) => `<div class="projector-mini-metric"><div class="label">${escapeHtml(label)}</div><div class="value" title="${escapeHtml(value)}">${escapeHtml(value)}</div></div>`).join('')}
+                </div>
+                <div class="projector-mini-actions">
+                    <button class="projector-mini-btn detail" type="button" onclick="openProjectorRemote('${escapeHtml(proj.id)}')">\u9065\u63a7</button>
+                    ${powerButtonCmd ? `<button class="projector-mini-btn ${powerButtonClass}${getPermissionDisabledClass('projector.control')}" ${getPermissionDisabledAttrs('projector.control', '\u5f53\u524d\u8d26\u53f7\u65e0\u6295\u5f71\u673a\u63a7\u5236\u6743\u9650')} type="button" onclick="fireProjectorCommand('${escapeHtml(proj.id)}', '${escapeHtml(powerButtonCmd.payload || '')}', '${escapeHtml(powerButtonCmd.format || 'str')}', '${escapeHtml(powerButtonCmd.name || powerButtonText)}')">${powerButtonText}</button>` : ''}
+                </div>
+            </div>`;
         }
         function openProjectorRemote(projId) {
             currentProjectorRemoteId = String(projId);
