@@ -1,0 +1,12 @@
+{
+  "task": "core-config-cleanup",
+  "module": "config_core",
+  "kind": "light",
+  "branch": "",
+  "worktree": "../smart-center-worktrees/core-config-cleanup",
+  "status": "planned",
+  "created_at": "2026-05-22 16:04:34",
+  "started_at": "",
+  "updated_at": "2026-05-22 16:04:34"
+}
+
