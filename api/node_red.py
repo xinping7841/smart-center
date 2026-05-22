@@ -86,8 +86,8 @@ DEVICE_REGISTRY = {
 STATE_CACHE = {}
 
 STATUS_TEXT = {
-    "on": "\u5f00",
-    "off": "\u5173",
+    "on": "\u4eae",
+    "off": "\u6697",
     "starting": "\u5f00\u673a\u4e2d",
     "stopping": "\u5173\u673a\u4e2d",
     "pending_ack": "\u6267\u884c\u4e2d",
@@ -235,7 +235,10 @@ def api_node_red_devices():
     refresh = str(request.args.get("refresh") or "1").lower() not in {"0", "false", "no"}
     devices = []
     include_unavailable = str(request.args.get("include_unavailable") or "0").lower() in {"1", "true", "yes"}
+    allowed_types = {"rf_light", "lighting", "light"}
     for device_id, meta in sorted(DEVICE_REGISTRY.items(), key=lambda item: int(item[1].get("sort", 999))):
+        if str(meta.get("device_type") or "") not in allowed_types:
+            continue
         if refresh:
             device = get_node_red_device_status(device_id)
         else:

@@ -16,6 +16,7 @@ from auth.session import get_current_user
 from config import CONFIG
 from data_logger import add_log
 from runtime.state import PROJECTOR_STATUS
+from api.node_red import get_node_red_device_status
 
 bp = Blueprint("projector", __name__)
 
@@ -34,6 +35,33 @@ def _default_projector_status():
         "last_error": "status_not_initialized",
         "last_error_at": None,
     }
+
+
+def _merge_hall1_node_red_status(status):
+    try:
+        node_red = get_node_red_device_status("hall1_projector")
+    except Exception as exc:
+        status["node_red_error"] = str(exc)
+        return status
+    if not isinstance(node_red, dict) or not node_red.get("online"):
+        return status
+    power = node_red.get("power") if isinstance(node_red.get("power"), dict) else {}
+    health = node_red.get("health") if isinstance(node_red.get("health"), dict) else {}
+    node_power = str(power.get("status") or node_red.get("status") or "unknown").lower()
+    if node_power in {"on", "off", "starting", "stopping", "pending_ack", "partial"}:
+        status["power"] = node_power
+    status["online"] = bool(node_red.get("online"))
+    status["status_level"] = "online" if status.get("online") else "offline"
+    status["status_label"] = "\u5728\u7ebf" if status.get("online") else "\u79bb\u7ebf"
+    status["error"] = "\u6b63\u5e38" if not health.get("alarm") else "\u5f02\u5e38"
+    status["gateway_status"] = node_red.get("raw") or node_red
+    status["source"] = "node-red"
+    status["status_note"] = power.get("note") or health.get("message") or status.get("status_note")
+    status["inference_basis"] = "Node-RED \u7535\u6d41\u91c7\u96c6\u63a8\u65ad"
+    status["target_online_count"] = (node_red.get("raw") or {}).get("target_online_count", status.get("target_online_count"))
+    status["target_total_count"] = (node_red.get("raw") or {}).get("target_total_count", status.get("target_total_count"))
+    status["updated_at"] = node_red.get("updated_at") or status.get("updated_at")
+    return status
 
 
 @bp.route("/api/projector/control", methods=["POST"])
@@ -109,6 +137,8 @@ def api_projector_status():
                 from projector_core import infer_rs232_projector_status
 
                 fresh = infer_rs232_projector_status(proj)
+                if proj_id == "proj_infer_hall1":
+                    fresh = _merge_hall1_node_red_status(dict(fresh))
                 PROJECTOR_STATUS[proj_id] = fresh
                 statuses[proj_id] = dict(fresh)
                 continue
