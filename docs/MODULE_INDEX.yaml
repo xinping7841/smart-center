@@ -15,13 +15,14 @@ modules:
     split_priority: low
     ai_keywords: ['frontend core','SmartCenter','utils','toast','fetchJson','permission','module registry','viewport','layout preset','mobile desktop']
   dashboard:
+    frontend_module: 'static/js/views/dashboard-summary.js'
     purpose: Main overview page and summary cards.
     routes: ['/','/api/dashboard/summary']
     backend: ['api/power.py','api/dashboard.py']
-    frontend: ['templates/index.html','static/css/views/dashboard-inline.css']
+    frontend: ['templates/index.html','static/css/views/dashboard-inline.css','static/js/views/dashboard-summary.js']
     config_keys: ['dashboard','ui_text']
     split_priority: high
-    ai_keywords: ['dashboard','summary','home','overview']
+    ai_keywords: ['dashboard','summary','home','overview','top counters','footer health']
   auth_login:
     frontend_module: 'static/js/views/login.js'
     purpose: Login page submit handler, remember-me local storage, and auth redirect.
