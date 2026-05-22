@@ -1,3 +1,12 @@
+# AI_MODULE: ups_core
+# AI_PURPOSE: UPS 本地串口/网络协议读取、状态解析、告警和关机辅助控制。
+# AI_BOUNDARY: 不做服务器卡片展示；只输出 UPS 结构化状态给 API/前端。
+# AI_DATA_FLOW: CONFIG.ups_devices -> RS232/串口或网络读取 -> UPS_STATUS -> /api/ups/status。
+# AI_RUNTIME: background.py 周期轮询；120 本地 UPS 当前以 RS232 直连为主。
+# AI_RISK: 高，UPS 状态关系到供电安全；串口参数和关机动作不能随意改。
+# AI_COMPAT: 波特率、数据位、停止位、校验、status 字段需兼容配置中心。
+# AI_SEARCH_KEYWORDS: UPS, RS232, serial, SANTAK, battery, load, shutdown.
+
 import math
 import os
 import re

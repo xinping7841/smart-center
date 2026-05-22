@@ -1,3 +1,11 @@
+// AI_MODULE: login_view
+// AI_PURPOSE: 登录页提交、记住账号和登录错误反馈。
+// AI_BOUNDARY: 不实现权限策略；权限和账号状态在 auth 后端。
+// AI_DATA_FLOW: 登录表单 -> /api/auth/login -> session。
+// AI_RUNTIME: 未登录访问时加载。
+// AI_RISK: 中，登录错误会影响全站访问，但不触发设备控制。
+// AI_SEARCH_KEYWORDS: login, auth, session, remember me.
+
 (function installSmartCenterLogin(global) {
     'use strict';
 

@@ -1,3 +1,12 @@
+# AI_MODULE: apple_audio_api
+# AI_PURPOSE: 音乐库、队列、播放控制、歌词封面和 M32R 准备动作接口。
+# AI_BOUNDARY: 播放器核心状态在 apple_audio_core.py；页面渲染在 apple-audio.js。
+# AI_DATA_FLOW: 本地音乐库/播放器 -> /api/apple-audio/* -> 前端音乐卡片。
+# AI_RUNTIME: 首页音乐模块和 Apple Audio 页面调用。
+# AI_RISK: 中，M32R 准备动作可能影响音频路由；音乐扫描可能影响加载性能。
+# AI_COMPAT: queue/transport/lyrics/cover/m32/prepare 路由需保持。
+# AI_SEARCH_KEYWORDS: apple audio, music, queue, lyrics, cover, m32.
+
 import mimetypes
 from pathlib import Path
 

@@ -1,3 +1,12 @@
+# AI_MODULE: automation_api
+# AI_PURPOSE: 自动化/场景联动规则的状态、日志、开关和配置更新接口。
+# AI_BOUNDARY: 条件实时求值和执行状态在 runtime/automation.py；这里保持配置保存和接口兼容。
+# AI_DATA_FLOW: CONFIG.automation_rules -> runtime automation snapshot -> /api/automation/status/logs -> 前端节点画布。
+# AI_RUNTIME: 自动化页面轮询；配置中心保存规则；后台线程按条件触发场景。
+# AI_RISK: 高，规则可能触发空调、灯光、强电、时序电源和场景批量动作。
+# AI_COMPAT: 旧规则字段、compound 条件、前置条件和日志字段需要兼容。
+# AI_SEARCH_KEYWORDS: automation, scene, rule, condition, trigger, precondition, node canvas.
+
 from datetime import datetime
 
 from flask import Blueprint, jsonify, request

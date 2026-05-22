@@ -1,3 +1,11 @@
+// AI_MODULE: m32r_view
+// AI_PURPOSE: M32R 虚拟控台页面，展示连接、通道、主输出和模板控制。
+// AI_BOUNDARY: 不直接发 OSC；控制走 /api/m32r/*。
+// AI_DATA_FLOW: /api/m32r/status/templates -> 虚拟控台 DOM。
+// AI_RUNTIME: 独立 M32R 页面加载。
+// AI_RISK: 中，控制会影响现场音频输出。
+// AI_SEARCH_KEYWORDS: m32r, mixer, osc, channel, main, template.
+
 (function installSmartCenterM32R(global) {
     "use strict";
 

@@ -1,3 +1,12 @@
+# AI_MODULE: server_monitor_api
+# AI_PURPOSE: 服务器监控 API、Windows/Linux Agent 上报、Agent 分发、WOL、关机/重启命令队列和加密锁信息。
+# AI_BOUNDARY: 前端卡片布局不写在这里；复杂硬件解析后续应拆到 server_monitor service/helper。
+# AI_DATA_FLOW: Agent -> /report -> monitor.db -> /api/machines；前端命令 -> machine_commands -> Agent 拉取执行。
+# AI_RUNTIME: 局域网机器周期上报，前端服务器看板轮询，/deploy_agent.bat 提供安装脚本。
+# AI_RISK: 高，涉及远程关机、重启、网络唤醒、自动更新、GPU/CodeMeter/系统信息判断。
+# AI_COMPAT: /report、/agent/config、/agent/worker.json、/deploy_agent.bat、/api/machines 路由和字段不能随意改。
+# AI_SEARCH_KEYWORDS: server, machines, agent, wol, codemeter, gpu, shutdown, worker.
+
 import sqlite3, json, socket, time, subprocess, ipaddress, threading, base64
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -13,13 +22,6 @@ from auth.decorators import require_permission
 from config import CONFIG, SERVER_COMMANDS
 from data_logger import add_log
 from paths import DB_FILE as DB_FILE_PATH, ensure_parent_dir
-
-# Module role: server_monitor API plus Windows/Linux Agent distribution.
-# Boundaries: keep route compatibility here, but move generated agent templates,
-# hardware normalization, and command queue helpers into a future
-# modules/server_monitor package before adding more features.
-# Compatibility: external Windows clients depend on /agent/config,
-# /agent/worker.json, /deploy_agent.bat, /report, and /api/machines.
 
 bp = Blueprint('server', __name__)
 DB_FILE = str(DB_FILE_PATH)

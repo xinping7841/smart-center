@@ -1,3 +1,12 @@
+# AI_MODULE: power_api
+# AI_PURPOSE: 强电柜、电表中心、能耗统计、回路控制、一键开关和远程电表服务桥接 API。
+# AI_BOUNDARY: 路由负责鉴权、锁和响应兼容；寄存器读写、远程电表和报表逻辑优先放到 service/core。
+# AI_DATA_FLOW: 前端强电/电表页面 -> /api/status /api/meters /api/set 等 -> DEVICE_STATUS/METER_STATUS/远程电表服务。
+# AI_RUNTIME: 被首页、强电页、配置中心和自动化频繁调用。
+# AI_RISK: 高，涉及真实强电回路控制、一键开关、状态反弹处理和能耗计费数据。
+# AI_COMPAT: /api/status、/api/meters、/api/set、/api/onekey_start、/api/onekey_stop 字段必须稳定。
+# AI_SEARCH_KEYWORDS: power, cabinet, meter, channel, energy, remote_meter_service, onekey.
+
 import csv
 import io
 import json

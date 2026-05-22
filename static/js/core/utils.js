@@ -1,3 +1,11 @@
+// AI_MODULE: frontend_utils
+// AI_PURPOSE: 前端通用工具，包含 HTML 转义、API 错误翻译、fetch JSON、toast 和格式化函数。
+// AI_BOUNDARY: 不写具体模块 DOM 渲染；业务页面应调用这里的工具减少重复。
+// AI_DATA_FLOW: view 脚本 -> SmartCenter.utils -> API 请求/格式化/提示。
+// AI_RUNTIME: 全站页面加载后常驻，许多 view 模块依赖。
+// AI_RISK: 中，错误翻译和 fetch 行为会影响所有页面的操作反馈。
+// AI_SEARCH_KEYWORDS: utils, fetchJson, toast, escapeHtml, format.
+
 (function installSmartCenterUtils(global) {
     'use strict';
 

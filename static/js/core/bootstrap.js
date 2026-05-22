@@ -1,3 +1,11 @@
+// AI_MODULE: frontend_bootstrap
+// AI_PURPOSE: 浏览器端 SmartCenter 命名空间、模块注册、ready 队列和全局错误兜底。
+// AI_BOUNDARY: 不写具体页面业务；页面逻辑放在 static/js/views/*。
+// AI_DATA_FLOW: 各 view 模块 registerModule -> SmartCenter.modules -> index.html 统一调用。
+// AI_RUNTIME: 在 templates/index.html 中优先加载，必须在其他 view 脚本之前可用。
+// AI_RISK: 中，改坏会导致全站前端模块无法注册或 ready 回调不执行。
+// AI_SEARCH_KEYWORDS: SmartCenter, registerModule, onReady, frontend bootstrap.
+
 (function bootstrapSmartCenter(global) {
     'use strict';
 

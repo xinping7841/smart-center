@@ -1,3 +1,12 @@
+# AI_MODULE: hvac_api
+# AI_PURPOSE: 空调状态读取、控制、Home Assistant/米家设备同步和空调运行状态事件记录。
+# AI_BOUNDARY: 米家/HA 协议细节放在 services/home_assistant_bridge.py、services/miio_hvac.py、services/xiaomi_cloud.py。
+# AI_DATA_FLOW: CONFIG.hvac_devices/home_assistant -> HA/miio -> HVAC_STATUS -> /api/hvac/status/control/devices。
+# AI_RUNTIME: 空调页面、自动化规则和首页环境卡片会读取状态；控制动作会写审计/事件日志。
+# AI_RISK: 高，可能真实开关空调；温度自动化依赖这里的状态和控制结果。
+# AI_COMPAT: /api/hvac/status、/api/hvac/control、/api/hvac/devices 字段需保持前端和自动化兼容。
+# AI_SEARCH_KEYWORDS: hvac, air conditioner, home_assistant, miio, xiaomi, temperature, climate.
+
 import time
 from datetime import datetime
 

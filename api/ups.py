@@ -1,3 +1,12 @@
+# AI_MODULE: ups_api
+# AI_PURPOSE: UPS 状态接口和必要控制动作入口。
+# AI_BOUNDARY: UPS 协议解析在 ups_core.py；这里负责权限、锁和前端兼容响应。
+# AI_DATA_FLOW: UPS_STATUS/ups_core -> /api/ups/status/control -> static/js/views/ups.js。
+# AI_RUNTIME: 首页和 UPS 页面轮询；120 本地 UPS 当前以 RS232 直连为主。
+# AI_RISK: 高，UPS 关机/告警涉及供电安全。
+# AI_COMPAT: /api/ups/status 的 battery/load/input/output 字段需保持兼容。
+# AI_SEARCH_KEYWORDS: ups, rs232, battery, load, shutdown, serial.
+
 from flask import Blueprint, jsonify, request
 
 from audit import log_audit_event

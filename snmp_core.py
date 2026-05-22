@@ -1,3 +1,12 @@
+# AI_MODULE: snmp_core
+# AI_PURPOSE: SNMP 轮询、OID 解析、厂商摘要、接口/存储/告警归一化。
+# AI_BOUNDARY: 不做页面布局；前端展示由 static/js/views/snmp.js 负责，API 只传结构化结果。
+# AI_DATA_FLOW: CONFIG.snmp_devices -> SNMP get/walk -> normalized status -> runtime.state.SNMP_STATUS。
+# AI_RUNTIME: background.py 周期轮询，api/snmp.py 也可能做单设备测试。
+# AI_RISK: 中，容量/端口/VLAN/告警判断错误会误导网络排障；轮询过重会拖慢页面和设备。
+# AI_COMPAT: QNAP、飞牛、爱快、H3C 的 summary/metrics/interface_rows/storage 字段被前端使用。
+# AI_SEARCH_KEYWORDS: snmp, oid, qnap, fnos, ikuai, h3c, vlan, interface, storage.
+
 import asyncio
 from copy import deepcopy
 from datetime import datetime

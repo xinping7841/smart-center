@@ -1,3 +1,12 @@
+# AI_MODULE: screen_api
+# AI_PURPOSE: 幕布升降停止控制、状态维护和配置保存接口。
+# AI_BOUNDARY: 串口/TCP 命令组装在 screen_core.py，API 负责权限、锁和日志。
+# AI_DATA_FLOW: 前端幕布按钮 -> /api/screen/control -> screen_core -> SCREEN_STATUS。
+# AI_RUNTIME: 首页/投影相关页面调用。
+# AI_RISK: 高，幕布动作是真实机械动作，必须保留锁和操作日志。
+# AI_COMPAT: screen id、action、status 字段需兼容现有前端。
+# AI_SEARCH_KEYWORDS: screen, lift, stop, up, down, rs232.
+
 from flask import Blueprint, jsonify, request
 
 from audit import log_audit_event

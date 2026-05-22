@@ -1,3 +1,11 @@
+// AI_MODULE: universal_control_view
+// AI_PURPOSE: 泛型控制/协议控制中心前端按钮和旧设备控制 UI。
+// AI_BOUNDARY: 不直接发 TCP/UDP/串口；控制走 /api/control_center/execute 或 /api/universal/control。
+// AI_DATA_FLOW: CONFIG custom/control devices -> 按钮 DOM -> 控制 API。
+// AI_RUNTIME: 首页/泛型控制页面加载。
+// AI_RISK: 高，按钮可能向真实设备发送控制命令。
+// AI_SEARCH_KEYWORDS: universal, protocol control, tcp, udp, serial.
+
 (function installSmartCenterUniversal(global) {
     'use strict';
 

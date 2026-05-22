@@ -1,3 +1,12 @@
+# AI_MODULE: runtime_paths
+# AI_PURPOSE: 统一解析源码目录、运行数据目录、配置文件、数据库、日志和授权文件路径。
+# AI_BOUNDARY: 只做路径解析和目录创建，不读取业务配置、不执行设备控制。
+# AI_DATA_FLOW: systemd 环境变量 -> Path 常量 -> api/background/services 共享使用。
+# AI_RUNTIME: 模块导入时会执行 ensure_runtime_layout()，确保运行目录存在。
+# AI_RISK: 高，路径改错会导致读取旧配置、误写源码目录或丢失运行授权文件。
+# AI_COMPAT: SMART_CENTER_DATA_DIR、SMART_CENTER_RUNTIME_DIR、SMART_CENTER_AUTH_USERS_FILE 等环境变量需保持兼容。
+# AI_SEARCH_KEYWORDS: DATA_DIR, RUNTIME_DIR, CONFIG_FILE, AUTH_USERS_FILE, smart-center-data.
+
 import os
 from pathlib import Path
 

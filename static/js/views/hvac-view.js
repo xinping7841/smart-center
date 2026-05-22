@@ -1,3 +1,11 @@
+// AI_MODULE: hvac_view
+// AI_PURPOSE: 空调区域卡片、房间分组、温湿度融合显示和开关/模式/风速控制 UI。
+// AI_BOUNDARY: 不直接访问米家或 Home Assistant；控制统一走 /api/hvac/control。
+// AI_DATA_FLOW: /api/hvac/status + /api/env/status -> 空调空间卡片 DOM。
+// AI_RUNTIME: 空调页面和首页模块加载；移动端和桌面端都要保持紧凑。
+// AI_RISK: 高，按钮会触发真实空调控制；必须依赖权限和确认逻辑。
+// AI_SEARCH_KEYWORDS: hvac, room card, temperature, humidity, fan, home assistant.
+
 (function installSmartCenterHvacView(global) {
     'use strict';
 

@@ -1,3 +1,12 @@
+# AI_MODULE: projector_api
+# AI_PURPOSE: 投影机状态、控制命令、状态推断和投影机品牌命令库接口。
+# AI_BOUNDARY: 协议细节和推断逻辑在 projector_core.py；这里负责权限、锁、审计和响应。
+# AI_DATA_FLOW: 前端投影机卡片 -> /api/projector/* -> projector_core -> PROJECTOR_STATUS。
+# AI_RUNTIME: 首页/投影机集群页面调用，部分控制会经过 121 网关或串口服务器。
+# AI_RISK: 高，开关机会影响真实投影设备，测试前要确认现场允许。
+# AI_COMPAT: /api/projector/status/control 的状态字段和 command_id 需保持兼容。
+# AI_SEARCH_KEYWORDS: projector, pjlink, rs232, gateway, power on, power off.
+
 from flask import Blueprint, jsonify, request
 
 from audit import log_audit_event

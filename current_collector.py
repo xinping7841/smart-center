@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+# AI_MODULE: current_collector_core
+# AI_PURPOSE: 多路电流采集器读取、通道/组合数据计算和状态推断辅助。
+# AI_BOUNDARY: 不负责强电控制；只采集电流并提供组合回路数据给页面和推断逻辑。
+# AI_DATA_FLOW: CONFIG.current_collector -> Modbus/网关读取 -> current_collector.STATE -> API/前端。
+# AI_RUNTIME: current_collector API 或后台刷新调用；支持暂停展示但默认实时读取。
+# AI_RISK: 中，电流数据会影响投影/设备开机推断，阈值和组合配置要谨慎。
+# AI_COMPAT: channel、groups、visible、sort_order 等配置字段被配置中心和前端使用。
+# AI_SEARCH_KEYWORDS: current collector, current, amperage, channel, group, modbus.
+
 """CX-IXXXS/CX-I716SX current collector protocol helpers.
 
 The device speaks standard Modbus-RTU function 0x03.  The protocol module is
@@ -335,4 +344,3 @@ class CurrentCollector:
             transport=getattr(self.transport, "name", self.transport.__class__.__name__),
             collected_at=datetime.now().isoformat(timespec="seconds"),
         )
-

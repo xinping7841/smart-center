@@ -1,3 +1,11 @@
+// AI_MODULE: ups_view
+// AI_PURPOSE: UPS 监测页面，展示电池、负载、输入输出、告警和控制按钮。
+// AI_BOUNDARY: 不直接读串口；数据来自 /api/ups/status。
+// AI_DATA_FLOW: /api/ups/status/control -> UPS 卡片 DOM。
+// AI_RUNTIME: UPS 页面和首页模块轮询。
+// AI_RISK: 高，UPS 控制和告警涉及供电安全。
+// AI_SEARCH_KEYWORDS: ups, battery, load, rs232, shutdown.
+
 (function installSmartCenterUps(global) {
     'use strict';
 

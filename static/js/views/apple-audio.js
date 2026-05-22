@@ -1,3 +1,11 @@
+// AI_MODULE: apple_audio_view
+// AI_PURPOSE: 音乐库、播放队列、歌词、封面和 M32R 准备动作的前端展示。
+// AI_BOUNDARY: 不直接控制音频设备；所有动作走 /api/apple-audio/*。
+// AI_DATA_FLOW: /api/apple-audio/status/queue/transport -> 音乐卡片和控制按钮。
+// AI_RUNTIME: 首页或音乐页面加载。
+// AI_RISK: 中，M32R 路由准备可能影响现场音频输出。
+// AI_SEARCH_KEYWORDS: apple audio, music, queue, lyrics, cover, m32.
+
 (function installSmartCenterAppleAudio(global) {
     'use strict';
 

@@ -1,3 +1,12 @@
+# AI_MODULE: home_assistant_bridge
+# AI_PURPOSE: 与 121 Home Assistant 对接，读取米家/HA 实体状态并执行空调等实体控制。
+# AI_BOUNDARY: 不做前端展示；房间/卡片布局由前端和 CONFIG 映射处理。
+# AI_DATA_FLOW: CONFIG.home_assistant/entity_id -> HA REST API -> env/hvac 状态 -> api/hvac.py、api/env.py。
+# AI_RUNTIME: 后台轮询和手动控制都会调用；网络超时必须短，避免拖慢首页。
+# AI_RISK: 高，control_hvac 会真实控制空调；token 必须脱敏，错误实体会控制错设备。
+# AI_COMPAT: HA entity_id、attribute_map、stale_after_sec 和返回字段需兼容现有配置。
+# AI_SEARCH_KEYWORDS: home assistant, ha, xiaomi, climate, entity_id, sensor, token.
+
 import json
 import ssl
 import urllib.parse

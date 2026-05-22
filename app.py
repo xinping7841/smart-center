@@ -1,3 +1,12 @@
+# AI_MODULE: app_entry
+# AI_PURPOSE: Flask 应用装配、蓝图注册、静态资源响应和 HTTP 服务入口。
+# AI_BOUNDARY: 这里不写设备协议、状态推断或页面业务逻辑；新增功能应落在 api/*、services/*、runtime/* 或 static/js/views/*。
+# AI_DATA_FLOW: 浏览器/Agent 请求 -> Flask 蓝图 -> api 模块；systemd 通过 smart-center.service 启动本文件。
+# AI_RUNTIME: node-120 生产服务执行 /srv/smart-center/current/app.py，默认监听 SMART_POWER_HTTP_PORT=6899。
+# AI_RISK: 高，启动、鉴权前置处理、静态资源缓存和线程池设置会影响全站可用性。
+# AI_COMPAT: /、/config、/agent/*、/report、各 /api/* 路由需要保持外部兼容。
+# AI_SEARCH_KEYWORDS: flask, blueprint, serve_http, startup, smart-center.service, 6899.
+
 import gzip
 import mimetypes
 import os
@@ -34,10 +43,6 @@ from api.ups import bp as ups_bp
 from api.universal import bp as universal_bp
 from auth import get_current_user, set_default_user, set_guest_user
 from runtime import ensure_runtime_started, init_runtime, start_background_services
-
-# Module role: Flask application composition and HTTP serving only.
-# Keep business logic in api/* route modules and service/core helpers so views,
-# devices, and background pollers can be split into modules safely.
 
 # Keep FFmpeg transport selection dynamic in the door camera module.
 # Some cameras only become stable over TCP, while others still need UDP fallback.

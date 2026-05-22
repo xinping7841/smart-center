@@ -1,3 +1,12 @@
+# AI_MODULE: local_model_api
+# AI_PURPOSE: 本地 AI 控制台、OpenAI-compatible 调用、训练/学习数据导出和脱敏知识包生成。
+# AI_BOUNDARY: 不直接执行设备控制；模型只能辅助分析，真实动作必须走原有 API 权限和人工确认。
+# AI_DATA_FLOW: CONFIG/事件日志/设备清单 -> training/local_model JSONL/JSON -> 本地模型/RAG。
+# AI_RUNTIME: /local-model 页面和 /api/local-model/* 调用；导出脚本 scripts/export_local_model_training.py 复用这里的构建函数。
+# AI_RISK: 中，导出数据必须脱敏，不能把账号、token、SNMP community、密码喂给模型。
+# AI_COMPAT: smart_center.training.v1 schema、/api/local-model/export-training、training-files 需保持兼容。
+# AI_SEARCH_KEYWORDS: local model, training export, jsonl, redact, OpenAI compatible, RAG.
+
 import glob
 import json
 import time

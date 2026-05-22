@@ -1,3 +1,12 @@
+# AI_MODULE: m32r_api
+# AI_PURPOSE: M32R 调音台连接、通道/主输出控制、模板和 Apple Audio 路由辅助接口。
+# AI_BOUNDARY: OSC/调音台协议细节在 m32r_core.py。
+# AI_DATA_FLOW: M32R 页面 -> /api/m32r/* -> m32r_service -> 调音台。
+# AI_RUNTIME: 独立 M32R 页面和音乐路由准备动作调用。
+# AI_RISK: 中，控制会影响现场音频输出。
+# AI_COMPAT: /m32r、/api/m32r/status/connect/channel/main/templates 需保持。
+# AI_SEARCH_KEYWORDS: m32r, mixer, osc, audio, channel, main.
+
 from flask import Blueprint, jsonify, render_template, request
 
 from config import CONFIG, save_config

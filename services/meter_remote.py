@@ -1,3 +1,12 @@
+# AI_MODULE: remote_meter_service_client
+# AI_PURPOSE: 访问远程电表采集服务，获取电表/电柜能耗状态、健康检查和配置下发。
+# AI_BOUNDARY: 不直接读 PLC 寄存器；底层采集由 NAS/远程 meter_service 负责。
+# AI_DATA_FLOW: CONFIG.meter_service -> HTTP 远程服务 -> api/power.py -> 前端电表/首页能耗。
+# AI_RUNTIME: /api/meters、诊断、配置同步会调用；需要超时保护和缓存兜底。
+# AI_RISK: 高，电表数据用于能耗统计和费用计数，不能随意改倍率、累计值和数据源判断。
+# AI_COMPAT: remote_meter_service、remote_meter_service_cache、remote_meter_service_error 等 data_source 文案被前端识别。
+# AI_SEARCH_KEYWORDS: meter_service, remote meter, energy, payload, health, cache fallback.
+
 import json
 import urllib.parse
 import urllib.request

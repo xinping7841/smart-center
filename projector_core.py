@@ -1,3 +1,12 @@
+# AI_MODULE: projector_core
+# AI_PURPOSE: 投影机协议控制、状态推断、RS232/TCP 网关命令和电流辅助判断。
+# AI_BOUNDARY: 不负责前端卡片布局；API 负责鉴权和响应，核心只处理协议、命令和状态。
+# AI_DATA_FLOW: CONFIG.projectors/projector_brands + 电流/供电状态 -> PROJECTOR_STATUS -> 前端投影机集群。
+# AI_RUNTIME: background.py 轮询状态，api/projector.py 执行控制动作。
+# AI_RISK: 高，投影开关机会影响现场设备，状态推断不能只凭单一总功率。
+# AI_COMPAT: PJLink、RS232 串口服务器、121 投影网关、历史 status 字段需保持兼容。
+# AI_SEARCH_KEYWORDS: projector, pjlink, rs232, gateway, current inference, power state.
+
 import socket
 import serial
 import threading

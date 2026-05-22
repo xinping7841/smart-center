@@ -1,3 +1,12 @@
+# AI_MODULE: snmp_api
+# AI_PURPOSE: SNMP 设备状态接口，提供 NAS、交换机、网关等网络设备的概览和详情数据。
+# AI_BOUNDARY: 不在请求里做完整 walk；重型轮询在 background/snmp_core，API 只整理缓存和必要即时测试。
+# AI_DATA_FLOW: snmp_core/background -> SNMP_STATUS -> /api/snmp/status -> static/js/views/snmp.js。
+# AI_RUNTIME: SNMP 页面和首页摘要会调用，响应体可能很大，要优先支持缓存和紧凑字段。
+# AI_RISK: 中，字段错误会导致容量、端口、VLAN、告警展示不准；过慢会拖慢页面。
+# AI_COMPAT: /api/snmp/status 和 /api/snmp/test 的设备 id、summary、metrics、walk 字段需保持兼容。
+# AI_SEARCH_KEYWORDS: snmp, qnap, ikuai, h3c, vlan, interface, storage, oid.
+
 from datetime import datetime
 import threading
 import time

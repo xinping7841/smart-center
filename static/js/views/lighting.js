@@ -1,3 +1,11 @@
+// AI_MODULE: lighting_view
+// AI_PURPOSE: 灯光/继电器页面，展示通道状态、控制按钮、场景和灯光日志。
+// AI_BOUNDARY: 不拼协议指令；控制走 /api/light/control。
+// AI_DATA_FLOW: /api/light/status/logs -> 灯光控制器 DOM。
+// AI_RUNTIME: 灯光页面和首页灯光模块。
+// AI_RISK: 高，按钮会真实改变灯光/继电器输出。
+// AI_SEARCH_KEYWORDS: lighting, relay, channel, scene, log.
+
 (function installSmartCenterLighting(global) {
     'use strict';
 

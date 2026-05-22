@@ -1,3 +1,12 @@
+# AI_MODULE: driver_hub_api
+# AI_PURPOSE: 驱动中心清单和运行快照接口，用于查看协议驱动健康状态。
+# AI_BOUNDARY: 不执行具体设备控制；只汇总 runtime.driver_hub 的 manifest/snapshot。
+# AI_DATA_FLOW: runtime.driver_hub -> /api/driver_hub/* -> driver-hub 页面。
+# AI_RUNTIME: 独立驱动中心页面按需查看。
+# AI_RISK: 低，主要是观察性接口。
+# AI_COMPAT: manifest/snapshot 字段被 static/js/views/driver-hub.js 使用。
+# AI_SEARCH_KEYWORDS: driver hub, manifest, snapshot, node-red, driver health.
+
 from flask import Blueprint, jsonify, render_template, request
 
 from auth.decorators import require_permission

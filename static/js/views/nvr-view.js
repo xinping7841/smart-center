@@ -1,3 +1,11 @@
+// AI_MODULE: nvr_view
+// AI_PURPOSE: NVR/摄像机状态、快照、播放器和多路预览前端。
+// AI_BOUNDARY: 不直接拼厂商协议；接口统一走 /api/nvr/*。
+// AI_DATA_FLOW: /api/nvr/status/snapshot/player/live -> 监控预览 DOM。
+// AI_RUNTIME: NVR 页面和监控预览模块。
+// AI_RISK: 中，过多预览会增加服务器和浏览器压力。
+// AI_SEARCH_KEYWORDS: nvr, hikvision, camera, snapshot, live, preview.
+
 (function installSmartCenterNvrView(global) {
     'use strict';
 

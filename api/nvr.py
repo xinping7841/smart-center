@@ -1,3 +1,12 @@
+# AI_MODULE: nvr_api
+# AI_PURPOSE: 海康 NVR 状态、快照、播放器代理和直播预览接口。
+# AI_BOUNDARY: 厂商协议封装在 services/hikvision_nvr.py；这里做缓存、代理和响应。
+# AI_DATA_FLOW: NVR/ISAPI/FFmpeg -> /api/nvr/status/snapshot/player/live -> NVR 前端。
+# AI_RUNTIME: 监控预览和 NVR 页面调用，部分流媒体接口可能长连接。
+# AI_RISK: 中，预览性能会影响浏览器和服务器负载，避免无节制并发。
+# AI_COMPAT: snapshot/player/live URL 和通道字段需兼容现有前端。
+# AI_SEARCH_KEYWORDS: nvr, hikvision, isapi, snapshot, live, player, camera.
+
 from datetime import datetime
 import os
 import select

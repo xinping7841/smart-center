@@ -1,3 +1,11 @@
+// AI_MODULE: dashboard_summary_view
+// AI_PURPOSE: 首页总览摘要、顶部/底部状态、环境摘要和核心模块健康状态渲染。
+// AI_BOUNDARY: 不直接请求重型详情接口；重型 SNMP/电表/服务器数据应延迟或按需加载。
+// AI_DATA_FLOW: /api/dashboard/summary + 已有模块状态 -> 首页 DOM。
+// AI_RUNTIME: 首页加载后执行，要求首屏快、布局稳定。
+// AI_RISK: 中，首屏性能和卡片统计依赖这里；不要加入同步重型计算。
+// AI_SEARCH_KEYWORDS: dashboard, summary, footer, health, home render.
+
 (function installSmartCenterDashboardSummary(global) {
     'use strict';
 

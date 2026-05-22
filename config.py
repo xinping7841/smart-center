@@ -1,3 +1,12 @@
+# AI_MODULE: config_defaults_and_migrations
+# AI_PURPOSE: 保存默认配置、配置归一化、旧字段兼容迁移和 config.json 持久化。
+# AI_BOUNDARY: 不直接访问真实设备；设备通信应放在 modbus_core、services、drivers 或 background。
+# AI_DATA_FLOW: /srv/smart-center-data/config.json -> CONFIG 全局对象 -> API、后台轮询、前端配置页。
+# AI_RUNTIME: 应用启动时导入并归一化配置；配置中心保存时调用 save_config。
+# AI_RISK: 高，默认值和迁移会影响强电、空调、SNMP、Agent、自动化等全系统行为。
+# AI_COMPAT: 旧部署字段、前端表单字段、外部 Agent 配置字段不能随意删除。
+# AI_SEARCH_KEYWORDS: CONFIG, save_config, normalize, DEFAULT_*, migration, config center.
+
 import json
 import os
 import tempfile

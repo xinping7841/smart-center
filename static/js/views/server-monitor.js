@@ -1,3 +1,11 @@
+// AI_MODULE: server_monitor_view
+// AI_PURPOSE: 服务器看板卡片、硬件指标、GPU/CodeMeter、在线离线、WOL/关机/重启操作展示。
+// AI_BOUNDARY: 不生成 Agent 脚本；Agent 分发和命令队列在 api/server.py。
+// AI_DATA_FLOW: /api/machines -> 服务器卡片 DOM；用户操作 -> /api/machines/* 或 /api/wake/*。
+// AI_RUNTIME: 首页/服务器页面轮询调用，需处理离线设备保留硬件信息。
+// AI_RISK: 高，按钮可能触发真实关机、重启、唤醒；必须保留确认和权限提示。
+// AI_SEARCH_KEYWORDS: server, machine card, gpu, codemeter, wake, shutdown, offline.
+
 (function installSmartCenterServerMonitor(global) {
     'use strict';
 

@@ -1,3 +1,12 @@
+# AI_MODULE: dashboard_api
+# AI_PURPOSE: 为首页提供轻量总览摘要，聚合各模块在线数、告警数和快速状态。
+# AI_BOUNDARY: 不直接轮询硬件；只读取 CONFIG 和 runtime/cache 中已有状态。
+# AI_DATA_FLOW: runtime.state/CONFIG -> /api/dashboard/summary -> static/js/views/dashboard-summary.js。
+# AI_RUNTIME: 首页加载和定时刷新调用，必须保持快速返回。
+# AI_RISK: 中，接口慢会拖慢主页；字段变化会影响首页统计和底部状态栏。
+# AI_COMPAT: /api/dashboard/summary 的 ok/counts/modules 字段需保持兼容。
+# AI_SEARCH_KEYWORDS: dashboard, summary, counts, modules, home overview.
+
 from datetime import datetime
 import time
 

@@ -1,3 +1,11 @@
+// AI_MODULE: driver_hub_view
+// AI_PURPOSE: 驱动中心页面，显示驱动分组、健康计数和运行快照。
+// AI_BOUNDARY: 不执行真实控制，只展示 manifest/snapshot。
+// AI_DATA_FLOW: /api/driver_hub/manifest/snapshot -> 表格和筛选 UI。
+// AI_RUNTIME: 独立页面按需打开。
+// AI_RISK: 低，观察性页面。
+// AI_SEARCH_KEYWORDS: driver hub, manifest, snapshot, health.
+
 (function installSmartCenterDriverHub(global) {
     'use strict';
 

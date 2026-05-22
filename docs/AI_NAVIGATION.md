@@ -18,11 +18,13 @@ Ignore historical backups, generated scripts, and runtime dumps unless the user 
 ## Search Order
 
 1. Read `docs/MODULE_INDEX.yaml` for module ownership and keywords.
-2. Read the module `MODULE.md` if it exists.
-3. Inspect the API route in `api/<module>.py`.
-4. Inspect service/core logic in `services/`, `*_core.py`, `drivers/`, or `runtime/`.
-5. Inspect UI code in `templates/index.html` or future `static/js/views/<module>.js`.
-6. Only then use broad `rg` searches.
+2. Read `docs/AI_CODE_MARKERS.md` for the meaning of `AI_*` code comments.
+3. Read the module `MODULE.md` if it exists.
+4. Inspect the top `AI_MODULE / AI_PURPOSE / AI_BOUNDARY / AI_RISK` comments in the relevant file.
+5. Inspect the API route in `api/<module>.py`.
+6. Inspect service/core logic in `services/`, `*_core.py`, `drivers/`, or `runtime/`.
+7. Inspect UI code in `templates/index.html` or future `static/js/views/<module>.js`.
+8. Only then use broad `rg` searches.
 
 ## Files To Avoid As Primary Evidence
 

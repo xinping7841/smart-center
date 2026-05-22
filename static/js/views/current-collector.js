@@ -1,3 +1,11 @@
+// AI_MODULE: current_collector_view
+// AI_PURPOSE: 电流采集独立页面，展示实时通道、组合回路、暂停/恢复和配置状态。
+// AI_BOUNDARY: 不直接读 Modbus；所有数据来自 /api/current-collector/*。
+// AI_DATA_FLOW: /api/current-collector/status/read -> 原始通道区和组合区 DOM。
+// AI_RUNTIME: current-collector 页面轮询。
+// AI_RISK: 中，展示结果可能被用于投影/设备开机推断。
+// AI_SEARCH_KEYWORDS: current collector, current, channel, group, pause.
+
 (function installSmartCenterCurrentCollector(global) {
   'use strict';
 

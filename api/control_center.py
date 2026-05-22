@@ -1,3 +1,12 @@
+# AI_MODULE: control_center_api
+# AI_PURPOSE: 协议控制中心、命令包导入、泛型设备控制和调试执行入口。
+# AI_BOUNDARY: 具体协议执行在 control_center_core.py；这里负责权限、锁、配置保存。
+# AI_DATA_FLOW: 配置中心/泛型控制页面 -> /api/control_center/* -> control_center_core。
+# AI_RUNTIME: 调试和泛型控制按钮调用。
+# AI_RISK: 高，可能向 TCP/UDP/串口设备发送真实控制命令。
+# AI_COMPAT: command_pack、device_id、command_id 和旧泛型控制字段需保留。
+# AI_SEARCH_KEYWORDS: control center, command pack, tcp, udp, serial, generic.
+
 from flask import Blueprint, jsonify, request
 
 from auth.decorators import require_permission

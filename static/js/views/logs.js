@@ -1,3 +1,11 @@
+// AI_MODULE: logs_view
+// AI_PURPOSE: 通用日志窗口和按模块过滤的事件日志展示。
+// AI_BOUNDARY: 不写日志；只查询并渲染后端 event logs。
+// AI_DATA_FLOW: /api/events/logs -> 日志列表 DOM。
+// AI_RUNTIME: 首页日志窗口、灯光日志、自动化日志等场景复用。
+// AI_RISK: 低到中，排序/过滤错误会影响排障效率。
+// AI_SEARCH_KEYWORDS: logs, event, filter, latest first.
+
 (function installSmartCenterLogs(global) {
     'use strict';
 

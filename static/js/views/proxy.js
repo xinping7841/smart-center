@@ -1,3 +1,11 @@
+// AI_MODULE: proxy_view
+// AI_PURPOSE: 代理监控页面，展示链路测试、客户端、121 网卡 Mbps 流量和代理状态。
+// AI_BOUNDARY: 不配置 squid；只展示 /api/proxy/status。
+// AI_DATA_FLOW: /api/proxy/status -> 代理状态卡片。
+// AI_RUNTIME: 代理页面轮询。
+// AI_RISK: 中，状态错误会影响网络排障。
+// AI_SEARCH_KEYWORDS: proxy, squid, traffic, Mbps, node-121.
+
 (function installSmartCenterProxy(global) {
     'use strict';
 

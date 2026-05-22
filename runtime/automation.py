@@ -1,3 +1,12 @@
+# AI_MODULE: automation_runtime
+# AI_PURPOSE: 自动化规则的条件求值、触发去抖、执行状态缓存和运行日志生成。
+# AI_BOUNDARY: 不处理配置表单保存；API 层负责保存 CONFIG，本模块只消费已归一化规则。
+# AI_DATA_FLOW: CONFIG.automation_rules + runtime caches -> trigger decision -> scene/control action -> operation/event logs。
+# AI_RUNTIME: background.py 周期调用，前端自动化页读取 snapshot 展示节点状态。
+# AI_RISK: 高，可能间接触发灯光、空调、强电、时序电源、投影等真实动作。
+# AI_COMPAT: 规则 state、last_* 字段和 snapshot 结构会被 static/js/views/automation-view.js 使用。
+# AI_SEARCH_KEYWORDS: automation runtime, condition evaluate, compound trigger, scene link, debounce.
+
 import threading
 import time
 from datetime import datetime

@@ -1,3 +1,12 @@
+# AI_MODULE: sequencer_api
+# AI_PURPOSE: 8 路时序电源状态读取、单路控制、顺序开关和测试接口。
+# AI_BOUNDARY: 只处理时序器协议和 API；强电柜控制在 api/power.py。
+# AI_DATA_FLOW: CONFIG.sequencers -> TCP/串口十六进制指令 -> SEQUENCER_STATUS -> 前端。
+# AI_RUNTIME: 首页和时序电源页面轮询/控制。
+# AI_RISK: 高，关闭时序电源会影响投影、LED、机柜等现场设备。
+# AI_COMPAT: DS-608/DGH 十六进制命令、单路/顺序/全部控制语义必须保持。
+# AI_SEARCH_KEYWORDS: sequencer, DS-608, DGH, hex, channel, sequence power.
+
 import socket
 import threading
 import time

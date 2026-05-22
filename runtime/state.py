@@ -1,3 +1,12 @@
+# AI_MODULE: runtime_state_cache
+# AI_PURPOSE: 保存后台轮询和 API 共享的进程内状态缓存，避免每次请求直接访问慢设备。
+# AI_BOUNDARY: 不做设备通信、不做业务推断；这里只定义状态容器和轻量快照工具。
+# AI_DATA_FLOW: background/services 写入状态字典 -> api 读取 -> 前端渲染。
+# AI_RUNTIME: Python 进程内内存状态，服务重启后重新由后台轮询填充。
+# AI_RISK: 中，字段名变化会影响多个 API 和前端页面；缓存陈旧会导致状态显示滞后。
+# AI_COMPAT: SNMP_STATUS、UPS_STATUS、PROJECTOR_STATUS、NVR_STATUS 等全局对象名称需稳定。
+# AI_SEARCH_KEYWORDS: runtime state, cache, SNMP_STATUS, UPS_STATUS, PROJECTOR_STATUS, NVR_STATUS.
+
 from config import CONFIG, DEVICE_STATUS, ENV_STATUS, LIGHT_ONLINE, LIGHT_STATUS, METER_STATUS
 
 

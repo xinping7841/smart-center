@@ -1,3 +1,12 @@
+# AI_MODULE: current_collector_api
+# AI_PURPOSE: 电流采集页面、实时读取、暂停展示、配置保存和组合回路状态接口。
+# AI_BOUNDARY: Modbus 协议读取在 current_collector.py；这里负责 API 和页面。
+# AI_DATA_FLOW: current_collector.STATE/read -> /api/current-collector/* -> current-collector 前端。
+# AI_RUNTIME: 独立电流采集页面轮询，配置中心可调整显示/排序/组合。
+# AI_RISK: 中，电流数据参与设备状态推断，配置错误会造成误判。
+# AI_COMPAT: channel/group/visible/sort_order 配置和状态字段需兼容。
+# AI_SEARCH_KEYWORDS: current collector, current, channel, group, pause, realtime.
+
 import threading
 import time
 from copy import deepcopy

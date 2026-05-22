@@ -1,3 +1,12 @@
+# AI_MODULE: background_pollers
+# AI_PURPOSE: 后台轮询真实设备、刷新 runtime.state 缓存、驱动自动化和周期性状态采集。
+# AI_BOUNDARY: API 路由应读取缓存并返回结果，不应在请求线程里重复做慢速设备轮询。
+# AI_DATA_FLOW: CONFIG -> Modbus/SNMP/HA/NVR/UPS/投影/灯光等设备 -> runtime.state/CONFIG 状态缓存 -> API/前端。
+# AI_RUNTIME: Flask 启动时通过 runtime.ensure_runtime_started/start_background_services 启动循环线程。
+# AI_RISK: 高，直接接触强电柜、时序电源、UPS、投影、空调、NVR 和自动化联动。
+# AI_COMPAT: 轮询间隔、并发上限、状态字段命名会影响首页、配置页和外部联动判断。
+# AI_SEARCH_KEYWORDS: poll, background, DEVICE_STATUS, SNMP_STATUS, automation, physical control.
+
 import json
 import os
 import re

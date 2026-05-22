@@ -1,3 +1,11 @@
+// AI_MODULE: hy_edge_view
+// AI_PURPOSE: 异地 HY506 边缘节点状态卡片和远端房间摘要展示。
+// AI_BOUNDARY: 不直接访问远端设备；数据来自 /api/hy-edge/status。
+// AI_DATA_FLOW: /api/hy-edge/status -> 边缘节点卡片。
+// AI_RUNTIME: 首页相关模块加载。
+// AI_RISK: 中，远端状态可能受网络缓存和延迟影响。
+// AI_SEARCH_KEYWORDS: hy edge, remote room, HY506, edge node.
+
 (function installSmartCenterHyEdge(global) {
     'use strict';
 

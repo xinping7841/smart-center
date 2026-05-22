@@ -1,3 +1,12 @@
+# AI_MODULE: universal_control_api
+# AI_PURPOSE: 旧泛型控制兼容入口，把历史 universal 请求转到 control_center_core。
+# AI_BOUNDARY: 新协议能力应优先放到 control_center_core 和配置中心。
+# AI_DATA_FLOW: 旧前端/外部调用 -> /api/universal/control -> control_center_core。
+# AI_RUNTIME: 为旧页面和外部系统保留。
+# AI_RISK: 高，可能发送真实设备控制命令。
+# AI_COMPAT: /api/universal/control 请求格式不能随意破坏。
+# AI_SEARCH_KEYWORDS: universal, legacy control, generic device, compatibility.
+
 from flask import Blueprint, jsonify, request
 
 from auth.decorators import require_permission

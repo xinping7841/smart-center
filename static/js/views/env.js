@@ -1,3 +1,11 @@
+// AI_MODULE: environment_view
+// AI_PURPOSE: 环境传感器、温湿度、光照、门窗/亮暗和电池状态展示。
+// AI_BOUNDARY: 不控制空调；环境数据只作为显示和自动化条件。
+// AI_DATA_FLOW: /api/env/status -> 环境卡片、顶部摘要和其他模块上下文。
+// AI_RUNTIME: 首页、环境页和 HVAC 卡片会复用。
+// AI_RISK: 中，离线/stale 错误会影响自动化判断。
+// AI_SEARCH_KEYWORDS: environment, temperature, humidity, lux, contact, battery.
+
 (function installSmartCenterEnv(global) {
     'use strict';
 

@@ -1,3 +1,11 @@
+// AI_MODULE: snmp_view
+// AI_PURPOSE: SNMP 页面紧凑卡片、设备详情、端口/存储/容量/告警信息渲染。
+// AI_BOUNDARY: 不做 SNMP OID 解析；解析和归一化在 snmp_core.py/API。
+// AI_DATA_FLOW: /api/snmp/status -> SNMP 卡片/详情 DOM。
+// AI_RUNTIME: SNMP 页面和首页相关模块加载；需要兼顾 1080P 一屏信息密度。
+// AI_RISK: 中，容量和端口/VLAN显示错误会误导网络排障。
+// AI_SEARCH_KEYWORDS: snmp, card, detail, storage, interface, vlan, qnap, h3c.
+
 (function installSmartCenterSnmp(global) {
     'use strict';
 

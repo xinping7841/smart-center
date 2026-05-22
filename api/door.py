@@ -1,3 +1,12 @@
+# AI_MODULE: door_vision_api
+# AI_PURPOSE: 门禁/门状态视觉识别、视频流、采样、训练辅助和门控动作接口。
+# AI_BOUNDARY: 模型训练脚本和视觉服务在 runtime/door_probe 与 scripts；API 只编排。
+# AI_DATA_FLOW: 摄像头/视觉服务/门控设备 -> /api/door/* /video_feed -> 前端门禁页面。
+# AI_RUNTIME: 页面查看、后台识别、采样训练时调用。
+# AI_RISK: 高，可能触发门控动作；视觉判断错误会影响安防状态。
+# AI_COMPAT: /video_feed、/get_door_status、/api/door/* 历史路由需保留。
+# AI_SEARCH_KEYWORDS: door, vision, camera, recording, dataset, video_feed.
+
 import base64
 import json
 import os

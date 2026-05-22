@@ -1,3 +1,11 @@
+// AI_MODULE: power_meter_view
+// AI_PURPOSE: 强电柜、电表中心、回路卡片、能耗图表和电流/状态展示前端。
+// AI_BOUNDARY: 不直接拼 Modbus 指令；控制统一走 api/power.py。
+// AI_DATA_FLOW: /api/status /api/meters /api/logs -> 强电/电表 DOM；按钮 -> /api/set/onekey。
+// AI_RUNTIME: 首页、强电页、电表页共用，需兼容 16:9 大屏和移动端。
+// AI_RISK: 高，控制按钮会真实开关强电回路；必须保留权限、确认和状态回读。
+// AI_SEARCH_KEYWORDS: power, cabinet, meter, channel, energy, current, onekey.
+
 (function installSmartCenterPowerMeter(global) {
     'use strict';
 

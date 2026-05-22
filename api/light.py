@@ -1,3 +1,12 @@
+# AI_MODULE: lighting_api
+# AI_PURPOSE: 灯光/继电器控制、状态、日志和调试工具接口。
+# AI_BOUNDARY: 不在这里写具体驱动协议；协议驱动放在 drivers/light_*.py。
+# AI_DATA_FLOW: 前端灯光页面 -> /api/light/status/control/logs -> LIGHT_STATUS/LIGHT_DRIVERS。
+# AI_RUNTIME: 灯光页面、首页卡片、自动化规则会调用。
+# AI_RISK: 高，控制会真实改变灯光/继电器输出。
+# AI_COMPAT: light device id、channel、action、logs 字段需保持兼容。
+# AI_SEARCH_KEYWORDS: light, relay, channel, niren, coxe, scene, log.
+
 import time
 
 from flask import Blueprint, jsonify, render_template_string, request

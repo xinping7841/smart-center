@@ -1,3 +1,11 @@
+// AI_MODULE: local_model_view
+// AI_PURPOSE: 本地模型控制台、健康检查、对话和训练数据导出入口。
+// AI_BOUNDARY: 不直接执行设备动作；模型建议必须回到权限 API 和人工确认。
+// AI_DATA_FLOW: /api/local-model/* -> 本地模型页面。
+// AI_RUNTIME: 独立页面按需打开。
+// AI_RISK: 中，提示词和训练数据会影响模型后续建议。
+// AI_SEARCH_KEYWORDS: local model, chat, training, export, RAG.
+
 (function installSmartCenterLocalModel(global) {
   'use strict';
 

@@ -1,3 +1,12 @@
+# AI_MODULE: environment_api
+# AI_PURPOSE: 环境传感器状态、光照历史、HA/MQTT/Modbus 环境数据调试接口。
+# AI_BOUNDARY: 不负责空调控制；环境数据只作为展示和自动化条件来源。
+# AI_DATA_FLOW: ENV_STATUS/HA/MQTT/Modbus -> /api/env/status -> env/hvac/dashboard 前端。
+# AI_RUNTIME: 首页、环境页、空调空间卡片和自动化条件会读取。
+# AI_RISK: 中，温湿度/光照数据会影响自动化判断，离线和 stale 逻辑要准确。
+# AI_COMPAT: env_sensors、features、primary_metric、battery 等字段需保持兼容。
+# AI_SEARCH_KEYWORDS: env, temperature, humidity, illuminance, contact, battery, HA.
+
 from copy import deepcopy
 
 from flask import Blueprint, jsonify, request

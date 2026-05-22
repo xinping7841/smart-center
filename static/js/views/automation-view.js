@@ -1,3 +1,11 @@
+// AI_MODULE: automation_view
+// AI_PURPOSE: 自动化运行页面、规则卡片、条件气泡、节点画布、执行日志展示。
+// AI_BOUNDARY: 不在前端做最终触发决策；真实条件求值和执行在 runtime/automation.py。
+// AI_DATA_FLOW: /api/automation/status/logs -> 自动化卡片/节点画布 DOM。
+// AI_RUNTIME: 自动化页面轮询；画布支持缩放、居中和拖动。
+// AI_RISK: 高，展示错误会让用户误判自动化是否会触发真实设备动作。
+// AI_SEARCH_KEYWORDS: automation, node canvas, condition bubble, trigger, scene.
+
 (function installSmartCenterAutomationView(global) {
     'use strict';
 

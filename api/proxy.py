@@ -1,3 +1,12 @@
+# AI_MODULE: proxy_monitor_api
+# AI_PURPOSE: 121 代理服务状态、链路测试、客户端使用和网卡流量摘要接口。
+# AI_BOUNDARY: 不直接配置代理服务；只读取 background 写入的 PROXY_STATUS。
+# AI_DATA_FLOW: background 采集 node-121/squid/NIC -> PROXY_STATUS -> /api/proxy/status。
+# AI_RUNTIME: 代理监控页轮询。
+# AI_RISK: 中，流量/在线判断错误会影响网络排障。
+# AI_COMPAT: Google/YouTube/GPT/GitHub 测试状态和 Mbps 字段需兼容前端。
+# AI_SEARCH_KEYWORDS: proxy, squid, node-121, traffic, Mbps, google, youtube.
+
 from flask import Blueprint, jsonify
 
 from auth.decorators import require_permission
