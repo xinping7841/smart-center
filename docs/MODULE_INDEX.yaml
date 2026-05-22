@@ -52,10 +52,11 @@ modules:
     split_priority: low
     ai_keywords: ['current collector','current_collector','current','amperage','channel groups','modbus']
   server_monitor:
+    frontend_module: 'static/js/views/server-monitor.js'
     purpose: Windows/Linux machine reporting, hardware cards, CodeMeter, WOL, shutdown/restart commands.
     routes: ['/api/machines','/api/machines/*','/report','/agent/config','/agent/worker.json','/deploy_agent.bat','/api/wake/<mac>']
     backend: ['api/server.py','agent/linux_agent.py','scripts/install_local_user_agent.ps1']
-    frontend: ['templates/index.html','templates/config.html']
+    frontend: ['templates/index.html','templates/config.html','static/js/views/server-monitor.js']
     config_keys: ['server_monitor','SERVER_COMMANDS']
     runtime_state: ['monitor.db','machines','metrics_history','machine_commands']
     split_priority: very_high

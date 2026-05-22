@@ -9,7 +9,7 @@ The dashboard currently works, so frontend splitting must be done as behavior-pr
 - `templates/index.html` is the main shell and contains large inline CSS/JS.
 - Static CSS files are large and mostly shared.
 - Most buttons still call global functions from inline `onclick` attributes.
-- The following behavior-preserving modules have been extracted to `static/js/views/`: `logs.js`, `proxy.js`, `ups.js`, `hy-edge.js`, `apple-audio.js`, `universal.js`, `env.js`, `current-collector.js`, `m32r.js`, `driver-hub.js`, `local-model.js`, `login.js`, and `lighting.js`.
+- The following behavior-preserving modules have been extracted to `static/js/views/`: `logs.js`, `proxy.js`, `ups.js`, `hy-edge.js`, `apple-audio.js`, `universal.js`, `env.js`, `snmp.js`, `server-monitor.js`, `current-collector.js`, `m32r.js`, `driver-hub.js`, `local-model.js`, `login.js`, and `lighting.js`.
 
 ## Stage 2A: Bootstrap And Boundaries
 
@@ -55,8 +55,9 @@ Recommended order:
 Recommended order after utilities are stable:
 
 1. SNMP monitor.
-   - In progress: `static/js/views/snmp.js` now holds SNMP formatting, filters, storage/interface/switch helpers, overview/detail render helpers, and NAS/router/switch/NVR card rendering while `templates/index.html` keeps polling, selected-device state, and compatibility wrappers.
+   - Completed: `static/js/views/snmp.js` now holds SNMP formatting, filters, storage/interface/switch helpers, overview/detail render helpers, and NAS/router/switch/NVR card rendering while `templates/index.html` keeps polling, selected-device state, and compatibility wrappers.
 2. Server monitor.
+   - Completed: `static/js/views/server-monitor.js` now holds server hardware/card render helpers, CodeMeter display helpers, diagnostics, offline snapshot markup, and grouped grid rendering. `templates/index.html` keeps polling, pending command state, WOL/shutdown/restart actions, sorting, and compatibility wrappers.
 3. Power/meter dashboard.
 4. Automation node canvas.
 5. HVAC room cards.
