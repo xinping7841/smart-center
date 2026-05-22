@@ -4616,39 +4616,10 @@
             return SmartCenter.snmp.getSnmpFilterMeta(filterKey);
         }
         function getSnmpSummaryCards(summaries) {
-            const list = Array.isArray(summaries) ? summaries : [];
-            const total = list.length;
-            const online = list.filter(item => getDeviceStatusMeta(item.status || {}).isOnlineLike).length;
-            const critical = list.filter(item => String(item.summary.risk_level || '').toLowerCase() === 'critical').length;
-            const warning = list.filter(item => String(item.summary.risk_level || '').toLowerCase() === 'warning').length;
-            const nasCount = list.filter(item => String(item.summary.device_type || item.cfg.device_type || '').toLowerCase() === 'nas').length;
-            const routerCount = list.filter(item => String(item.summary.device_type || item.cfg.device_type || '').toLowerCase() === 'router').length;
-            const switchCount = list.filter(item => String(item.summary.device_type || item.cfg.device_type || '').toLowerCase() === 'switch').length;
-            const nvrCount = list.filter(item => String(item.summary.device_type || item.cfg.device_type || '').toLowerCase() === 'nvr').length;
-            return [
-                { key: 'all', label: '设备总数', value: String(total), meta: `在线 ${online} / 离线 ${Math.max(0, total - online)}`, level: '' },
-                { key: 'critical', label: '高风险', value: String(critical), meta: '优先处理 critical 设备', level: 'critical' },
-                { key: 'warning', label: '中风险', value: String(warning), meta: '建议关注 warning 设备', level: 'warning' },
-                { key: 'nas', label: 'NAS', value: String(nasCount), meta: '存储 / 负载 / 磁盘', level: '' },
-                { key: 'router', label: '网关', value: String(routerCount), meta: 'WAN / LAN / 总吞吐', level: '' },
-                { key: 'switch', label: '交换机', value: String(switchCount), meta: '端口 / 上联 / 异常', level: '' },
-                { key: 'nvr', label: '录像机', value: String(nvrCount), meta: '通道 / 硬盘 / 预览', level: '' }
-            ];
+            return SmartCenter.snmp.getSnmpSummaryCards(summaries);
         }
         function filterSnmpConfigs(configs, cache, filterKey) {
-            const key = String(filterKey || 'all').trim().toLowerCase() || 'all';
-            const items = Array.isArray(configs) ? configs : [];
-            if (key === 'all') return items;
-            return items.filter(cfg => {
-                const status = cache[cfg.id] || {};
-                const summary = status.summary || {};
-                const deviceType = String(summary.device_type || cfg.device_type || '').toLowerCase();
-                const riskLevel = String(summary.risk_level || '').toLowerCase();
-                if (key === 'critical' || key === 'warning') {
-                    return riskLevel === key;
-                }
-                return deviceType === key;
-            });
+            return SmartCenter.snmp.filterSnmpConfigs(configs, cache, filterKey);
         }
         function renderSnmpOverviewBar(configs, cache, filterKey = 'all', viewMode = 'page') {
             const items = Array.isArray(configs) ? configs.filter(cfg => cfg.visible !== false) : [];
@@ -4676,168 +4647,28 @@
             </div>`;
         }
         function getSnmpMetricLabel(metricName) {
-            const normalized = String(metricName || '').trim().toLowerCase();
-            const labelMap = {
-                hr_memory_size_kb: '内存总量',
-                hr_system_processes: '进程数',
-                hr_system_users: '在线用户',
-                ucd_load_1: 'Load 1',
-                ucd_load_5: 'Load 5',
-                ucd_load_15: 'Load 15',
-                ucd_mem_total_kb: 'UCD 内存总量',
-                ucd_mem_available_kb: 'UCD 可用内存',
-                ucd_mem_cached_kb: 'UCD Cache',
-                ucd_mem_buffer_kb: 'UCD Buffer',
-                vendor_memory_total: '厂商内存总量',
-                vendor_memory_free: '厂商空闲内存',
-                if_number: '接口数量',
-                cpu_usage_percent: 'CPU 使用率',
-                cpu_user_percent: 'CPU 用户占比',
-                cpu_system_percent: 'CPU 系统占比',
-                cpu_idle_percent: 'CPU 空闲占比',
-                temperature_c: '温度',
-                cpu_temperature_c: 'CPU 温度',
-                session_count: '会话数',
-                network_connections: '网络连接数',
-                ap_count: 'AP 数量',
-                online_clients: '在线终端',
-                nat_sessions: 'NAT 会话'
-            };
-            return labelMap[normalized] || (metricName || 'metric');
+            return SmartCenter.snmp.getSnmpMetricLabel(metricName);
         }
         function getSnmpMetricValue(customMetrics, metricName) {
-            const target = String(metricName || '').trim().toLowerCase();
-            const item = (Array.isArray(customMetrics) ? customMetrics : []).find(metric => String(metric?.name || '').trim().toLowerCase() === target);
-            return item ? formatSnmpMetricValue(item) : '--';
+            return SmartCenter.snmp.getSnmpMetricValue(customMetrics, metricName);
         }
         function getSnmpMetricValueWithFallback(customMetrics, metricNames = [], summary = null) {
-            const names = Array.isArray(metricNames) ? metricNames : [metricNames];
-            for (let i = 0; i < names.length; i += 1) {
-                const name = String(names[i] || '').trim();
-                if (!name) continue;
-                const fromCustom = getSnmpMetricValue(customMetrics, name);
-                if (fromCustom !== '--') return fromCustom;
-                if (summary && summary[name] !== undefined && summary[name] !== null && summary[name] !== '') {
-                    return formatSnmpSummaryValue(summary[name]);
-                }
-            }
-            return '--';
+            return SmartCenter.snmp.getSnmpMetricValueWithFallback(customMetrics, metricNames, summary);
         }
         function normalizeSnmpSwitchPortRow(row) {
-            const item = Object.assign({}, row || {});
-            const adminStatus = String(item.admin_status || '').trim();
-            const operStatus = String(item.oper_status || '').trim();
-            const speedBps = Number(item.speed_bps || 0);
-            const nameText = String(item.name || '').toLowerCase();
-            item.admin_up = item.admin_up !== undefined ? !!item.admin_up : adminStatus === '1';
-            item.oper_up = item.oper_up !== undefined ? !!item.oper_up : operStatus === '1';
-            item.oper_status_known = item.oper_status_known !== undefined ? !!item.oper_status_known : !!operStatus;
-            if (!item.status_level) {
-                item.status_level = item.oper_up
-                    ? 'up'
-                    : (item.admin_up && item.oper_status_known ? 'down' : (item.admin_up ? 'unknown' : 'disabled'));
-            }
-            if (!item.status_text) {
-                item.status_text = item.status_level === 'up'
-                    ? '在线'
-                    : (item.status_level === 'down' ? '离线' : (item.status_level === 'unknown' ? '状态未采到' : '管理关闭'));
-            }
-            item.is_uplink = item.is_uplink !== undefined
-                ? !!item.is_uplink
-                : (speedBps >= 10000000000 || /^(ten-gigabitethernet|xgigabitethernet|fortygige|hundredgige)/.test(nameText));
-            item.in_rate_text = item.in_rate_text || '--';
-            item.out_rate_text = item.out_rate_text || '--';
-            item.total_rate_text = item.total_rate_text || '--';
-            item.traffic_text = item.traffic_text || `${item.in_rate_text} / ${item.out_rate_text}`;
-            item.utilization_text = item.utilization_text || '--';
-            item.in_bytes_text = item.in_bytes_text || '--';
-            item.out_bytes_text = item.out_bytes_text || '--';
-            item.error_total = Number(item.error_total ?? (Number(item.in_errors || 0) + Number(item.out_errors || 0)));
-            item.discard_total = Number(item.discard_total ?? (Number(item.in_discards || 0) + Number(item.out_discards || 0)));
-            item.error_delta_total = Number(item.error_delta_total || 0);
-            item.discard_delta_total = Number(item.discard_delta_total || 0);
-            item.learned_mac_count = Number(item.learned_mac_count || 0);
-            item.learned_vlan_count = Number(item.learned_vlan_count || 0);
-            const pvidValue = Number(item.pvid || 0);
-            const pvidNameRaw = String(item.pvid_name || '').trim();
-            item.pvid = Number.isFinite(pvidValue) && pvidValue > 0 ? pvidValue : null;
-            item.pvid_name = pvidNameRaw && pvidNameRaw !== '--'
-                ? pvidNameRaw
-                : (item.pvid ? `VLAN ${item.pvid}` : '--');
-            return item;
+            return SmartCenter.snmp.normalizeSnmpSwitchPortRow(row);
         }
         function getSnmpSwitchPortRows(summary, interfaceSummary) {
-            const sourceSummary = summary || {};
-            const sourceInterface = interfaceSummary || {};
-            const switchRows = Array.isArray(sourceInterface.switch_port_rows) ? sourceInterface.switch_port_rows.filter(Boolean) : [];
-            if (switchRows.length) {
-                return switchRows.map(normalizeSnmpSwitchPortRow);
-            }
-            const interfaceRows = Array.isArray(sourceSummary.interface_rows) ? sourceSummary.interface_rows.filter(Boolean) : [];
-            const physicalRows = interfaceRows.filter(row => row && row.kind === 'physical');
-            const fallbackRows = physicalRows.length ? physicalRows : interfaceRows;
-            return fallbackRows.map(normalizeSnmpSwitchPortRow);
+            return SmartCenter.snmp.getSnmpSwitchPortRows(summary, interfaceSummary);
         }
         function getSnmpSwitchPortState(row) {
-            const item = normalizeSnmpSwitchPortRow(row);
-            const level = String(item.status_level || '').trim().toLowerCase();
-            if (level === 'up') return { level: 'up', text: '在线', chipClass: 'online', cardClass: 'up', warning: false };
-            if (level === 'down') return { level: 'down', text: '离线', chipClass: 'error', cardClass: 'down', warning: true };
-            if (level === 'unknown') return { level: 'unknown', text: '状态未采到', chipClass: 'warning', cardClass: 'unknown', warning: false };
-            return { level: 'disabled', text: '管理关闭', chipClass: '', cardClass: 'disabled', warning: false };
+            return SmartCenter.snmp.getSnmpSwitchPortState(row);
         }
         function getSnmpSwitchDerivedStats(summary, interfaceSummary) {
-            const sourceSummary = summary || {};
-            const sourceInterface = interfaceSummary || {};
-            const rows = getSnmpSwitchPortRows(sourceSummary, sourceInterface);
-            const computedPhysicalCount = rows.length;
-            const computedUpCount = rows.filter(row => getSnmpSwitchPortState(row).level === 'up').length;
-            const computedDownCount = rows.filter(row => getSnmpSwitchPortState(row).level === 'down').length;
-            const computedUnknownCount = rows.filter(row => getSnmpSwitchPortState(row).level === 'unknown').length;
-            const computedUplinkCount = rows.filter(row => !!row.is_uplink).length;
-            const physicalCount = Number(sourceInterface.physical_count || 0) || computedPhysicalCount;
-            const upCount = Number(sourceInterface.physical_up_count || 0) || computedUpCount;
-            const downCount = Number(sourceInterface.physical_down_count || 0) || computedDownCount;
-            const unknownCount = Number(sourceInterface.physical_unknown_count || 0) || Number(sourceInterface.unknown_count || 0) || computedUnknownCount;
-            const uplinkCount = Number(sourceInterface.uplink_count || 0) || computedUplinkCount;
-            const bridgeVlanRows = Array.isArray(sourceInterface.bridge_vlan_rows) ? sourceInterface.bridge_vlan_rows : [];
-            const bridgePortMacRows = Array.isArray(sourceInterface.bridge_port_mac_rows) ? sourceInterface.bridge_port_mac_rows : [];
-            const bridgeVlanCount = Number(sourceInterface.bridge_vlan_count || 0) || bridgeVlanRows.length;
-            const bridgeMacCount = Number(sourceInterface.bridge_mac_count || 0)
-                || bridgePortMacRows.reduce((acc, row) => acc + Number(row?.mac_count || 0), 0);
-            const learnedMacCount = Number(sourceInterface.bridge_learned_mac_count || 0)
-                || bridgePortMacRows.reduce((acc, row) => acc + Number(row?.mac_count || 0), 0);
-            return {
-                rows,
-                physicalCount,
-                upCount,
-                downCount,
-                unknownCount,
-                uplinkCount,
-                bridgeVlanCount,
-                bridgeMacCount,
-                learnedMacCount
-            };
+            return SmartCenter.snmp.getSnmpSwitchDerivedStats(summary, interfaceSummary);
         }
         function buildSnmpSwitchVlanPortHighlights(summary, interfaceSummary, maxCount = 4) {
-            const switchStats = getSnmpSwitchDerivedStats(summary, interfaceSummary);
-            const rows = switchStats.rows;
-            if (!rows.length) return [];
-            const normalizedMax = Math.max(1, Number(maxCount || 4));
-            const rankedRows = rows
-                .filter(row => Number(row.pvid || 0) > 0 || Number(row.learned_vlan_count || 0) > 0 || Number(row.learned_mac_count || 0) > 0)
-                .sort((a, b) => {
-                    const scoreA = Number(a.learned_mac_count || 0) * 100 + Number(a.learned_vlan_count || 0);
-                    const scoreB = Number(b.learned_mac_count || 0) * 100 + Number(b.learned_vlan_count || 0);
-                    if (scoreA !== scoreB) return scoreB - scoreA;
-                    return Number(a.index || 99999) - Number(b.index || 99999);
-                })
-                .slice(0, normalizedMax);
-            return rankedRows.map(row => ({
-                label: `${row.name || '--'} (#${row.index ?? '--'})`,
-                meta: `PVID ${row.pvid_name || '--'} · VLAN ${row.learned_vlan_count ?? 0}`,
-                value: `MAC ${row.learned_mac_count ?? 0}`
-            }));
+            return SmartCenter.snmp.buildSnmpSwitchVlanPortHighlights(summary, interfaceSummary, maxCount);
         }
         function renderSnmpMetricChips(customMetrics, summary) {
             const builtInNames = new Set(['hr_memory_size_kb', 'hr_system_processes', 'hr_system_users']);
