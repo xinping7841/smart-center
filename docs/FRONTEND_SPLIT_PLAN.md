@@ -17,7 +17,7 @@ Completed by adding `static/js/core/bootstrap.js` and this plan. This creates `w
 
 ## Stage 2B: Extract Shared Utilities
 
-In progress. `static/js/core/utils.js` now provides shared API helpers, time/number formatting, permission helpers, toast display, frontend error reporting, and guarded execution helpers. The dashboard keeps legacy global function names but now delegates several wrappers to `SmartCenter.utils`; other template copies will be migrated in small behavior-preserving commits.
+In progress. `static/js/core/utils.js` now provides shared API helpers, time/number formatting, permission helpers, toast display, frontend error reporting, and guarded execution helpers. The dashboard keeps legacy global function names but now delegates several wrappers to `SmartCenter.utils`; the config center now reuses shared API, escape, and time helpers while keeping its stricter local permission checks.
 
 Candidate utilities to move first:
 

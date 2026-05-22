@@ -4,6 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>系统总配置中心</title>
+    <script src="/static/js/core/bootstrap.js?v=20260522-stage2"></script>
+    <script src="/static/js/core/utils.js?v=20260522-stage2-shared-utils"></script>
     <style>
         :root { --bg: #f4f7fb; --card: #ffffff; --card-soft: #f8fbff; --border: #dce6f0; --border-strong: #c7d7e7; --blue: #2563eb; --blue-deep: #1d4ed8; --blue-soft: #dbeafe; --green: #059669; --orange: #d97706; --danger: #dc2626; --text: #334155; --text-strong: #0f172a; --text-soft: #64748b; --safe-top: env(safe-area-inset-top, 0px); --safe-bottom: env(safe-area-inset-bottom, 0px); --page-pad: clamp(12px, 2vw, 20px); }
         * { box-sizing:border-box; }
@@ -402,27 +404,10 @@
             }
         }
         function parseDateTimeText(value) {
-            const text = String(value || '').trim();
-            if (!text) return null;
-            const normalized = text.replace(' ', 'T');
-            const dt = new Date(normalized);
-            return Number.isNaN(dt.getTime()) ? null : dt;
+            return SmartCenter.utils.parseDateTimeText(value);
         }
         function isNowInTimeRange(startText, endText) {
-            if (!startText || !endText) return true;
-            const parse = text => {
-                const [h, m] = String(text || '').split(':');
-                return { h: Number(h), m: Number(m) };
-            };
-            const start = parse(startText);
-            const end = parse(endText);
-            if (!Number.isFinite(start.h) || !Number.isFinite(start.m) || !Number.isFinite(end.h) || !Number.isFinite(end.m)) return true;
-            const now = new Date();
-            const nowMinutes = now.getHours() * 60 + now.getMinutes();
-            const startMinutes = start.h * 60 + start.m;
-            const endMinutes = end.h * 60 + end.m;
-            if (startMinutes <= endMinutes) return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
-            return nowMinutes >= startMinutes || nowMinutes <= endMinutes;
+            return SmartCenter.utils.isNowInTimeRange(startText, endText);
         }
         function isControlPermissionAllowedBySchedule() {
             if (String(currentUser.role || '').toLowerCase() === 'admin' || String(currentUser.account_category || '').toLowerCase() === 'admin') return true;
@@ -465,54 +450,19 @@
             return false;
         }
         function translateApiError(error, fallbackText='请求失败') {
-            const text = String(error ?? '').trim();
-            if (!text) return fallbackText;
-            const map = {
-                login_required: '当前会话未登录，请先登录后再操作',
-                account_disabled: '当前账号已停用',
-                permission_denied: '当前账号没有此功能权限',
-                permission_time_restricted: '当前时段不允许执行此操作',
-                account_frozen: '当前账号已冻结',
-                account_temporarily_disabled: '当前账号已被临时停用',
-                account_temporarily_disabled_until: '当前账号处于临时停用时段',
-                temporary_control_blocked: '当前账号的控制权限已被临时关闭',
-                outside_control_schedule: '当前不在允许控制的时间段内',
-                permission_not_granted: '当前账号没有此功能权限'
-            };
-            if (map[text]) return map[text];
-            if (text.startsWith('http_')) {
-                const code = text.split('_')[1] || '';
-                return `请求失败（HTTP ${code}）`;
-            }
-            return text;
+            return SmartCenter.utils.translateApiError(error, fallbackText);
         }
         async function parseJsonResponse(response, fallbackText='请求失败', options={}) {
-            let data = {};
-            try {
-                data = await response.json();
-            } catch (_) {
-                data = {};
-            }
-            const allowBusinessError = !!options.allowBusinessError;
-            if (!response.ok || (!allowBusinessError && data?.ok === false)) {
-                const message = data?.msg || data?.message || data?.error || fallbackText;
-                throw new Error(translateApiError(message, fallbackText));
-            }
-            return data;
+            return SmartCenter.utils.parseJsonResponse(response, fallbackText, options);
         }
         async function fetchJson(url, options={}, fallbackText='请求失败', parseOptions={}) {
-            const response = await fetch(url, options);
-            return parseJsonResponse(response, fallbackText, parseOptions);
+            return SmartCenter.utils.fetchJson(url, options, fallbackText, parseOptions);
         }
         async function fetchJsonLoose(url, options={}, fallbackText='请求失败') {
-            return fetchJson(url, options, fallbackText, { allowBusinessError: true });
+            return SmartCenter.utils.fetchJsonLoose(url, options, fallbackText);
         }
         function postJsonLoose(url, payload, fallbackText='请求失败') {
-            return fetchJsonLoose(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            }, fallbackText);
+            return SmartCenter.utils.postJsonLoose(url, payload, fallbackText);
         }
         function isAdminUser() {
             return String(currentUser.role || '').toLowerCase() === 'admin';
@@ -2590,12 +2540,7 @@
         }
 
         function escapeHtml(val) {
-            return String(val ?? '')
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
+            return SmartCenter.utils.escapeHtml(val);
         }
 
         const APPOTRONICS_SERIES = {
