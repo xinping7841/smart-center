@@ -1004,6 +1004,17 @@
                         <span>协议控制中心</span>
                         <span style="font-size:12px; color:var(--text-sub);">支持 TCP / UDP / 串口 / OSC / Art-Net / MIDI 配置与多目标分发</span>
                     </div>
+                    <div class="card-title" style="margin-top:8px;">
+                        <span>Node-RED &#x7edf;&#x4e00;&#x8bbe;&#x5907;</span>
+                        <span style="font-size:12px; color:var(--text-sub);">&#x7edf;&#x4e00;&#x72b6;&#x6001;&#x6a21;&#x578b; / &#x5355;&#x706f;&#x5f00;&#x5173; / &#x7f51;&#x5173;&#x786e;&#x8ba4;&#x72b6;&#x6001;</span>
+                    </div>
+                    <div class="node-red-device-grid" id="node-red-device-grid">
+                        <div class="node-red-empty">&#x6b63;&#x5728;&#x52a0;&#x8f7d; Node-RED &#x8bbe;&#x5907;&#x72b6;&#x6001;...</div>
+                    </div>
+                    <div class="card-title" style="margin-top:8px;">
+                        <span>&#x534f;&#x8bae;&#x63a7;&#x4ef6;</span>
+                        <span style="font-size:12px; color:var(--text-sub);">&#x4fdd;&#x7559;&#x539f;&#x534f;&#x8bae;&#x63a7;&#x5236;&#x4e2d;&#x5fc3;&#x914d;&#x7f6e;&#xff0c;&#x53ef;&#x7ee7;&#x7eed;&#x505a;&#x591a;&#x76ee;&#x6807;&#x5206;&#x53d1;</span>
+                    </div>
                     <div class="channel-grid" id="control-center-grid" style="grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); margin-bottom:18px;">
                         {% set has_cc_cmd = namespace(value=false) %}
                         {% for panel in config.control_center.panels|default([]) %}
@@ -1067,7 +1078,9 @@
                         {% set has_cmd = namespace(value=false) %}
                         {% for dev in config.custom_devices|default([]) %}
                             {% for cmd in dev.commands|default([]) %}
-                                {% if cmd.show_on_home %}
+                                {% set legacy_cmd_text = ((dev.name|default('')) ~ ' ' ~ (cmd.name|default('')) ~ ' ' ~ (cmd.payload|default(''))) %}
+                                {% set is_node_red_migrated = ('99 03 8D 66 34 58 99' in legacy_cmd_text) or ('99 03 8D 66 32 58 99' in legacy_cmd_text) %}
+                                {% if cmd.show_on_home and not is_node_red_migrated %}
                                 {% set has_cmd.value = true %}
                                 <button class="ch-btn ch-off"
                                     {% if cmd.type == 'longpress' %}
@@ -1550,7 +1563,7 @@
     <script src="/static/js/views/ups.js?v=20260522-stage2-ups-view"></script>
     <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
     <script src="/static/js/views/apple-audio.js?v=20260522-stage2-apple-audio-view"></script>
-    <script src="/static/js/views/universal.js?v=20260522-stage2-universal-view"></script>
+    <script src="/static/js/views/universal.js?v=20260522-node-red-unified"></script>
     <script src="/static/js/views/env.js?v=20260522-stage2-env-view"></script>
     <script src="/static/js/views/snmp.js?v=20260522-stage3-snmp-render"></script>
     <script src="/static/js/views/server-monitor.js?v=20260522-codemeter-days-visible"></script>
@@ -4574,6 +4587,7 @@
             if (viewId === 'hvac') setTimeout(() => { updateHvacStatus(true); updateEnvData(); }, 80);
             if (viewId === 'door') setTimeout(() => { initCanvas(); updateDoorStatus(true).finally(() => startDoorVideoStream()); }, 100);
             if (viewId === 'sequencer') setTimeout(() => { updateSequencerStatus(); }, 80);
+            if (viewId === 'universal') setTimeout(() => { updateNodeRedDevices(true); }, 80);
             if (viewId === 'apple_audio') setTimeout(() => { initAppleAudioDemo(); }, 60);
             refreshPollingVisibility();
         }
@@ -6237,6 +6251,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         registerPollingTask('snmp', 9000, () => updateSnmpStatus(), () => ['dashboard', 'snmp', 'camera_preview'].includes(getActiveViewId()) || isDashboardSectionVisible('snmp'));
         registerPollingTask('hvac', 5000, () => updateHvacStatus(), () => ['dashboard', 'hvac'].includes(getActiveViewId()) || isDashboardSectionVisible('hvac'));
         registerPollingTask('light', 2200, () => updateLightData(), () => ['dashboard', 'light'].includes(getActiveViewId()) || isDashboardSectionVisible('light_compact') || isDashboardSectionVisible('light'));
+        registerPollingTask('node_red', 5000, () => updateNodeRedDevices(), () => getActiveViewId() === 'universal');
         registerPollingTask('server', 5000, () => updateServerData(), () => getActiveViewId() === 'server');
         registerPollingTask('door', 1200, () => updateDoorStatus(), () => ['dashboard', 'door'].includes(getActiveViewId()) || isDashboardSectionVisible('door'));
         registerPollingTask('env', 3500, () => updateEnvData(), () => ['dashboard', 'env', 'hvac'].includes(getActiveViewId()) || isDashboardSectionVisible('env') || isDashboardSectionVisible('hvac'));

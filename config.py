@@ -51,7 +51,7 @@ DEFAULT_SIDEBAR = [
     {"id": "scene", "icon": "🎬", "name": "场景联动", "sort": 7, "visible": True},
     {"id": "server", "icon": "🖥️", "name": "服务器看板", "sort": 8, "visible": True},
     {"id": "projector", "icon": "🎥", "name": "投影机集群", "sort": 9, "visible": True},
-    {"id": "universal", "icon": "🎛️", "name": "泛型控制", "sort": 10, "visible": True},
+    {"id": "universal", "icon": "🎛️", "name": "协议控制", "sort": 10, "visible": True},
     {"id": "local_model", "icon": "AI", "name": "本地模型", "sort": 10.5, "visible": True},
     {"id": "env", "icon": "🌡️", "name": "环境监测", "sort": 11, "visible": True},
     {"id": "auto", "icon": "🤖", "name": "自动化运行", "sort": 12, "visible": True}
@@ -1738,6 +1738,15 @@ def load_config():
         for device in loaded_config.get("custom_devices", []):
             if _sanitize_custom_device_command_names(device):
                 custom_devices_changed = True
+        outdoor_payloads = {"99 03 8D 66 34 58 99", "99 03 8D 66 32 58 99"}
+        for device in loaded_config.get("custom_devices", []):
+            commands = device.get("commands", []) if isinstance(device.get("commands"), list) else []
+            for command in commands:
+                command_text = f"{device.get('name', '')} {command.get('name', '')} {command.get('payload', '')}"
+                if "户外灯" in command_text or str(command.get("payload") or "").strip() in outdoor_payloads:
+                    if command.get("show_on_home") is not False:
+                        command["show_on_home"] = False
+                        custom_devices_changed = True
         if custom_devices_changed:
             config_needs_persist = config_file_exists
     normalized_control_center = normalize_control_center(loaded_config.get("control_center"), loaded_config.get("custom_devices"))
@@ -1946,7 +1955,7 @@ def load_config():
         if not any(nav["id"] == "camera_preview" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "camera_preview", "icon": "🎦", "name": "监控预览", "sort": 4.3, "visible": True})
         if not any(nav["id"] == "proxy" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "proxy", "icon": "🌐", "name": "代理监控", "sort": 4.4, "visible": True})
         if not any(nav["id"] == "projector" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "projector", "icon": "🎥", "name": "投影机集群", "sort": 7, "visible": True})
-        if not any(nav["id"] == "universal" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "universal", "icon": "🎛️", "name": "泛型控制", "sort": 8, "visible": True})
+        if not any(nav["id"] == "universal" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "universal", "icon": "🎛️", "name": "协议控制", "sort": 8, "visible": True})
         if not any(nav["id"] == "env" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "env", "icon": "🌡️", "name": "环境监测", "sort": 9, "visible": True})
         if not any(nav["id"] == "local_model" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "local_model", "icon": "AI", "name": "本地模型", "sort": 9.5, "visible": True})
         if not any(nav["id"] == "auto" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "auto", "icon": "🤖", "name": "自动化运行", "sort": 10, "visible": True})

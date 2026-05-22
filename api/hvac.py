@@ -21,6 +21,7 @@ from services.home_assistant_bridge import control_hvac as ha_control_hvac
 from services.home_assistant_bridge import get_hvac_status as get_ha_hvac_status
 from services.miio_hvac import miio_hvac_service
 from services.xiaomi_cloud import fetch_xiaomi_cloud_devices, filter_xiaomi_devices
+from api.node_red import control_node_red_device, get_node_red_device_status
 
 bp = Blueprint("hvac", __name__)
 
@@ -58,12 +59,40 @@ def _default_status(device):
     }
 
 
+def _node_red_device_id(device):
+    return str(device.get("node_red_device_id") or device.get("external_id") or device.get("id") or "").strip()
+
+
+def _node_red_hvac_status(device):
+    node_red_device_id = _node_red_device_id(device)
+    status = get_node_red_device_status(node_red_device_id)
+    state = status.get("state") if isinstance(status.get("state"), dict) else {}
+    metrics = status.get("metrics") if isinstance(status.get("metrics"), dict) else {}
+    power_on = str(status.get("status") or "").lower() in {"on", "starting", "pending_ack", "partial"}
+    return {
+        "id": str(device.get("id") or node_red_device_id),
+        "name": str(device.get("name") or status.get("device_name") or node_red_device_id or "Node-RED HVAC"),
+        "online": bool(status.get("online")),
+        "power": power_on,
+        "temp": metrics.get("temp") or metrics.get("temperature") or state.get("temp"),
+        "target_temp": state.get("target_temp") or state.get("target_temperature"),
+        "mode": state.get("mode") or ("cool" if power_on else "off"),
+        "fan_mode": state.get("fan_mode") or state.get("fan_speed"),
+        "updated_at": status.get("updated_at") or _now_iso(),
+        "display_text": status.get("display_text"),
+        "health": status.get("health"),
+        "source": "node-red",
+    }
+
+
 def _poll_device_status(device):
     protocol = _device_protocol(device)
     if protocol == "miio":
         return miio_hvac_service.get_status(device)
     if protocol in {"home_assistant", "homeassistant", "ha"}:
         return get_ha_hvac_status(device, CONFIG)
+    if protocol in {"node_red", "nodered", "node-red"}:
+        return _node_red_hvac_status(device)
     return _default_status(device)
 
 
@@ -86,6 +115,12 @@ def _execute_control(device, action, payload):
             mode=payload.get("mode"),
             fan_mode=payload.get("fan_mode") or payload.get("fan_speed"),
         )
+    if protocol in {"node_red", "nodered", "node-red"}:
+        action_map = {"power_on": "on", "on": "on", "power_off": "off", "off": "off", "toggle": "toggle"}
+        node_red_action = action_map.get(str(action).strip().lower())
+        if not node_red_action:
+            raise RuntimeError("Node-RED HVAC only supports on/off/toggle")
+        return control_node_red_device(_node_red_device_id(device), node_red_action, source="hvac_api")
     return True, "mock_success", "mock"
 
 

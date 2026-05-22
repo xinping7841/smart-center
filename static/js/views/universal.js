@@ -80,11 +80,114 @@
             .catch(() => notify('网络请求错误', true));
     }
 
+
+
+    function nodeRedStatusClass(device) {
+        const status = String(device?.display_status || device?.status || 'unknown').toLowerCase();
+        if (status === 'on') return 'is-on';
+        if (status === 'off') return 'is-off';
+        if (['starting', 'stopping', 'pending_ack', 'partial'].includes(status)) return 'is-busy';
+        if (status === 'offline') return 'is-offline';
+        return 'is-error';
+    }
+
+    function nodeRedActionLabel(device) {
+        const status = String(device?.status || '').toLowerCase();
+        if (status === 'on' || status === 'starting' || status === 'pending_ack') return '\u5173\u95ed';
+        return '\u5f00\u542f';
+    }
+
+    function nodeRedActionForToggle(device) {
+        const status = String(device?.status || '').toLowerCase();
+        return status === 'on' || status === 'starting' || status === 'pending_ack' ? 'off' : 'on';
+    }
+
+    function nodeRedHealthText(device) {
+        const health = device?.health && typeof device.health === 'object' ? device.health : {};
+        const message = health.message || health.status || '';
+        const onlineText = device?.online === false ? '\u79bb\u7ebf' : '\u5728\u7ebf';
+        const state = device?.state && typeof device.state === 'object' ? device.state : {};
+        const detail = state.detail || state.power || state.reason || message || onlineText;
+        return `${onlineText} / ${detail}`;
+    }
+
+    function renderNodeRedDeviceCard(device) {
+        const id = String(device?.device_id || '');
+        const name = escapeHtml(device?.device_name || id || '\u672a\u547d\u540d\u8bbe\u5907');
+        const type = escapeHtml(device?.device_type || 'node_red_device');
+        const displayText = escapeHtml(device?.display_text || device?.status || '\u672a\u77e5');
+        const statusClass = nodeRedStatusClass(device);
+        const healthText = escapeHtml(nodeRedHealthText(device));
+        const updated = escapeHtml(formatTimeShort(device?.updated_at || ''));
+        const disabled = id ? '' : 'disabled';
+        const isSingle = device?.meta?.single_toggle === true;
+        const safeId = escapeHtml(id);
+        const actionHtml = isSingle
+            ? `<button class="node-red-action-btn primary" type="button" ${disabled} onclick="controlNodeRedDevice('${safeId}', '${nodeRedActionForToggle(device)}')">${nodeRedActionLabel(device)}</button>`
+            : `<button class="node-red-action-btn primary" type="button" ${disabled} onclick="controlNodeRedDevice('${safeId}', 'on')">\u5f00</button><button class="node-red-action-btn stop" type="button" ${disabled} onclick="controlNodeRedDevice('${safeId}', 'off')">\u5173</button>`;
+        return `<div class="node-red-device-card ${statusClass}" data-node-red-device="${safeId}">
+            <div class="node-red-device-head">
+                <div style="min-width:0;">
+                    <div class="node-red-device-name">${name}</div>
+                    <div class="node-red-device-type">${type}</div>
+                </div>
+                <span class="node-red-status-pill">${displayText}</span>
+            </div>
+            <div class="node-red-device-meta">${healthText}</div>
+            <div class="node-red-device-foot">
+                <span class="node-red-updated">${updated}</span>
+                <div class="node-red-actions">${actionHtml}</div>
+            </div>
+        </div>`;
+    }
+
+    function updateNodeRedDevices(force = false) {
+        const grid = document.getElementById('node-red-device-grid');
+        if (!grid) return Promise.resolve({});
+        if (!force && typeof global.getActiveViewId === 'function' && global.getActiveViewId() !== 'universal') {
+            return Promise.resolve({});
+        }
+        return fetchJsonLoose('/api/node-red/devices', {}, 'Node-RED \u8bbe\u5907\u72b6\u6001\u8bfb\u53d6\u5931\u8d25')
+            .then(data => {
+                const devices = Array.isArray(data.devices) ? data.devices : [];
+                grid.innerHTML = devices.length
+                    ? devices.map(renderNodeRedDeviceCard).join('')
+                    : '<div class="node-red-empty">\u672a\u914d\u7f6e Node-RED \u7edf\u4e00\u8bbe\u5907\u3002</div>';
+                return data;
+            })
+            .catch(error => {
+                grid.innerHTML = `<div class="node-red-empty">${escapeHtml(error.message || 'Node-RED \u8bbe\u5907\u72b6\u6001\u8bfb\u53d6\u5931\u8d25')}</div>`;
+                return {};
+            });
+    }
+
+    function controlNodeRedDevice(deviceId, action) {
+        if (!ensureControlPermission('control_center.control', '\u63a7\u5236 Node-RED \u8bbe\u5907')) return;
+        const id = String(deviceId || '').trim();
+        if (!id) return;
+        notify('Node-RED \u6307\u4ee4\u4e0b\u53d1\u4e2d...', false);
+        return postJson('/api/node-red/device/' + encodeURIComponent(id) + '/control', { action }, 'Node-RED \u63a7\u5236\u5931\u8d25')
+            .then(data => {
+                if (data.success || data.ok) {
+                    notify(data.msg || '\u6267\u884c\u6210\u529f', false);
+                    return updateNodeRedDevices(true);
+                }
+                notify('\u6267\u884c\u5931\u8d25: ' + (data.msg || data.message || '\u672a\u77e5\u9519\u8bef'), true);
+                return updateNodeRedDevices(true);
+            })
+            .catch(error => {
+                notify(error.message || '\u7f51\u7edc\u8bf7\u6c42\u9519\u8bef', true);
+                return updateNodeRedDevices(true);
+            });
+    }
+
     const api = {
         fireUniversalCommand,
         handleLongPressStart,
         handleLongPressEnd,
         fireControlCenterControl,
+        updateNodeRedDevices,
+        controlNodeRedDevice,
     };
 
     SmartCenter.universal = Object.assign({}, SmartCenter.universal || {}, api);

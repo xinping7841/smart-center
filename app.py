@@ -38,6 +38,7 @@ from api.screen import bp as screen_bp
 from api.sequencer import bp as sequencer_bp
 from api.snmp import bp as snmp_bp
 from api.nvr import bp as nvr_bp
+from api.node_red import bp as node_red_bp
 from api.server import bp as server_bp
 from api.ups import bp as ups_bp
 from api.universal import bp as universal_bp
@@ -190,6 +191,7 @@ app.register_blueprint(env_bp)
 app.register_blueprint(hy_edge_bp)
 app.register_blueprint(snmp_bp)
 app.register_blueprint(nvr_bp)
+app.register_blueprint(node_red_bp)
 app.register_blueprint(automation_bp)
 app.register_blueprint(hvac_bp)
 app.register_blueprint(sequencer_bp)
