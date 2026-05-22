@@ -77,7 +77,10 @@ if ($Message) {
 }
 
 if ($ReleaseLock) {
+    $OldErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
     & git ls-remote --exit-code --heads origin $LockBranch *> $null
+    $ErrorActionPreference = $OldErrorActionPreference
     if ($LASTEXITCODE -ne 0) {
         Write-Host "worklock branch missing, skip release"
         exit 0
@@ -89,13 +92,12 @@ if ($ReleaseLock) {
         Invoke-Git worktree add --detach $TmpDir $RemoteLockRef
         Push-Location $TmpDir
         try {
-            Invoke-Git switch -C $LockBranch $RemoteLockRef
             $LockFile = "locks/$ReleaseLock.json"
             if (Test-Path -LiteralPath $LockFile) {
                 Remove-Item -LiteralPath $LockFile -Force
                 Invoke-Git add -u -- $LockFile
                 Invoke-Git commit -m "unlock: $ReleaseLock"
-                Invoke-Git push origin $LockBranch
+                Invoke-Git push origin "HEAD:$LockBranch"
                 Write-Host "released lock: $ReleaseLock"
             } else {
                 Write-Host "lock not found: $ReleaseLock"

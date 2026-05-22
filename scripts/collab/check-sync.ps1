@@ -52,11 +52,13 @@ Write-Host ""
 Write-Host "== active worktrees under base =="
 Write-Host "base: $WorktreeBase"
 if (Test-Path -LiteralPath $WorktreeBase) {
+    $NormalizedBase = [System.IO.Path]::GetFullPath($WorktreeBase).TrimEnd('\', '/').Replace('\', '/')
     $CurrentPath = $null
     foreach ($Line in (& git worktree list --porcelain)) {
         if ($Line -like "worktree *") {
             $CurrentPath = $Line.Substring(9)
-            if ($CurrentPath.StartsWith($WorktreeBase, [System.StringComparison]::OrdinalIgnoreCase)) {
+            $NormalizedPath = [System.IO.Path]::GetFullPath($CurrentPath).TrimEnd('\', '/').Replace('\', '/')
+            if ($NormalizedPath.StartsWith($NormalizedBase, [System.StringComparison]::OrdinalIgnoreCase)) {
                 Write-Host $CurrentPath
             }
         }
@@ -67,7 +69,10 @@ if (Test-Path -LiteralPath $WorktreeBase) {
 Write-Host ""
 
 Write-Host "== worklocks =="
+$OldErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 & git ls-remote --exit-code --heads origin $LockBranch *> $null
+$ErrorActionPreference = $OldErrorActionPreference
 if ($LASTEXITCODE -eq 0) {
     $RefSpec = "${LockBranch}:refs/remotes/origin/${LockBranch}"
     & git fetch origin $RefSpec *> $null

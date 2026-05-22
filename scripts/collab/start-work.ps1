@@ -50,7 +50,10 @@ if ($ActiveCount -ge 5 -and -not (Test-Path -LiteralPath $WorktreePath)) {
     throw "this machine already has $ActiveCount worktrees under base; limit is 5"
 }
 
+$OldErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 & git ls-remote --exit-code --heads origin $LockBranch *> $null
+$ErrorActionPreference = $OldErrorActionPreference
 if ($LASTEXITCODE -ne 0) {
     throw "worklock branch missing; run scripts/collab/setup-git-collab.ps1"
 }
@@ -58,7 +61,10 @@ if ($LASTEXITCODE -ne 0) {
 $RefSpec = "${LockBranch}:refs/remotes/origin/${LockBranch}"
 & git fetch origin $RefSpec *> $null
 
+$OldErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 & git cat-file -e "${RemoteLockRef}:$LockFile" 2>$null
+$ErrorActionPreference = $OldErrorActionPreference
 if ($LASTEXITCODE -eq 0) {
     Write-Host "module is already locked: $Module"
     & git show "${RemoteLockRef}:$LockFile"
@@ -153,7 +159,6 @@ try {
     Invoke-Git worktree add --detach $TmpDir $RemoteLockRef
     Push-Location $TmpDir
     try {
-        Invoke-Git switch -C $LockBranch $RemoteLockRef
         New-Item -ItemType Directory -Force -Path "locks" | Out-Null
         $Lock = [ordered]@{
             module         = $Module
@@ -169,7 +174,7 @@ try {
         ($Lock | ConvertTo-Json -Depth 4) | Set-Content -LiteralPath $LockFile -Encoding UTF8
         Invoke-Git add $LockFile
         Invoke-Git commit -m "lock: $Module by $Machine"
-        Invoke-Git push origin $LockBranch
+        Invoke-Git push origin "HEAD:$LockBranch"
     } finally {
         Pop-Location
     }

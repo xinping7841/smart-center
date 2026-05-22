@@ -42,7 +42,10 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "[setup] warning: origin remote is missing"
 }
 
+$OldErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
 & git ls-remote --exit-code --heads origin $LockBranch *> $null
+$ErrorActionPreference = $OldErrorActionPreference
 $HasLockBranch = ($LASTEXITCODE -eq 0)
 
 if ($HasLockBranch) {
