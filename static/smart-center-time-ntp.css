@@ -1649,8 +1649,24 @@
         .server-network-line { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:8px 0 0; font-size:12px; color:var(--text-sub); }
         .server-network-line strong { display:flex; gap:6px; color:var(--text-main); font-size:12px; font-weight:800; white-space:nowrap; }
         .server-pending-command { margin:8px 0 0; padding:6px 8px; border-radius:9px; border:1px solid rgba(245,158,11,0.30); background:rgba(245,158,11,0.12); color:#fde68a; font-size:12px; font-weight:800; line-height:1.25; }
-        .server-codemeter-line { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:8px 0 0; padding:6px 8px; border-radius:8px; background:rgba(2,6,23,0.24); border:1px solid rgba(148,163,184,0.10); font-size:12px; color:var(--text-sub); min-width:0; }
+        .server-codemeter-line { display:block; margin:8px 0 0; padding:6px 8px; border-radius:8px; background:rgba(2,6,23,0.24); border:1px solid rgba(148,163,184,0.10); font-size:12px; color:var(--text-sub); min-width:0; }
         .server-codemeter-line strong { min-width:0; display:flex; align-items:center; justify-content:flex-end; gap:7px; color:var(--text-main); font-size:12px; font-weight:800; white-space:nowrap; overflow:hidden; }
+        .codemeter-line-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:5px; }
+        .codemeter-line-head strong { color:#bbf7d0; font-size:11px; }
+        .codemeter-license-table { display:grid; gap:2px; min-width:0; }
+        .codemeter-license-head,
+        .codemeter-license-row { display:grid; grid-template-columns:minmax(78px, 1.25fr) minmax(34px, .55fr) minmax(72px, 1fr) minmax(48px, .65fr); column-gap:8px; align-items:center; min-width:0; }
+        .codemeter-license-head { color:#64748b; font-size:10px; font-weight:800; line-height:1.1; }
+        .codemeter-license-row { color:#dbeafe; font-size:11px; font-weight:800; line-height:1.25; }
+        .codemeter-license-row span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .codemeter-license-row span:nth-child(2),
+        .codemeter-license-row span:nth-child(4) { text-align:right; }
+        .codemeter-license-row span:nth-child(3) { color:#cbd5e1; }
+        .codemeter-license-row span:nth-child(4) { color:#bbf7d0; }
+        .codemeter-license-row.warn span:nth-child(4) { color:#fde68a; }
+        .codemeter-license-row.danger span { color:#fecaca; }
+        .codemeter-license-row.permanent span:nth-child(4) { color:#93c5fd; }
+        .codemeter-more { display:inline-flex; margin-top:3px; padding:0 5px; border-radius:999px; background:rgba(56,189,248,0.10); border:1px solid rgba(56,189,248,0.18); color:#bfdbfe; font-size:10px; font-style:normal; font-weight:800; }
         .server-codemeter-line .serial { min-width:0; overflow:hidden; text-overflow:ellipsis; font-style:normal; color:#dbeafe; }
         .server-codemeter-line .validity { flex:0 0 auto; font-size:11px; font-style:normal; color:#bbf7d0; }
         .server-codemeter-line.warning { border-color:rgba(245,158,11,0.24); background:rgba(245,158,11,0.10); }

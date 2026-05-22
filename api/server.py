@@ -25,7 +25,7 @@ from paths import DB_FILE as DB_FILE_PATH, ensure_parent_dir
 
 bp = Blueprint('server', __name__)
 DB_FILE = str(DB_FILE_PATH)
-AGENT_VERSION = "2026.05.22.04"
+AGENT_VERSION = "2026.05.22.05"
 REPORT_MAX_BYTES = 8 * 1024 * 1024
 REPORT_MIN_INTERVAL_SEC = 2.0
 REPORT_CACHE = {}
@@ -1748,6 +1748,7 @@ def _run_codemeter_command(tool, args):
 
 def _parse_codemeter_output(text):
     raw = str(text or "")
+    company_code = "102541"
     runtime_version = ""
     runtime_major = None
     runtime_match = re.search(r"\bVersion\s+([0-9]+(?:\.[0-9]+)?[A-Za-z]?)\b", raw, flags=re.IGNORECASE)
@@ -1771,59 +1772,161 @@ def _parse_codemeter_output(text):
         serial = match.group(0).strip()
         if serial and serial not in serials:
             serials.append(serial)
-    physical_serials = [serial for serial in serials if not str(serial).startswith("130-")]
-    display_serials = physical_serials or serials
+    dongle_serials = [serial for serial in serials if str(serial).startswith("3-")]
+    virtual_serials = [serial for serial in serials if str(serial).startswith("130-")]
+    other_serials = [serial for serial in serials if serial not in dongle_serials and serial not in virtual_serials]
+    display_serials = dongle_serials
 
     firmcodes = []
     for match in re.finditer(r"\bFC\s*=\s*([0-9]{3,})\b", raw, flags=re.IGNORECASE):
         code = match.group(1).strip()
         if code and code not in firmcodes:
             firmcodes.append(code)
-    has_company_license = "102541" in firmcodes or re.search(r"Lan\s+Jing\s+Ke\s+Ji", raw, flags=re.IGNORECASE) is not None
+    has_company_license = bool(re.search(rf"(?:\bFC\s*=\s*{company_code}\b|\b{company_code}\b)", raw, flags=re.IGNORECASE))
 
-    company_raw = raw
-    company_match = re.search(r"\b102541\b(?P<section>.*?)(?:\n\s*\*\s*FC=|\n\s*[0-9]{6}\s+|\Z)", raw, flags=re.IGNORECASE | re.S)
-    if company_match:
-        company_raw = company_match.group(0)
+    def _normalize_expiry(value):
+        text_value = str(value or "").strip().replace("年", "-").replace("月", "-").replace("日", "")
+        text_value = re.sub(r"\s+", " ", text_value)
+        return text_value
 
-    permanent = bool(re.search(r"(no\s+expiration|never\s+expires|unlimited|permanent|lifetime|长期|永久|无限)", company_raw, flags=re.IGNORECASE))
-    def _is_license_expiry_context(source, start_index):
-        context = source[max(0, start_index - 96): start_index]
-        lower = context.lower()
-        if any(token in lower for token in ("system time", "box time", "certified time", "version", "build", "copyright")):
-            return False
-        if re.search(r"\b(?:pc|product\s*code)\s*=\s*\d+", context, flags=re.IGNORECASE):
-            return True
-        if re.search(r"^\s*\d{1,5}\s+[-\\w]", context, flags=re.MULTILINE):
-            return True
-        return not company_match
+    def _remaining_days(value):
+        normalized = _normalize_expiry(value)
+        if not normalized:
+            return None
+        try:
+            parsed = datetime.fromisoformat(normalized.replace(" ", "T").replace("Z", "+00:00"))
+            return (parsed.date() - datetime.now().date()).days
+        except Exception:
+            return None
 
-    expirations = []
-    patterns = [
-        r"(?:Expiration\s+(?:Time|Date)|Expires|Valid\s+Until|Valid\s+to)\s*[:=]?\s*([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}(?:[T\s][0-9]{1,2}:[0-9]{2}(?::[0-9]{2})?)?)",
-        r"(?:到期|有效期至|有效至)\s*[:：]?\s*([0-9]{4}[-/年][0-9]{1,2}[-/月][0-9]{1,2})",
-    ]
-    if company_match:
-        patterns.append(r"\b([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}(?:[T\s][0-9]{1,2}:[0-9]{2}(?::[0-9]{2})?)?)\b")
-    for pattern in patterns:
-        for match in re.finditer(pattern, company_raw, flags=re.IGNORECASE):
-            if not _is_license_expiry_context(company_raw, match.start()):
-                continue
-            value = match.group(1).strip().replace("年", "-").replace("月", "-").replace("日", "")
-            if value and value not in expirations:
-                expirations.append(value)
+    def _append_license(target, seen, serial, code, expires_at="", validity="expires"):
+        serial = str(serial or "").strip()
+        code = str(code or "").strip()
+        expires_at = _normalize_expiry(expires_at)
+        if validity == "expires" and not expires_at:
+            validity = "unknown"
+        key = (serial, code, expires_at, validity)
+        if key in seen:
+            return
+        seen.add(key)
+        item = {
+            "serial": serial,
+            "container_serial": serial,
+            "firm_code": company_code,
+            "code": code,
+            "product_code": code,
+            "validity": validity,
+            "expires_at": expires_at,
+        }
+        days_left = _remaining_days(expires_at)
+        if days_left is not None:
+            item["remaining_days"] = days_left
+            item["expired"] = days_left < 0
+        target.append(item)
 
-    licenses = [{"validity": "expires", "expires_at": value} for value in expirations[:8]]
-    if permanent and not licenses:
-        licenses.append({"validity": "permanent", "expires_at": ""})
-    return display_serials, licenses, raw[:2000], {
+    def _find_expirations(source):
+        values = []
+        patterns = [
+            r"(?:Expiration\s+(?:Time|Date)|Expires|Valid\s+Until|Valid\s+to)\s*[:=]?\s*([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}(?:[T\s][0-9]{1,2}:[0-9]{2}(?::[0-9]{2})?)?)",
+            r"(?:到期|有效期至|有效至)\s*[:：]?\s*([0-9]{4}[-/年][0-9]{1,2}[-/月][0-9]{1,2})",
+            r"\b([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}(?:[T\s][0-9]{1,2}:[0-9]{2}(?::[0-9]{2})?)?)\b",
+        ]
+        for pattern in patterns:
+            for match in re.finditer(pattern, source, flags=re.IGNORECASE):
+                context = source[max(0, match.start() - 96): match.start()].lower()
+                if any(token in context for token in ("system time", "box time", "certified time", "version", "build", "copyright")):
+                    continue
+                value = _normalize_expiry(match.group(1))
+                if value and value not in values:
+                    values.append(value)
+        return values
+
+    def _company_sections(source):
+        sections = []
+        fc_pattern = rf"(?ims)^\s*(?:\*\s*)?FC\s*=\s*{company_code}\b.*?(?=^\s*(?:\*\s*)?FC\s*=\s*\d+\b|^-+\s*CmContainer\b|\Z)"
+        for match in re.finditer(fc_pattern, source):
+            sections.append(match.group(0))
+        table_pattern = rf"(?ims)^\s*{company_code}\b.*?(?=^\s*\d{{5,}}\b|^-+\s*CmContainer\b|\Z)"
+        for match in re.finditer(table_pattern, source):
+            value = match.group(0)
+            if value and value not in sections:
+                sections.append(value)
+        return sections
+
+    def _extract_licenses_from_section(section, serial, target, seen):
+        pc_matches = list(re.finditer(
+            r"(?im)^\s*(?:\*\s*)?(?:PC|Product\s*Code)\s*[:=]\s*([0-9]{1,8})\b.*$",
+            section,
+        ))
+        if not pc_matches:
+            for match in re.finditer(
+                r"(?im)^\s*(?:%s\s+)?([0-9]{1,8})\b(?=.*(?:20[0-9]{2}[-/][0-9]{1,2}[-/][0-9]{1,2}|Expiration|Expires|Valid))"
+                % re.escape(company_code),
+                section,
+            ):
+                code = match.group(1).strip()
+                segment = section[match.start(): min(len(section), match.end() + 240)]
+                for expires_at in _find_expirations(segment):
+                    _append_license(target, seen, serial, code, expires_at, "expires")
+            return
+        for index, match in enumerate(pc_matches):
+            code = match.group(1).strip()
+            start = match.start()
+            end = pc_matches[index + 1].start() if index + 1 < len(pc_matches) else len(section)
+            segment = section[start:end]
+            expirations = _find_expirations(segment)
+            if expirations:
+                for expires_at in expirations:
+                    _append_license(target, seen, serial, code, expires_at, "expires")
+            elif re.search(r"(no\s+expiration|never\s+expires|unlimited|permanent|lifetime|长期|永久|无限)", segment, flags=re.IGNORECASE):
+                _append_license(target, seen, serial, code, "", "permanent")
+
+    container_matches = list(re.finditer(r"(?im)^-\s*CmContainer\s+with\s+Serial\s+Number\s+([0-9]+-[0-9]+)", raw))
+    container_blocks = []
+    for index, match in enumerate(container_matches):
+        start = match.start()
+        end = container_matches[index + 1].start() if index + 1 < len(container_matches) else len(raw)
+        container_blocks.append((match.group(1).strip(), raw[start:end]))
+    if not container_blocks:
+        container_blocks = [((dongle_serials[0] if dongle_serials else ""), raw)]
+
+    licenses = []
+    seen_license_keys = set()
+    for serial, block in container_blocks:
+        if serial and not str(serial).startswith("3-"):
+            continue
+        target_serial = serial or (dongle_serials[0] if dongle_serials else "")
+        for section in _company_sections(block):
+            _extract_licenses_from_section(section, target_serial, licenses, seen_license_keys)
+
+    if not licenses and has_company_license:
+        company_raw = "\n".join(_company_sections(raw)) or raw
+        expirations = _find_expirations(company_raw)
+        target_serial = dongle_serials[0] if dongle_serials else ""
+        for expires_at in expirations[:8]:
+            _append_license(licenses, seen_license_keys, target_serial, "", expires_at, "expires")
+        if not licenses and re.search(r"(no\s+expiration|never\s+expires|unlimited|permanent|lifetime|长期|永久|无限)", company_raw, flags=re.IGNORECASE):
+            _append_license(licenses, seen_license_keys, target_serial, "", "", "permanent")
+
+    def _license_sort_key(item):
+        code_text = str(item.get("product_code") or item.get("code") or "")
+        try:
+            code_key = int(code_text)
+        except Exception:
+            code_key = 999999999
+        expires_text = str(item.get("expires_at") or "9999-12-31")
+        return (code_key, expires_text, str(item.get("serial") or ""))
+
+    licenses = sorted(licenses, key=_license_sort_key)[:24]
+    return display_serials, licenses, raw[:6000], {
         "firmcodes": firmcodes,
-        "company_code": "102541" if has_company_license else "",
+        "company_code": company_code if has_company_license else "",
         "company_name": "Lan Jing Ke Ji" if has_company_license else "",
         "has_company_license": has_company_license,
-        "scoped_to_company": bool(company_match),
-        "physical_serials": physical_serials,
-        "virtual_serials": [serial for serial in serials if str(serial).startswith("130-")],
+        "scoped_to_company": has_company_license,
+        "physical_serials": dongle_serials,
+        "virtual_serials": virtual_serials,
+        "other_serials": other_serials,
         "runtime_version": runtime_version,
         "runtime_major": runtime_major,
         "runtime_outdated": runtime_outdated,
@@ -5243,6 +5346,7 @@ function Parse-CodeMeterOutput([string]$text) {{
     $serials = @()
     $licenses = @()
     $raw = [string]$text
+    $companyCode = '102541'
     $runtimeVersion = ''
     $runtimeMajor = $null
     $runtimeOutdated = $false
@@ -5263,60 +5367,175 @@ function Parse-CodeMeterOutput([string]$text) {{
         $serial = [string]$match.Value
         if ($serial -and $serials -notcontains $serial) {{ $serials += $serial }}
     }}
-    $physicalSerials = @($serials | Where-Object {{ -not ([string]$_).StartsWith('130-') }})
+    $physicalSerials = @($serials | Where-Object {{ ([string]$_).StartsWith('3-') }})
     $virtualSerials = @($serials | Where-Object {{ ([string]$_).StartsWith('130-') }})
+    $otherSerials = @($serials | Where-Object {{ -not ([string]$_).StartsWith('3-') -and -not ([string]$_).StartsWith('130-') }})
     $displaySerials = @($physicalSerials)
-    if ($displaySerials.Count -eq 0) {{ $displaySerials = @($serials) }}
     $firmcodes = @()
     foreach ($match in [regex]::Matches($raw, '(?i)\\bFC\\s*=\\s*([0-9]{{3,}})\\b')) {{
         $code = [string]$match.Groups[1].Value
         if ($code -and $firmcodes -notcontains $code) {{ $firmcodes += $code }}
     }}
-    $hasCompanyLicense = ($firmcodes -contains '102541') -or ($raw -match '(?i)Lan\\s+Jing\\s+Ke\\s+Ji')
-    $companyRaw = $raw
-    $companySectionMatch = [regex]::Match($raw, '(?is)\\b102541\\b.*?(?:\\r?\\n\\s*\\*\\s*FC=|\\r?\\n\\s*[0-9]{{6}}\\s+|\\z)')
-    if ($companySectionMatch.Success) {{ $companyRaw = [string]$companySectionMatch.Value }}
-    $permanent = $companyRaw -match '(?i)(no\s+expiration|never\s+expires|unlimited|permanent|lifetime)'
-    foreach ($match in [regex]::Matches($companyRaw, '(?i)(?:Expiration\s+(?:Time|Date)|Expires|Valid\s+Until|Valid\s+to)\s*[:=]?\s*([0-9]{{4}}[-/][0-9]{{1,2}}[-/][0-9]{{1,2}}(?:[T\s][0-9]{{1,2}}:[0-9]{{2}}(?::[0-9]{{2}})?)?)')) {{
-        $contextStart = [Math]::Max(0, $match.Index - 96)
-        $context = $companyRaw.Substring($contextStart, $match.Index - $contextStart)
-        $badContext = $context -match '(?i)(system\s+time|box\s+time|certified\s+time|version|build|copyright)'
-        if ($companySectionMatch.Success -and $badContext) {{ continue }}
-        $expires = [string]$match.Groups[1].Value
-        if ($expires) {{ $licenses += @{{ validity='expires'; expires_at=$expires }} }}
+    $hasCompanyLicense = [regex]::IsMatch($raw, ('(?i)(?:\\bFC\\s*=\\s*' + $companyCode + '\\b|\\b' + $companyCode + '\\b)'))
+    $seenLicenseKeys = @{{}}
+
+    function Normalize-CodeMeterExpiry([string]$value) {{
+        $textValue = ([string]$value).Trim()
+        if (-not $textValue) {{ return '' }}
+        $textValue = $textValue -replace '年','-' -replace '月','-' -replace '日',''
+        return (($textValue -replace '\\s+', ' ').Trim())
     }}
-    if ($companySectionMatch.Success) {{
-        foreach ($match in [regex]::Matches($companyRaw, '\\b([0-9]{{4}}[-/][0-9]{{1,2}}[-/][0-9]{{1,2}}(?:[T\\s][0-9]{{1,2}}:[0-9]{{2}}(?::[0-9]{{2}})?)?)\\b')) {{
-            $contextStart = [Math]::Max(0, $match.Index - 96)
-            $context = $companyRaw.Substring($contextStart, $match.Index - $contextStart)
-            $badContext = $context -match '(?i)(system\s+time|box\s+time|certified\s+time|version|build|copyright)'
-            $licenseContext = ($context -match '(?i)\b(?:pc|product\s*code)\s*=\s*\d+') -or ($context -match '(?m)^\s*\d{{1,5}}\s+[-\w]')
-            if ($badContext -or -not $licenseContext) {{ continue }}
-            $expires = [string]$match.Groups[1].Value
-            if ($expires -and -not ($licenses | Where-Object {{ $_.expires_at -eq $expires }} | Select-Object -First 1)) {{
-                $licenses += @{{ validity='expires'; expires_at=$expires }}
+
+    function Get-CodeMeterRemainingDays([string]$value) {{
+        $normalized = Normalize-CodeMeterExpiry $value
+        if (-not $normalized) {{ return $null }}
+        try {{
+            $parsed = [datetime]::Parse(($normalized -replace 'T',' '))
+            return [int](New-TimeSpan -Start (Get-Date).Date -End $parsed.Date).Days
+        }} catch {{
+            return $null
+        }}
+    }}
+
+    function Add-CodeMeterLicense([string]$serial, [string]$code, [string]$expiresAt, [string]$validity = 'expires') {{
+        $serialText = ([string]$serial).Trim()
+        $codeText = ([string]$code).Trim()
+        $expiresText = Normalize-CodeMeterExpiry $expiresAt
+        if ($validity -eq 'expires' -and -not $expiresText) {{ $validity = 'unknown' }}
+        $key = $serialText + '|' + $codeText + '|' + $expiresText + '|' + $validity
+        if ($seenLicenseKeys.ContainsKey($key)) {{ return }}
+        $seenLicenseKeys[$key] = $true
+        $item = @{{
+            serial = $serialText
+            container_serial = $serialText
+            firm_code = $companyCode
+            code = $codeText
+            product_code = $codeText
+            validity = $validity
+            expires_at = $expiresText
+        }}
+        $daysLeft = Get-CodeMeterRemainingDays $expiresText
+        if ($null -ne $daysLeft) {{
+            $item['remaining_days'] = [int]$daysLeft
+            $item['expired'] = ([int]$daysLeft -lt 0)
+        }}
+        $script:__CodeMeterParsedLicenses += $item
+    }}
+
+    function Get-CodeMeterExpirations([string]$source) {{
+        $items = @()
+        foreach ($pattern in @(
+            '(?i)(?:Expiration\\s+(?:Time|Date)|Expires|Valid\\s+Until|Valid\\s+to)\\s*[:=]?\\s*([0-9]{{4}}[-/][0-9]{{1,2}}[-/][0-9]{{1,2}}(?:[T\\s][0-9]{{1,2}}:[0-9]{{2}}(?::[0-9]{{2}})?)?)',
+            '(?i)(?:到期|有效期至|有效至)\\s*[:：]?\\s*([0-9]{{4}}[-/年][0-9]{{1,2}}[-/月][0-9]{{1,2}})',
+            '\\b([0-9]{{4}}[-/][0-9]{{1,2}}[-/][0-9]{{1,2}}(?:[T\\s][0-9]{{1,2}}:[0-9]{{2}}(?::[0-9]{{2}})?)?)\\b'
+        )) {{
+            foreach ($match in [regex]::Matches($source, $pattern)) {{
+                $contextStart = [Math]::Max(0, $match.Index - 96)
+                $context = $source.Substring($contextStart, $match.Index - $contextStart)
+                if ($context -match '(?i)(system\\s+time|box\\s+time|certified\\s+time|version|build|copyright)') {{ continue }}
+                $expires = Normalize-CodeMeterExpiry ([string]$match.Groups[1].Value)
+                if ($expires -and $items -notcontains $expires) {{ $items += $expires }}
+            }}
+        }}
+        return @($items)
+    }}
+
+    function Get-CodeMeterCompanySections([string]$source) {{
+        $sections = @()
+        $fcPattern = '(?ims)^\\s*(?:\\*\\s*)?FC\\s*=\\s*' + $companyCode + '\\b.*?(?=^\\s*(?:\\*\\s*)?FC\\s*=\\s*\\d+\\b|^-+\\s*CmContainer\\b|\\z)'
+        foreach ($match in [regex]::Matches($source, $fcPattern)) {{
+            $sections += [string]$match.Value
+        }}
+        $tablePattern = '(?ims)^\\s*' + $companyCode + '\\b.*?(?=^\\s*\\d{{5,}}\\b|^-+\\s*CmContainer\\b|\\z)'
+        foreach ($match in [regex]::Matches($source, $tablePattern)) {{
+            $value = [string]$match.Value
+            if ($value -and $sections -notcontains $value) {{ $sections += $value }}
+        }}
+        return @($sections)
+    }}
+
+    function Parse-CodeMeterLicenseSection([string]$section, [string]$serial) {{
+        $pcMatches = @([regex]::Matches($section, '(?im)^\\s*(?:\\*\\s*)?(?:PC|Product\\s*Code)\\s*[:=]\\s*([0-9]{{1,8}})\\b.*$'))
+        if ($pcMatches.Count -eq 0) {{
+            $fallbackPattern = '(?im)^\\s*(?:' + $companyCode + '\\s+)?([0-9]{{1,8}})\\b(?=.*(?:20[0-9]{{2}}[-/][0-9]{{1,2}}[-/][0-9]{{1,2}}|Expiration|Expires|Valid))'
+            foreach ($match in [regex]::Matches($section, $fallbackPattern)) {{
+                $code = [string]$match.Groups[1].Value
+                $length = [Math]::Min(260, $section.Length - $match.Index)
+                $segment = $section.Substring($match.Index, $length)
+                foreach ($expires in @(Get-CodeMeterExpirations $segment)) {{
+                    Add-CodeMeterLicense $serial $code $expires 'expires'
+                }}
+            }}
+            return
+        }}
+        for ($i = 0; $i -lt $pcMatches.Count; $i++) {{
+            $match = $pcMatches[$i]
+            $code = [string]$match.Groups[1].Value
+            $start = $match.Index
+            $end = if ($i + 1 -lt $pcMatches.Count) {{ $pcMatches[$i + 1].Index }} else {{ $section.Length }}
+            $segment = $section.Substring($start, $end - $start)
+            $expirations = @(Get-CodeMeterExpirations $segment)
+            if ($expirations.Count -gt 0) {{
+                foreach ($expires in $expirations) {{ Add-CodeMeterLicense $serial $code $expires 'expires' }}
+            }} elseif ($segment -match '(?i)(no\\s+expiration|never\\s+expires|unlimited|permanent|lifetime|长期|永久|无限)') {{
+                Add-CodeMeterLicense $serial $code '' 'permanent'
             }}
         }}
     }}
-    if ($permanent -and $licenses.Count -eq 0) {{
-        $licenses += @{{ validity='permanent'; expires_at='' }}
+
+    $script:__CodeMeterParsedLicenses = @()
+    $containerMatches = @([regex]::Matches($raw, '(?im)^-\\s*CmContainer\\s+with\\s+Serial\\s+Number\\s+([0-9]+-[0-9]+)'))
+    if ($containerMatches.Count -gt 0) {{
+        for ($i = 0; $i -lt $containerMatches.Count; $i++) {{
+            $match = $containerMatches[$i]
+            $serial = [string]$match.Groups[1].Value
+            if (-not $serial.StartsWith('3-')) {{ continue }}
+            $start = $match.Index
+            $end = if ($i + 1 -lt $containerMatches.Count) {{ $containerMatches[$i + 1].Index }} else {{ $raw.Length }}
+            $block = $raw.Substring($start, $end - $start)
+            foreach ($section in @(Get-CodeMeterCompanySections $block)) {{
+                Parse-CodeMeterLicenseSection $section $serial
+            }}
+        }}
+    }} else {{
+        $serial = if ($physicalSerials.Count -gt 0) {{ [string]$physicalSerials[0] }} else {{ '' }}
+        foreach ($section in @(Get-CodeMeterCompanySections $raw)) {{
+            Parse-CodeMeterLicenseSection $section $serial
+        }}
     }}
+    if ($script:__CodeMeterParsedLicenses.Count -eq 0 -and $hasCompanyLicense) {{
+        $companyRaw = ((Get-CodeMeterCompanySections $raw) -join [Environment]::NewLine)
+        if (-not $companyRaw) {{ $companyRaw = $raw }}
+        $serial = if ($physicalSerials.Count -gt 0) {{ [string]$physicalSerials[0] }} else {{ '' }}
+        foreach ($expires in @(Get-CodeMeterExpirations $companyRaw | Select-Object -First 8)) {{
+            Add-CodeMeterLicense $serial '' $expires 'expires'
+        }}
+        if ($script:__CodeMeterParsedLicenses.Count -eq 0 -and ($companyRaw -match '(?i)(no\\s+expiration|never\\s+expires|unlimited|permanent|lifetime|长期|永久|无限)')) {{
+            Add-CodeMeterLicense $serial '' '' 'permanent'
+        }}
+    }}
+    $licenses = @($script:__CodeMeterParsedLicenses | Sort-Object `
+        @{{ Expression = {{ try {{ [int]$_.product_code }} catch {{ 999999999 }} }}; Ascending = $true }}, `
+        @{{ Expression = {{ [string]$_.expires_at }}; Ascending = $true }}, `
+        @{{ Expression = {{ [string]$_.serial }}; Ascending = $true }} | Select-Object -First 24)
+    Remove-Variable -Name __CodeMeterParsedLicenses -Scope Script -ErrorAction SilentlyContinue
     return @{{
         serials = @($displaySerials)
         licenses = @($licenses)
         license_identity = @{{
             firmcodes = @($firmcodes)
-            company_code = if ($hasCompanyLicense) {{ '102541' }} else {{ '' }}
+            company_code = if ($hasCompanyLicense) {{ $companyCode }} else {{ '' }}
             company_name = if ($hasCompanyLicense) {{ 'Lan Jing Ke Ji' }} else {{ '' }}
             has_company_license = [bool]$hasCompanyLicense
-            scoped_to_company = [bool]$companySectionMatch.Success
+            scoped_to_company = [bool]$hasCompanyLicense
             physical_serials = @($physicalSerials)
             virtual_serials = @($virtualSerials)
+            other_serials = @($otherSerials)
             runtime_version = $runtimeVersion
             runtime_major = $runtimeMajor
             runtime_outdated = [bool]$runtimeOutdated
         }}
-        raw_excerpt = if ($raw.Length -gt 2000) {{ $raw.Substring(0, 2000) }} else {{ $raw }}
+        raw_excerpt = if ($raw.Length -gt 6000) {{ $raw.Substring(0, 6000) }} else {{ $raw }}
     }}
 }}
 
@@ -5330,6 +5549,8 @@ function Get-CodeMeterInfo {{
     $errors = @()
     if ($tool) {{
         foreach ($args in @(
+            @('-l', '--show-expiration'),
+            @('--list', '--show-expiration'),
             @('-x'),
             @('-l')
         )) {{
@@ -5341,7 +5562,6 @@ function Get-CodeMeterInfo {{
                     $errors += ('CodeMeter command timed out: ' + ($args -join ' '))
                     continue
                 }}
-                if ($capture.exit_code -eq 0 -and $joined) {{ break }}
                 if ($joined) {{ $errors += $joined.Substring(0, [Math]::Min(240, $joined.Length)) }}
             }} catch {{
                 $errors += $_.Exception.Message
@@ -5351,6 +5571,10 @@ function Get-CodeMeterInfo {{
     $parsed = Parse-CodeMeterOutput (($outputs | ForEach-Object {{ [string]$_ }}) -join [Environment]::NewLine)
     $serials = @($parsed.serials)
     $licenses = @($parsed.licenses)
+    $effectiveErrors = @($errors)
+    if ($serials.Count -gt 0) {{
+        $effectiveErrors = @($effectiveErrors | Where-Object {{ [string]$_ -notmatch '(?i)CodeMeter command timed out' }})
+    }}
     $validity = 'unknown'
     if (($licenses | Where-Object {{ $_.validity -eq 'expires' }} | Select-Object -First 1)) {{
         $validity = 'expires'

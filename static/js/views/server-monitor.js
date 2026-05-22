@@ -492,12 +492,14 @@
             const items = [];
             const pushSerial = value => {
                 const text = String(value || '').trim();
-                if (text && !text.startsWith('130-') && !items.includes(text)) items.push(text);
+                if (text && text.startsWith('3-') && !items.includes(text)) items.push(text);
             };
             if (Array.isArray(codemeter?.serials)) codemeter.serials.forEach(pushSerial);
             if (Array.isArray(codemeter?.containers)) {
                 codemeter.containers.forEach(item => pushSerial(item?.serial || item?.serial_number || item?.id));
             }
+            const physical = codemeter?.license_identity?.physical_serials;
+            if (Array.isArray(physical)) physical.forEach(pushSerial);
             return items;
         }
 
@@ -533,12 +535,87 @@
             return `${get('year')}-${get('month')}-${get('day')}`;
         }
 
+    function getCodeMeterLicenseCode(item) {
+            return String(item?.product_code || item?.code || item?.license_code || item?.pc || '').trim();
+        }
+
+    function getCodeMeterLicenseExpiryValue(item) {
+            return item?.expires_at || item?.valid_until || item?.expire_at || item?.expiry || '';
+        }
+
+    function getCodeMeterRemainingDays(item, date) {
+            const direct = Number(item?.remaining_days);
+            if (Number.isFinite(direct)) return Math.floor(direct);
+            if (!(date instanceof Date) || Number.isNaN(date.getTime())) return null;
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const expiryDay = new Date(date);
+            expiryDay.setHours(0, 0, 0, 0);
+            return Math.floor((expiryDay.getTime() - today.getTime()) / 86400000);
+        }
+
+    function normalizeCodeMeterLicenses(codemeter, serials = []) {
+            const licenses = Array.isArray(codemeter?.licenses) ? codemeter.licenses : [];
+            const fallbackSerial = serials[0] || '';
+            const rows = [];
+            const seen = new Set();
+            licenses.forEach((item, index) => {
+                if (!item || typeof item !== 'object') return;
+                const firmCode = String(item.firm_code || item.company_code || codemeter?.license_code || codemeter?.license_identity?.company_code || '').trim();
+                if (firmCode && firmCode !== '102541') return;
+                const code = getCodeMeterLicenseCode(item);
+                const serial = String(item.serial || item.container_serial || item.container || fallbackSerial || '').trim();
+                const expiryDate = parseCodeMeterExpiry(getCodeMeterLicenseExpiryValue(item));
+                const expiryText = expiryDate ? formatCodeMeterExpiry(expiryDate) : '';
+                const validity = String(item.validity || '').toLowerCase();
+                const isPermanent = validity === 'permanent' || /长期|永久|无限|permanent|unlimited|lifetime/i.test(String(item.summary || ''));
+                const daysLeft = isPermanent ? null : getCodeMeterRemainingDays(item, expiryDate);
+                const expired = !isPermanent && (item.expired === true || (Number.isFinite(daysLeft) && daysLeft < 0));
+                if (!code && !expiryText && !isPermanent) return;
+                const key = `${serial}|${code}|${expiryText}|${isPermanent ? 'permanent' : ''}`;
+                if (seen.has(key)) return;
+                seen.add(key);
+                rows.push({
+                    serial,
+                    code,
+                    expiryText,
+                    daysLeft,
+                    expired,
+                    permanent: isPermanent,
+                    sourceIndex: index,
+                });
+            });
+            rows.sort((a, b) => {
+                if (a.expired !== b.expired) return a.expired ? 1 : -1;
+                const aCode = Number(a.code);
+                const bCode = Number(b.code);
+                const aCodeKey = Number.isFinite(aCode) ? aCode : 999999999;
+                const bCodeKey = Number.isFinite(bCode) ? bCode : 999999999;
+                if (aCodeKey !== bCodeKey) return aCodeKey - bCodeKey;
+                return (a.expiryText || '9999-12-31').localeCompare(b.expiryText || '9999-12-31');
+            });
+            return rows;
+        }
+
     function hasCompanyCodeMeterLicense(codemeter) {
-            return !!(codemeter?.license_code || codemeter?.license_identity?.company_code || codemeter?.license_identity?.has_company_license);
+            const code = String(codemeter?.license_code || codemeter?.license_identity?.company_code || '').trim();
+            return code === '102541' || !!codemeter?.license_identity?.has_company_license;
         }
 
     function getCodeMeterValidityText(codemeter) {
-            if (!hasCompanyCodeMeterLicense(codemeter)) return '无授权';
+            const serials = getCodeMeterSerials(codemeter);
+            if (!serials.length) return codemeter?.installed ? '无加密锁' : '未安装';
+            const normalizedLicenses = normalizeCodeMeterLicenses(codemeter, serials);
+            if (!hasCompanyCodeMeterLicense(codemeter) && !normalizedLicenses.length) return '无授权';
+            const activeRows = normalizedLicenses.filter(row => !row.expired);
+            if (activeRows.length > 1) return `${activeRows.length}项授权`;
+            if (activeRows.length === 1) {
+                const row = activeRows[0];
+                if (row.permanent) return '长期有效';
+                if (Number.isFinite(row.daysLeft)) return `剩余${row.daysLeft}天`;
+                if (row.expiryText) return `到期 ${row.expiryText}`;
+            }
+            if (normalizedLicenses.some(row => row.expired)) return '无有效授权';
             const licenses = Array.isArray(codemeter?.licenses) ? codemeter.licenses : [];
             const status = getCodeMeterExpiryStatusFromLicenses(licenses);
             const expiring = status.expiring;
@@ -591,24 +668,53 @@
             const runtimeOutdated = !!(info.runtime_outdated || info.license_identity?.runtime_outdated);
             const runtimeVersion = String(info.runtime_version || info.license_identity?.runtime_version || '').trim();
             const hasCompanyLicense = hasCompanyCodeMeterLicense(info);
+            const normalizedLicenses = normalizeCodeMeterLicenses(info, serials);
+            const activeLicenses = normalizedLicenses.filter(row => !row.expired);
+            const displayRows = activeLicenses.slice(0, 4);
             const expiryStatus = getCodeMeterExpiryStatusFromLicenses(info.licenses);
-            const cls = (!installed || level === 'muted') ? 'muted' : (level === 'error' || expiryStatus.cls === 'error' ? 'error' : ((!running || level === 'warning' || runtimeOutdated || !hasCompanyLicense || expiryStatus.cls === 'warning') ? 'warning' : ''));
+            const minDaysLeft = activeLicenses
+                .map(row => row.daysLeft)
+                .filter(value => Number.isFinite(value))
+                .sort((a, b) => a - b)[0];
+            const hasExpiredOnly = normalizedLicenses.length > 0 && activeLicenses.length === 0;
+            const noDongle = installed && !serials.length;
+            const noAuth = serials.length > 0 && !activeLicenses.length;
+            const daysClass = Number.isFinite(minDaysLeft) ? (minDaysLeft < 10 ? 'error' : (minDaysLeft < 30 ? 'warning' : '')) : '';
+            const cls = (!installed || level === 'muted') ? 'muted' : (level === 'error' || hasExpiredOnly || daysClass === 'error' ? 'error' : ((!running || level === 'warning' || runtimeOutdated || noDongle || noAuth || !hasCompanyLicense || daysClass === 'warning' || expiryStatus.cls === 'warning') ? 'warning' : ''));
             const licenseLabel = getCodeMeterLicenseLabel(info);
-            const serialText = serials.length ? serials.slice(0, 1).join('') + (serials.length > 1 ? ` +${serials.length - 1}` : '') : (installed ? '未发现锁' : '未安装');
-            const displayText = serialText;
+            const serialText = serials.length ? serials.slice(0, 1).join('') + (serials.length > 1 ? ` +${serials.length - 1}` : '') : (installed ? '无加密锁' : '未安装');
             const validityText = getCodeMeterValidityText(info);
             const titleParts = [
-                licenseLabel ? `授权代码: ${licenseLabel}` : '',
+                licenseLabel ? `公司授权: ${licenseLabel}` : '',
                 `编号: ${serials.length ? serials.join(' / ') : serialText}`,
-                `授权: ${validityText}`,
+                `状态: ${validityText}`,
                 `服务: ${info.service_state || '--'}`,
             ].filter(Boolean);
-            if (Number.isFinite(expiryStatus.daysLeft) && expiryStatus.daysLeft >= 0) titleParts.push(`剩余: ${expiryStatus.daysLeft} 天`);
+            if (normalizedLicenses.length) {
+                titleParts.push('授权明细:');
+                normalizedLicenses.forEach(row => {
+                    const daysText = row.permanent ? '长期' : (Number.isFinite(row.daysLeft) && row.daysLeft >= 0 ? `${row.daysLeft}天` : (row.expired ? '已过期' : '--'));
+                    titleParts.push(`${row.serial || serialText} | ${row.code || '--'} | ${row.expiryText || '长期有效'} | ${daysText}`);
+                });
+            }
+            if (Number.isFinite(minDaysLeft) && minDaysLeft >= 0) titleParts.push(`最近剩余: ${minDaysLeft} 天`);
             if (runtimeVersion) titleParts.push(`Runtime: ${runtimeVersion}${runtimeOutdated ? '，建议升级到 8.0+' : ''}`);
             if (info.checked_at) titleParts.push(`检测: ${formatServerTime(info.checked_at)}`);
             if (info.error) titleParts.push(`错误: ${info.error}`);
             const upgradeHtml = runtimeOutdated ? `<em class="upgrade">升级8.0+</em>` : '';
-            return `<div class="server-codemeter-line ${cls}" title="${escapeHtml(titleParts.join('\n'))}"><span>CodeMeter</span><strong><em class="serial">${escapeHtml(displayText)}</em><em class="validity">${escapeHtml(validityText)}</em>${upgradeHtml}</strong></div>`;
+            let bodyHtml = '';
+            if (displayRows.length) {
+                const rowsHtml = displayRows.map(row => {
+                    const daysText = row.permanent ? '长期' : (Number.isFinite(row.daysLeft) ? `${row.daysLeft}天` : '--');
+                    const rowClass = row.permanent ? 'permanent' : (Number.isFinite(row.daysLeft) && row.daysLeft < 10 ? 'danger' : (Number.isFinite(row.daysLeft) && row.daysLeft < 30 ? 'warn' : ''));
+                    return `<div class="codemeter-license-row ${rowClass}"><span>${escapeHtml(row.serial || serialText)}</span><span>${escapeHtml(row.code || '--')}</span><span>${escapeHtml(row.expiryText || '长期')}</span><span>${escapeHtml(daysText)}</span></div>`;
+                }).join('');
+                const moreText = activeLicenses.length > displayRows.length ? `<em class="codemeter-more">+${activeLicenses.length - displayRows.length}</em>` : '';
+                bodyHtml = `<div class="codemeter-license-table"><div class="codemeter-license-head"><span>锁号</span><span>代码</span><span>到期</span><span>剩余</span></div>${rowsHtml}</div>${moreText}`;
+            } else {
+                bodyHtml = `<strong><em class="serial">${escapeHtml(serialText)}</em><em class="validity">${escapeHtml(validityText)}</em>${upgradeHtml}</strong>`;
+            }
+            return `<div class="server-codemeter-line ${cls}" title="${escapeHtml(titleParts.join('\n'))}"><div class="codemeter-line-head"><span>CodeMeter</span><strong>${escapeHtml(validityText)}${upgradeHtml}</strong></div>${bodyHtml}</div>`;
         }
 
     function getServerGroupName(machine) {
