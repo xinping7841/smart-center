@@ -86,13 +86,14 @@
     $('rawEmpty').style.display = visibleChannels.length ? 'none' : 'block';
     $('grid').innerHTML = visibleChannels.map(item => {
       const live = hasLiveCurrent(item.current);
+      const channelNo = Number(item.channel) || 0;
       return `
       <section class="card raw-card ${live ? 'live' : ''}">
         <div class="card-head">
-          <div class="channel-name" title="${escapeHtml(item.name || `第${item.channel}路`)}">${escapeHtml(item.name || `第${item.channel}路`)}</div>
-          <div class="raw">寄存器 ${item.raw_register ?? '--'}</div>
+          <div class="channel-name" title="第${channelNo}路">第${channelNo}路</div>
+          <div class="raw">raw ${item.raw_register ?? '--'}</div>
         </div>
-        <div class="metric"><span>采集器电流</span><strong>${formatA(item.current)}</strong></div>
+        <div class="metric"><span>原始电流</span><strong>${formatA(item.current)}</strong></div>
       </section>
     `}).join('');
     const error = lastPayload.error ? `<div class="error">ERROR: ${escapeHtml(lastPayload.error)}</div>` : '';

@@ -21,13 +21,13 @@
     .content { flex:1; min-width:0; }
     header { position:sticky; top:0; z-index:2; padding:16px 22px; background:rgba(7,17,31,.94); border-bottom:1px solid rgba(148,163,184,.18); display:flex; justify-content:space-between; gap:16px; align-items:center; }
     h1 { margin:0; font-size:22px; }
-    main { padding:18px 22px 28px; }
+    main { padding:14px 18px 22px; }
     a { color:#93c5fd; text-decoration:none; }
     .meta { color:#9fb0c8; font-size:13px; line-height:1.6; }
     .status { display:inline-flex; align-items:center; border-radius:999px; padding:6px 12px; font-size:13px; font-weight:800; background:#334155; color:#cbd5e1; }
     .status.online { background:rgba(34,197,94,.16); color:#86efac; }
     .status.offline { background:rgba(239,68,68,.14); color:#fca5a5; }
-    .panel { margin-bottom:16px; padding:14px 16px; border:1px solid rgba(148,163,184,.16); background:rgba(15,23,42,.76); border-radius:12px; }
+    .panel { margin-bottom:12px; padding:10px 12px; border:1px solid rgba(148,163,184,.16); background:rgba(15,23,42,.76); border-radius:12px; }
     .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
     button, .button-link { min-height:34px; padding:8px 12px; border:0; border-radius:7px; background:#2563eb; color:#fff; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; line-height:1; font-size:13px; }
     .button-link { text-decoration:none; }
@@ -36,38 +36,38 @@
     button.danger { background:#dc2626; }
     button.success { background:#16a34a; }
     button:disabled { opacity:.5; cursor:not-allowed; }
-    .data-section { margin-top:16px; border:1px solid rgba(148,163,184,.18); border-radius:16px; padding:14px; background:rgba(15,23,42,.50); box-shadow:0 12px 30px rgba(0,0,0,.18); }
+    .data-section { margin-top:12px; border:1px solid rgba(148,163,184,.18); border-radius:14px; padding:12px; background:rgba(15,23,42,.50); box-shadow:0 10px 24px rgba(0,0,0,.16); }
     .data-section.group-section { border-color:rgba(251,191,36,.34); background:linear-gradient(180deg,rgba(113,63,18,.22),rgba(15,23,42,.54)); }
     .data-section.raw-section { border-color:rgba(56,189,248,.22); background:linear-gradient(180deg,rgba(8,47,73,.18),rgba(15,23,42,.50)); }
-    .section-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin:0 0 12px; padding-bottom:10px; border-bottom:1px solid rgba(148,163,184,.14); }
-    .section-kicker { display:inline-flex; align-items:center; min-height:22px; margin-bottom:7px; padding:3px 8px; border-radius:999px; color:#fef3c7; background:rgba(251,191,36,.13); border:1px solid rgba(251,191,36,.24); font-size:11px; font-weight:900; letter-spacing:.16em; }
+    .section-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 0 10px; padding-bottom:8px; border-bottom:1px solid rgba(148,163,184,.14); }
+    .section-kicker { display:inline-flex; align-items:center; min-height:20px; margin-bottom:5px; padding:2px 7px; border-radius:999px; color:#fef3c7; background:rgba(251,191,36,.13); border:1px solid rgba(251,191,36,.24); font-size:10px; font-weight:900; letter-spacing:.14em; }
     .raw-section .section-kicker { color:#bae6fd; background:rgba(56,189,248,.12); border-color:rgba(56,189,248,.20); }
-    .section-title { margin:0; color:#e5edf8; font-size:16px; font-weight:900; letter-spacing:.2px; }
+    .section-title { margin:0; color:#e5edf8; font-size:15px; font-weight:900; letter-spacing:.2px; }
     .section-note { color:#94a3b8; font-size:12px; line-height:1.6; }
     .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; }
-    .raw-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(176px,1fr)); gap:9px; }
-    .group-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; margin-bottom:14px; }
-    .card { border:1px solid rgba(148,163,184,.16); background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(12,20,34,.96)); border-radius:10px; padding:13px; }
-    .raw-card { border-radius:8px; padding:10px; }
+    .raw-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(132px,1fr)); gap:7px; }
+    .group-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(190px,1fr)); gap:9px; margin-bottom:6px; }
+    .card { border:1px solid rgba(148,163,184,.16); background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(12,20,34,.96)); border-radius:9px; padding:10px; }
+    .raw-card { border-radius:8px; padding:8px; }
     .card.live { border-color:rgba(34,197,94,.72); }
     .card.group { border-color:rgba(251,191,36,.38); background:linear-gradient(180deg,rgba(41,37,36,.98),rgba(24,20,13,.96)); }
     .card.group.live { border-color:rgba(34,197,94,.72); }
-    .card-head { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:10px; }
+    .card-head { display:flex; justify-content:space-between; gap:8px; align-items:center; margin-bottom:8px; }
     .channel-name { min-width:0; font-weight:800; color:#f8fafc; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .card.group .channel-name { color:#fde68a; }
-    .raw { color:#94a3b8; font-family:Consolas,monospace; font-size:12px; }
+    .raw { color:#94a3b8; font-family:Consolas,monospace; font-size:11px; }
     .card.group .raw { color:#facc15; }
-    .metric { padding:10px; border-radius:8px; background:rgba(2,6,23,.42); border:1px solid rgba(148,163,184,.10); }
-    .raw-card .metric { padding:8px; border-radius:7px; }
-    .metric span { display:block; color:#94a3b8; font-size:12px; margin-bottom:6px; }
-    .raw-card .metric span { font-size:11px; margin-bottom:4px; }
-    .metric strong { display:block; font-family:Consolas,monospace; font-size:24px; line-height:1.15; }
-    .raw-card .metric strong { font-size:20px; }
+    .metric { padding:8px; border-radius:8px; background:rgba(2,6,23,.42); border:1px solid rgba(148,163,184,.10); }
+    .raw-card .metric { padding:0; border:0; background:transparent; }
+    .metric span { display:block; color:#94a3b8; font-size:11px; margin-bottom:4px; }
+    .raw-card .metric span { display:none; }
+    .metric strong { display:block; font-family:Consolas,monospace; font-size:21px; line-height:1.12; }
+    .raw-card .metric strong { font-size:18px; }
     .card.live .metric strong { color:#86efac; }
-    .group-meta { margin-top:10px; color:#94a3b8; font-size:12px; line-height:1.7; }
+    .group-meta { margin-top:7px; color:#94a3b8; font-size:11px; line-height:1.5; }
     .card.group .group-meta { color:#fde68a; }
     .empty-section { display:none; border:1px dashed rgba(148,163,184,.25); border-radius:12px; padding:16px; color:#94a3b8; text-align:center; font-size:13px; background:rgba(2,6,23,.20); }
-    .log { margin-top:14px; color:#9fb0c8; font-family:Consolas,monospace; font-size:12px; word-break:break-all; line-height:1.6; }
+    .log { margin-top:10px; color:#9fb0c8; font-family:Consolas,monospace; font-size:11px; word-break:break-all; line-height:1.45; }
     .error { color:#fca5a5; }
     .hint { margin-top:10px; color:#9fb0c8; font-size:13px; line-height:1.7; }
     .hold-note { display:none; margin-left:4px; color:#fbbf24; font-size:13px; font-weight:800; }
@@ -133,9 +133,9 @@
       <div class="section-head">
         <div>
           <div class="section-kicker">RAW CHANNELS</div>
-          <h2 class="section-title">原始回路数据</h2>
+          <h2 class="section-title">原始16路数据</h2>
         </div>
-        <div class="section-note">按单路显示配置和排序展示</div>
+        <div class="section-note">采集器实时原始值，不显示备注和组合</div>
       </div>
       <div class="raw-grid" id="grid"></div>
       <div class="empty-section" id="rawEmpty">暂无可显示回路，请检查配置中心的显示开关。</div>
