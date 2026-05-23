@@ -19,8 +19,8 @@
 ```bash
 mkdir -p /d/SmartCenter
 cd /d/SmartCenter
-git clone node-120-ts:/srv/git/smart-center.git smart-center-git
-cd smart-center-git
+git clone node-120-ts:/srv/git/smart-center-clean.git smart-center-clean
+cd smart-center-clean
 bash scripts/collab/bootstrap-other-machine.sh --machine 12700k --worktree-base /d/SmartCenter/smart-center-worktrees
 ```
 
@@ -29,8 +29,8 @@ bash scripts/collab/bootstrap-other-machine.sh --machine 12700k --worktree-base 
 ```bash
 mkdir -p ~/SmartCenter
 cd ~/SmartCenter
-git clone node-120-ts:/srv/git/smart-center.git smart-center-git
-cd smart-center-git
+git clone node-120-ts:/srv/git/smart-center-clean.git smart-center-clean
+cd smart-center-clean
 bash scripts/collab/bootstrap-other-machine.sh --machine laptop --worktree-base ~/SmartCenter/smart-center-worktrees
 ```
 

@@ -78,21 +78,21 @@ cat > "$WORKTREE_PATH/.worktasks/$TASK/TASK.md" <<EOF_TASK
 
 ## 目标
 
-```text
+\`\`\`text
 填写本任务要完成的目标
-```
+\`\`\`
 
 ## 当前阶段
 
-```text
+\`\`\`text
 进行中
-```
+\`\`\`
 
 ## 修改范围
 
-```text
+\`\`\`text
 填写预计或实际修改的文件
-```
+\`\`\`
 
 ## 已完成
 
@@ -113,9 +113,9 @@ cat > "$WORKTREE_PATH/.worktasks/$TASK/TASK.md" <<EOF_TASK
 
 ## 依赖和冲突
 
-```text
+\`\`\`text
 如需修改 templates/index.html、config.py、background.py 等高风险文件，需要额外获取对应锁。
-```
+\`\`\`
 
 ## 下一步
 
@@ -173,4 +173,3 @@ echo "  lock:     $MODULE"
 echo
 echo "进入任务目录:"
 echo "  cd \"$WORKTREE_PATH\""
-

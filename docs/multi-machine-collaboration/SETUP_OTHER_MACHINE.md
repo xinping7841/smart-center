@@ -7,7 +7,7 @@
 另一台机器需要：
 
 - 安装 Git。
-- 能通过 SSH 访问 `node-120-ts:/srv/git/smart-center.git`。
+- 能通过 SSH 访问 `node-120-ts:/srv/git/smart-center-clean.git`。
 - 推荐使用 Git Bash、PowerShell 或 VS Code 终端执行命令。
 - 不要直接在生产目录里改代码。
 
@@ -15,7 +15,7 @@
 
 ```text
 D:\SmartCenter\
-  smart-center-git\
+  smart-center-clean\
   smart-center-worktrees\
 ```
 
@@ -23,7 +23,7 @@ D:\SmartCenter\
 
 ```text
 ~/SmartCenter/
-  smart-center-git/
+  smart-center-clean/
   smart-center-worktrees/
 ```
 
@@ -34,8 +34,8 @@ Windows Git Bash 示例：
 ```bash
 mkdir -p /d/SmartCenter
 cd /d/SmartCenter
-git clone node-120-ts:/srv/git/smart-center.git smart-center-git
-cd smart-center-git
+git clone node-120-ts:/srv/git/smart-center-clean.git smart-center-clean
+cd smart-center-clean
 ```
 
 Windows PowerShell 示例：
@@ -43,8 +43,8 @@ Windows PowerShell 示例：
 ```powershell
 New-Item -ItemType Directory -Force D:\SmartCenter
 Set-Location D:\SmartCenter
-git clone node-120-ts:/srv/git/smart-center.git smart-center-git
-Set-Location D:\SmartCenter\smart-center-git
+git clone node-120-ts:/srv/git/smart-center-clean.git smart-center-clean
+Set-Location D:\SmartCenter\smart-center-clean
 ```
 
 macOS/Linux 示例：
@@ -52,14 +52,14 @@ macOS/Linux 示例：
 ```bash
 mkdir -p ~/SmartCenter
 cd ~/SmartCenter
-git clone node-120-ts:/srv/git/smart-center.git smart-center-git
-cd smart-center-git
+git clone node-120-ts:/srv/git/smart-center-clean.git smart-center-clean
+cd smart-center-clean
 ```
 
 如果另一台机器已经有代码，不要直接覆盖，先检查：
 
 ```bash
-cd /path/to/smart-center-git
+cd /path/to/smart-center-clean
 git status -sb
 git remote -v
 ```
@@ -84,7 +84,7 @@ git config user.email "codex-laptop@smart-center.local"
 
 ## 4. 一键初始化协作目录
 
-在 `smart-center-git` 里执行：
+在 `smart-center-clean` 里执行：
 
 ```bash
 bash scripts/collab/bootstrap-other-machine.sh --machine 12700k

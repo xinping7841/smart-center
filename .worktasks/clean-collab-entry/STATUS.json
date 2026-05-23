@@ -1,0 +1,10 @@
+{
+  "task": "clean-collab-entry",
+  "module": "docs",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-clean-collab-entry-20260524",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/clean-collab-entry",
+  "started_at": "2026-05-24 01:21:34",
+  "status": "in_progress"
+}

@@ -1,14 +1,14 @@
 # PowerShell Collaboration Quickstart
 
-Use this when a Windows machine does not have Git Bash. Run commands from the root of `smart-center-git`.
+Use this when a Windows machine does not have Git Bash. Run commands from the root of `smart-center-clean`.
 
 ## Fresh Clone
 
 ```powershell
 New-Item -ItemType Directory -Force D:\SmartCenter
 Set-Location D:\SmartCenter
-git clone node-120-ts:/srv/git/smart-center.git smart-center-git
-Set-Location D:\SmartCenter\smart-center-git
+git clone node-120-ts:/srv/git/smart-center-clean.git smart-center-clean
+Set-Location D:\SmartCenter\smart-center-clean
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/collab/bootstrap-other-machine.ps1 -Machine 12700k -WorktreeBase D:\SmartCenter\smart-center-worktrees
 ```
 
