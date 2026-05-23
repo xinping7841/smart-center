@@ -1,0 +1,12 @@
+{
+  "task": "outdoor-light-node-red",
+  "module": "automation",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-outdoor-light-node-red-20260524",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/outdoor-light-node-red",
+  "started_at": "2026-05-24 04:30:26",
+  "status": "ready_to_finish",
+  "updated_at": "2026-05-24 04:33:50",
+  "verification": "py_compile; git diff --check; remote python3.12 config migration and node_red status action"
+}

@@ -1273,6 +1273,8 @@ OUTDOOR_UNIVERSAL_COMMAND_NAME_HINTS = {
     "stop": ("停止", "stop"),
 }
 
+OUTDOOR_NODE_RED_DEVICE_ID = "courtyard_light"
+
 
 def _normalize_automation_rule(rule):
     if not isinstance(rule, dict):
@@ -1687,11 +1689,6 @@ def _maybe_restore_outdoor_light_scenes(loaded_config):
     if not required_scene_ids:
         return False
 
-    preferred_universal_device = _select_preferred_outdoor_universal_device(loaded_config)
-    preferred_light_device_id = _select_preferred_outdoor_light_device_id(loaded_config)
-    if not preferred_universal_device and not preferred_light_device_id:
-        return False
-
     scene_map = {
         str(scene.get("id") or "").strip(): scene
         for scene in scenes
@@ -1708,29 +1705,6 @@ def _maybe_restore_outdoor_light_scenes(loaded_config):
 
     def _desired_scene(scene_id, action_type):
         scene_name = "庭院灯自动开灯" if action_type == "on" else "庭院灯自动关灯"
-        universal_cmd = _find_universal_device_command(preferred_universal_device, action_type)
-        if universal_cmd:
-            return {
-                "id": scene_id,
-                "name": scene_name,
-                "sort": 0,
-                "visible": False,
-                "auto_generated": True,
-                "auto_generated_key": "outdoor_light",
-                "actions": [
-                    {
-                        "sub_system": "universal",
-                        "device_id": str(preferred_universal_device.get("id") or "").strip(),
-                        "action_type": "command",
-                        "payload": universal_cmd.get("payload", ""),
-                        "format": universal_cmd.get("format", "str"),
-                        "wait_ms": universal_cmd.get("wait_ms", 0),
-                        "delay_ms": 0,
-                    }
-                ],
-            }
-        if not preferred_light_device_id:
-            return None
         return {
             "id": scene_id,
             "name": scene_name,
@@ -1740,9 +1714,8 @@ def _maybe_restore_outdoor_light_scenes(loaded_config):
             "auto_generated_key": "outdoor_light",
             "actions": [
                 {
-                    "sub_system": "light",
-                    "device_id": preferred_light_device_id,
-                    "channel": 1,
+                    "sub_system": "node_red",
+                    "device_id": OUTDOOR_NODE_RED_DEVICE_ID,
                     "action_type": action_type,
                     "delay_ms": 0,
                 }

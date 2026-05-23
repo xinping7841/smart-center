@@ -252,6 +252,40 @@ def _execute_hvac_action(action):
     return True, f"[自动化] 空调 {device_name} 已执行 {action_type} ({driver_class})"
 
 
+def _execute_node_red_action(action):
+    device_id = str(action.get("device_id") or "").strip()
+    if not device_id:
+        return False, "[自动化] Node-RED 设备未配置"
+
+    action_type = str(action.get("action_type") or "").strip().lower()
+    if not action_type:
+        action_type = "on" if action.get("is_open", True) else "off"
+    action_aliases = {
+        "power_on": "on",
+        "turn_on": "on",
+        "open": "on",
+        "power_off": "off",
+        "turn_off": "off",
+        "close": "off",
+    }
+    normalized_action = action_aliases.get(action_type, action_type)
+    if normalized_action not in {"on", "off", "toggle", "status"}:
+        return False, f"[自动化] Node-RED 不支持动作: {device_id}/{action_type}"
+
+    try:
+        from api.node_red import control_node_red_device
+
+        ok, result, driver_class = control_node_red_device(device_id, normalized_action, source="automation_scene")
+    except Exception as exc:
+        return False, f"[自动化] Node-RED {device_id} 动作失败: {normalized_action} -> {exc}"
+
+    device_name = str((result or {}).get("device_name") or device_id)
+    detail = str((result or {}).get("display_text") or (result or {}).get("status") or "").strip()
+    if not ok:
+        return False, f"[自动化] Node-RED {device_name} 动作失败: {normalized_action} -> {detail or result}"
+    return True, f"[自动化] Node-RED {device_name} 已执行 {normalized_action} ({driver_class})"
+
+
 def _execute_scene_action(action):
     sys_type = action.get("sub_system", "light")
     act_type = action.get("action_type", "on" if action.get("is_open", True) else "off")
@@ -259,6 +293,9 @@ def _execute_scene_action(action):
 
     if sys_type == "hvac":
         return _execute_hvac_action(action)
+
+    if str(sys_type).strip().lower() in {"node_red", "node-red", "nodered"}:
+        return _execute_node_red_action(action)
 
     if sys_type == "server":
         mac = str(action.get("device_id"))
