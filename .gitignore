@@ -30,6 +30,7 @@ _*.json
 _*.txt
 _*.html
 _*.py
+!**/__init__.py
 *_after_fix.json
 *_after_fix.png
 *_page.png
