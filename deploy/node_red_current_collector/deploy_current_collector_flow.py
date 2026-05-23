@@ -141,13 +141,34 @@ function readCollector() {
     });
 }
 
+function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function readCollectorWithRetry(maxAttempts) {
+    let lastError = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+            const result = await readCollector();
+            if (attempt > 1) {
+                node.status({ fill: 'green', shape: 'dot', text: `retry ok ${attempt}/${maxAttempts}` });
+            }
+            return result;
+        } catch (err) {
+            lastError = err;
+            if (attempt < maxAttempts) await delay(180);
+        }
+    }
+    throw lastError;
+}
+
 (async () => {
     if (context.get('busy')) {
         node.status({ fill: 'yellow', shape: 'ring', text: 'skip: previous read still running' });
         return;
     }
     context.set('busy', true);
-    const read = await readCollector();
+    const read = await readCollectorWithRetry(2);
     const payload = {
         source: 'node-red',
         gateway: 'node-121',
