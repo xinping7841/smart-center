@@ -4,11 +4,21 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+if (Get-Variable PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+    $PSNativeCommandUseErrorActionPreference = $false
+}
 
 function Invoke-Git {
-    & git @args
-    if ($LASTEXITCODE -ne 0) {
-        throw "git command failed: git $($args -join ' ')"
+    $OldErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & git @args
+        $ExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $OldErrorActionPreference
+    }
+    if ($ExitCode -ne 0) {
+        throw "git command failed ($ExitCode): git $($args -join ' ')"
     }
 }
 
@@ -51,7 +61,7 @@ $HasLockBranch = ($LASTEXITCODE -eq 0)
 if ($HasLockBranch) {
     Write-Host "[setup] worklock branch exists: origin/$LockBranch"
     $RefSpec = "${LockBranch}:refs/remotes/origin/${LockBranch}"
-    & git fetch origin $RefSpec *> $null
+    Invoke-Git fetch origin $RefSpec *> $null
 } else {
     Write-Host "[setup] creating worklock branch: $LockBranch"
     $TmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("smart-center-locks-" + [guid]::NewGuid().ToString("N"))
@@ -60,7 +70,7 @@ if ($HasLockBranch) {
         Push-Location $TmpDir
         try {
             Invoke-Git switch --orphan $LockBranch
-            & git rm -rf . *> $null
+            Invoke-Git rm -rf . *> $null
             New-Item -ItemType Directory -Force -Path "locks" | Out-Null
             Set-Content -Path "README.md" -Value "# Smart Center worklocks`n`nThis branch stores module work locks only.`n" -Encoding UTF8
             Set-Content -Path "locks/.gitkeep" -Value "" -Encoding UTF8

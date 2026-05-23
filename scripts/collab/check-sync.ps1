@@ -4,6 +4,23 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+if (Get-Variable PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+    $PSNativeCommandUseErrorActionPreference = $false
+}
+
+function Invoke-Git {
+    $OldErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & git @args
+        $ExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $OldErrorActionPreference
+    }
+    if ($ExitCode -ne 0) {
+        throw "git command failed ($ExitCode): git $($args -join ' ')"
+    }
+}
 
 $Root = (& git rev-parse --show-toplevel 2>$null).Trim()
 if (-not $Root) {
@@ -23,7 +40,7 @@ Write-Host $Root
 Write-Host ""
 
 Write-Host "== fetch =="
-& git fetch --all --prune
+Invoke-Git fetch --all --prune
 Write-Host ""
 
 Write-Host "== branch/status =="
@@ -75,7 +92,7 @@ $ErrorActionPreference = "Continue"
 $ErrorActionPreference = $OldErrorActionPreference
 if ($LASTEXITCODE -eq 0) {
     $RefSpec = "${LockBranch}:refs/remotes/origin/${LockBranch}"
-    & git fetch origin $RefSpec *> $null
+    Invoke-Git fetch origin $RefSpec *> $null
     $Locks = @(& git ls-tree -r --name-only $RemoteLockRef locks 2>$null | Where-Object { $_ -like "*.json" })
     if (-not $Locks -or $Locks.Count -eq 0) {
         Write-Host "no active locks"

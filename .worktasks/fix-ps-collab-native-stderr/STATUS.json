@@ -1,0 +1,10 @@
+{
+  "task": "fix-ps-collab-native-stderr",
+  "module": "collab",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-fix-ps-collab-native-stderr-20260524",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/fix-ps-collab-native-stderr",
+  "started_at": "2026-05-24 01:47:15",
+  "status": "in_progress"
+}

@@ -9,11 +9,21 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+if (Get-Variable PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+    $PSNativeCommandUseErrorActionPreference = $false
+}
 
 function Invoke-Git {
-    & git @args
-    if ($LASTEXITCODE -ne 0) {
-        throw "git command failed: git $($args -join ' ')"
+    $OldErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & git @args
+        $ExitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $OldErrorActionPreference
+    }
+    if ($ExitCode -ne 0) {
+        throw "git command failed ($ExitCode): git $($args -join ' ')"
     }
 }
 
@@ -59,7 +69,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $RefSpec = "${LockBranch}:refs/remotes/origin/${LockBranch}"
-& git fetch origin $RefSpec *> $null
+Invoke-Git fetch origin $RefSpec *> $null
 
 $OldErrorActionPreference = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
