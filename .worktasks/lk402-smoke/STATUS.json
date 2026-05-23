@@ -1,0 +1,10 @@
+﻿{
+    "task":  "lk402-smoke",
+    "module":  "docs",
+    "machine":  "lk402",
+    "kind":  "light",
+    "branch":  "codex/lk402-lk402-smoke-20260524",
+    "worktree":  "D:\\SmartCenter\\smart-center-worktrees\\lk402-smoke",
+    "started_at":  "2026-05-24 02:04:59",
+    "status":  "in_progress"
+}
