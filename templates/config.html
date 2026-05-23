@@ -580,7 +580,7 @@
         if(!conf.door_config) conf.door_config = { rtsp_url: "", match_threshold: 1500, ip: "192.168.50.51", port: 50000 };
         if(!conf.server_monitor) conf.server_monitor = { agent_host: "", agent_port: 6899, scan_networks: [] };
         if(!conf.m32r || typeof conf.m32r !== 'object') conf.m32r = { enabled: false, host: '192.168.50.32', port: 10023, name: 'Midas M32R', channel_count: 8, bank_start: 1, poll_interval_ms: 1200, keepalive_sec: 5, auto_connect: false };
-        if(!conf.current_collector || typeof conf.current_collector !== 'object') conf.current_collector = { enabled: true, name: '16路电流采集器', source_mode: 'push', transport: 'tcp-rtu', host: '192.168.50.109', port: 502, serial_port: 'COM7', baudrate: 9600, bytesize: 8, parity: 'N', stopbits: 1, slave: 1, register: 16, count: 16, scale: 100, multiplier: 1, timeout: 2, poll_interval: 5, push_stale_seconds: 15, push_allowed_hosts: ['127.0.0.1', '::1', '192.168.50.121', '100.122.235.56'], push_token: '', channels: [], groups: [] };
+        if(!conf.current_collector || typeof conf.current_collector !== 'object') conf.current_collector = { enabled: true, name: '16路电流采集器', source_mode: 'push', transport: 'tcp-rtu', host: '192.168.50.109', port: 502, serial_port: 'COM7', baudrate: 9600, bytesize: 8, parity: 'N', stopbits: 1, slave: 1, register: 16, count: 16, scale: 100, multiplier: 1, timeout: 2, poll_interval: 5, push_stale_seconds: 15, push_allowed_hosts: ['127.0.0.1', '::1', '192.168.50.121', '100.122.235.56'], push_token: '', reject_sparse_push: true, min_valid_channels: 8, channels: [], groups: [] };
         if(!Array.isArray(conf.current_collector.channels)) conf.current_collector.channels = [];
         if(!Array.isArray(conf.current_collector.groups)) conf.current_collector.groups = [];
         if(!conf.meter_statistics || typeof conf.meter_statistics !== 'object') conf.meter_statistics = { summary_mode: 'include_flag', display_reset_enabled: false, display_reset_from: '', energy_display_mode: 'display', report_dir: 'reports\\energy', auto_export_enabled: true, history_keep_days: 90, default_trend_mode: 'total', remote_service_enabled: false, remote_service_mode: 'remote_overlay_local', remote_service_url: '', remote_service_timeout_sec: 5, remote_sync_on_save: false, reference_total_meter_source_key: '', cabinet_gateway_enabled: false, cabinet_gateway_url: '', cabinet_gateway_timeout_sec: 5, cabinet_gateway_sync_on_save: false };
@@ -813,6 +813,8 @@
             if(!cc.host) cc.host = '192.168.50.109';
             if(!cc.port) cc.port = 502;
             if(!cc.push_stale_seconds) cc.push_stale_seconds = 15;
+            if(cc.reject_sparse_push === undefined) cc.reject_sparse_push = true;
+            if(cc.min_valid_channels === undefined) cc.min_valid_channels = 8;
             if(typeof cc.push_allowed_hosts === 'string') cc.push_allowed_hosts = cc.push_allowed_hosts.split(/[,;\n]/).map(v => v.trim()).filter(Boolean);
             if(!Array.isArray(cc.push_allowed_hosts)) cc.push_allowed_hosts = ['127.0.0.1', '::1', '192.168.50.121', '100.122.235.56'];
             const count = Math.max(1, Math.min(64, parseInt(cc.count || 16, 10) || 16));
@@ -908,6 +910,8 @@
                     <div class="item"><label>超时秒</label><input type="number" step="0.1" value="${cc.timeout || 2}" onchange="updateCurrentCollectorValue('timeout',this.value,true)"></div>
                     <div class="item"><label>轮询秒</label><input type="number" value="${cc.poll_interval || 5}" onchange="updateCurrentCollectorValue('poll_interval',this.value,true)"></div>
                     <div class="item"><label>推送超时秒</label><input type="number" step="0.1" value="${cc.push_stale_seconds || 15}" onchange="updateCurrentCollectorValue('push_stale_seconds',this.value,true)"></div>
+                    <div class="item"><label>过滤稀疏帧</label><select onchange="updateCurrentCollectorValue('reject_sparse_push',this.value==='true')"><option value="true" ${cc.reject_sparse_push !== false ? 'selected' : ''}>启用</option><option value="false" ${cc.reject_sparse_push === false ? 'selected' : ''}>停用</option></select></div>
+                    <div class="item"><label>最少有效路数</label><input type="number" min="0" max="16" value="${cc.min_valid_channels || 8}" onchange="updateCurrentCollectorValue('min_valid_channels',this.value,true)"></div>
                     <div class="item"><label>允许推送主机</label><input value="${escapeHtml((cc.push_allowed_hosts || []).join(','))}" onchange="updateCurrentCollectorValue('push_allowed_hosts',this.value.split(/[,;\\n]/).map(v=>v.trim()).filter(Boolean))"></div>
                     <div class="item"><label>推送 Token</label><input value="${escapeHtml(cc.push_token || '')}" placeholder="可留空，仅限制来源IP" onchange="updateCurrentCollectorValue('push_token',this.value)"></div>
                 </div>

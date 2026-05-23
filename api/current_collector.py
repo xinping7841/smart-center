@@ -55,6 +55,8 @@ DEFAULT_CURRENT_COLLECTOR = {
     "push_stale_seconds": 15.0,
     "push_allowed_hosts": ["127.0.0.1", "::1", "192.168.50.121", "100.122.235.56"],
     "push_token": "",
+    "reject_sparse_push": True,
+    "min_valid_channels": 8,
     "channels": [{"channel": index, "name": f"第{index}路", "visible": True} for index in range(1, 17)],
     "groups": [],
 }
@@ -133,6 +135,8 @@ def normalize_current_collector_config(raw_config=None):
     cfg["timeout"] = _coerce_float(cfg.get("timeout"), 1.0, 0.1, 10.0)
     cfg["poll_interval"] = _coerce_float(cfg.get("poll_interval"), 2.0, 0.5, 300.0)
     cfg["push_stale_seconds"] = _coerce_float(cfg.get("push_stale_seconds"), 15.0, 2.0, 300.0)
+    cfg["reject_sparse_push"] = bool(cfg.get("reject_sparse_push", True))
+    cfg["min_valid_channels"] = _coerce_int(cfg.get("min_valid_channels"), 8, 0, int(cfg.get("count") or DEFAULT_CHANNEL_COUNT))
     raw_allowed_hosts = cfg.get("push_allowed_hosts")
     if isinstance(raw_allowed_hosts, str):
         raw_allowed_hosts = [item.strip() for item in raw_allowed_hosts.split(",")]
@@ -337,6 +341,11 @@ def normalize_push_snapshot(payload, config):
     raw_registers = _coerce_number_list(raw_registers, count, default=None, digits=0)
     if not any(value is not None for value in currents):
         raise ValueError("push payload must include currents or raw_registers")
+    if config.get("reject_sparse_push", True) and int(config.get("min_valid_channels") or 0) > 0:
+        valid_count = sum(1 for value in currents if value not in (None, 0, 0.0))
+        min_valid = int(config.get("min_valid_channels") or 0)
+        if valid_count < min_valid:
+            raise ValueError(f"sparse current frame rejected: valid_channels={valid_count}, min_valid_channels={min_valid}")
     channel_map = {f"C{index + 1:02d}": value for index, value in enumerate(currents)}
     return {
         "online": True,
@@ -523,6 +532,8 @@ def api_current_collector_config():
         "push_stale_seconds",
         "push_allowed_hosts",
         "push_token",
+        "reject_sparse_push",
+        "min_valid_channels",
     ):
         if key in data:
             next_config[key] = data[key]

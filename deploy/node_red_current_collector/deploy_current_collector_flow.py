@@ -34,6 +34,7 @@ const count = Number(env.get('CURRENT_COLLECTOR_COUNT') || 16);
 const scale = Number(env.get('CURRENT_COLLECTOR_SCALE') || 100);
 const multiplier = Number(env.get('CURRENT_COLLECTOR_MULTIPLIER') || 1);
 const timeoutMs = Number(env.get('CURRENT_COLLECTOR_TIMEOUT_MS') || 3000);
+const minValidChannels = Number(env.get('CURRENT_COLLECTOR_MIN_VALID_CHANNELS') || 8);
 
 function crc16Modbus(buffer) {
     let crc = 0xFFFF;
@@ -162,6 +163,10 @@ async function readCollectorWithRetry(maxAttempts) {
     throw lastError;
 }
 
+function countActiveChannels(currents) {
+    return (currents || []).filter((value) => value !== null && value !== undefined && Number(value) !== 0).length;
+}
+
 (async () => {
     if (context.get('busy')) {
         node.status({ fill: 'yellow', shape: 'ring', text: 'skip: previous read still running' });
@@ -169,6 +174,11 @@ async function readCollectorWithRetry(maxAttempts) {
     }
     context.set('busy', true);
     const read = await readCollectorWithRetry(2);
+    const activeCount = countActiveChannels(read.currents);
+    if (minValidChannels > 0 && activeCount < minValidChannels) {
+        node.status({ fill: 'yellow', shape: 'ring', text: `skip sparse ${activeCount}/${minValidChannels}` });
+        return;
+    }
     const payload = {
         source: 'node-red',
         gateway: 'node-121',
