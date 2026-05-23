@@ -587,12 +587,13 @@ def _build_log_insights(log_rows):
                 "result": row.get("result"),
                 "message": msg[:240],
             })
+    top_categories_text = ", ".join(f"{x['name']}({x['count']})" for x in _top_items(category_counts, 5)) or "暂无"
     return [{
         "schema": "smart_center.training.v1",
         "kind": "insight",
         "insight_type": "log_pattern",
         "title": "日志模式摘要",
-        "summary": f"本次纳入 {len(log_rows)} 条日志。高频模块：{', '.join(f'{x['name']}({x['count']})' for x in _top_items(category_counts, 5)) or '暂无'}。",
+        "summary": f"本次纳入 {len(log_rows)} 条日志。高频模块：{top_categories_text}。",
         "facts": {
             "category_counts": category_counts,
             "event_type_counts": event_type_counts,

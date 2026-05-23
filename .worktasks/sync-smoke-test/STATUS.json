@@ -1,0 +1,12 @@
+{
+  "task": "sync-smoke-test",
+  "module": "docs",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-sync-smoke-test-20260524",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/sync-smoke-test",
+  "started_at": "2026-05-24 01:29:16",
+  "status": "ready_to_finish",
+  "updated_at": "2026-05-24 01:30:00",
+  "verification": "worklock visible on origin/coordination/worklocks"
+}

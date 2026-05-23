@@ -335,7 +335,7 @@ def api_light_control():
                             device_name=device_name,
                             channel=str(channel),
                             action="power_on" if requested_state else "power_off",
-                            message=f"[灯光] 控制命令 {device_name} 通道{channel} {"开启" if requested_state else "关闭"}",
+                            message=f"[灯光] 控制命令 {device_name} 通道{channel} {'开启' if requested_state else '关闭'}",
                             result="success",
                             confidence="confirmed" if fresh.get("online") else "unknown",
                             raw={"request": d, "fresh": fresh},
