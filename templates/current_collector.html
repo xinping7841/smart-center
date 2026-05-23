@@ -36,8 +36,12 @@
     button.danger { background:#dc2626; }
     button.success { background:#16a34a; }
     button:disabled { opacity:.5; cursor:not-allowed; }
-    .data-section { margin-top:16px; }
-    .section-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin:0 0 10px; }
+    .data-section { margin-top:16px; border:1px solid rgba(148,163,184,.18); border-radius:16px; padding:14px; background:rgba(15,23,42,.50); box-shadow:0 12px 30px rgba(0,0,0,.18); }
+    .data-section.group-section { border-color:rgba(251,191,36,.34); background:linear-gradient(180deg,rgba(113,63,18,.22),rgba(15,23,42,.54)); }
+    .data-section.raw-section { border-color:rgba(56,189,248,.22); background:linear-gradient(180deg,rgba(8,47,73,.18),rgba(15,23,42,.50)); }
+    .section-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin:0 0 12px; padding-bottom:10px; border-bottom:1px solid rgba(148,163,184,.14); }
+    .section-kicker { display:inline-flex; align-items:center; min-height:22px; margin-bottom:7px; padding:3px 8px; border-radius:999px; color:#fef3c7; background:rgba(251,191,36,.13); border:1px solid rgba(251,191,36,.24); font-size:11px; font-weight:900; letter-spacing:.16em; }
+    .raw-section .section-kicker { color:#bae6fd; background:rgba(56,189,248,.12); border-color:rgba(56,189,248,.20); }
     .section-title { margin:0; color:#e5edf8; font-size:16px; font-weight:900; letter-spacing:.2px; }
     .section-note { color:#94a3b8; font-size:12px; line-height:1.6; }
     .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; }
@@ -46,13 +50,13 @@
     .card { border:1px solid rgba(148,163,184,.16); background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(12,20,34,.96)); border-radius:10px; padding:13px; }
     .raw-card { border-radius:8px; padding:10px; }
     .card.live { border-color:rgba(34,197,94,.72); }
-    .card.group { border-color:rgba(59,130,246,.36); }
+    .card.group { border-color:rgba(251,191,36,.38); background:linear-gradient(180deg,rgba(41,37,36,.98),rgba(24,20,13,.96)); }
     .card.group.live { border-color:rgba(34,197,94,.72); }
     .card-head { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:10px; }
     .channel-name { min-width:0; font-weight:800; color:#f8fafc; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .card.group .channel-name { color:#fbbf24; }
+    .card.group .channel-name { color:#fde68a; }
     .raw { color:#94a3b8; font-family:Consolas,monospace; font-size:12px; }
-    .card.group .raw { color:#fde68a; }
+    .card.group .raw { color:#facc15; }
     .metric { padding:10px; border-radius:8px; background:rgba(2,6,23,.42); border:1px solid rgba(148,163,184,.10); }
     .raw-card .metric { padding:8px; border-radius:7px; }
     .metric span { display:block; color:#94a3b8; font-size:12px; margin-bottom:6px; }
@@ -62,6 +66,7 @@
     .card.live .metric strong { color:#86efac; }
     .group-meta { margin-top:10px; color:#94a3b8; font-size:12px; line-height:1.7; }
     .card.group .group-meta { color:#fde68a; }
+    .empty-section { display:none; border:1px dashed rgba(148,163,184,.25); border-radius:12px; padding:16px; color:#94a3b8; text-align:center; font-size:13px; background:rgba(2,6,23,.20); }
     .log { margin-top:14px; color:#9fb0c8; font-family:Consolas,monospace; font-size:12px; word-break:break-all; line-height:1.6; }
     .error { color:#fca5a5; }
     .hint { margin-top:10px; color:#9fb0c8; font-size:13px; line-height:1.7; }
@@ -113,19 +118,27 @@
       </div>
       <div class="hint">本页只显示实时采集状态；接入方式、IP/串口、寄存器、倍率、轮询与通道名称请在配置中心统一维护。</div>
     </section>
-    <section class="data-section" id="groupSection" style="display:none;">
+    <section class="data-section group-section" id="groupSection" style="display:none;">
       <div class="section-head">
-        <h2 class="section-title">组合汇总</h2>
+        <div>
+          <div class="section-kicker">GROUP SUMMARY</div>
+          <h2 class="section-title">组合汇总仪表</h2>
+        </div>
         <div class="section-note">按配置中心的多路组合实时汇总</div>
       </div>
       <div class="group-grid" id="groupGrid"></div>
+      <div class="empty-section" id="groupEmpty">未配置组合汇总，或组合均已隐藏。</div>
     </section>
-    <section class="data-section" id="rawSection">
+    <section class="data-section raw-section" id="rawSection">
       <div class="section-head">
-        <h2 class="section-title">原始回路数据</h2>
+        <div>
+          <div class="section-kicker">RAW CHANNELS</div>
+          <h2 class="section-title">原始回路数据</h2>
+        </div>
         <div class="section-note">按单路显示配置和排序展示</div>
       </div>
       <div class="raw-grid" id="grid"></div>
+      <div class="empty-section" id="rawEmpty">暂无可显示回路，请检查配置中心的显示开关。</div>
     </section>
         <section class="log" id="log"></section>
       </main>

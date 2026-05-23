@@ -64,7 +64,8 @@
     const visibleGroups = groups
       .filter(item => item.visible !== false)
       .sort((a, b) => Number(a.sort ?? 9999) - Number(b.sort ?? 9999) || String(a.name || '').localeCompare(String(b.name || '')));
-    $('groupSection').style.display = visibleGroups.length ? 'block' : 'none';
+    $('groupSection').style.display = groups.length ? 'block' : 'none';
+    $('groupEmpty').style.display = groups.length && !visibleGroups.length ? 'block' : 'none';
     $('groupGrid').innerHTML = visibleGroups.map(item => {
       const live = hasLiveCurrent(item.total_current);
       const channelText = (item.channel_numbers || []).length ? `包含：${(item.channel_numbers || []).join('、')} 路` : '暂无通道';
@@ -75,13 +76,14 @@
           <div class="channel-name" title="${escapeHtml(item.name || '组合')}">${escapeHtml(item.name || '组合')}</div>
           <div class="raw">${escapeHtml(activeText)}</div>
         </div>
-        <div class="metric"><span>组合总电流</span><strong>${formatA(item.total_current)}</strong></div>
+        <div class="metric"><span>汇总电流</span><strong>${formatA(item.total_current)}</strong></div>
         <div class="group-meta">${escapeHtml(channelText)} · 有效数据 ${item.valid_count ?? 0} 路</div>
       </section>
     `}).join('');
     const visibleChannels = channels
       .filter(item => item.visible !== false)
       .sort((a, b) => Number(a.sort ?? a.channel ?? 9999) - Number(b.sort ?? b.channel ?? 9999) || Number(a.channel || 0) - Number(b.channel || 0));
+    $('rawEmpty').style.display = visibleChannels.length ? 'none' : 'block';
     $('grid').innerHTML = visibleChannels.map(item => {
       const live = hasLiveCurrent(item.current);
       return `

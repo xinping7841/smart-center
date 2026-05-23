@@ -29,12 +29,12 @@ const collectorPort = Number(env.get('CURRENT_COLLECTOR_PORT') || 502);
 const smartCenterUrl = env.get('SMART_CENTER_CURRENT_PUSH_URL') || 'http://192.168.50.120:6899/api/current-collector/push';
 const token = env.get('SMART_CENTER_CURRENT_PUSH_TOKEN') || '';
 const slave = Number(env.get('CURRENT_COLLECTOR_SLAVE') || 1);
-const startRegister = Number(env.get('CURRENT_COLLECTOR_REGISTER') || 16);
+const startRegister = Number(env.get('CURRENT_COLLECTOR_REGISTER') || 0);
 const count = Number(env.get('CURRENT_COLLECTOR_COUNT') || 16);
 const scale = Number(env.get('CURRENT_COLLECTOR_SCALE') || 100);
 const multiplier = Number(env.get('CURRENT_COLLECTOR_MULTIPLIER') || 1);
 const timeoutMs = Number(env.get('CURRENT_COLLECTOR_TIMEOUT_MS') || 3000);
-const minValidChannels = Number(env.get('CURRENT_COLLECTOR_MIN_VALID_CHANNELS') || 8);
+const minValidChannels = Number(env.get('CURRENT_COLLECTOR_MIN_VALID_CHANNELS') || 0);
 
 function crc16Modbus(buffer) {
     let crc = 0xFFFF;

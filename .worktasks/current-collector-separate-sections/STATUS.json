@@ -1,0 +1,10 @@
+{
+  "task": "current-collector-separate-sections",
+  "module": "current_collector",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-current-collector-separate-sections-20260524",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/current-collector-separate-sections",
+  "started_at": "2026-05-24 03:26:12",
+  "status": "in_progress"
+}

@@ -114,7 +114,7 @@ DEFAULT_CURRENT_COLLECTOR = {
     "parity": "N",
     "stopbits": 1,
     "slave": 1,
-    "register": 0x0010,
+    "register": 0x0000,
     "count": 16,
     "scale": 100.0,
     "multiplier": 1.0,
@@ -123,8 +123,8 @@ DEFAULT_CURRENT_COLLECTOR = {
     "push_stale_seconds": 15.0,
     "push_allowed_hosts": ["127.0.0.1", "::1", "192.168.50.121", "100.122.235.56"],
     "push_token": "",
-    "reject_sparse_push": True,
-    "min_valid_channels": 8,
+    "reject_sparse_push": False,
+    "min_valid_channels": 0,
     "channels": [{"channel": index, "name": f"第{index}路", "visible": True} for index in range(1, 17)],
     "groups": [],
 }
@@ -414,7 +414,7 @@ def _normalize_current_collector_config(raw_config):
         "slave": (1, 1, 247),
         "register": (0, 0, 65535),
         "count": (16, 1, 32),
-        "min_valid_channels": (8, 0, 32),
+        "min_valid_channels": (0, 0, 32),
     }
     for key, (default, minimum, maximum) in int_ranges.items():
         try:
