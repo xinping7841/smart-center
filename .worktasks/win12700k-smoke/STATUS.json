@@ -1,0 +1,10 @@
+﻿{
+    "task":  "win12700k-smoke",
+    "module":  "docs",
+    "machine":  "12700k",
+    "kind":  "light",
+    "branch":  "codex/12700k-win12700k-smoke-20260524",
+    "worktree":  "D:\\SmartCenter\\smart-center-worktrees\\win12700k-smoke",
+    "started_at":  "2026-05-24 01:58:18",
+    "status":  "in_progress"
+}
