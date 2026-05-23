@@ -59,7 +59,7 @@ $HasLockBranch = ($LASTEXITCODE -eq 0)
 
 if ($HasLockBranch) {
     Write-Host "[setup] worklock branch exists: origin/$LockBranch"
-    $RefSpec = "${LockBranch}:refs/remotes/origin/${LockBranch}"
+    $RefSpec = "+refs/heads/${LockBranch}:refs/heads/${LockBranch}"
     Invoke-Git fetch origin $RefSpec *> $null
 } else {
     Write-Host "[setup] creating worklock branch: $LockBranch"

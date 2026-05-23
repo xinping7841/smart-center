@@ -32,7 +32,7 @@ if (-not $WorktreeBase) {
 }
 
 $LockBranch = "coordination/worklocks"
-$RemoteLockRef = "origin/$LockBranch"
+$LockRef = $LockBranch
 
 Write-Host "== repo =="
 Write-Host $Root
@@ -90,15 +90,15 @@ $ErrorActionPreference = "Continue"
 & git ls-remote --exit-code --heads origin $LockBranch *> $null
 $ErrorActionPreference = $OldErrorActionPreference
 if ($LASTEXITCODE -eq 0) {
-    $RefSpec = "${LockBranch}:refs/remotes/origin/${LockBranch}"
+    $RefSpec = "+refs/heads/${LockBranch}:refs/heads/${LockBranch}"
     Invoke-Git fetch origin $RefSpec *> $null
-    $Locks = @(& git ls-tree -r --name-only $RemoteLockRef locks 2>$null | Where-Object { $_ -like "*.json" })
+    $Locks = @(& git ls-tree -r --name-only $LockRef locks 2>$null | Where-Object { $_ -like "*.json" })
     if (-not $Locks -or $Locks.Count -eq 0) {
         Write-Host "no active locks"
     } else {
         foreach ($LockFile in $Locks) {
             Write-Host "--- $LockFile"
-            & git show "${RemoteLockRef}:$LockFile"
+            & git show "${LockRef}:$LockFile"
             Write-Host ""
         }
     }

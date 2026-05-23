@@ -39,7 +39,7 @@ Set-Location $Root
 Invoke-Git rev-parse --is-inside-work-tree *> $null
 
 $LockBranch = "coordination/worklocks"
-$RemoteLockRef = "origin/$LockBranch"
+$LockRef = $LockBranch
 
 Write-Host "== status =="
 & git status -sb
@@ -94,11 +94,11 @@ if ($ReleaseLock) {
         Write-Host "worklock branch missing, skip release"
         exit 0
     }
-    $RefSpec = "${LockBranch}:refs/remotes/origin/${LockBranch}"
+    $RefSpec = "+refs/heads/${LockBranch}:refs/heads/${LockBranch}"
     Invoke-Git fetch origin $RefSpec *> $null
     $TmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("smart-center-locks-" + [guid]::NewGuid().ToString("N"))
     try {
-        Invoke-Git worktree add --detach $TmpDir $RemoteLockRef
+        Invoke-Git worktree add --detach $TmpDir $LockRef
         Push-Location $TmpDir
         try {
             $LockFile = "locks/$ReleaseLock.json"

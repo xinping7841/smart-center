@@ -37,7 +37,7 @@ if (-not $WorktreeBase) {
 }
 
 $LockBranch = "coordination/worklocks"
-$RemoteLockRef = "origin/$LockBranch"
+$LockRef = $LockBranch
 $WorktreePath = Join-Path $WorktreeBase $Task
 $DateTag = Get-Date -Format "yyyyMMdd"
 $Branch = "codex/$Machine-$Task-$DateTag"
@@ -67,16 +67,16 @@ if ($LASTEXITCODE -ne 0) {
     throw "worklock branch missing; run scripts/collab/setup-git-collab.ps1"
 }
 
-$RefSpec = "${LockBranch}:refs/remotes/origin/${LockBranch}"
+$RefSpec = "+refs/heads/${LockBranch}:refs/heads/${LockBranch}"
 Invoke-Git fetch origin $RefSpec *> $null
 
 $OldErrorActionPreference = $ErrorActionPreference
 $ErrorActionPreference = "Continue"
-& git cat-file -e "${RemoteLockRef}:$LockFile" 2>$null
+& git cat-file -e "${LockRef}:$LockFile" 2>$null
 $ErrorActionPreference = $OldErrorActionPreference
 if ($LASTEXITCODE -eq 0) {
     Write-Host "module is already locked: $Module"
-    & git show "${RemoteLockRef}:$LockFile"
+    & git show "${LockRef}:$LockFile"
     exit 1
 }
 
@@ -165,7 +165,7 @@ $Status = [ordered]@{
 
 $TmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("smart-center-locks-" + [guid]::NewGuid().ToString("N"))
 try {
-    Invoke-Git worktree add --detach $TmpDir $RemoteLockRef
+    Invoke-Git worktree add --detach $TmpDir $LockRef
     Push-Location $TmpDir
     try {
         New-Item -ItemType Directory -Force -Path "locks" | Out-Null

@@ -1,0 +1,10 @@
+{
+  "task": "fix-worklock-ref-cache",
+  "module": "collab",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-fix-worklock-ref-cache-20260524",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/fix-worklock-ref-cache",
+  "started_at": "2026-05-24 01:54:26",
+  "status": "in_progress"
+}
