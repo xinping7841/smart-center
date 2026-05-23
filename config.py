@@ -120,7 +120,7 @@ DEFAULT_CURRENT_COLLECTOR = {
     "multiplier": 1.0,
     "timeout": 2.0,
     "poll_interval": 5.0,
-    "push_stale_seconds": 10.0,
+    "push_stale_seconds": 15.0,
     "push_allowed_hosts": ["127.0.0.1", "::1", "192.168.50.121", "100.122.235.56"],
     "push_token": "",
     "channels": [{"channel": index, "name": f"第{index}路", "visible": True} for index in range(1, 17)],
@@ -423,7 +423,7 @@ def _normalize_current_collector_config(raw_config):
         ("multiplier", 1.0, 0.0, 1000000.0),
         ("timeout", 1.0, 0.1, 10.0),
         ("poll_interval", 2.0, 0.5, 300.0),
-        ("push_stale_seconds", 10.0, 2.0, 300.0),
+        ("push_stale_seconds", 15.0, 2.0, 300.0),
     ):
         try:
             merged[key] = max(minimum, min(float(merged.get(key, default)), maximum))

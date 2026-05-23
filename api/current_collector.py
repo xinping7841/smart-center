@@ -52,7 +52,7 @@ DEFAULT_CURRENT_COLLECTOR = {
     "multiplier": 1.0,
     "timeout": 2.0,
     "poll_interval": 5.0,
-    "push_stale_seconds": 10.0,
+    "push_stale_seconds": 15.0,
     "push_allowed_hosts": ["127.0.0.1", "::1", "192.168.50.121", "100.122.235.56"],
     "push_token": "",
     "channels": [{"channel": index, "name": f"第{index}路", "visible": True} for index in range(1, 17)],
@@ -132,7 +132,7 @@ def normalize_current_collector_config(raw_config=None):
     cfg["multiplier"] = _coerce_float(cfg.get("multiplier"), 1.0, 0.0, 1000000.0)
     cfg["timeout"] = _coerce_float(cfg.get("timeout"), 1.0, 0.1, 10.0)
     cfg["poll_interval"] = _coerce_float(cfg.get("poll_interval"), 2.0, 0.5, 300.0)
-    cfg["push_stale_seconds"] = _coerce_float(cfg.get("push_stale_seconds"), 10.0, 2.0, 300.0)
+    cfg["push_stale_seconds"] = _coerce_float(cfg.get("push_stale_seconds"), 15.0, 2.0, 300.0)
     raw_allowed_hosts = cfg.get("push_allowed_hosts")
     if isinstance(raw_allowed_hosts, str):
         raw_allowed_hosts = [item.strip() for item in raw_allowed_hosts.split(",")]
@@ -255,7 +255,7 @@ def state_payload():
         payload = dict(STATE)
     if config.get("source_mode") == "push" and payload.get("online") and payload.get("updated_at"):
         age = _seconds_since_iso(payload.get("updated_at"))
-        if age is not None and age > float(config.get("push_stale_seconds") or 10.0):
+        if age is not None and age > float(config.get("push_stale_seconds") or 15.0):
             payload["online"] = False
             payload["error"] = f"Node-RED push stale: {round(age, 1)}s"
             payload["stale_seconds"] = round(age, 1)
