@@ -15,6 +15,7 @@ FLOW_IDS = {
     "tab_current_collector_push",
     "cc_inject_poll",
     "cc_read_and_push",
+    "cc_http_push",
     "cc_debug_error",
     "cc_comment",
 }
@@ -119,17 +120,6 @@ function readCollector() {
     });
 }
 
-async function postJson(url, payload) {
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) headers['X-Current-Collector-Token'] = token;
-    const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) });
-    const text = await response.text();
-    let body = {};
-    try { body = text ? JSON.parse(text) : {}; } catch (err) { body = { raw: text }; }
-    if (!response.ok) throw new Error(`push HTTP ${response.status}: ${text}`);
-    return body;
-}
-
 (async () => {
     const read = await readCollector();
     const payload = {
@@ -145,18 +135,19 @@ async function postJson(url, payload) {
         response_hex: toHex(read.frame),
         collected_at: new Date().toISOString(),
     };
-    const result = await postJson(smartCenterUrl, payload);
-    node.status({ fill: 'green', shape: 'dot', text: `pushed ${read.currents.length}ch ${new Date().toLocaleTimeString()}` });
-    msg.payload = { payload, result };
-    node.send(msg);
-    if (done) done();
+    msg.method = 'POST';
+    msg.url = smartCenterUrl;
+    msg.headers = { 'Content-Type': 'application/json' };
+    if (token) msg.headers['X-Current-Collector-Token'] = token;
+    msg.payload = payload;
+    node.status({ fill: 'blue', shape: 'dot', text: `read ${read.currents.length}ch ${new Date().toLocaleTimeString()}` });
+    node.send([msg, null]);
 })().catch((err) => {
     node.status({ fill: 'red', shape: 'ring', text: String(err.message || err) });
     msg.error = String(err.stack || err.message || err);
     msg.payload = { ok: false, error: msg.error };
     node.error(msg.error, msg);
-    node.send(msg);
-    if (done) done(err);
+    node.send([null, msg]);
 });
 return;
 """
@@ -204,13 +195,33 @@ def build_flow() -> list[dict]:
             "z": "tab_current_collector_push",
             "name": "读取采集器并推送120",
             "func": FUNCTION_CODE.strip(),
-            "outputs": 1,
+            "outputs": 2,
             "timeout": 0,
             "noerr": 0,
             "initialize": "",
             "finalize": "",
             "libs": [],
             "x": 430,
+            "y": 100,
+            "wires": [["cc_http_push"], ["cc_debug_error"]],
+        },
+        {
+            "id": "cc_http_push",
+            "type": "http request",
+            "z": "tab_current_collector_push",
+            "name": "POST 到 120 中控",
+            "method": "use",
+            "ret": "obj",
+            "paytoqs": "ignore",
+            "url": "",
+            "tls": "",
+            "persist": False,
+            "proxy": "",
+            "insecureHTTPParser": False,
+            "authType": "",
+            "senderr": False,
+            "headers": [],
+            "x": 660,
             "y": 100,
             "wires": [["cc_debug_error"]],
         },
@@ -227,7 +238,7 @@ def build_flow() -> list[dict]:
             "targetType": "msg",
             "statusVal": "",
             "statusType": "auto",
-            "x": 690,
+            "x": 900,
             "y": 100,
             "wires": [],
         },
