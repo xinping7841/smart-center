@@ -11,6 +11,7 @@ import threading
 import time
 from copy import deepcopy
 from datetime import datetime
+import ipaddress
 
 from flask import Blueprint, jsonify, render_template, request
 
@@ -25,6 +26,7 @@ from current_collector import (
     ModbusTcpTransport,
     RtuSerialTransport,
     RtuTcpBridgeTransport,
+    registers_to_currents,
 )
 from data_logger import add_log
 
@@ -34,6 +36,7 @@ bp = Blueprint("current_collector", __name__)
 DEFAULT_CURRENT_COLLECTOR = {
     "enabled": True,
     "name": "16路电流采集器",
+    "source_mode": "poll",
     "transport": "tcp-rtu",
     "host": "192.168.50.109",
     "port": 502,
@@ -49,6 +52,9 @@ DEFAULT_CURRENT_COLLECTOR = {
     "multiplier": 1.0,
     "timeout": 2.0,
     "poll_interval": 5.0,
+    "push_stale_seconds": 10.0,
+    "push_allowed_hosts": ["127.0.0.1", "::1", "192.168.50.121", "100.122.235.56"],
+    "push_token": "",
     "channels": [{"channel": index, "name": f"第{index}路", "visible": True} for index in range(1, 17)],
     "groups": [],
 }
@@ -61,6 +67,7 @@ STATE = {
     "error": "not started",
     "updated_at": "",
     "poll_failures": 0,
+    "source": "unknown",
 }
 POLL_THREAD_STARTED = False
 POLL_THREAD_LOCK = threading.Lock()
@@ -107,6 +114,8 @@ def normalize_current_collector_config(raw_config=None):
         cfg.update(raw_config)
     cfg["enabled"] = bool(cfg.get("enabled", True))
     cfg["name"] = str(cfg.get("name") or DEFAULT_CURRENT_COLLECTOR["name"]).strip() or DEFAULT_CURRENT_COLLECTOR["name"]
+    source_mode = str(cfg.get("source_mode") or "poll").strip().lower()
+    cfg["source_mode"] = source_mode if source_mode in {"poll", "push"} else "poll"
     cfg["transport"] = normalize_transport(cfg.get("transport"))
     cfg["host"] = str(cfg.get("host") or DEFAULT_CURRENT_COLLECTOR["host"]).strip() or DEFAULT_CURRENT_COLLECTOR["host"]
     cfg["serial_port"] = str(cfg.get("serial_port") or DEFAULT_CURRENT_COLLECTOR["serial_port"]).strip() or DEFAULT_CURRENT_COLLECTOR["serial_port"]
@@ -123,6 +132,19 @@ def normalize_current_collector_config(raw_config=None):
     cfg["multiplier"] = _coerce_float(cfg.get("multiplier"), 1.0, 0.0, 1000000.0)
     cfg["timeout"] = _coerce_float(cfg.get("timeout"), 1.0, 0.1, 10.0)
     cfg["poll_interval"] = _coerce_float(cfg.get("poll_interval"), 2.0, 0.5, 300.0)
+    cfg["push_stale_seconds"] = _coerce_float(cfg.get("push_stale_seconds"), 10.0, 2.0, 300.0)
+    raw_allowed_hosts = cfg.get("push_allowed_hosts")
+    if isinstance(raw_allowed_hosts, str):
+        raw_allowed_hosts = [item.strip() for item in raw_allowed_hosts.split(",")]
+    if not isinstance(raw_allowed_hosts, list):
+        raw_allowed_hosts = DEFAULT_CURRENT_COLLECTOR["push_allowed_hosts"]
+    allowed_hosts = []
+    for item in raw_allowed_hosts:
+        host = str(item or "").strip()
+        if host and host not in allowed_hosts:
+            allowed_hosts.append(host)
+    cfg["push_allowed_hosts"] = allowed_hosts or DEFAULT_CURRENT_COLLECTOR["push_allowed_hosts"].copy()
+    cfg["push_token"] = str(cfg.get("push_token") or "").strip()
     raw_channels = cfg.get("channels") if isinstance(cfg.get("channels"), list) else []
     channel_map = {}
     for item in raw_channels:
@@ -196,6 +218,8 @@ def build_transport(config):
 
 def read_current_once():
     config = get_current_collector_config()
+    if config.get("source_mode") == "push":
+        raise CurrentCollectorError("current collector is in push mode; waiting for Node-RED report")
     with READ_LOCK:
         with build_transport(config) as transport:
             collector = CurrentCollector(
@@ -209,9 +233,10 @@ def read_current_once():
             return collector.read_once().as_dict()
 
 
-def update_state(snapshot=None, error=""):
+def update_state(snapshot=None, error="", source="poll"):
     with STATE_LOCK:
         STATE["updated_at"] = datetime.now().isoformat(timespec="seconds")
+        STATE["source"] = source
         if snapshot is not None:
             STATE["online"] = True
             STATE["snapshot"] = snapshot
@@ -228,11 +253,107 @@ def state_payload():
     config = get_current_collector_config()
     with STATE_LOCK:
         payload = dict(STATE)
+    if config.get("source_mode") == "push" and payload.get("online") and payload.get("updated_at"):
+        age = _seconds_since_iso(payload.get("updated_at"))
+        if age is not None and age > float(config.get("push_stale_seconds") or 10.0):
+            payload["online"] = False
+            payload["error"] = f"Node-RED push stale: {round(age, 1)}s"
+            payload["stale_seconds"] = round(age, 1)
     payload["enabled"] = bool(config.get("enabled", True))
     payload["config"] = config
     payload["channels"] = build_channel_rows(payload.get("snapshot"), config)
     payload["groups"] = build_group_rows(payload["channels"], config)
     return payload
+
+
+def _seconds_since_iso(value):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+        if dt.tzinfo is not None:
+            now = datetime.now(dt.tzinfo)
+        else:
+            now = datetime.now()
+        return max((now - dt).total_seconds(), 0.0)
+    except Exception:
+        return None
+
+
+def _is_push_source_allowed(config):
+    token = str(config.get("push_token") or "").strip()
+    if token:
+        provided = request.headers.get("X-Current-Collector-Token") or request.args.get("token") or ""
+        if str(provided).strip() != token:
+            return False, "invalid token"
+    allowed_hosts = {str(item or "").strip() for item in config.get("push_allowed_hosts", []) if str(item or "").strip()}
+    if not allowed_hosts:
+        return True, ""
+    remote_addr = str(request.headers.get("X-Forwarded-For") or request.remote_addr or "").split(",", 1)[0].strip()
+    if remote_addr in allowed_hosts:
+        return True, ""
+    try:
+        remote_ip = ipaddress.ip_address(remote_addr)
+    except Exception:
+        return False, f"source host not allowed: {remote_addr}"
+    for item in allowed_hosts:
+        try:
+            if remote_ip in ipaddress.ip_network(item, strict=False):
+                return True, ""
+        except Exception:
+            continue
+    return False, f"source host not allowed: {remote_addr}"
+
+
+def _coerce_number_list(values, count, *, default=None, digits=3):
+    if not isinstance(values, list):
+        values = []
+    rows = []
+    for index in range(count):
+        value = values[index] if index < len(values) else default
+        if value is None or value == "":
+            rows.append(default)
+            continue
+        try:
+            number = float(value)
+            rows.append(round(number, digits))
+        except Exception:
+            rows.append(default)
+    return rows
+
+
+def normalize_push_snapshot(payload, config):
+    payload = payload if isinstance(payload, dict) else {}
+    count = int(config.get("count") or DEFAULT_CHANNEL_COUNT)
+    raw_registers = payload.get("raw_registers")
+    currents = payload.get("currents")
+    if currents is None and isinstance(payload.get("channels"), dict):
+        channels_map = payload.get("channels") or {}
+        currents = [channels_map.get(f"C{index:02d}", channels_map.get(str(index))) for index in range(1, count + 1)]
+    if raw_registers is not None and currents is None:
+        currents = registers_to_currents(raw_registers, config.get("scale"), config.get("multiplier"))
+    currents = _coerce_number_list(currents, count, default=None, digits=3)
+    raw_registers = _coerce_number_list(raw_registers, count, default=None, digits=0)
+    if not any(value is not None for value in currents):
+        raise ValueError("push payload must include currents or raw_registers")
+    channel_map = {f"C{index + 1:02d}": value for index, value in enumerate(currents)}
+    return {
+        "online": True,
+        "transport": "node-red-push",
+        "slave": _coerce_int(payload.get("slave"), config.get("slave"), 1, 247),
+        "register_base": payload.get("register_base") or f"0x{int(config.get('register') or 0):04X}",
+        "scale": _coerce_float(payload.get("scale"), config.get("scale"), 0.001, 1000000.0),
+        "multiplier": _coerce_float(payload.get("multiplier"), config.get("multiplier"), 0.0, 1000000.0),
+        "channel_count": count,
+        "currents": currents,
+        "channels": channel_map,
+        "raw_registers": raw_registers,
+        "request_hex": str(payload.get("request_hex") or "").strip(),
+        "response_hex": str(payload.get("response_hex") or "").strip(),
+        "gateway": str(payload.get("gateway") or "node-121").strip() or "node-121",
+        "collected_at": str(payload.get("collected_at") or datetime.now().isoformat(timespec="seconds")).strip(),
+    }
 
 
 def build_channel_rows(snapshot, config):
@@ -302,7 +423,7 @@ def build_group_rows(channels, config):
 def poll_loop():
     while True:
         config = get_current_collector_config()
-        if config.get("enabled", True):
+        if config.get("enabled", True) and config.get("source_mode") != "push":
             try:
                 update_state(read_current_once())
             except Exception as exc:
@@ -323,24 +444,28 @@ def ensure_poll_thread_started():
 @bp.route("/current-collector")
 @require_permission("meter.view")
 def current_collector_page():
-    ensure_poll_thread_started()
+    if get_current_collector_config().get("source_mode") != "push":
+        ensure_poll_thread_started()
     return render_template("current_collector.html", config=CONFIG)
 
 
 @bp.route("/api/current-collector/status")
 @require_permission("meter.view")
 def api_current_collector_status():
-    ensure_poll_thread_started()
+    if get_current_collector_config().get("source_mode") != "push":
+        ensure_poll_thread_started()
     return jsonify(state_payload())
 
 
 @bp.route("/api/current-collector/read", methods=["GET", "POST"])
 @require_permission("meter.view")
 def api_current_collector_read():
-    ensure_poll_thread_started()
     config = get_current_collector_config()
     if not config.get("enabled", True):
         return jsonify({"ok": False, **state_payload(), "message": "采集已关闭"}), 409
+    if config.get("source_mode") == "push":
+        return jsonify({"ok": True, "message": "push mode uses latest Node-RED report", **state_payload()})
+    ensure_poll_thread_started()
     try:
         update_state(read_current_once())
         return jsonify({"ok": True, **state_payload()})
@@ -361,11 +486,12 @@ def api_current_collector_enabled():
         add_log(-1, "[电流采集] 已关闭后台采集")
     else:
         add_log(-1, "[电流采集] 已开启后台采集")
-        try:
-            update_state(read_current_once())
-        except Exception as exc:
-            update_state(error=str(exc))
-            return jsonify({"ok": False, **state_payload()}), 502
+        if config.get("source_mode") != "push":
+            try:
+                update_state(read_current_once())
+            except Exception as exc:
+                update_state(error=str(exc))
+                return jsonify({"ok": False, **state_payload()}), 502
     return jsonify({"ok": True, **state_payload()})
 
 
@@ -379,6 +505,7 @@ def api_current_collector_config():
         "enabled",
         "name",
         "transport",
+        "source_mode",
         "host",
         "port",
         "serial_port",
@@ -393,6 +520,9 @@ def api_current_collector_config():
         "multiplier",
         "timeout",
         "poll_interval",
+        "push_stale_seconds",
+        "push_allowed_hosts",
+        "push_token",
     ):
         if key in data:
             next_config[key] = data[key]
@@ -404,8 +534,8 @@ def api_current_collector_config():
         saved = save_current_collector_config(next_config)
     except Exception as exc:
         return jsonify({"ok": False, "error": str(exc), **state_payload()}), 400
-    add_log(-1, f"[电流采集] 已保存配置: {saved.get('transport')} {saved.get('host')}:{saved.get('port')}")
-    if saved.get("enabled", True):
+    add_log(-1, f"[电流采集] 已保存配置: {saved.get('source_mode')} {saved.get('transport')} {saved.get('host')}:{saved.get('port')}")
+    if saved.get("enabled", True) and saved.get("source_mode") != "push":
         try:
             update_state(read_current_once())
         except Exception as exc:
@@ -419,3 +549,23 @@ def api_current_collector_config():
 def api_current_collector_health():
     payload = state_payload()
     return jsonify({"ok": bool(payload.get("online")), "updated_at": payload.get("updated_at"), "error": payload.get("error")})
+
+
+@bp.route("/api/current-collector/push", methods=["POST"])
+def api_current_collector_push():
+    config = get_current_collector_config()
+    allowed, reason = _is_push_source_allowed(config)
+    if not allowed:
+        return jsonify({"ok": False, "success": False, "msg": reason}), 403
+    if config.get("source_mode") != "push":
+        return jsonify({"ok": False, "success": False, "msg": "current collector is not in push mode"}), 409
+    if not config.get("enabled", True):
+        return jsonify({"ok": False, "success": False, "msg": "current collector disabled"}), 409
+    payload = request.get_json(silent=True) or {}
+    try:
+        snapshot = normalize_push_snapshot(payload, config)
+        update_state(snapshot, source="node-red")
+    except Exception as exc:
+        update_state(error=f"push parse failed: {exc}", source="node-red")
+        return jsonify({"ok": False, "success": False, "msg": str(exc), **state_payload()}), 400
+    return jsonify({"ok": True, "success": True, "updated_at": STATE.get("updated_at"), "channels": len(snapshot.get("currents") or [])})

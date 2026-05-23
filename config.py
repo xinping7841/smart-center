@@ -104,6 +104,7 @@ DEFAULT_DOOR_CONFIG = {
 DEFAULT_CURRENT_COLLECTOR = {
     "enabled": True,
     "name": "16路电流采集器",
+    "source_mode": "poll",
     "transport": "tcp-rtu",
     "host": "192.168.50.109",
     "port": 502,
@@ -119,7 +120,11 @@ DEFAULT_CURRENT_COLLECTOR = {
     "multiplier": 1.0,
     "timeout": 2.0,
     "poll_interval": 5.0,
+    "push_stale_seconds": 10.0,
+    "push_allowed_hosts": ["127.0.0.1", "::1", "192.168.50.121", "100.122.235.56"],
+    "push_token": "",
     "channels": [{"channel": index, "name": f"第{index}路", "visible": True} for index in range(1, 17)],
+    "groups": [],
 }
 
 
@@ -387,6 +392,8 @@ def _normalize_current_collector_config(raw_config):
         merged.update(raw_config)
     merged["enabled"] = bool(merged.get("enabled", True))
     merged["name"] = str(merged.get("name") or DEFAULT_CURRENT_COLLECTOR["name"]).strip() or DEFAULT_CURRENT_COLLECTOR["name"]
+    source_mode = str(merged.get("source_mode") or "poll").strip().lower()
+    merged["source_mode"] = source_mode if source_mode in {"poll", "push"} else "poll"
     transport = str(merged.get("transport") or "tcp-rtu").strip().lower()
     if transport in {"serial", "rtu", "rtu_serial"}:
         transport = "serial"
@@ -416,6 +423,7 @@ def _normalize_current_collector_config(raw_config):
         ("multiplier", 1.0, 0.0, 1000000.0),
         ("timeout", 1.0, 0.1, 10.0),
         ("poll_interval", 2.0, 0.5, 300.0),
+        ("push_stale_seconds", 10.0, 2.0, 300.0),
     ):
         try:
             merged[key] = max(minimum, min(float(merged.get(key, default)), maximum))
@@ -434,15 +442,59 @@ def _normalize_current_collector_config(raw_config):
             channel = 0
         if channel <= 0:
             continue
+        try:
+            sort = int(item.get("sort") or channel)
+        except Exception:
+            sort = channel
         channel_map[channel] = {
             "channel": channel,
             "name": str(item.get("name") or f"第{channel}路").strip() or f"第{channel}路",
             "visible": bool(item.get("visible", True)),
+            "sort": sort,
         }
     merged["channels"] = [
-        channel_map.get(index, {"channel": index, "name": f"第{index}路", "visible": True})
+        channel_map.get(index, {"channel": index, "name": f"第{index}路", "visible": True, "sort": index})
         for index in range(1, int(merged.get("count", 16) or 16) + 1)
     ]
+    raw_allowed_hosts = merged.get("push_allowed_hosts")
+    if isinstance(raw_allowed_hosts, str):
+        raw_allowed_hosts = [item.strip() for item in raw_allowed_hosts.split(",")]
+    if not isinstance(raw_allowed_hosts, list):
+        raw_allowed_hosts = DEFAULT_CURRENT_COLLECTOR["push_allowed_hosts"]
+    allowed_hosts = []
+    for item in raw_allowed_hosts:
+        host = str(item or "").strip()
+        if host and host not in allowed_hosts:
+            allowed_hosts.append(host)
+    merged["push_allowed_hosts"] = allowed_hosts or DEFAULT_CURRENT_COLLECTOR["push_allowed_hosts"].copy()
+    merged["push_token"] = str(merged.get("push_token") or "").strip()
+    raw_groups = merged.get("groups") if isinstance(merged.get("groups"), list) else []
+    groups = []
+    for idx, item in enumerate(raw_groups, start=1):
+        if not isinstance(item, dict):
+            continue
+        group_channels = []
+        for channel in item.get("channels", []):
+            try:
+                channel_num = int(channel)
+            except Exception:
+                channel_num = 0
+            if 1 <= channel_num <= int(merged.get("count", 16) or 16) and channel_num not in group_channels:
+                group_channels.append(channel_num)
+        if not group_channels:
+            continue
+        try:
+            sort = int(item.get("sort") or idx)
+        except Exception:
+            sort = idx
+        groups.append({
+            "id": str(item.get("id") or f"group_{idx}").strip() or f"group_{idx}",
+            "name": str(item.get("name") or f"组合 {idx}").strip() or f"组合 {idx}",
+            "channels": group_channels,
+            "visible": bool(item.get("visible", True)),
+            "sort": sort,
+        })
+    merged["groups"] = groups
     return merged
 
 DEFAULT_ENV_FEATURES = {

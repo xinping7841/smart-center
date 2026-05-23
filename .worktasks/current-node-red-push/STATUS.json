@@ -1,0 +1,10 @@
+{
+  "task": "current-node-red-push",
+  "module": "current_collector",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-current-node-red-push-20260524",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/current-node-red-push",
+  "started_at": "2026-05-24 02:10:19",
+  "status": "in_progress"
+}
