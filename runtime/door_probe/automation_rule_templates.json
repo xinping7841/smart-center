@@ -1,0 +1,70 @@
+{
+  "templates": [
+    {
+      "name": "门已打开且高置信度",
+      "condition": {
+        "source_type": "vision",
+        "device_id": "door",
+        "prop": "door_status",
+        "op": "==",
+        "value": "open",
+        "debounce_sec": 1.0,
+        "consecutive_hits": 2
+      },
+      "extra_condition": {
+        "source_type": "vision",
+        "device_id": "door",
+        "prop": "door_confidence",
+        "op": ">=",
+        "value": 0.65,
+        "debounce_sec": 0.5,
+        "consecutive_hits": 2
+      }
+    },
+    {
+      "name": "门已关闭且高置信度",
+      "condition": {
+        "source_type": "vision",
+        "device_id": "door",
+        "prop": "door_status",
+        "op": "==",
+        "value": "closed",
+        "debounce_sec": 1.0,
+        "consecutive_hits": 2
+      },
+      "extra_condition": {
+        "source_type": "vision",
+        "device_id": "door",
+        "prop": "door_confidence",
+        "op": ">=",
+        "value": 0.65,
+        "debounce_sec": 0.5,
+        "consecutive_hits": 2
+      }
+    },
+    {
+      "name": "有人经过门区",
+      "condition": {
+        "source_type": "vision",
+        "device_id": "door",
+        "prop": "people_count",
+        "op": ">=",
+        "value": 1,
+        "debounce_sec": 0.5,
+        "consecutive_hits": 2
+      }
+    },
+    {
+      "name": "区域 gate_in 有人",
+      "condition": {
+        "source_type": "vision",
+        "device_id": "door",
+        "prop": "zone_gate_in_count",
+        "op": ">=",
+        "value": 1,
+        "debounce_sec": 0.5,
+        "consecutive_hits": 2
+      }
+    }
+  ]
+}

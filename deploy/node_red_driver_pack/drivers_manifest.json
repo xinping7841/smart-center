@@ -1,0 +1,554 @@
+{
+  "generated_at": "2026-04-04T01:14:32.245851",
+  "total_drivers": 32,
+  "group_counts": {
+    "power": 5,
+    "meter": 10,
+    "light": 3,
+    "sequencer": 2,
+    "ups": 1,
+    "snmp": 4,
+    "projector": 3,
+    "env": 1,
+    "screen": 1,
+    "custom": 1,
+    "m32r": 1
+  },
+  "protocol_counts": {
+    "AV-100": 5,
+    "PD606 Modbus 地址表": 1,
+    "南誉三相四线 Modbus": 5,
+    "德力西 DTSU6606 直连 Modbus": 1,
+    "南誉 2P Int Modbus": 1,
+    "Modbus-RTU/TCP": 2,
+    "COXE": 2,
+    "RF_TCP": 1,
+    "DGH 8路时序器": 2,
+    "SANTAK Castle RS232": 1,
+    "SNMP": 4,
+    "pjlink": 3,
+    "modbus": 1,
+    "screen_tcp": 1,
+    "tcp": 1,
+    "OSC": 1
+  },
+  "drivers": [
+    {
+      "driver_id": "custom:dev_1775230252161",
+      "group": "custom",
+      "name": "新泛型设备",
+      "protocol": "tcp",
+      "comm_mode": "tcp",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.254",
+        "port": 1882,
+        "com_port": "",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "env:env_1774425123763",
+      "group": "env",
+      "name": "光照温湿度变送器",
+      "protocol": "modbus",
+      "comm_mode": "modbus",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.51.10",
+        "port": 5110,
+        "com_port": "",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "light:1",
+      "group": "light",
+      "name": "一号厅",
+      "protocol": "COXE",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.8",
+        "port": 44448,
+        "com_port": "",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "light:2",
+      "group": "light",
+      "name": "二号厅",
+      "protocol": "COXE",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.80.119",
+        "port": 44119,
+        "com_port": "",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "light:3",
+      "group": "light",
+      "name": "新灯光模块",
+      "protocol": "RF_TCP",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.254",
+        "port": 1881,
+        "com_port": "",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "m32r:mixer",
+      "group": "m32r",
+      "name": "M32R-OC-FA-99",
+      "protocol": "OSC",
+      "comm_mode": "UDP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.80.242",
+        "port": 10023,
+        "com_port": "",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "meter:legacy_meter_10",
+      "group": "meter",
+      "name": "2楼小机房",
+      "protocol": "南誉 2P Int Modbus",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.102",
+        "port": 502,
+        "com_port": "COM1",
+        "slave_id": 11,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "meter:meter_1774625129670",
+      "group": "meter",
+      "name": "一号厅",
+      "protocol": "Modbus-RTU/TCP",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.1.200",
+        "port": 502,
+        "com_port": "COM1",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "meter:legacy_meter_5",
+      "group": "meter",
+      "name": "中控室",
+      "protocol": "德力西 DTSU6606 直连 Modbus",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.101",
+        "port": 502,
+        "com_port": "COM1",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "meter:legacy_meter_3",
+      "group": "meter",
+      "name": "二号厅",
+      "protocol": "南誉三相四线 Modbus",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.105",
+        "port": 502,
+        "com_port": "COM1",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "meter:legacy_meter_12",
+      "group": "meter",
+      "name": "办公室",
+      "protocol": "南誉三相四线 Modbus",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.106",
+        "port": 502,
+        "com_port": "COM1",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "meter:legacy_meter_9",
+      "group": "meter",
+      "name": "办公室&工作坊",
+      "protocol": "南誉三相四线 Modbus",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.104",
+        "port": 502,
+        "com_port": "COM1",
+        "slave_id": 9,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "meter:legacy_meter_11",
+      "group": "meter",
+      "name": "咖啡厅",
+      "protocol": "南誉三相四线 Modbus",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.104",
+        "port": 502,
+        "com_port": "COM1",
+        "slave_id": 8,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "meter:legacy_meter_2",
+      "group": "meter",
+      "name": "深澜空间总电表",
+      "protocol": "PD606 Modbus 地址表",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.103",
+        "port": 502,
+        "com_port": "COM1",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "meter:legacy_meter_6",
+      "group": "meter",
+      "name": "运营中心",
+      "protocol": "南誉三相四线 Modbus",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.104",
+        "port": 502,
+        "com_port": "COM1",
+        "slave_id": 10,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "meter:meter_1774629630399",
+      "group": "meter",
+      "name": "运营中心",
+      "protocol": "Modbus-RTU/TCP",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.1.200",
+        "port": 502,
+        "com_port": "COM1",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "power:0",
+      "group": "power",
+      "name": "中控室",
+      "protocol": "AV-100",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.6",
+        "port": 502,
+        "com_port": "",
+        "slave_id": 50,
+        "address": 1
+      },
+      "cabinet_index": 0
+    },
+    {
+      "driver_id": "power:1",
+      "group": "power",
+      "name": "二号厅LED",
+      "protocol": "AV-100",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.80.243",
+        "port": 502,
+        "com_port": "",
+        "slave_id": 50,
+        "address": 1
+      },
+      "cabinet_index": 1
+    },
+    {
+      "driver_id": "power:3",
+      "group": "power",
+      "name": "影棚LED配电柜",
+      "protocol": "AV-100",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.61",
+        "port": 5061,
+        "com_port": "",
+        "slave_id": 50,
+        "address": 1
+      },
+      "cabinet_index": 3
+    },
+    {
+      "driver_id": "power:2",
+      "group": "power",
+      "name": "影棚配电柜",
+      "protocol": "AV-100",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.60",
+        "port": 502,
+        "com_port": "",
+        "slave_id": 50,
+        "address": 1
+      },
+      "cabinet_index": 2
+    },
+    {
+      "driver_id": "power:4",
+      "group": "power",
+      "name": "门口LED",
+      "protocol": "AV-100",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.59",
+        "port": 5059,
+        "com_port": "",
+        "slave_id": 50,
+        "address": 1
+      },
+      "cabinet_index": 4
+    },
+    {
+      "driver_id": "projector:proj_1774531663869",
+      "group": "projector",
+      "name": "台球桌",
+      "protocol": "pjlink",
+      "comm_mode": "pjlink",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.35",
+        "port": 4352,
+        "com_port": "",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "projector:proj_1774736760658",
+      "group": "projector",
+      "name": "新投影机",
+      "protocol": "pjlink",
+      "comm_mode": "pjlink",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.254",
+        "port": 4352,
+        "com_port": "",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "projector:proj_1774515640578",
+      "group": "projector",
+      "name": "猫桌",
+      "protocol": "pjlink",
+      "comm_mode": "pjlink",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.36",
+        "port": 4352,
+        "com_port": "",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "screen:screen_1774322049381",
+      "group": "screen",
+      "name": "一厅-A区-幕布",
+      "protocol": "screen_tcp",
+      "comm_mode": "screen_tcp",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.76",
+        "port": 1234,
+        "com_port": "",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "sequencer:sequencer_1774587372602",
+      "group": "sequencer",
+      "name": "hecoos",
+      "protocol": "DGH 8路时序器",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.54",
+        "port": 8080,
+        "com_port": "COM1",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "sequencer:sequencer_ds608_1",
+      "group": "sequencer",
+      "name": "中控",
+      "protocol": "DGH 8路时序器",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.53",
+        "port": 8080,
+        "com_port": "COM1",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "snmp:snmp_h3c_192_168_99_1",
+      "group": "snmp",
+      "name": "H3C Switch",
+      "protocol": "SNMP",
+      "comm_mode": "v2c",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.99.1",
+        "port": 161,
+        "com_port": "",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "snmp:snmp_qnap_192_168_30_145",
+      "group": "snmp",
+      "name": "威联通 NAS",
+      "protocol": "SNMP",
+      "comm_mode": "v2c",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.30.145",
+        "port": 161,
+        "com_port": "",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "snmp:snmp_ikuai_192_168_99_3",
+      "group": "snmp",
+      "name": "爱快网关",
+      "protocol": "SNMP",
+      "comm_mode": "v2c",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.99.3",
+        "port": 161,
+        "com_port": "",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "snmp:snmp_fnnas_192_168_50_254",
+      "group": "snmp",
+      "name": "飞牛 NAS",
+      "protocol": "SNMP",
+      "comm_mode": "v2c",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.50.254",
+        "port": 161,
+        "com_port": "",
+        "slave_id": 1,
+        "address": 1
+      }
+    },
+    {
+      "driver_id": "ups:ups_1774600700259",
+      "group": "ups",
+      "name": "山特 UPS",
+      "protocol": "SANTAK Castle RS232",
+      "comm_mode": "TCP",
+      "enabled": true,
+      "visible": true,
+      "target": {
+        "ip": "192.168.51.13",
+        "port": 45113,
+        "com_port": "COM1",
+        "slave_id": 1,
+        "address": 1
+      }
+    }
+  ]
+}

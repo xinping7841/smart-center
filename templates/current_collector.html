@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>电流采集 - 中控</title>
+  <style>
+    :root { color-scheme: dark; font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif; background:#07111f; color:#e5edf8; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; background:linear-gradient(180deg,#07111f,#0b1627); }
+    .layout { min-height:100vh; display:flex; }
+    .sidebar { width:248px; flex:0 0 248px; background:linear-gradient(180deg, rgba(10,21,37,.98), rgba(14,27,46,.98)); border-right:1px solid rgba(79,141,253,.14); display:flex; flex-direction:column; }
+    .logo { padding:22px 18px; font-size:19px; font-weight:900; border-bottom:1px solid rgba(148,163,184,.10); color:#f8fafc; }
+    .nav-menu { list-style:none; margin:0; padding:14px 10px; overflow-y:auto; }
+    .nav-menu li { margin:0 2px 5px; border-radius:12px; }
+    .nav-menu a { display:flex; align-items:center; gap:11px; padding:11px 13px; color:#9fb0c8; font-size:14px; font-weight:700; text-decoration:none; border-left:3px solid transparent; border-radius:12px; }
+    .nav-menu li.active a { color:#dbeafe; background:linear-gradient(135deg, rgba(79,141,253,.18), rgba(34,211,238,.09)); border-left-color:#4f8dfd; }
+    .nav-menu a:hover { color:#f8fafc; background:rgba(79,141,253,.12); }
+    .nav-icon { width:24px; text-align:center; flex:none; }
+    .sys-info { margin-top:auto; padding:14px 16px 18px; border-top:1px solid rgba(148,163,184,.10); color:#72839a; font-size:12px; line-height:1.6; text-align:center; }
+    .content { flex:1; min-width:0; }
+    header { position:sticky; top:0; z-index:2; padding:16px 22px; background:rgba(7,17,31,.94); border-bottom:1px solid rgba(148,163,184,.18); display:flex; justify-content:space-between; gap:16px; align-items:center; }
+    h1 { margin:0; font-size:22px; }
+    main { padding:18px 22px 28px; }
+    a { color:#93c5fd; text-decoration:none; }
+    .meta { color:#9fb0c8; font-size:13px; line-height:1.6; }
+    .status { display:inline-flex; align-items:center; border-radius:999px; padding:6px 12px; font-size:13px; font-weight:800; background:#334155; color:#cbd5e1; }
+    .status.online { background:rgba(34,197,94,.16); color:#86efac; }
+    .status.offline { background:rgba(239,68,68,.14); color:#fca5a5; }
+    .panel { margin-bottom:16px; padding:14px 16px; border:1px solid rgba(148,163,184,.16); background:rgba(15,23,42,.76); border-radius:12px; }
+    .toolbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    button, .button-link { min-height:34px; padding:8px 12px; border:0; border-radius:7px; background:#2563eb; color:#fff; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; line-height:1; font-size:13px; }
+    .button-link { text-decoration:none; }
+    button.secondary, .button-link.secondary { background:#334155; }
+    button.warning { background:#d97706; }
+    button.danger { background:#dc2626; }
+    button.success { background:#16a34a; }
+    button:disabled { opacity:.5; cursor:not-allowed; }
+    .data-section { margin-top:16px; }
+    .section-head { display:flex; align-items:flex-end; justify-content:space-between; gap:12px; margin:0 0 10px; }
+    .section-title { margin:0; color:#e5edf8; font-size:16px; font-weight:900; letter-spacing:.2px; }
+    .section-note { color:#94a3b8; font-size:12px; line-height:1.6; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; }
+    .raw-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(176px,1fr)); gap:9px; }
+    .group-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:12px; margin-bottom:14px; }
+    .card { border:1px solid rgba(148,163,184,.16); background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(12,20,34,.96)); border-radius:10px; padding:13px; }
+    .raw-card { border-radius:8px; padding:10px; }
+    .card.live { border-color:rgba(34,197,94,.72); }
+    .card.group { border-color:rgba(59,130,246,.36); }
+    .card.group.live { border-color:rgba(34,197,94,.72); }
+    .card-head { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:10px; }
+    .channel-name { min-width:0; font-weight:800; color:#f8fafc; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .card.group .channel-name { color:#fbbf24; }
+    .raw { color:#94a3b8; font-family:Consolas,monospace; font-size:12px; }
+    .card.group .raw { color:#fde68a; }
+    .metric { padding:10px; border-radius:8px; background:rgba(2,6,23,.42); border:1px solid rgba(148,163,184,.10); }
+    .raw-card .metric { padding:8px; border-radius:7px; }
+    .metric span { display:block; color:#94a3b8; font-size:12px; margin-bottom:6px; }
+    .raw-card .metric span { font-size:11px; margin-bottom:4px; }
+    .metric strong { display:block; font-family:Consolas,monospace; font-size:24px; line-height:1.15; }
+    .raw-card .metric strong { font-size:20px; }
+    .card.live .metric strong { color:#86efac; }
+    .group-meta { margin-top:10px; color:#94a3b8; font-size:12px; line-height:1.7; }
+    .card.group .group-meta { color:#fde68a; }
+    .log { margin-top:14px; color:#9fb0c8; font-family:Consolas,monospace; font-size:12px; word-break:break-all; line-height:1.6; }
+    .error { color:#fca5a5; }
+    .hint { margin-top:10px; color:#9fb0c8; font-size:13px; line-height:1.7; }
+    .hold-note { display:none; margin-left:4px; color:#fbbf24; font-size:13px; font-weight:800; }
+    .hold-note.active { display:inline-flex; }
+    @media (max-width: 760px) {
+      .layout { display:block; }
+      .sidebar { display:none; }
+      header { align-items:flex-start; flex-direction:column; }
+      main { padding:12px; }
+      .grid { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="logo">泛型控制</div>
+      <ul class="nav-menu">
+        {% for item in (config.sidebar|sort(attribute='sort') if config.sidebar else []) %}
+          {% if item.visible %}
+          <li class="{{ 'active' if item.id == 'current_collector' else '' }}">
+            <a href="{{ '/current-collector' if item.id == 'current_collector' else ('/m32r' if item.id == 'm32r' else '/#view-' ~ item.id) }}">
+              <span class="nav-icon">{{ item.icon }}</span>
+              <span>{{ item.name }}</span>
+            </a>
+          </li>
+          {% endif %}
+        {% endfor %}
+      </ul>
+      <div class="sys-info">Smart Center<br>电流采集</div>
+    </aside>
+    <div class="content">
+      <header>
+        <div>
+          <h1 id="pageTitle">电流采集</h1>
+          <div class="meta"><a href="/">返回中控主页</a> · <span id="subtitle">等待采集...</span></div>
+        </div>
+        <span class="status offline" id="status">离线</span>
+      </header>
+      <main>
+    <section class="panel">
+      <div class="toolbar">
+        <button class="secondary" onclick="readNow()">立即读取</button>
+        <button class="warning" id="pauseBtn" onclick="toggleRealtimePause()">暂停画面</button>
+        <button class="danger" id="toggleBtn" onclick="toggleEnabled()">关闭采集</button>
+        <a class="button-link secondary" href="/config?tab=current_collector">进入配置中心</a>
+        <span class="hold-note" id="pauseNote">画面已暂停，数据停留在暂停时刻</span>
+      </div>
+      <div class="hint">本页只显示实时采集状态；接入方式、IP/串口、寄存器、倍率、轮询与通道名称请在配置中心统一维护。</div>
+    </section>
+    <section class="data-section" id="groupSection" style="display:none;">
+      <div class="section-head">
+        <h2 class="section-title">组合汇总</h2>
+        <div class="section-note">按配置中心的多路组合实时汇总</div>
+      </div>
+      <div class="group-grid" id="groupGrid"></div>
+    </section>
+    <section class="data-section" id="rawSection">
+      <div class="section-head">
+        <h2 class="section-title">原始回路数据</h2>
+        <div class="section-note">按单路显示配置和排序展示</div>
+      </div>
+      <div class="raw-grid" id="grid"></div>
+    </section>
+        <section class="log" id="log"></section>
+      </main>
+    </div>
+  </div>
+  <script src="/static/js/views/current-collector.js?v=20260522-stage2-current-collector-view"></script>
+</body>
+</html>

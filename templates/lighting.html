@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>舞台灯光中控</title>
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background-color: #1a1a2e; padding: 15px; font-family: 'Segoe UI', sans-serif; color: #eee; }
+        .main-container { display: flex; gap: 15px; height: calc(100vh - 80px); margin-top: 15px; }
+        .left-panel { flex: 3; overflow-y: auto; padding-right: 5px; }
+        .right-panel { flex: 1; display: flex; flex-direction: column; min-width: 300px; }
+        .card { background: #232336; border: none; box-shadow: 0 2px 12px rgba(0,0,0,0.3); margin-bottom: 20px; border-radius: 12px; overflow: hidden; }
+        .card-header { background: linear-gradient(135deg, #2c3e50 0%, #1e293b 100%); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; }
+        .scene-card .card-header { background: linear-gradient(135deg, #6b21a8 0%, #4c1d95 100%); }
+        .device-status { padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-left: 15px; }
+        .status-online { background-color: #10b981; color: white; }
+        .status-offline { background-color: #ef4444; color: white; }
+        .device-info { display: flex; align-items: center; font-size: 14px; opacity: 0.9; }
+        .channel-btn { width: 100%; min-height: 75px; font-size: 15px; font-weight: 600; margin-bottom: 15px; border-radius: 12px; border: none; transition: all 0.3s ease; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 10px; cursor: pointer; }
+        .channel-btn:hover { transform: translateY(-2px); }
+        .channel-btn:active { transform: scale(0.97); }
+        .status-on { background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4); }
+        .status-off { background-color: #334155; color: #94a3b8; box-shadow: inset 0 2px 5px rgba(0,0,0,0.5); }
+        .channel-name { font-size: 16px; margin-bottom: 5px; }
+        .channel-state { font-size: 13px; font-weight: 500; opacity: 0.9; }
+        .scene-btn { width: 100%; height: 65px; font-size: 17px; font-weight: bold; margin-bottom: 15px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; border: none; border-radius: 12px; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
+        .scene-btn:hover { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); transform: translateY(-2px); box-shadow: 0 6px 18px rgba(37, 99, 235, 0.4); }
+        .log-container { flex: 1; background-color: #0f172a; color: #a7f3d0; padding: 15px; border-radius: 0 0 12px 12px; overflow-y: auto; font-family: 'Consolas', monospace; font-size: 13px; }
+        .log-item { margin-bottom: 6px; border-bottom: 1px solid #1e293b; padding-bottom: 4px; }
+        .log-time { color: #64748b; }
+        .navbar { border-radius: 12px; background-color: #0f172a !important; padding: 12px 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.5);}
+        .navbar-brand { font-size: 20px; font-weight: 700; color: #38bdf8 !important; }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="/">← 返回配电系统</a>
+    <div class="d-flex">
+      <span class="text-white" style="line-weight:bold; font-size: 20px;">💡 舞台灯光与场景调度系统</span>
+    </div>
+  </div>
+</nav>
+
+<div class="main-container">
+    <div class="left-panel">
+        {% if config.scenes|selectattr('visible')|list|length > 0 %}
+        <div class="card scene-card">
+            <div class="card-header">
+                <h5 class="mb-0">🎬 全局联动场景</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% for scene in config.scenes|sort(attribute='sort') %}
+                    {% if scene.visible %}
+                    <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+                        <button class="scene-btn" data-scene-id="{{ scene.id }}">{{ scene.name }}</button>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% for device in config.light_devices %}
+        <div class="card" id="device-{{ device.id }}" data-device-id="{{ device.id }}">
+            <div class="card-header">
+                <h5 class="mb-0">{{ device.name }}</h5>
+                <div class="device-info">
+                    {{ device.ip }}:{{ device.port }}
+                    <span class="device-status status-offline" id="device-status-{{ device.id }}">离线</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row" id="channels-{{ device.id }}">
+                    {% for ch_config in device.channels_config|sort(attribute='sort') %}
+                    {% if ch_config.visible %}
+                    <div class="col-xl-2 col-lg-3 col-md-4 col-sm-6">
+                        <button class="btn channel-btn status-offline"
+                                data-device-id="{{ device.id }}"
+                                data-channel="{{ ch_config.channel }}"
+                                data-channel-name="{{ ch_config.name }}">
+                            <span class="channel-name">{{ ch_config.name }}</span>
+                            <span class="channel-state">连接中...</span>
+                        </button>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="right-panel">
+        <div class="card h-100">
+            <div class="card-header">
+                <h5 class="mb-0">📋 系统操作日志</h5>
+            </div>
+            <div class="card-body p-0 h-100">
+                <div class="log-container" id="log-window"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="/static/js/views/lighting.js?v=20260522-stage2-lighting-view"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+./_agent_from_server.ps1
+./_agent_test.ps1
+./_downloaded_agent_bootstrap.ps1
+./_downloaded_agent_worker.ps1
+./_generated_agent_bootstrap.ps1
+./_generated_agent_launcher.ps1
+./_generated_agent_worker.ps1
+./_remote_agent_worker_20260403.ps1

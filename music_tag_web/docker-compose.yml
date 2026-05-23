@@ -1,0 +1,23 @@
+services:
+  music-tag-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BASE_IMAGE: ${MUSIC_TAG_BASE_IMAGE:-python:3.11-slim}
+    container_name: music-tag-web
+    restart: unless-stopped
+    environment:
+      MUSIC_TAG_HOST: 0.0.0.0
+      MUSIC_TAG_PORT: 6902
+      MUSIC_TAG_CACHE_FILE: /data/library_cache.json
+      MUSIC_TAG_ALLOWED_ROOTS: /music
+      MUSIC_TAG_DEFAULT_ROOTS: /music
+      MUSIC_TAG_EXCLUDE_DIRS: @eaDir,tmp,cache
+      MUSIC_TAG_AUTO_SCAN_ON_START: "1"
+      MUSIC_TAG_MAX_SCAN_FILES: "60000"
+    ports:
+      - "6902:6902"
+    volumes:
+      - ./data:/data
+      - ${MUSIC_TAG_NAS_AUDIO_PATH:-/vol2/1000/Audio}:/music:ro

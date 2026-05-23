@@ -1,0 +1,8 @@
+base_dir=/srv/git-clean-baselines/smart-center-clean-baseline-20260523_215622
+source_current=/srv/smart-center/releases/smart-center-release-20260522_185844-local-model-chat-fix
+backup_dir=/srv/smart-center-backups/phase1-prod-baseline-20260523_215622
+created_at=2026-05-23T22:03:55+08:00
+file_count=382
+dir_count=52
+size=11M
+removed_count=92

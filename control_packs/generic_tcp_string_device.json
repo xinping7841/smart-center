@@ -1,0 +1,135 @@
+{
+  "meta": {
+    "id": "generic_tcp_string_device",
+    "name": "TCP字符串设备样板",
+    "vendor": "Generic",
+    "description": "适合大多数 TCP 字符串协议设备，包含电源、输入切换和数值控制示例。",
+    "tags": ["template", "tcp", "string"]
+  },
+  "target_groups": [
+    {
+      "id": "generic_tcp_main",
+      "name": "TCP主机",
+      "protocol": "tcp",
+      "mode": "single",
+      "host": "192.168.50.100",
+      "port": 5000,
+      "timeout_ms": 2000,
+      "wait_ms": 0,
+      "send_strategy": "serial",
+      "enabled": true
+    }
+  ],
+  "commands": [
+    {
+      "id": "tcp_power_on",
+      "name": "开机",
+      "category": "电源",
+      "format": "str",
+      "line_ending": "crlf",
+      "payload_template": "POWER ON",
+      "wait_ms": 0,
+      "enabled": true
+    },
+    {
+      "id": "tcp_power_off",
+      "name": "关机",
+      "category": "电源",
+      "format": "str",
+      "line_ending": "crlf",
+      "payload_template": "POWER OFF",
+      "wait_ms": 0,
+      "enabled": true
+    },
+    {
+      "id": "tcp_input_select",
+      "name": "切换输入",
+      "category": "输入",
+      "format": "str",
+      "line_ending": "crlf",
+      "payload_template": "INPUT {{source}}",
+      "params": [
+        {
+          "id": "source",
+          "label": "输入源",
+          "type": "enum",
+          "default": "HDMI1",
+          "options": ["HDMI1", "HDMI2", "DP", "SDI"]
+        }
+      ],
+      "wait_ms": 0,
+      "enabled": true
+    },
+    {
+      "id": "tcp_volume_set",
+      "name": "设置音量",
+      "category": "音量",
+      "format": "str",
+      "line_ending": "crlf",
+      "payload_template": "VOL {{value}}",
+      "params": [
+        {
+          "id": "value",
+          "label": "音量值",
+          "type": "int",
+          "default": 30,
+          "min": 0,
+          "max": 100,
+          "step": 1
+        }
+      ],
+      "wait_ms": 0,
+      "enabled": true
+    }
+  ],
+  "panels": [
+    {
+      "id": "generic_tcp_panel",
+      "name": "TCP设备面板",
+      "visible": true,
+      "sort": 1,
+      "controls": [
+        {
+          "id": "tcp_power_on_btn",
+          "name": "开机",
+          "type": "button",
+          "command_id": "tcp_power_on",
+          "target_group_id": "generic_tcp_main",
+          "show_on_home": false,
+          "visible": true,
+          "sort": 1
+        },
+        {
+          "id": "tcp_power_off_btn",
+          "name": "关机",
+          "type": "button",
+          "command_id": "tcp_power_off",
+          "target_group_id": "generic_tcp_main",
+          "show_on_home": false,
+          "visible": true,
+          "sort": 2
+        },
+        {
+          "id": "tcp_volume_slider",
+          "name": "音量",
+          "type": "slider",
+          "command_id": "tcp_volume_set",
+          "target_group_id": "generic_tcp_main",
+          "show_on_home": false,
+          "visible": true,
+          "sort": 3,
+          "value_param": "value",
+          "min": 0,
+          "max": 100,
+          "step": 1,
+          "value": 30
+        }
+      ]
+    }
+  ],
+  "generator": {
+    "default_panel_name": "TCP设备面板",
+    "default_control_type": "button",
+    "default_show_on_home": false
+  }
+}

@@ -1,0 +1,53 @@
+# Python/cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+.venv312/
+.venv64/
+venv/
+
+# Runtime data and logs
+*.log
+*.db
+*.sqlite
+*.sqlite3
+monitor.db
+event_logs.db
+energy_log.json
+operation_logs.json
+audit_logs.json
+reports/
+*/data/reports/
+
+# Local/debug scratch generated during remote fixes
+_*.ps1
+_*.json
+_*.txt
+_*.html
+_*.py
+*_after_fix.json
+*_after_fix.png
+*_page.png
+index_*.png
+config_page.png
+_tmp_*.js
+_agent_test.ps1
+
+# Backups and temporary deployment artifacts
+backups/
+*.bak
+*.bak_*
+*.tmp
+*.zip
+.DS_Store
+._*
+
+# Local editor state
+.vscode/
+.idea/
+.claude/

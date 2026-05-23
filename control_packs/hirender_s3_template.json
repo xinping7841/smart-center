@@ -1,0 +1,30 @@
+{
+  "meta": {
+    "id": "hirender_s3_template",
+    "name": "Hirender S3样板",
+    "vendor": "Hirender",
+    "description": "用于 Hirender S3 网络控制的目标组样板。完整指令建议通过 Excel 指令表导入。",
+    "tags": ["template", "hirender", "tcp"]
+  },
+  "target_groups": [
+    {
+      "id": "hirender_s3_main",
+      "name": "Hirender S3主机",
+      "protocol": "tcp",
+      "mode": "single",
+      "host": "192.168.50.100",
+      "port": 50001,
+      "timeout_ms": 2000,
+      "wait_ms": 0,
+      "send_strategy": "serial",
+      "enabled": true
+    }
+  ],
+  "commands": [],
+  "panels": [],
+  "generator": {
+    "default_panel_name": "Hirender S3面板",
+    "default_control_type": "button",
+    "default_show_on_home": false
+  }
+}

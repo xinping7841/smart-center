@@ -1,0 +1,156 @@
+[
+  {
+    "id": "tab_0001_1775236472",
+    "type": "tab",
+    "label": "Driver Hub Bridge",
+    "disabled": false,
+    "info": "Poll Smart Power Monitor driver snapshot and expose for Node-RED UI and logic."
+  },
+  {
+    "id": "inject_0001_1775236472",
+    "type": "inject",
+    "z": "tab_0001_1775236472",
+    "name": "poll every 5s",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "5",
+    "crontab": "",
+    "once": true,
+    "onceDelay": "1",
+    "topic": "",
+    "payload": "",
+    "payloadType": "date",
+    "x": 190,
+    "y": 100,
+    "wires": [
+      [
+        "http_0001_1775236472"
+      ]
+    ]
+  },
+  {
+    "id": "http_0001_1775236472",
+    "type": "http request",
+    "z": "tab_0001_1775236472",
+    "name": "get driver snapshot",
+    "method": "GET",
+    "ret": "txt",
+    "paytoqs": "ignore",
+    "url": "http://127.0.0.1:6899/api/driver_hub/snapshot",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 450,
+    "y": 100,
+    "wires": [
+      [
+        "json_0001_1775236472"
+      ]
+    ]
+  },
+  {
+    "id": "json_0001_1775236472",
+    "type": "json",
+    "z": "tab_0001_1775236472",
+    "name": "parse json",
+    "property": "payload",
+    "action": "",
+    "pretty": false,
+    "x": 640,
+    "y": 100,
+    "wires": [
+      [
+        "fn_0001_1775236472",
+        "debug_0001_1775236472",
+        "ui_text_0001_1775236472"
+      ]
+    ]
+  },
+  {
+    "id": "fn_0001_1775236472",
+    "type": "function",
+    "z": "tab_0001_1775236472",
+    "name": "summary",
+    "func": "const p = msg.payload || {};\nmsg.topic = 'driver_hub_summary';\nmsg.payload = {\n  total: p.total_drivers || 0,\n  online: p.online_drivers || 0,\n  offline: p.offline_drivers || 0,\n  generated_at: p.generated_at || ''\n};\nreturn msg;",
+    "outputs": 1,
+    "timeout": "",
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 830,
+    "y": 100,
+    "wires": [
+      [
+        "debug_0001_1775236472"
+      ]
+    ]
+  },
+  {
+    "id": "debug_0001_1775236472",
+    "type": "debug",
+    "z": "tab_0001_1775236472",
+    "name": "snapshot out",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1050,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "ui_tab_0001_1775236472",
+    "type": "ui_tab",
+    "name": "Drivers",
+    "icon": "dashboard",
+    "disabled": false,
+    "hidden": false
+  },
+  {
+    "id": "ui_group_0001_1775236472",
+    "type": "ui_group",
+    "name": "Driver Online",
+    "tab": "ui_tab_0001_1775236472",
+    "order": 1,
+    "disp": true,
+    "width": "12",
+    "collapse": false,
+    "className": ""
+  },
+  {
+    "id": "ui_text_0001_1775236472",
+    "type": "ui_text",
+    "z": "tab_0001_1775236472",
+    "group": "ui_group_0001_1775236472",
+    "order": 1,
+    "width": 0,
+    "height": 0,
+    "name": "online stats",
+    "label": "Driver status",
+    "format": "{{msg.payload.online}} / {{msg.payload.total}} online",
+    "layout": "row-spread",
+    "className": "",
+    "style": false,
+    "font": "",
+    "fontSize": 16,
+    "color": "#4ade80",
+    "x": 850,
+    "y": 180,
+    "wires": []
+  }
+]

@@ -1,0 +1,2291 @@
+{
+  "brands": [
+    {
+      "id": "generic_pjlink",
+      "brand": "generic",
+      "series": "pjlink",
+      "name": "通用 PJLink 系列",
+      "display_name": "通用 (PJLink)",
+      "commands": [
+        {
+          "id": "power_on",
+          "name": "开机",
+          "icon": "电源",
+          "payload_str": "%1POWR 1",
+          "payload_hex": "25 31 50 4F 57 52 20 31",
+          "default_format": "str",
+          "show_on_home": true,
+          "sort": 1,
+          "visible": true
+        },
+        {
+          "id": "power_off",
+          "name": "关机",
+          "icon": "电源",
+          "payload_str": "%1POWR 0",
+          "payload_hex": "25 31 50 4F 57 52 20 30",
+          "default_format": "str",
+          "show_on_home": true,
+          "sort": 2,
+          "visible": true
+        },
+        {
+          "id": "power_status",
+          "name": "查询开关机状态",
+          "icon": "状态",
+          "payload_str": "%1POWR ?",
+          "payload_hex": "25 31 50 4F 57 52 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 10,
+          "visible": true
+        },
+        {
+          "id": "input_hdmi1",
+          "name": "切换 HDMI1",
+          "icon": "输入",
+          "payload_str": "%1INPT 31",
+          "payload_hex": "25 31 49 4E 50 54 20 33 31",
+          "default_format": "str",
+          "show_on_home": true,
+          "sort": 20,
+          "visible": true
+        },
+        {
+          "id": "input_hdmi2",
+          "name": "切换 HDMI2",
+          "icon": "输入",
+          "payload_str": "%1INPT 32",
+          "payload_hex": "25 31 49 4E 50 54 20 33 32",
+          "default_format": "str",
+          "show_on_home": true,
+          "sort": 21,
+          "visible": true
+        },
+        {
+          "id": "input_rgb1",
+          "name": "切换 RGB1",
+          "icon": "输入",
+          "payload_str": "%1INPT 11",
+          "payload_hex": "25 31 49 4E 50 54 20 31 31",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 22,
+          "visible": true
+        },
+        {
+          "id": "input_video1",
+          "name": "切换 VIDEO1",
+          "icon": "输入",
+          "payload_str": "%1INPT 21",
+          "payload_hex": "25 31 49 4E 50 54 20 32 31",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 23,
+          "visible": true
+        },
+        {
+          "id": "input_status",
+          "name": "查询信号源",
+          "icon": "输入",
+          "payload_str": "%1INPT ?",
+          "payload_hex": "25 31 49 4E 50 54 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 24,
+          "visible": true
+        },
+        {
+          "id": "mute_av_on",
+          "name": "静音黑屏开启",
+          "icon": "静音",
+          "payload_str": "%1AVMT 31",
+          "payload_hex": "25 31 41 56 4D 54 20 33 31",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 30,
+          "visible": true
+        },
+        {
+          "id": "mute_av_off",
+          "name": "静音黑屏关闭",
+          "icon": "静音",
+          "payload_str": "%1AVMT 30",
+          "payload_hex": "25 31 41 56 4D 54 20 33 30",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 31,
+          "visible": true
+        },
+        {
+          "id": "mute_status",
+          "name": "查询静音黑屏状态",
+          "icon": "静音",
+          "payload_str": "%1AVMT ?",
+          "payload_hex": "25 31 41 56 4D 54 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 32,
+          "visible": true
+        },
+        {
+          "id": "freeze_on",
+          "name": "冻结画面开启",
+          "icon": "冻结",
+          "payload_str": "%1FREZ 1",
+          "payload_hex": "25 31 46 52 45 5A 20 31",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 40,
+          "visible": true
+        },
+        {
+          "id": "freeze_off",
+          "name": "冻结画面关闭",
+          "icon": "冻结",
+          "payload_str": "%1FREZ 0",
+          "payload_hex": "25 31 46 52 45 5A 20 30",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 41,
+          "visible": true
+        },
+        {
+          "id": "freeze_status",
+          "name": "查询冻结状态",
+          "icon": "冻结",
+          "payload_str": "%1FREZ ?",
+          "payload_hex": "25 31 46 52 45 5A 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 42,
+          "visible": true
+        },
+        {
+          "id": "lamp_status",
+          "name": "查询灯泡时长",
+          "icon": "灯泡",
+          "payload_str": "%1LAMP ?",
+          "payload_hex": "25 31 4C 41 4D 50 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 50,
+          "visible": true
+        },
+        {
+          "id": "error_status",
+          "name": "查询故障状态",
+          "icon": "故障",
+          "payload_str": "%1ERST ?",
+          "payload_hex": "25 31 45 52 53 54 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 51,
+          "visible": true
+        },
+        {
+          "id": "device_name",
+          "name": "查询设备名称",
+          "icon": "信息",
+          "payload_str": "%1NAME ?",
+          "payload_hex": "25 31 4E 41 4D 45 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 60,
+          "visible": true
+        },
+        {
+          "id": "manufacturer_name",
+          "name": "查询厂商名称",
+          "icon": "信息",
+          "payload_str": "%1INF1 ?",
+          "payload_hex": "25 31 49 4E 46 31 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 61,
+          "visible": true
+        },
+        {
+          "id": "product_name",
+          "name": "查询产品型号",
+          "icon": "信息",
+          "payload_str": "%1INF2 ?",
+          "payload_hex": "25 31 49 4E 46 32 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 62,
+          "visible": true
+        },
+        {
+          "id": "other_info",
+          "name": "查询扩展信息",
+          "icon": "信息",
+          "payload_str": "%1INFO ?",
+          "payload_hex": "25 31 49 4E 46 4F 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 63,
+          "visible": true
+        },
+        {
+          "id": "class_info",
+          "name": "查询协议等级",
+          "icon": "信息",
+          "payload_str": "%1CLSS ?",
+          "payload_hex": "25 31 43 4C 53 53 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 64,
+          "visible": true
+        },
+        {
+          "id": "serial_number",
+          "name": "查询序列号",
+          "icon": "信息",
+          "payload_str": "%2SNUM ?",
+          "payload_hex": "25 32 53 4E 55 4D 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 65,
+          "visible": true
+        },
+        {
+          "id": "software_version",
+          "name": "查询软件版本",
+          "icon": "信息",
+          "payload_str": "%2SVER ?",
+          "payload_hex": "25 32 53 56 45 52 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 66,
+          "visible": true
+        },
+        {
+          "id": "input_resolution",
+          "name": "查询输入分辨率",
+          "icon": "信息",
+          "payload_str": "%2IRES ?",
+          "payload_hex": "25 32 49 52 45 53 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 67,
+          "visible": true
+        },
+        {
+          "id": "recommended_resolution",
+          "name": "查询推荐分辨率",
+          "icon": "信息",
+          "payload_str": "%2RRES ?",
+          "payload_hex": "25 32 52 52 45 53 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 68,
+          "visible": true
+        },
+        {
+          "id": "filter_hours",
+          "name": "查询滤网时长",
+          "icon": "信息",
+          "payload_str": "%2FILT ?",
+          "payload_hex": "25 32 46 49 4C 54 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 69,
+          "visible": true
+        },
+        {
+          "id": "lamp_model",
+          "name": "查询灯泡型号",
+          "icon": "信息",
+          "payload_str": "%2RLMP ?",
+          "payload_hex": "25 32 52 4C 4D 50 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 70,
+          "visible": true
+        },
+        {
+          "id": "filter_model",
+          "name": "查询滤网型号",
+          "icon": "信息",
+          "payload_str": "%2RFIL ?",
+          "payload_hex": "25 32 52 46 49 4C 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 71,
+          "visible": true
+        },
+        {
+          "id": "freeze_status",
+          "name": "查询冻结状态",
+          "icon": "信息",
+          "payload_str": "%2FREZ ?",
+          "payload_hex": "25 32 46 52 45 5A 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 72,
+          "visible": true
+        },
+        {
+          "id": "speaker_volume_up",
+          "name": "扬声器音量加",
+          "icon": "音量",
+          "payload_str": "%2SVOL 1",
+          "payload_hex": "25 32 53 56 4F 4C 20 31",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 73,
+          "visible": true
+        },
+        {
+          "id": "microphone_volume_up",
+          "name": "麦克风音量加",
+          "icon": "音量",
+          "payload_str": "%2MVOL 1",
+          "payload_hex": "25 32 4D 56 4F 4C 20 31",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 74,
+          "visible": true
+        }
+      ],
+      "connection_types": {
+        "pjlink": {
+          "id": "pjlink",
+          "name": "PJLink TCP",
+          "icon": "网络",
+          "default_port": 4352
+        }
+      },
+      "status_queries": {},
+      "status_parse": {}
+    },
+    {
+      "id": "epson_pjlink",
+      "brand": "epson",
+      "series": "pjlink",
+      "name": "爱普生 PJLink 系列",
+      "display_name": "爱普生 (PJLink)",
+      "commands": [
+        {
+          "id": "power_on",
+          "name": "开机",
+          "icon": "电源",
+          "payload_str": "%1POWR 1",
+          "payload_hex": "25 31 50 4F 57 52 20 31",
+          "default_format": "str",
+          "show_on_home": true,
+          "sort": 1,
+          "visible": true
+        },
+        {
+          "id": "power_off",
+          "name": "关机",
+          "icon": "电源",
+          "payload_str": "%1POWR 0",
+          "payload_hex": "25 31 50 4F 57 52 20 30",
+          "default_format": "str",
+          "show_on_home": true,
+          "sort": 2,
+          "visible": true
+        },
+        {
+          "id": "power_status",
+          "name": "查询开关机状态",
+          "icon": "状态",
+          "payload_str": "%1POWR ?",
+          "payload_hex": "25 31 50 4F 57 52 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 10,
+          "visible": true
+        },
+        {
+          "id": "input_hdmi1",
+          "name": "切换 HDMI1",
+          "icon": "输入",
+          "payload_str": "%1INPT 31",
+          "payload_hex": "25 31 49 4E 50 54 20 33 31",
+          "default_format": "str",
+          "show_on_home": true,
+          "sort": 20,
+          "visible": true
+        },
+        {
+          "id": "input_hdmi2",
+          "name": "切换 HDMI2",
+          "icon": "输入",
+          "payload_str": "%1INPT 32",
+          "payload_hex": "25 31 49 4E 50 54 20 33 32",
+          "default_format": "str",
+          "show_on_home": true,
+          "sort": 21,
+          "visible": true
+        },
+        {
+          "id": "input_status",
+          "name": "查询信号源",
+          "icon": "输入",
+          "payload_str": "%1INPT ?",
+          "payload_hex": "25 31 49 4E 50 54 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 24,
+          "visible": true
+        },
+        {
+          "id": "mute_av_on",
+          "name": "静音黑屏开启",
+          "icon": "静音",
+          "payload_str": "%1AVMT 31",
+          "payload_hex": "25 31 41 56 4D 54 20 33 31",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 30,
+          "visible": true
+        },
+        {
+          "id": "mute_av_off",
+          "name": "静音黑屏关闭",
+          "icon": "静音",
+          "payload_str": "%1AVMT 30",
+          "payload_hex": "25 31 41 56 4D 54 20 33 30",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 31,
+          "visible": true
+        },
+        {
+          "id": "freeze_on",
+          "name": "冻结画面开启",
+          "icon": "冻结",
+          "payload_str": "%1FREZ 1",
+          "payload_hex": "25 31 46 52 45 5A 20 31",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 40,
+          "visible": true
+        },
+        {
+          "id": "freeze_off",
+          "name": "冻结画面关闭",
+          "icon": "冻结",
+          "payload_str": "%1FREZ 0",
+          "payload_hex": "25 31 46 52 45 5A 20 30",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 41,
+          "visible": true
+        },
+        {
+          "id": "lamp_status",
+          "name": "查询灯泡时长",
+          "icon": "灯泡",
+          "payload_str": "%1LAMP ?",
+          "payload_hex": "25 31 4C 41 4D 50 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 50,
+          "visible": true
+        },
+        {
+          "id": "error_status",
+          "name": "查询故障状态",
+          "icon": "故障",
+          "payload_str": "%1ERST ?",
+          "payload_hex": "25 31 45 52 53 54 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 51,
+          "visible": true
+        },
+        {
+          "id": "device_name",
+          "name": "查询设备名称",
+          "icon": "信息",
+          "payload_str": "%1NAME ?",
+          "payload_hex": "25 31 4E 41 4D 45 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 60,
+          "visible": true
+        },
+        {
+          "id": "manufacturer_name",
+          "name": "查询厂商名称",
+          "icon": "信息",
+          "payload_str": "%1INF1 ?",
+          "payload_hex": "25 31 49 4E 46 31 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 61,
+          "visible": true
+        },
+        {
+          "id": "product_name",
+          "name": "查询产品型号",
+          "icon": "信息",
+          "payload_str": "%1INF2 ?",
+          "payload_hex": "25 31 49 4E 46 32 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 62,
+          "visible": true
+        },
+        {
+          "id": "other_info",
+          "name": "查询扩展信息",
+          "icon": "信息",
+          "payload_str": "%1INFO ?",
+          "payload_hex": "25 31 49 4E 46 4F 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 63,
+          "visible": true
+        },
+        {
+          "id": "class_info",
+          "name": "查询协议等级",
+          "icon": "信息",
+          "payload_str": "%1CLSS ?",
+          "payload_hex": "25 31 43 4C 53 53 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 64,
+          "visible": true
+        },
+        {
+          "id": "serial_number",
+          "name": "查询序列号",
+          "icon": "信息",
+          "payload_str": "%2SNUM ?",
+          "payload_hex": "25 32 53 4E 55 4D 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 65,
+          "visible": true
+        },
+        {
+          "id": "software_version",
+          "name": "查询软件版本",
+          "icon": "信息",
+          "payload_str": "%2SVER ?",
+          "payload_hex": "25 32 53 56 45 52 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 66,
+          "visible": true
+        },
+        {
+          "id": "input_resolution",
+          "name": "查询输入分辨率",
+          "icon": "信息",
+          "payload_str": "%2IRES ?",
+          "payload_hex": "25 32 49 52 45 53 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 67,
+          "visible": true
+        },
+        {
+          "id": "recommended_resolution",
+          "name": "查询推荐分辨率",
+          "icon": "信息",
+          "payload_str": "%2RRES ?",
+          "payload_hex": "25 32 52 52 45 53 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 68,
+          "visible": true
+        },
+        {
+          "id": "filter_hours",
+          "name": "查询滤网时长",
+          "icon": "信息",
+          "payload_str": "%2FILT ?",
+          "payload_hex": "25 32 46 49 4C 54 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 69,
+          "visible": true
+        },
+        {
+          "id": "lamp_model",
+          "name": "查询灯泡型号",
+          "icon": "信息",
+          "payload_str": "%2RLMP ?",
+          "payload_hex": "25 32 52 4C 4D 50 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 70,
+          "visible": true
+        },
+        {
+          "id": "filter_model",
+          "name": "查询滤网型号",
+          "icon": "信息",
+          "payload_str": "%2RFIL ?",
+          "payload_hex": "25 32 52 46 49 4C 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 71,
+          "visible": true
+        },
+        {
+          "id": "freeze_status",
+          "name": "查询冻结状态",
+          "icon": "信息",
+          "payload_str": "%2FREZ ?",
+          "payload_hex": "25 32 46 52 45 5A 20 3F",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 72,
+          "visible": true
+        },
+        {
+          "id": "speaker_volume_up",
+          "name": "扬声器音量加",
+          "icon": "音量",
+          "payload_str": "%2SVOL 1",
+          "payload_hex": "25 32 53 56 4F 4C 20 31",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 73,
+          "visible": true
+        },
+        {
+          "id": "microphone_volume_up",
+          "name": "麦克风音量加",
+          "icon": "音量",
+          "payload_str": "%2MVOL 1",
+          "payload_hex": "25 32 4D 56 4F 4C 20 31",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 74,
+          "visible": true
+        }
+      ],
+      "connection_types": {
+        "pjlink": {
+          "id": "pjlink",
+          "name": "PJLink TCP",
+          "icon": "网络",
+          "default_port": 4352
+        }
+      },
+      "status_queries": {},
+      "status_parse": {}
+    },
+    {
+      "id": "smile_ek",
+      "name": "视美乐 EK 系列",
+      "control_types": [
+        "smile_ek_tcp",
+        "smile_ek_com",
+        "pjlink"
+      ],
+      "default_port_tcp": 502,
+      "default_port_com": 19200,
+      "default_id": 0,
+      "commands": [
+        {
+          "id": "power_on",
+          "name": "开机",
+          "icon": "",
+          "payload_str": "#PWR0,1!",
+          "payload_hex": "23 50 57 52 30 2C 31 21",
+          "default_format": "hex",
+          "show_on_home": true,
+          "sort": 1,
+          "visible": true
+        },
+        {
+          "id": "power_off",
+          "name": "关机",
+          "icon": "",
+          "payload_str": "#PWR0,0!",
+          "payload_hex": "23 50 57 52 30 2C 30 21",
+          "default_format": "hex",
+          "show_on_home": true,
+          "sort": 2,
+          "visible": true
+        },
+        {
+          "id": "source_pc",
+          "name": "切换到 PC",
+          "icon": "",
+          "payload_str": "#SOUR0,01!",
+          "payload_hex": "23 53 4F 55 52 30 2C 30 31 21",
+          "default_format": "hex",
+          "show_on_home": true,
+          "sort": 3,
+          "visible": true
+        },
+        {
+          "id": "source_vga",
+          "name": "切换到 VGA",
+          "icon": "",
+          "payload_str": "#SOUR0,02!",
+          "payload_hex": "23 53 4F 55 52 30 2C 30 32 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 4,
+          "visible": true
+        },
+        {
+          "id": "source_dvi",
+          "name": "切换到 DVI",
+          "icon": "",
+          "payload_str": "#SOUR0,03!",
+          "payload_hex": "23 53 4F 55 52 30 2C 30 33 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 5,
+          "visible": true
+        },
+        {
+          "id": "source_hdmi1",
+          "name": "切换到 HDMI1",
+          "icon": "",
+          "payload_str": "#SOUR0,17!",
+          "payload_hex": "23 53 4F 55 52 30 2C 31 37 21",
+          "default_format": "hex",
+          "show_on_home": true,
+          "sort": 6,
+          "visible": true
+        },
+        {
+          "id": "source_hdmi2",
+          "name": "切换到 HDMI2",
+          "icon": "",
+          "payload_str": "#SOUR0,18!",
+          "payload_hex": "23 53 4F 55 52 30 2C 31 38 21",
+          "default_format": "hex",
+          "show_on_home": true,
+          "sort": 7,
+          "visible": true
+        },
+        {
+          "id": "source_dp",
+          "name": "切换到 DP",
+          "icon": "",
+          "payload_str": "#SOUR0,19!",
+          "payload_hex": "23 53 4F 55 52 30 2C 31 39 21",
+          "default_format": "hex",
+          "show_on_home": true,
+          "sort": 8,
+          "visible": true
+        },
+        {
+          "id": "mute_on",
+          "name": "静音黑屏开启",
+          "icon": "",
+          "payload_str": "#AVMT0,01!",
+          "payload_hex": "23 41 56 4D 54 30 2C 30 31 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 20,
+          "visible": true
+        },
+        {
+          "id": "mute_off",
+          "name": "静音黑屏关闭",
+          "icon": "",
+          "payload_str": "#AVMT0,00!",
+          "payload_hex": "23 41 56 4D 54 30 2C 30 30 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 21,
+          "visible": true
+        },
+        {
+          "id": "freeze_on",
+          "name": "冻结画面开启",
+          "icon": "",
+          "payload_str": "#FRZ0,01!",
+          "payload_hex": "23 46 52 5A 30 2C 30 31 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 22,
+          "visible": true
+        },
+        {
+          "id": "freeze_off",
+          "name": "冻结画面关闭",
+          "icon": "",
+          "payload_str": "#FRZ0,00!",
+          "payload_hex": "23 46 52 5A 30 2C 30 30 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 23,
+          "visible": true
+        },
+        {
+          "id": "volume_up",
+          "name": "音量加",
+          "icon": "",
+          "payload_str": "#VOL0,1!",
+          "payload_hex": "23 56 4F 4C 30 2C 31 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 24,
+          "visible": true
+        },
+        {
+          "id": "volume_down",
+          "name": "音量减",
+          "icon": "",
+          "payload_str": "#VOL0,0!",
+          "payload_hex": "23 56 4F 4C 30 2C 30 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 25,
+          "visible": true
+        },
+        {
+          "id": "menu_on",
+          "name": "打开菜单",
+          "icon": "",
+          "payload_str": "#MENU0,01!",
+          "payload_hex": "23 4D 45 4E 55 30 2C 30 31 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 26,
+          "visible": true
+        },
+        {
+          "id": "menu_off",
+          "name": "关闭菜单",
+          "icon": "",
+          "payload_str": "#MENU0,00!",
+          "payload_hex": "23 4D 45 4E 55 30 2C 30 30 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 27,
+          "visible": true
+        },
+        {
+          "id": "key_up",
+          "name": "方向上",
+          "icon": "",
+          "payload_str": "#KEY0,01!",
+          "payload_hex": "23 4B 45 59 30 2C 30 31 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 28,
+          "visible": true
+        },
+        {
+          "id": "key_down",
+          "name": "方向下",
+          "icon": "",
+          "payload_str": "#KEY0,02!",
+          "payload_hex": "23 4B 45 59 30 2C 30 32 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 29,
+          "visible": true
+        },
+        {
+          "id": "key_left",
+          "name": "方向左",
+          "icon": "",
+          "payload_str": "#KEY0,03!",
+          "payload_hex": "23 4B 45 59 30 2C 30 33 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 30,
+          "visible": true
+        },
+        {
+          "id": "key_right",
+          "name": "方向右",
+          "icon": "",
+          "payload_str": "#KEY0,04!",
+          "payload_hex": "23 4B 45 59 30 2C 30 34 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 31,
+          "visible": true
+        },
+        {
+          "id": "key_enter",
+          "name": "确认",
+          "icon": "",
+          "payload_str": "#KEY0,05!",
+          "payload_hex": "23 4B 45 59 30 2C 30 35 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 32,
+          "visible": true
+        },
+        {
+          "id": "key_exit",
+          "name": "返回",
+          "icon": "",
+          "payload_str": "#KEY0,06!",
+          "payload_hex": "23 4B 45 59 30 2C 30 36 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 33,
+          "visible": true
+        },
+        {
+          "id": "auto_adjust",
+          "name": "自动调整",
+          "icon": "",
+          "payload_str": "#AUTO0,01!",
+          "payload_hex": "23 41 55 54 4F 30 2C 30 31 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 34,
+          "visible": true
+        },
+        {
+          "id": "lamp_eco",
+          "name": "灯泡节能模式",
+          "icon": "",
+          "payload_str": "#LAMP0,01!",
+          "payload_hex": "23 4C 41 4D 50 30 2C 30 31 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 35,
+          "visible": true
+        },
+        {
+          "id": "lamp_normal",
+          "name": "灯泡标准模式",
+          "icon": "",
+          "payload_str": "#LAMP0,00!",
+          "payload_hex": "23 4C 41 4D 50 30 2C 30 30 21",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 36,
+          "visible": true
+        },
+        {
+          "id": "power_status",
+          "name": "查询开关机状态",
+          "icon": "",
+          "payload_str": "#PWR0,?",
+          "payload_hex": "23 50 57 52 30 2C 3F",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 50,
+          "visible": true
+        },
+        {
+          "id": "source_status",
+          "name": "查询信号源",
+          "icon": "",
+          "payload_str": "#SOUR0,?",
+          "payload_hex": "23 53 4F 55 52 30 2C 3F",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 51,
+          "visible": true
+        },
+        {
+          "id": "volume_status",
+          "name": "查询音量",
+          "icon": "",
+          "payload_str": "#VOL0,?",
+          "payload_hex": "23 56 4F 4C 30 2C 3F",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 52,
+          "visible": true
+        },
+        {
+          "id": "mute_status",
+          "name": "查询静音黑屏状态",
+          "icon": "",
+          "payload_str": "#AVMT0,?",
+          "payload_hex": "23 41 56 4D 54 30 2C 3F",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 53,
+          "visible": true
+        },
+        {
+          "id": "temp_status",
+          "name": "查询温度状态",
+          "icon": "",
+          "payload_str": "#TEMP0,?",
+          "payload_hex": "23 54 45 4D 50 30 2C 3F",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 54,
+          "visible": true
+        },
+        {
+          "id": "lamp_status",
+          "name": "查询灯泡状态",
+          "icon": "",
+          "payload_str": "#LAMP0,?",
+          "payload_hex": "23 4C 41 4D 50 30 2C 3F",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 55,
+          "visible": true
+        }
+      ],
+      "display_name": "视美乐 EK 系列"
+    },
+    {
+      "id": "appotronics_dh",
+      "name": "光峰 DH 系列",
+      "brand": "appotronics",
+      "series": "dh",
+      "display_name": "光峰 DH 系列",
+      "connection_types": {
+        "tcp": {
+          "id": "appotronics_dh_tcp",
+          "name": "网络接入 (TCP)",
+          "default_port": 9761,
+          "icon": "🌐"
+        }
+      },
+      "default_port_tcp": 9761,
+      "commands": [
+        {
+          "id": "power_on",
+          "name": "开机",
+          "icon": "🔌",
+          "payload_hex": "EB 90 00 0C 00 00 08 02 00 01 01 93",
+          "default_format": "hex",
+          "show_on_home": true,
+          "sort": 1,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "power_off",
+          "name": "关机",
+          "icon": "🔌",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 01 00 91",
+          "default_format": "hex",
+          "show_on_home": true,
+          "sort": 2,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "get_power_state",
+          "name": "查询电源状态",
+          "icon": "📊",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 80 5B 00 6B",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 3,
+          "visible": true,
+          "category": "query"
+        },
+        {
+          "id": "get_abnormal_record",
+          "name": "查询异常记录",
+          "icon": "📋",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 80 59 00 69",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 4,
+          "visible": true,
+          "category": "query"
+        },
+        {
+          "id": "get_lamp_hours",
+          "name": "查询光源时长",
+          "icon": "💡",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 80 61 00 71",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 5,
+          "visible": true,
+          "category": "query"
+        },
+        {
+          "id": "power_save_on",
+          "name": "智能省电开启",
+          "icon": "🌱",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 0A 01 9B",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 6,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "power_save_off",
+          "name": "智能省电关闭",
+          "icon": "🌱",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 0A 00 9A",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 7,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "source_hdmi1",
+          "name": "HDMI1",
+          "icon": "📺",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 02 01 93",
+          "default_format": "hex",
+          "show_on_home": true,
+          "sort": 10,
+          "visible": true,
+          "category": "source"
+        },
+        {
+          "id": "source_dvi",
+          "name": "DVI",
+          "icon": "🖥️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 02 02 94",
+          "default_format": "hex",
+          "show_on_home": true,
+          "sort": 11,
+          "visible": true,
+          "category": "source"
+        },
+        {
+          "id": "source_vga1",
+          "name": "VGA1",
+          "icon": "🖥️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 02 03 95",
+          "default_format": "hex",
+          "show_on_home": true,
+          "sort": 12,
+          "visible": true,
+          "category": "source"
+        },
+        {
+          "id": "3d_mode_off",
+          "name": "3D关闭",
+          "icon": "🎬",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 09 00 99",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 20,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "3d_mode_1",
+          "name": "3D垂直同步半分离",
+          "icon": "🎬",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 09 01 9A",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 21,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "3d_mode_2",
+          "name": "3D垂直同步半全离",
+          "icon": "🎬",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 09 02 9B",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 22,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "3d_mode_3",
+          "name": "3D垂直半封装",
+          "icon": "🎬",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 09 03 9C",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 23,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "3d_mode_4",
+          "name": "3D垂直全封装",
+          "icon": "🎬",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 09 04 9D",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 24,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "3d_mode_5",
+          "name": "3D水平半封装",
+          "icon": "🎬",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 09 05 9E",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 25,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "3d_mode_6",
+          "name": "3D水平全封装",
+          "icon": "🎬",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 09 06 9F",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 26,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "3d_lr_switch",
+          "name": "3D左右切换",
+          "icon": "🎬",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 53 01 E4",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 27,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "blank_black",
+          "name": "空白屏-黑色",
+          "icon": "⬛",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4C 00 DC",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 30,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "blank_blue",
+          "name": "空白屏-蓝色",
+          "icon": "🟦",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4C 01 DD",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 31,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "blank_gray",
+          "name": "空白屏-灰色",
+          "icon": "⬜",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4C 02 DE",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 32,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "blank_red",
+          "name": "空白屏-红色",
+          "icon": "🟥",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4C 03 DF",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 33,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "blank_green",
+          "name": "空白屏-绿色",
+          "icon": "🟩",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4C 04 E0",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 34,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "blank_yellow",
+          "name": "空白屏-黄色",
+          "icon": "🟨",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4C 05 E1",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 35,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "blank_cyan",
+          "name": "空白屏-青色",
+          "icon": "🔷",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4C 06 E2",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 36,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "blank_magenta",
+          "name": "空白屏-品红",
+          "icon": "🟪",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4C 07 E3",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 37,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "blank_white",
+          "name": "空白屏-白色",
+          "icon": "⬜",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4C 08 E4",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 38,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "test_pattern_exit",
+          "name": "测试图-退出",
+          "icon": "🖼️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4E 00 DE",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 40,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "test_pattern_rgbw",
+          "name": "测试图-RGBW彩色带",
+          "icon": "🖼️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4E 01 DF",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 41,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "test_pattern_color",
+          "name": "测试图-彩色带",
+          "icon": "🖼️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4E 02 E0",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 42,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "test_pattern_step",
+          "name": "测试图-阶梯测试带",
+          "icon": "🖼️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4E 03 E1",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 43,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "test_pattern_checkerboard",
+          "name": "测试图-棋盘格",
+          "icon": "🖼️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4E 04 E2",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 44,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "test_pattern_grid",
+          "name": "测试图-栅格",
+          "icon": "🖼️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4E 05 E3",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 45,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "test_pattern_h_line",
+          "name": "测试图-水平线",
+          "icon": "🖼️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4E 06 E4",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 46,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "test_pattern_v_line",
+          "name": "测试图-垂直线",
+          "icon": "🖼️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4E 07 E5",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 47,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "test_pattern_diagonal",
+          "name": "测试图-对角线条",
+          "icon": "🖼️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4E 08 E6",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 48,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "test_pattern_h_step",
+          "name": "测试图-水平阶梯",
+          "icon": "🖼️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4E 09 E7",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 49,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "test_pattern_v_step",
+          "name": "测试图-垂直阶梯",
+          "icon": "🖼️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 4E 0A E8",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 50,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "volume_mute",
+          "name": "静音",
+          "icon": "🔇",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 03 01 94",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 60,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "volume_unmute",
+          "name": "取消静音",
+          "icon": "🔊",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 03 00 93",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 61,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "volume_up",
+          "name": "音量+",
+          "icon": "🔊",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 05 01 96",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 62,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "volume_down",
+          "name": "音量-",
+          "icon": "🔉",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 05 00 95",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 63,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "mic_on",
+          "name": "麦克风开启",
+          "icon": "🎤",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 06 01 97",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 64,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "mic_off",
+          "name": "麦克风关闭",
+          "icon": "🎤",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 06 00 96",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 65,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "picture_mode_standard",
+          "name": "图像模式-标准",
+          "icon": "🖼️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 07 01 98",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 70,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "picture_mode_cinema",
+          "name": "图像模式-影院",
+          "icon": "🖼️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 07 02 99",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 71,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "picture_mode_presentation",
+          "name": "图像模式-演示",
+          "icon": "🖼️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 07 03 9A",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 72,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "picture_mode_eco",
+          "name": "图像模式-节能",
+          "icon": "🖼️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 07 04 9B",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 73,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "picture_mode_dicom",
+          "name": "图像模式-DICOM SIM",
+          "icon": "🖼️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 07 05 9C",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 74,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "picture_mode_rec709",
+          "name": "图像模式-REC709",
+          "icon": "🖼️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 07 06 9D",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 75,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "aspect_ratio_fill",
+          "name": "画面比例-填充",
+          "icon": "📐",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 08 01 99",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 80,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "aspect_ratio_native",
+          "name": "画面比例-本证",
+          "icon": "📐",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 08 02 9A",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 81,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "aspect_ratio_4_3",
+          "name": "画面比例-4:3",
+          "icon": "📐",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 08 03 9B",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 82,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "aspect_ratio_16_9",
+          "name": "画面比例-16:9",
+          "icon": "📐",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 08 04 9C",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 83,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "laser_off",
+          "name": "一键黑屏(激光关)",
+          "icon": "⬛",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 1B 01 AC",
+          "default_format": "hex",
+          "show_on_home": true,
+          "sort": 90,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "laser_on",
+          "name": "激光开启",
+          "icon": "🔆",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 1B 00 AB",
+          "default_format": "hex",
+          "show_on_home": true,
+          "sort": 91,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "splice_off",
+          "name": "画面拼接-关闭",
+          "icon": "🔲",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 1C 00 AC",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 100,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "splice_top_left",
+          "name": "画面拼接-左上",
+          "icon": "🔲",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 1C 01 AD",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 101,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "splice_top_right",
+          "name": "画面拼接-右上",
+          "icon": "🔲",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 1C 02 AE",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 102,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "splice_bottom_left",
+          "name": "画面拼接-左下",
+          "icon": "🔲",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 1C 03 AF",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 103,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "splice_bottom_right",
+          "name": "画面拼接-右下",
+          "icon": "🔲",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 1C 04 B0",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 104,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "keystone_auto_off",
+          "name": "自动梯形校正-关闭",
+          "icon": "🔧",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 1D 00 AD",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 110,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "keystone_auto_on",
+          "name": "自动梯形校正-打开",
+          "icon": "🔧",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 1D 01 AE",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 111,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "auto_flip_off",
+          "name": "自动翻转-关闭",
+          "icon": "🔄",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 1F 00 AF",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 112,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "auto_flip_on",
+          "name": "自动翻转-打开",
+          "icon": "🔄",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 00 1F 01 B0",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 113,
+          "visible": true,
+          "category": "control"
+        },
+        {
+          "id": "get_temperature",
+          "name": "查询温度",
+          "icon": "🌡️",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 80 5C 00 6C",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 120,
+          "visible": true,
+          "category": "query"
+        },
+        {
+          "id": "get_ip",
+          "name": "查询IP地址",
+          "icon": "🌐",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 80 2F 00 3F",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 121,
+          "visible": true,
+          "category": "query"
+        },
+        {
+          "id": "get_fan_duty",
+          "name": "查询风扇占空比",
+          "icon": "🌀",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 80 5D 00 6D",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 122,
+          "visible": true,
+          "category": "query"
+        },
+        {
+          "id": "get_power_mode",
+          "name": "查询上电/待机模式",
+          "icon": "📊",
+          "payload_hex": "EB 90 00 0C 00 00 08 02 00 0E 00 9F",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 123,
+          "visible": true,
+          "category": "query"
+        },
+        {
+          "id": "get_power_save_mode",
+          "name": "查询省电模式",
+          "icon": "🌱",
+          "payload_hex": "EB 90 00 0C 00 00 08 01 80 0A 00 1A",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 124,
+          "visible": true,
+          "category": "query"
+        },
+        {
+          "id": "get_power_on_state",
+          "name": "查询开机状态",
+          "icon": "📊",
+          "payload_hex": "EB 90 00 0C 00 00 08 02 00 0C 00 9D",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 125,
+          "visible": true,
+          "category": "query"
+        }
+      ]
+    },
+    {
+      "id": "appotronics_uh",
+      "name": "光峰 UH 系列",
+      "brand": "appotronics",
+      "series": "uh",
+      "display_name": "光峰 UH 系列",
+      "connection_types": {
+        "tcp": {
+          "id": "appotronics_uh_tcp",
+          "name": "网络接入 (TCP)",
+          "default_port": 8080,
+          "icon": ""
+        }
+      },
+      "default_port_tcp": 8080,
+      "commands": [
+        {
+          "id": "power_on",
+          "name": "开机",
+          "icon": "",
+          "payload_hex": "5A A5 00 0C 80 00 08 02 04 01 01 7D",
+          "default_format": "hex",
+          "show_on_home": true,
+          "sort": 1,
+          "visible": true
+        },
+        {
+          "id": "power_off",
+          "name": "关机",
+          "icon": "",
+          "payload_hex": "5A A5 00 0C 00 00 08 01 04 01 00 FF",
+          "default_format": "hex",
+          "show_on_home": true,
+          "sort": 2,
+          "visible": true
+        },
+        {
+          "id": "get_power_state",
+          "name": "查询开关机状态",
+          "icon": "",
+          "payload_hex": "5A A5 00 0B 00 00 08 01 84 01 78",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 3,
+          "visible": true
+        },
+        {
+          "id": "get_temperature",
+          "name": "查询温度",
+          "icon": "",
+          "payload_hex": "5A A5 00 0B 00 00 08 01 88 12 67",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 4,
+          "visible": true
+        },
+        {
+          "id": "get_lamp_hours",
+          "name": "查询灯泡时长",
+          "icon": "",
+          "payload_hex": "5A A5 00 0B 00 00 08 01 84 14 6D",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 5,
+          "visible": true
+        },
+        {
+          "id": "get_signal_source",
+          "name": "查询信号源",
+          "icon": "",
+          "payload_hex": "5A A5 00 0B 00 00 08 01 94 02 6B",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 6,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "id": "appotronics_uk",
+      "name": "光峰 UK 系列",
+      "brand": "appotronics",
+      "series": "uk",
+      "display_name": "光峰 UK 系列",
+      "connection_types": {
+        "tcp": {
+          "id": "appotronics_uk_tcp",
+          "name": "网络接入 (TCP)",
+          "default_port": 4352,
+          "icon": ""
+        }
+      },
+      "default_port_tcp": 4352,
+      "commands": [
+        {
+          "id": "power_on",
+          "name": "开机",
+          "icon": "",
+          "payload_str": "AT+System=On\r",
+          "payload_hex": "41 54 2B 53 79 73 74 65 6D 3D 4F 6E 0D",
+          "default_format": "str",
+          "show_on_home": true,
+          "sort": 1,
+          "visible": true
+        },
+        {
+          "id": "power_off",
+          "name": "关机",
+          "icon": "",
+          "payload_str": "AT+System=Off\r",
+          "payload_hex": "41 54 2B 53 79 73 74 65 6D 3D 4F 66 66 0D",
+          "default_format": "str",
+          "show_on_home": true,
+          "sort": 2,
+          "visible": true
+        },
+        {
+          "id": "get_power_state",
+          "name": "查询开关机状态",
+          "icon": "",
+          "payload_str": "AT+System?\r",
+          "payload_hex": "41 54 2B 53 79 73 74 65 6D 3F 0D",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 3,
+          "visible": true
+        },
+        {
+          "id": "get_lamp_hours",
+          "name": "查询灯泡时长",
+          "icon": "",
+          "payload_str": "AT+LightSource?\r",
+          "payload_hex": "41 54 2B 4C 69 67 68 74 53 6F 75 72 63 65 3F 0D",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 4,
+          "visible": true
+        },
+        {
+          "id": "source_hdmi1",
+          "name": "切换 HDMI1",
+          "icon": "",
+          "payload_str": "AT+SignalChannel=HDMI:1\r",
+          "payload_hex": "41 54 2B 53 69 67 6E 61 6C 43 68 61 6E 6E 65 6C 3D 48 44 4D 49 3A 31 0D",
+          "default_format": "str",
+          "show_on_home": true,
+          "sort": 5,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "id": "appotronics_du",
+      "name": "光峰 DU 系列",
+      "brand": "appotronics",
+      "series": "du",
+      "display_name": "光峰 DU 系列",
+      "connection_types": {
+        "tcp": {
+          "id": "appotronics_du_tcp",
+          "name": "网络接入 (TCP)",
+          "default_port": 9761,
+          "icon": ""
+        }
+      },
+      "default_port_tcp": 9761,
+      "commands": [
+        {
+          "id": "power_on",
+          "name": "开机",
+          "icon": "",
+          "payload_str": "AT+System=On\r\n",
+          "payload_hex": "41 54 2B 53 79 73 74 65 6D 3D 4F 6E 0D 0A",
+          "default_format": "str",
+          "show_on_home": true,
+          "sort": 1,
+          "visible": true
+        },
+        {
+          "id": "power_off",
+          "name": "关机",
+          "icon": "",
+          "payload_str": "AT+System=Off\r\n",
+          "payload_hex": "41 54 2B 53 79 73 74 65 6D 3D 4F 66 66 0D 0A",
+          "default_format": "str",
+          "show_on_home": true,
+          "sort": 2,
+          "visible": true
+        },
+        {
+          "id": "get_power_state",
+          "name": "查询开关机状态",
+          "icon": "",
+          "payload_str": "AT+System?\r\n",
+          "payload_hex": "41 54 2B 53 79 73 74 65 6D 3F 0D 0A",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 3,
+          "visible": true
+        },
+        {
+          "id": "get_temperature",
+          "name": "查询温度",
+          "icon": "",
+          "payload_str": "AT+Temperature?\r\n",
+          "payload_hex": "41 54 2B 54 65 6D 70 65 72 61 74 75 72 65 3F 0D 0A",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 4,
+          "visible": true
+        },
+        {
+          "id": "get_product_info",
+          "name": "查询产品信息",
+          "icon": "",
+          "payload_str": "AT+ProductInformation?\r\n",
+          "payload_hex": "41 54 2B 50 72 6F 64 75 63 74 49 6E 66 6F 72 6D 61 74 69 6F 6E 3F 0D 0A",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 5,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "id": "appotronics_m",
+      "name": "光峰 M 系列",
+      "brand": "appotronics",
+      "series": "m",
+      "display_name": "光峰 M 系列",
+      "connection_types": {
+        "tcp": {
+          "id": "appotronics_m_tcp",
+          "name": "网络接入 (TCP)",
+          "default_port": 4352,
+          "icon": ""
+        }
+      },
+      "default_port_tcp": 4352,
+      "commands": [
+        {
+          "id": "power_on",
+          "name": "开机",
+          "icon": "",
+          "payload_str": "AT+System=On\r",
+          "payload_hex": "41 54 2B 53 79 73 74 65 6D 3D 4F 6E 0D",
+          "default_format": "str",
+          "show_on_home": true,
+          "sort": 1,
+          "visible": true
+        },
+        {
+          "id": "power_off",
+          "name": "关机",
+          "icon": "",
+          "payload_str": "AT+System=Off\r",
+          "payload_hex": "41 54 2B 53 79 73 74 65 6D 3D 4F 66 66 0D",
+          "default_format": "str",
+          "show_on_home": true,
+          "sort": 2,
+          "visible": true
+        },
+        {
+          "id": "get_power_state",
+          "name": "查询开关机状态",
+          "icon": "",
+          "payload_str": "AT+System?\r",
+          "payload_hex": "41 54 2B 53 79 73 74 65 6D 3F 0D",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 3,
+          "visible": true
+        },
+        {
+          "id": "get_lamp_hours",
+          "name": "查询灯泡时长",
+          "icon": "",
+          "payload_str": "AT+LightSource?\r",
+          "payload_hex": "41 54 2B 4C 69 67 68 74 53 6F 75 72 63 65 3F 0D",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 4,
+          "visible": true
+        },
+        {
+          "id": "get_signal_source",
+          "name": "查询信号源",
+          "icon": "",
+          "payload_str": "AT+SignalChannel?\r",
+          "payload_hex": "41 54 2B 53 69 67 6E 61 6C 43 68 61 6E 6E 65 6C 3F 0D",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 5,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "id": "appotronics_f",
+      "name": "光峰 F 系列",
+      "brand": "appotronics",
+      "series": "f",
+      "display_name": "光峰 F 系列",
+      "connection_types": {
+        "tcp": {
+          "id": "appotronics_f_tcp",
+          "name": "网络接入 (TCP)",
+          "default_port": 9761,
+          "icon": ""
+        }
+      },
+      "default_port_tcp": 9761,
+      "commands": [
+        {
+          "id": "power_on",
+          "name": "开机",
+          "icon": "",
+          "payload_str": "AT+System=On\r\n",
+          "payload_hex": "41 54 2B 53 79 73 74 65 6D 3D 4F 6E 0D 0A",
+          "default_format": "str",
+          "show_on_home": true,
+          "sort": 1,
+          "visible": true
+        },
+        {
+          "id": "power_off",
+          "name": "关机",
+          "icon": "",
+          "payload_str": "AT+System=Off\r\n",
+          "payload_hex": "41 54 2B 53 79 73 74 65 6D 3D 4F 66 66 0D 0A",
+          "default_format": "str",
+          "show_on_home": true,
+          "sort": 2,
+          "visible": true
+        },
+        {
+          "id": "get_power_state",
+          "name": "查询开关机状态",
+          "icon": "",
+          "payload_str": "AT+System?\r\n",
+          "payload_hex": "41 54 2B 53 79 73 74 65 6D 3F 0D 0A",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 3,
+          "visible": true
+        },
+        {
+          "id": "get_lamp_hours",
+          "name": "查询灯泡时长",
+          "icon": "",
+          "payload_str": "AT+LightSource?\r\n",
+          "payload_hex": "41 54 2B 4C 69 67 68 74 53 6F 75 72 63 65 3F 0D 0A",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 4,
+          "visible": true
+        },
+        {
+          "id": "get_signal_source",
+          "name": "查询信号源",
+          "icon": "",
+          "payload_str": "AT+SignalChannel?\r\n",
+          "payload_hex": "41 54 2B 53 69 67 6E 61 6C 43 68 61 6E 6E 65 6C 3F 0D 0A",
+          "default_format": "str",
+          "show_on_home": false,
+          "sort": 5,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "id": "appotronics_s",
+      "name": "光峰 S 系列",
+      "brand": "appotronics",
+      "series": "s",
+      "display_name": "光峰 S 系列",
+      "connection_types": {
+        "udp": {
+          "id": "appotronics_s_udp",
+          "name": "网络接入 (UDP)",
+          "default_port": 5050,
+          "icon": ""
+        }
+      },
+      "default_port_udp": 5050,
+      "commands": [
+        {
+          "id": "get_power_state",
+          "name": "查询开关机状态",
+          "icon": "",
+          "payload_hex": "AF 00 00 00 25 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 1,
+          "visible": true
+        }
+      ]
+    },
+    {
+      "id": "appotronics_gt",
+      "name": "光峰 G/T 系列",
+      "brand": "appotronics",
+      "series": "gt",
+      "display_name": "光峰 G/T 系列",
+      "connection_types": {
+        "tcp": {
+          "id": "appotronics_gt_tcp",
+          "name": "网络接入 (TCP)",
+          "default_port": 5000,
+          "icon": ""
+        }
+      },
+      "default_port_tcp": 5000,
+      "commands": [
+        {
+          "id": "power_on",
+          "name": "开机",
+          "icon": "",
+          "payload_hex": "45 46 20 46 45 20 41 54 2B 53 79 73 74 65 6D 3D 4F 6E 0D",
+          "default_format": "hex",
+          "show_on_home": true,
+          "sort": 1,
+          "visible": true
+        },
+        {
+          "id": "power_off",
+          "name": "关机",
+          "icon": "",
+          "payload_hex": "45 46 20 46 45 20 41 54 2B 53 79 73 74 65 6D 3D 4F 66 66 0D",
+          "default_format": "hex",
+          "show_on_home": true,
+          "sort": 2,
+          "visible": true
+        },
+        {
+          "id": "get_power_state",
+          "name": "查询开关机状态",
+          "icon": "",
+          "payload_hex": "45 46 20 46 45 20 41 54 2B 53 79 73 74 65 6D 3F 0D",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 3,
+          "visible": true
+        },
+        {
+          "id": "get_signal_source",
+          "name": "查询信号源",
+          "icon": "",
+          "payload_hex": "45 46 20 46 45 20 41 54 2B 53 69 67 6E 61 6C 43 68 61 6E 6E 65 6C 3F 0D",
+          "default_format": "hex",
+          "show_on_home": false,
+          "sort": 4,
+          "visible": true
+        }
+      ]
+    }
+  ]
+}

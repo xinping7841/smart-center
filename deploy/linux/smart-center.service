@@ -1,0 +1,21 @@
+[Unit]
+Description=Smart Center Control Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/smart-center/current
+EnvironmentFile=-/etc/smart-center.env
+ExecStart=/srv/smart-center/.venv/bin/python /srv/smart-center/current/app.py
+Restart=always
+RestartSec=5
+TimeoutStartSec=60
+User=root
+Group=root
+StandardOutput=append:/srv/smart-center-data/runtime/app_stdout.log
+StandardError=append:/srv/smart-center-data/runtime/app_stderr.log
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

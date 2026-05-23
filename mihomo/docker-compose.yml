@@ -1,0 +1,8 @@
+services:
+  mihomo:
+    image: metacubex/mihomo:latest
+    container_name: mihomo
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./config.yaml:/root/.config/mihomo/config.yaml

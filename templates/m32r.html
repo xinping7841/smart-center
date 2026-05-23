@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M32R Console</title>
+    <style>
+        :root {
+            --bg-top: #061121;
+            --bg-mid: #09182e;
+            --bg-bottom: #040912;
+            --panel: rgba(10, 20, 36, 0.95);
+            --panel-soft: rgba(16, 29, 49, 0.95);
+            --panel-border: rgba(148, 163, 184, 0.2);
+            --text-main: #e2e8f0;
+            --text-sub: #94a3b8;
+            --brand: #38bdf8;
+            --ok: #16a34a;
+            --warn: #f59e0b;
+            --danger: #dc2626;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+            color: var(--text-main);
+            background: radial-gradient(circle at 20% 0%, rgba(56, 189, 248, 0.14), transparent 26%),
+                        linear-gradient(160deg, var(--bg-top) 0%, var(--bg-mid) 52%, var(--bg-bottom) 100%);
+        }
+        .page { max-width: 1680px; margin: 0 auto; padding: 20px; }
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .title-wrap h1 { margin: 0; font-size: 28px; letter-spacing: 0.2px; }
+        .title-wrap p { margin: 6px 0 0; color: var(--text-sub); font-size: 14px; }
+        .head-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .lang-box {
+            display: inline-flex;
+            gap: 6px;
+            padding: 4px;
+            border-radius: 999px;
+            border: 1px solid var(--panel-border);
+            background: rgba(2, 6, 23, 0.55);
+        }
+        .lang-btn {
+            border: none;
+            border-radius: 999px;
+            padding: 8px 12px;
+            background: transparent;
+            color: var(--text-sub);
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .lang-btn.active { background: rgba(37, 99, 235, 0.9); color: #fff; }
+        .btn {
+            border: none;
+            border-radius: 11px;
+            padding: 10px 14px;
+            color: #fff;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.15s ease;
+        }
+        .btn:hover { transform: translateY(-1px); }
+        .btn-blue { background: linear-gradient(135deg, #2563eb, #1d4ed8); }
+        .btn-green { background: linear-gradient(135deg, #16a34a, #15803d); }
+        .btn-orange { background: linear-gradient(135deg, #f59e0b, #d97706); }
+        .btn-red { background: linear-gradient(135deg, #dc2626, #b91c1c); }
+        .btn-dark { background: linear-gradient(135deg, #334155, #1e293b); border: 1px solid rgba(148, 163, 184, 0.22); }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .card {
+            border-radius: 14px;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            box-shadow: 0 14px 30px rgba(2, 6, 23, 0.3);
+            padding: 12px 14px;
+        }
+        .card .label { font-size: 12px; color: var(--text-sub); margin-bottom: 8px; }
+        .card .value { font-size: 21px; font-weight: 800; }
+        .view-tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+        .tab-btn {
+            border: 1px solid var(--panel-border);
+            border-radius: 999px;
+            padding: 9px 13px;
+            background: rgba(15, 23, 42, 0.85);
+            color: var(--text-sub);
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .tab-btn.active {
+            background: rgba(37, 99, 235, 0.9);
+            color: #fff;
+            border-color: rgba(96, 165, 250, 0.7);
+        }
+        .view { display: none; animation: fadeIn 0.2s ease; }
+        .view.active { display: block; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .layout-2 { display: grid; grid-template-columns: 1fr 340px; gap: 12px; }
+        .panel {
+            border-radius: 14px;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            padding: 12px;
+            box-shadow: 0 14px 30px rgba(2, 6, 23, 0.3);
+        }
+        .panel h2, .panel h3 { margin: 0 0 10px; font-size: 18px; }
+        .sub { color: var(--text-sub); font-size: 12px; line-height: 1.6; margin-bottom: 10px; }
+        .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+        .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        .field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--text-sub); }
+        .field input, .field select, .field textarea {
+            width: 100%;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 10px;
+            background: var(--panel-soft);
+            color: var(--text-main);
+            padding: 9px 10px;
+            outline: none;
+        }
+        .field textarea { resize: vertical; min-height: 70px; }
+        .field.checkbox { flex-direction: row; align-items: center; gap: 8px; margin-top: 4px; }
+        .field.checkbox input { width: auto; }
+        .chip-list { display: flex; flex-wrap: wrap; gap: 6px; }
+        .chip {
+            padding: 6px 9px;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.26);
+            background: rgba(2, 6, 23, 0.44);
+            color: #cbd5e1;
+            font-size: 12px;
+        }
+        .chip.ok { border-color: rgba(22, 163, 74, 0.45); color: #bbf7d0; }
+        .chip.warn { border-color: rgba(245, 158, 11, 0.5); color: #fde68a; }
+        .quick-count {
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-radius: 999px;
+            padding: 8px 10px;
+            background: rgba(15, 23, 42, 0.85);
+            color: #cbd5e1;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .quick-count.active {
+            background: rgba(37, 99, 235, 0.9);
+            color: #fff;
+            border-color: rgba(96, 165, 250, 0.7);
+        }
+        .mixer-tools {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+        }
+        .channel-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(116px, 1fr));
+            gap: 8px;
+        }
+        .strip {
+            border-radius: 12px;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(5, 12, 24, 0.96));
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            padding: 10px 8px;
+            min-height: 398px;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            align-items: center;
+            cursor: pointer;
+        }
+        .strip.active {
+            border-color: rgba(56, 189, 248, 0.8);
+            box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.3) inset;
+        }
+        .strip-name { font-size: 13px; font-weight: 800; text-align: center; }
+        .strip-scribble { min-height: 16px; color: #7dd3fc; font-size: 11px; text-align: center; }
+        .meter {
+            width: 14px;
+            height: 150px;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            background: rgba(2, 6, 23, 0.8);
+            position: relative;
+            overflow: hidden;
+        }
+        .meter-fill {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 0%;
+            background: linear-gradient(180deg, #ef4444 0%, #f59e0b 36%, #22c55e 100%);
+            transition: height 0.2s ease;
+        }
+        .fader {
+            writing-mode: bt-lr;
+            -webkit-appearance: slider-vertical;
+            width: 24px;
+            height: 128px;
+            accent-color: var(--brand);
+            background: transparent;
+        }
+        .mini-meter { font-size: 11px; color: var(--text-sub); font-family: Consolas, monospace; }
+        .table-wrap { overflow: auto; border-radius: 10px; border: 1px solid rgba(148, 163, 184, 0.2); }
+        table { width: 100%; border-collapse: collapse; min-width: 560px; }
+        th, td {
+            border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+            padding: 8px;
+            font-size: 12px;
+            text-align: left;
+            white-space: nowrap;
+        }
+        th { color: #cbd5e1; background: rgba(15, 23, 42, 0.85); }
+        .meter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; }
+        .meter-card {
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            padding: 10px 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+        .meter-card .name { font-size: 12px; font-weight: 700; }
+        .meter-card .bar {
+            width: 12px;
+            height: 130px;
+            border-radius: 999px;
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            background: rgba(2, 6, 23, 0.9);
+            overflow: hidden;
+            position: relative;
+        }
+        .meter-card .bar > div {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 0%;
+            background: linear-gradient(180deg, #ef4444 0%, #f59e0b 35%, #22c55e 100%);
+        }
+        .queue-list, .search-list { display: grid; gap: 8px; }
+        .music-item {
+            border-radius: 10px;
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            padding: 8px;
+        }
+        .music-item .name { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+        .music-item .meta { font-size: 12px; color: var(--text-sub); margin-bottom: 6px; }
+        .note {
+            border-radius: 11px;
+            background: rgba(15, 23, 42, 0.84);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            color: #cbd5e1;
+            font-size: 12px;
+            line-height: 1.7;
+            padding: 10px;
+        }
+        .toast {
+            position: fixed;
+            top: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 11px 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            background: rgba(15, 23, 42, 0.95);
+            color: #fff;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 1000;
+        }
+        .toast.show { opacity: 1; }
+        .toast.error { border-color: rgba(220, 38, 38, 0.45); }
+        @media (max-width: 1280px) {
+            .layout-2 { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 860px) {
+            .status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="topbar">
+            <div class="title-wrap">
+                <h1 data-i18n="title">M32R Virtual Console</h1>
+                <p data-i18n="subtitle">Official-style setup, channel strips, status readback, and music player integration.</p>
+            </div>
+            <div class="head-actions">
+                <div class="lang-box">
+                    <button class="lang-btn" id="langZh" type="button">中文</button>
+                    <button class="lang-btn" id="langEn" type="button">EN</button>
+                </div>
+                <button class="btn btn-dark" type="button" id="backBtn" data-i18n="back">Back</button>
+                <button class="btn btn-blue" type="button" id="refreshBtn" data-i18n="refresh">Refresh</button>
+            </div>
+        </div>
+
+        <div class="status-grid">
+            <div class="card"><div class="label" data-i18n="conn">Connection</div><div class="value" id="statusConn">-</div></div>
+            <div class="card"><div class="label" data-i18n="mode">Mode</div><div class="value" id="statusMode">-</div></div>
+            <div class="card"><div class="label" data-i18n="mixerHost">Host</div><div class="value" id="statusHost">-</div></div>
+            <div class="card"><div class="label" data-i18n="lastRx">Last RX</div><div class="value" id="statusRx">-</div></div>
+        </div>
+
+        <div class="view-tabs">
+            <button class="tab-btn active" type="button" data-view="mixer" data-i18n="tabMixer">Mixer</button>
+            <button class="tab-btn" type="button" data-view="setup" data-i18n="tabSetup">Setup</button>
+            <button class="tab-btn" type="button" data-view="routing" data-i18n="tabRouting">Routing</button>
+            <button class="tab-btn" type="button" data-view="meter" data-i18n="tabMeter">Meter</button>
+            <button class="tab-btn" type="button" data-view="apple" data-i18n="tabApple">Music Player</button>
+        </div>
+
+        <section class="view active" id="view-mixer">
+            <div class="layout-2">
+                <div class="panel">
+                    <div class="mixer-tools">
+                        <div class="row">
+                            <button class="btn btn-dark" type="button" id="bankPrevBtn" data-i18n="prev">Prev</button>
+                            <button class="btn btn-dark" type="button" id="bankNextBtn" data-i18n="next">Next</button>
+                            <button class="btn btn-dark" type="button" id="jump1Btn">1-8</button>
+                            <button class="btn btn-dark" type="button" id="jump2Btn">9-16</button>
+                            <button class="btn btn-dark" type="button" id="jump3Btn">17-24</button>
+                            <button class="btn btn-dark" type="button" id="jump4Btn">25-32</button>
+                        </div>
+                        <div class="row">
+                            <button class="quick-count" type="button" id="count8Btn">8</button>
+                            <button class="quick-count" type="button" id="count16Btn">16</button>
+                            <button class="quick-count" type="button" id="count24Btn">24</button>
+                            <button class="quick-count" type="button" id="count32Btn">32</button>
+                        </div>
+                        <div class="chip" id="bankRange">CH 01-08</div>
+                    </div>
+                    <div class="channel-grid" id="channelGrid"></div>
+                </div>
+
+                <div class="panel">
+                    <h3 data-i18n="mainBus">Main Bus</h3>
+                    <div class="grid">
+                        <label class="field">
+                            <span data-i18n="mainFader">Main Fader</span>
+                            <input type="range" id="mainFader" min="0" max="1" step="0.01">
+                        </label>
+                        <div class="field">
+                            <span data-i18n="mainState">Main State</span>
+                            <button class="btn btn-green" type="button" id="mainToggleBtn">ON</button>
+                        </div>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <div class="chip" id="mainDb">0.0 dB</div>
+                        <div class="chip" id="mainMeterDb">-60.0 dB</div>
+                    </div>
+                    <div class="meter" style="margin-top:10px;">
+                        <div class="meter-fill" id="mainMeterFill"></div>
+                    </div>
+                    <div class="sub" style="margin-top:10px;" data-i18n="detailHint">Select a strip to edit label and tone details.</div>
+
+                    <h3 style="margin-top:14px;" data-i18n="channelDetail">Channel Detail</h3>
+                    <div class="chip" id="detailCh">CH --</div>
+                    <div class="grid" style="margin-top:8px;">
+                        <label class="field"><span data-i18n="name">Name</span><input id="detailName"></label>
+                        <label class="field"><span data-i18n="scribble">Scribble</span><input id="detailScribble"></label>
+                        <label class="field"><span data-i18n="chFader">Fader</span><input id="detailFader" type="range" min="0" max="1" step="0.01"></label>
+                        <label class="field"><span data-i18n="chPan">Pan</span><input id="detailPan" type="range" min="0" max="1" step="0.01"></label>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <label class="field checkbox"><input id="detailOn" type="checkbox"><span data-i18n="channelOn">Channel On</span></label>
+                        <button class="btn btn-blue" type="button" id="saveLabelBtn" data-i18n="saveLabel">Save Label</button>
+                        <button class="btn btn-dark" type="button" id="applyBasicBtn" data-i18n="applyBasic">Apply Basic</button>
+                    </div>
+
+                    <h3 style="margin-top:14px;">Gate / EQ / Dyn / Sends</h3>
+                    <div class="grid">
+                        <label class="field"><span data-i18n="gateEnabled">Gate Enabled</span><select id="gateEnabled"><option value="true">true</option><option value="false">false</option></select></label>
+                        <label class="field"><span data-i18n="gateThreshold">Gate Threshold dB</span><input id="gateThreshold" type="number" step="0.1"></label>
+                        <label class="field"><span data-i18n="eqEnabled">EQ Enabled</span><select id="eqEnabled"><option value="true">true</option><option value="false">false</option></select></label>
+                        <label class="field"><span data-i18n="eqMidFreq">EQ Mid Freq Hz</span><input id="eqMidFreq" type="number"></label>
+                        <label class="field"><span data-i18n="dynEnabled">Dyn Enabled</span><select id="dynEnabled"><option value="true">true</option><option value="false">false</option></select></label>
+                        <label class="field"><span data-i18n="dynThreshold">Dyn Threshold dB</span><input id="dynThreshold" type="number" step="0.1"></label>
+                        <label class="field"><span data-i18n="send1">Send Bus1</span><input id="send1" type="number" step="0.01" min="0" max="1"></label>
+                        <label class="field"><span data-i18n="send2">Send Bus2</span><input id="send2" type="number" step="0.01" min="0" max="1"></label>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <button class="btn btn-blue" type="button" id="applyToneBtn" data-i18n="applyTone">Apply Tone</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="view" id="view-setup">
+            <div class="layout-2">
+                <div class="panel">
+                    <h2 data-i18n="connectCfg">Connection Config</h2>
+                    <div class="grid">
+                        <label class="field"><span data-i18n="mixerName">Mixer Name</span><input id="setupName" value="{{ config.m32r.name if config.m32r else 'Midas M32R' }}"></label>
+                        <label class="field"><span data-i18n="mixerHost">Host</span><input id="setupHost" value="{{ config.m32r.host if config.m32r else '192.168.50.32' }}"></label>
+                        <label class="field"><span data-i18n="udpPort">UDP Port</span><input id="setupPort" type="number" value="{{ config.m32r.port if config.m32r else 10023 }}"></label>
+                        <label class="field"><span data-i18n="visibleChannels">Visible Channels</span><input id="setupChannelCount" type="number" min="1" max="32" value="{{ config.m32r.channel_count if config.m32r else 8 }}"></label>
+                        <label class="field"><span data-i18n="bankStart">Bank Start</span><input id="setupBankStart" type="number" min="1" max="32" value="{{ config.m32r.bank_start if config.m32r else 1 }}"></label>
+                        <label class="field"><span data-i18n="pollMs">Poll Interval ms</span><input id="setupPollMs" type="number" min="300" value="{{ config.m32r.poll_interval_ms if config.m32r else 1200 }}"></label>
+                        <label class="field"><span data-i18n="keepaliveSec">Keepalive sec</span><input id="setupKeepaliveSec" type="number" min="2" max="9" value="{{ config.m32r.keepalive_sec if config.m32r else 5 }}"></label>
+                        <label class="field"><span data-i18n="syncDirection">Sync Direction</span><select id="setupSyncDirection"><option value="mixer_to_pc">Mixer -> PC</option><option value="pc_to_mixer">PC -> Mixer</option></select></label>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <label class="field checkbox"><input id="setupAutoConnect" type="checkbox"><span data-i18n="autoConnect">Auto Connect</span></label>
+                        <label class="field checkbox"><input id="setupAutoSync" type="checkbox"><span data-i18n="autoSync">Auto Sync</span></label>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <button class="btn btn-green" type="button" id="connectBtn" data-i18n="connect">Connect</button>
+                        <button class="btn btn-orange" type="button" id="demoBtn" data-i18n="demo">Demo</button>
+                        <button class="btn btn-red" type="button" id="disconnectBtn" data-i18n="disconnect">Disconnect</button>
+                        <button class="btn btn-blue" type="button" id="saveCfgBtn" data-i18n="saveCfg">Save Config</button>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <button class="btn btn-dark" type="button" id="discoverBtn" data-i18n="discover">Discover</button>
+                        <button class="btn btn-dark" type="button" id="syncBtn" data-i18n="syncNow">Sync Now</button>
+                        <button class="btn btn-dark" type="button" id="refreshChBtn" data-i18n="refreshChannels">Refresh Channels</button>
+                    </div>
+                    <div class="note" id="setupNote" style="margin-top:10px;" data-i18n="setupNote">Configuration readback source labels: live / estimated / local.</div>
+                </div>
+
+                <div class="panel">
+                    <h3 data-i18n="localIps">Local IPs</h3>
+                    <div class="chip-list" id="localIps"></div>
+                    <h3 style="margin-top:12px;" data-i18n="feedbackSource">Feedback Sources</h3>
+                    <div class="chip-list" id="feedbackSources"></div>
+                    <h3 style="margin-top:12px;" data-i18n="templateOps">Templates</h3>
+                    <div class="grid">
+                        <label class="field"><span data-i18n="templateName">Template Name</span><input id="tplName" value="speech_custom"></label>
+                        <label class="field"><span data-i18n="templateList">Template List</span><select id="tplSelect"></select></label>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <button class="btn btn-blue" type="button" id="tplSaveBtn" data-i18n="saveTemplate">Save</button>
+                        <button class="btn btn-dark" type="button" id="tplApplyBtn" data-i18n="loadTemplate">Load</button>
+                        <button class="btn btn-orange" type="button" id="tplRenameBtn" data-i18n="renameTemplate">Rename</button>
+                        <button class="btn btn-red" type="button" id="tplDeleteBtn" data-i18n="deleteTemplate">Delete</button>
+                    </div>
+                    <div class="note" id="templateMeta">-</div>
+                </div>
+            </div>
+
+            <div class="panel" style="margin-top:12px;">
+                <h2 data-i18n="discoveredMixers">Discovered / Known Mixers</h2>
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th data-i18n="mixerName">Name</th>
+                                <th data-i18n="mixerHost">Host</th>
+                                <th data-i18n="model">Model</th>
+                                <th data-i18n="firmware">Firmware</th>
+                                <th data-i18n="online">Online</th>
+                                <th data-i18n="action">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="mixerRows"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <section class="view" id="view-routing">
+            <div class="layout-2">
+                <div class="panel">
+                    <h2 data-i18n="routeAppleToM32">Music Player -> M32 Mapping</h2>
+                    <div class="grid">
+                        <label class="field"><span data-i18n="provider">Provider</span><input id="routeProvider" value="{{ config.apple_audio.provider if config.apple_audio else 'demo' }}"></label>
+                        <label class="field"><span data-i18n="playerMode">Player Mode</span><input id="routePlayerMode" value="{{ config.apple_audio.player_mode if config.apple_audio else 'browser' }}"></label>
+                        <label class="field"><span data-i18n="playerHost">Player Host</span><input id="routePlayerHost" value="{{ config.apple_audio.player_host if config.apple_audio else '' }}"></label>
+                        <label class="field"><span data-i18n="outputMode">Output Mode</span><input id="routeOutputMode" value="{{ config.apple_audio.output_mode if config.apple_audio else 'system_default' }}"></label>
+                        <label class="field"><span data-i18n="routeLeftCh">Left CH</span><input id="routeLeft" type="number" min="1" max="32" value="{{ config.apple_audio.m32_channel_left if config.apple_audio else 17 }}"></label>
+                        <label class="field"><span data-i18n="routeRightCh">Right CH</span><input id="routeRight" type="number" min="1" max="32" value="{{ config.apple_audio.m32_channel_right if config.apple_audio else 18 }}"></label>
+                        <label class="field"><span data-i18n="routeLabel">Label</span><input id="routeLabel" value="{{ config.apple_audio.m32_label if config.apple_audio else 'Music Player' }}"></label>
+                        <label class="field"><span data-i18n="prepareLevel">Prepare Level</span><input id="routePrepareLevel" type="number" step="0.01" min="0" max="1" value="{{ config.apple_audio.m32_prepare_level if config.apple_audio else 0.68 }}"></label>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <label class="field checkbox"><input id="routePrepareMain" type="checkbox"><span data-i18n="prepareMainOn">Prepare Main ON</span></label>
+                        <button class="btn btn-blue" type="button" id="routeSaveBtn" data-i18n="saveAppleCfg">Save Mapping</button>
+                        <button class="btn btn-green" type="button" id="routePrepareBtn" data-i18n="prepareM32">Prepare M32 Channels</button>
+                    </div>
+                </div>
+                <div class="panel">
+                    <h2 data-i18n="syncAndReadback">Sync And Readback</h2>
+                    <div class="field">
+                        <span data-i18n="syncDirection">Sync Direction</span>
+                        <select id="routeSyncDirection">
+                            <option value="mixer_to_pc">Mixer -> PC</option>
+                            <option value="pc_to_mixer">PC -> Mixer</option>
+                        </select>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <button class="btn btn-dark" type="button" id="routeSyncBtn" data-i18n="syncNow">Sync Now</button>
+                    </div>
+                    <div class="note" style="margin-top:10px;" data-i18n="routeNote">
+                        OSC controls and reads mixer parameters. Audio stream must still be routed via USB/Dante/Line-In.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="view" id="view-meter">
+            <div class="panel">
+                <h2 data-i18n="meterOverview">Meter Overview</h2>
+                <div class="meter-grid" id="meterGrid"></div>
+            </div>
+        </section>
+
+        <section class="view" id="view-apple">
+            <div class="layout-2">
+                <div class="panel">
+                    <h2 data-i18n="appleStatus">Music Player Status</h2>
+                    <div class="row">
+                        <div class="chip" id="appleNow">-</div>
+                        <div class="chip" id="appleElapsed">0:00</div>
+                        <div class="chip" id="appleAuth">-</div>
+                    </div>
+                    <div class="row" style="margin-top:8px;">
+                        <button class="btn btn-dark" type="button" id="appleToggleBtn" data-i18n="playPause">Play/Pause</button>
+                        <button class="btn btn-dark" type="button" id="applePrevBtn" data-i18n="prevTrack">Prev</button>
+                        <button class="btn btn-dark" type="button" id="appleNextBtn" data-i18n="nextTrack">Next</button>
+                        <button class="btn btn-dark" type="button" id="appleFavBtn" data-i18n="favorite">Favorite</button>
+                    </div>
+                    <h3 style="margin-top:12px;" data-i18n="outputs">Outputs</h3>
+                    <div class="chip-list" id="appleOutputs"></div>
+                    <h3 style="margin-top:12px;" data-i18n="queue">Queue</h3>
+                    <div class="row" style="margin-bottom:8px;">
+                        <button class="btn btn-red" type="button" id="appleClearQueueBtn" data-i18n="clearQueue">Clear Queue</button>
+                    </div>
+                    <div class="queue-list" id="appleQueue"></div>
+                </div>
+
+                <div class="panel">
+                    <h2 data-i18n="searchLibrary">Search Library</h2>
+                    <div class="row">
+                        <input id="appleSearchInput" style="flex:1; min-width:180px;" placeholder="keyword">
+                        <button class="btn btn-blue" type="button" id="appleSearchBtn" data-i18n="search">Search</button>
+                    </div>
+                    <div class="search-list" style="margin-top:10px;" id="appleSearchResults"></div>
+                </div>
+            </div>
+        </section>
+    </div>
+    <div class="toast" id="toast"></div>
+    <script src="/static/js/views/m32r.js?v=20260522-stage2-m32r-view"></script>
+</body>
+</html>

@@ -1,0 +1,538 @@
+// AI_MODULE: apple_audio_view
+// AI_PURPOSE: 音乐库、播放队列、歌词、封面和 M32R 准备动作的前端展示。
+// AI_BOUNDARY: 不直接控制音频设备；所有动作走 /api/apple-audio/*。
+// AI_DATA_FLOW: /api/apple-audio/status/queue/transport -> 音乐卡片和控制按钮。
+// AI_RUNTIME: 首页或音乐页面加载。
+// AI_RISK: 中，M32R 路由准备可能影响现场音频输出。
+// AI_SEARCH_KEYWORDS: apple audio, music, queue, lyrics, cover, m32.
+
+(function installSmartCenterAppleAudio(global) {
+    'use strict';
+
+    const SmartCenter = global.SmartCenter || (global.SmartCenter = {});
+    const state = SmartCenter.appleAudio = Object.assign({}, SmartCenter.appleAudio || {});
+
+    function html(value) {
+        return typeof global.escapeHtml === 'function'
+            ? global.escapeHtml(value)
+            : String(value ?? '').replace(/[&<>"']/g, ch => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;',
+            }[ch]));
+    }
+
+    function fetchJson(url, options = {}, fallbackText = '请求失败') {
+        if (typeof global.fetchJson === 'function') return global.fetchJson(url, options, fallbackText);
+        return fetch(url, options).then(response => response.json());
+    }
+
+    function postJson(url, payload, fallbackText = '请求失败') {
+        if (typeof global.postJsonLoose === 'function') return global.postJsonLoose(url, payload, fallbackText);
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload || {}),
+        }).then(response => response.json());
+    }
+
+    function notify(message, isError = false) {
+        if (typeof global.showToast === 'function') global.showToast(message, isError);
+    }
+
+    function translateError(message, fallbackText = '请求失败') {
+        return typeof global.translateApiError === 'function'
+            ? global.translateApiError(message, fallbackText)
+            : (message || fallbackText);
+    }
+
+    function formatDateTime(value) {
+        return typeof global.formatDateTimeText === 'function'
+            ? global.formatDateTimeText(value)
+            : (value ? String(value) : '--');
+    }
+
+    function canOpenConfig() {
+        return typeof global.canOpenConfigCenter === 'function' ? global.canOpenConfigCenter() : true;
+    }
+
+state.library = Array.isArray(state.library) ? state.library : [];
+state.outputZones = Array.isArray(state.outputZones) ? state.outputZones : [];
+state.queue = Array.isArray(state.queue) ? state.queue : [];
+state.nowPlaying = state.nowPlaying || null;
+state.isPlaying = !!state.isPlaying;
+state.elapsedSec = Number(state.elapsedSec || 0);
+state.stateCache = state.stateCache || null;
+state.stateLoading = !!state.stateLoading;
+state.lyricsTrackId = state.lyricsTrackId || '';
+state.lyricsType = state.lyricsType || 'none';
+state.lyricsPlain = state.lyricsPlain || '';
+state.lyricsLines = Array.isArray(state.lyricsLines) ? state.lyricsLines : [];
+state.lyricsActiveIndex = Number.isFinite(Number(state.lyricsActiveIndex)) ? Number(state.lyricsActiveIndex) : -1;
+state.categorySelected = state.categorySelected || 'all';
+function formatAppleDuration(sec) {
+    const total = Math.max(0, Number(sec) || 0);
+    const m = String(Math.floor(total / 60)).padStart(2, '0');
+    const s = String(total % 60).padStart(2, '0');
+    return `${m}:${s}`;
+}
+function normalizeAppleTrack(track, fallbackIndex = 0) {
+    const item = track || {};
+    return {
+        id: String(item.id || `apple_track_${fallbackIndex}`),
+        title: String(item.title || '未命名曲目'),
+        artist: String(item.artist || '未知艺人'),
+        album: String(item.album || '未命名专辑'),
+        duration: Number(item.duration || 0),
+        tag: String(item.tag || ''),
+        accent: String(item.accent || '♪'),
+        category: String(item.category || ''),
+        coverUrl: String(item.cover_url || (item.id ? `/api/apple-audio/cover/${item.id}` : '')),
+        coverAvailable: !!item.cover_available,
+        lyricsAvailable: !!item.lyrics_available,
+        lyricsType: String(item.lyrics_type || 'none')
+    };
+}
+function getAppleCategoryLabel(value) {
+    const text = String(value || '').trim();
+    return text || '未分类';
+}
+function renderAppleCategoryFilters() {
+    const wrap = document.getElementById('appleCategoryFilters');
+    if (!wrap) return;
+    const counts = new Map();
+    (state.library || []).forEach(item => {
+        const track = normalizeAppleTrack(item);
+        const key = getAppleCategoryLabel(track.category);
+        counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    const options = [{ key: 'all', label: `全部 (${state.library.length})` }];
+    Array.from(counts.entries())
+        .sort((a, b) => a[0].localeCompare(b[0], 'zh-Hans-CN'))
+        .forEach(([key, count]) => {
+            options.push({ key, label: `${key} (${count})` });
+        });
+    if (state.categorySelected !== 'all' && !counts.has(state.categorySelected)) {
+        state.categorySelected = 'all';
+    }
+    wrap.innerHTML = options.map(opt => `
+        <button class="apple-cat-chip ${state.categorySelected === opt.key ? 'active' : ''}" onclick="setAppleCategoryFilter('${html(opt.key)}')">
+            ${html(opt.label)}
+        </button>
+    `).join('');
+}
+function setAppleCategoryFilter(value) {
+    state.categorySelected = String(value || 'all');
+    renderAppleCategoryFilters();
+    const inputEl = document.getElementById('appleSearchInput');
+    renderAppleResults(inputEl ? inputEl.value : '');
+}
+function renderAppleScanProgress(scanState = {}) {
+    const wrap = document.getElementById('appleScanProgressWrap');
+    const fillEl = document.getElementById('appleScanProgressFill');
+    const metaEl = document.getElementById('appleScanProgressMeta');
+    const noteEl = document.getElementById('appleScanProgressNote');
+    if (!wrap || !fillEl || !metaEl || !noteEl) return;
+    const running = !!scanState.running;
+    const stage = String(scanState.stage || '');
+    const processed = Number(scanState.processed || 0);
+    const total = Number(scanState.total || 0);
+    const percentRaw = Number(scanState.progress || 0);
+    const progress = Math.max(0, Math.min(100, Number.isFinite(percentRaw) ? percentRaw : 0));
+    const message = String(scanState.message || '');
+    fillEl.style.width = `${progress}%`;
+    if (running) {
+        metaEl.innerText = `${progress}% · ${processed}/${total || '--'}`;
+        noteEl.innerText = message || (stage === 'scrape' ? '正在刮削封面和歌词...' : '正在扫描音频文件...');
+        wrap.style.display = '';
+        return;
+    }
+    if (stage === 'done' && total > 0) {
+        metaEl.innerText = `100% · ${total} 首`;
+        noteEl.innerText = message || '刮削完成';
+        wrap.style.display = '';
+        return;
+    }
+    const count = Number(scanState.count || 0);
+    metaEl.innerText = count > 0 ? `${count} 首` : '0 首';
+    noteEl.innerText = scanState.last_scan_at ? `最近扫描：${formatDateTime(scanState.last_scan_at)}` : '等待扫描';
+    wrap.style.display = '';
+}
+function getAppleCoverHtml(track) {
+    const item = track || {};
+    const title = html(item.title || '曲目封面');
+    if (item.coverAvailable && item.coverUrl) {
+        return `<img src="${html(item.coverUrl)}" alt="${title}" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('.apple-cover')?.classList.remove('has-image'); this.remove();">`;
+    }
+    return '<div class="apple-cover-badge">♪</div>';
+}
+function getAppleRowArtHtml(track) {
+    const item = track || {};
+    if (item.coverAvailable && item.coverUrl) {
+        return `<img src="${html(item.coverUrl)}" alt="${html(item.title || '曲目封面')}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.textContent='${html(item.accent || '♪')}';">`;
+    }
+    return html(item.accent || '♪');
+}
+function resetAppleLyricsState() {
+    state.lyricsTrackId = '';
+    state.lyricsType = 'none';
+    state.lyricsPlain = '';
+    state.lyricsLines = [];
+    state.lyricsActiveIndex = -1;
+}
+function renderAppleLyrics() {
+    const boxEl = document.getElementById('appleLyricsBox');
+    const typeEl = document.getElementById('appleLyricsType');
+    if (!boxEl || !typeEl) return;
+    if (!state.nowPlaying) {
+        typeEl.innerText = '未加载';
+        boxEl.innerHTML = '<div class="apple-lyrics-empty">当前曲目暂无歌词。</div>';
+        return;
+    }
+    const typeMap = {
+        synced: '逐行歌词',
+        plain: '纯文本歌词',
+        none: '暂无歌词'
+    };
+    typeEl.innerText = typeMap[state.lyricsType] || '暂无歌词';
+    if (state.lyricsType === 'synced' && state.lyricsLines.length) {
+        boxEl.innerHTML = state.lyricsLines.map((line, idx) => `
+            <div class="apple-lyrics-line ${idx === state.lyricsActiveIndex ? 'active' : ''}" data-lyric-index="${idx}">
+                ${html(line.text || '')}
+            </div>
+        `).join('');
+        if (state.lyricsActiveIndex >= 0) {
+            const activeEl = boxEl.querySelector(`[data-lyric-index="${state.lyricsActiveIndex}"]`);
+            if (activeEl) {
+                const top = Math.max(0, activeEl.offsetTop - Math.floor(boxEl.clientHeight * 0.35));
+                boxEl.scrollTop = top;
+            }
+        }
+        return;
+    }
+    if (state.lyricsPlain) {
+        boxEl.innerHTML = state.lyricsPlain
+            .split(/\n+/)
+            .map(line => `<div class="apple-lyrics-line">${html(line)}</div>`)
+            .join('');
+        return;
+    }
+    boxEl.innerHTML = '<div class="apple-lyrics-empty">当前曲目暂无歌词。</div>';
+}
+function updateAppleLyricsHighlight() {
+    if (!state.nowPlaying || state.lyricsType !== 'synced' || !state.lyricsLines.length) {
+        state.lyricsActiveIndex = -1;
+        renderAppleLyrics();
+        return;
+    }
+    const currentMs = Math.max(0, Math.floor(Number(state.elapsedSec || 0) * 1000));
+    let idx = -1;
+    for (let i = 0; i < state.lyricsLines.length; i += 1) {
+        const ts = Number(state.lyricsLines[i]?.ts_ms || 0);
+        if (ts <= currentMs) idx = i;
+        else break;
+    }
+    if (idx !== state.lyricsActiveIndex) {
+        state.lyricsActiveIndex = idx;
+        renderAppleLyrics();
+    }
+}
+function loadAppleLyrics(trackId) {
+    const safeTrackId = String(trackId || '').trim();
+    if (!safeTrackId) {
+        resetAppleLyricsState();
+        renderAppleLyrics();
+        return;
+    }
+    state.lyricsTrackId = safeTrackId;
+    fetchJson(`/api/apple-audio/lyrics/${encodeURIComponent(safeTrackId)}`, {}, '歌词读取失败')
+        .then(data => {
+            const payload = data.lyrics || {};
+            if (state.lyricsTrackId !== safeTrackId) return;
+            state.lyricsType = String(payload.lyrics_type || 'none');
+            state.lyricsPlain = String(payload.plain || '');
+            state.lyricsLines = Array.isArray(payload.lines)
+                ? payload.lines
+                    .map(item => ({
+                        ts_ms: Number(item.ts_ms || 0),
+                        text: String(item.text || '')
+                    }))
+                    .filter(item => item.text)
+                    .sort((a, b) => a.ts_ms - b.ts_ms)
+                : [];
+            state.lyricsActiveIndex = -1;
+            updateAppleLyricsHighlight();
+        })
+        .catch(() => {
+            if (state.lyricsTrackId !== safeTrackId) return;
+            state.lyricsType = 'none';
+            state.lyricsPlain = '';
+            state.lyricsLines = [];
+            state.lyricsActiveIndex = -1;
+            renderAppleLyrics();
+        });
+}
+function renderAppleNowPlaying() {
+    const titleEl = document.getElementById('appleNowTitle');
+    const metaEl = document.getElementById('appleNowMeta');
+    const currentEl = document.getElementById('appleProgressCurrent');
+    const totalEl = document.getElementById('appleProgressTotal');
+    const fillEl = document.getElementById('appleProgressFill');
+    const stateTag = document.getElementById('applePlaybackStateTag');
+    const playBtn = document.getElementById('applePlayToggleBtn');
+    const authEl = document.getElementById('appleAuthState');
+    const coverWrap = document.getElementById('appleNowCoverWrap');
+    if (!titleEl || !metaEl || !currentEl || !totalEl || !fillEl || !stateTag || !playBtn) return;
+    if (!state.nowPlaying) {
+        titleEl.innerText = '等待选择音源';
+        metaEl.innerText = '请选择 NAS 曲目、播放列表，或接入远程播放代理。';
+        currentEl.innerText = '00:00';
+        totalEl.innerText = '00:00';
+        fillEl.style.width = '0%';
+        stateTag.innerText = '待连接';
+        playBtn.innerText = '▶';
+        if (authEl) authEl.innerText = state.stateCache?.auth_state || '未连接';
+        if (coverWrap) {
+            coverWrap.classList.remove('has-image');
+            coverWrap.innerHTML = '<div class="apple-cover-badge">♪</div>';
+        }
+        return;
+    }
+    titleEl.innerText = state.nowPlaying.title;
+    metaEl.innerText = `${state.nowPlaying.artist} · ${state.nowPlaying.album} · ${state.nowPlaying.tag}`;
+    currentEl.innerText = formatAppleDuration(state.elapsedSec);
+    totalEl.innerText = formatAppleDuration(state.nowPlaying.duration);
+    if (state.nowPlaying.duration > 0) {
+        fillEl.style.width = `${Math.min(100, (state.elapsedSec / state.nowPlaying.duration) * 100)}%`;
+    } else {
+        fillEl.style.width = '0%';
+    }
+    stateTag.innerText = state.isPlaying ? '播放中' : '已暂停';
+    playBtn.innerText = state.isPlaying ? '❚❚' : '▶';
+    if (authEl) authEl.innerText = state.stateCache?.auth_state || '未连接';
+    if (coverWrap) {
+        coverWrap.classList.toggle('has-image', !!(state.nowPlaying.coverAvailable && state.nowPlaying.coverUrl));
+        coverWrap.innerHTML = getAppleCoverHtml(state.nowPlaying);
+    }
+    updateAppleLyricsHighlight();
+}
+function renderAppleOutputs() {
+    const list = document.getElementById('appleOutputList');
+    if (!list) return;
+    if (!state.outputZones.length) {
+        list.innerHTML = '<div class="apple-empty-note">暂未配置输出区域。可在配置页补充播放主机、输出模式和分区。</div>';
+        return;
+    }
+    list.innerHTML = state.outputZones.map(zone => `
+        <div class="apple-output-card ${zone.active ? 'active' : ''}">
+            <div class="apple-output-title"><span>${zone.name}</span><span>${zone.level}</span></div>
+            <div class="apple-output-meta">${zone.host} · ${zone.mode}</div>
+        </div>
+    `).join('');
+}
+function renderAppleResults(keyword='') {
+    const list = document.getElementById('appleResultList');
+    if (!list) return;
+    const text = String(keyword || '').trim().toLowerCase();
+    const sourceTracks = state.library.map((item, index) => normalizeAppleTrack(item, index));
+    const matched = sourceTracks.filter(item => {
+        const categoryOk = state.categorySelected === 'all' || getAppleCategoryLabel(item.category) === state.categorySelected;
+        if (!categoryOk) return false;
+        if (!text) return true;
+        const source = `${item.title} ${item.artist} ${item.album} ${item.tag} ${item.category}`.toLowerCase();
+        return source.includes(text);
+    });
+    list.innerHTML = matched.length ? matched.map(item => `
+        <div class="apple-track-row ${state.nowPlaying && state.nowPlaying.id === item.id ? 'playing' : ''}">
+            <div class="apple-track-art">${getAppleRowArtHtml(item)}</div>
+            <div class="apple-track-copy">
+                <div class="title">${html(item.title)}</div>
+                <div class="meta">${html(item.artist)} · ${html(item.album)} · ${formatAppleDuration(item.duration)} · ${html(getAppleCategoryLabel(item.category))}</div>
+            </div>
+            <button class="apple-track-action" onclick="queueAppleTrack('${item.id}')">加入队列</button>
+        </div>
+    `).join('') : '<div class="apple-empty-note">没有找到匹配曲目。可以换个关键词，或检查后端播放代理配置。</div>';
+}
+function renderAppleQueue() {
+    const list = document.getElementById('appleQueueList');
+    const heroCount = document.getElementById('appleQueueCountHero');
+    if (heroCount) heroCount.innerText = state.queue.length;
+    if (!list) return;
+    list.innerHTML = state.queue.length ? state.queue.map((item, index) => `
+        <div class="apple-track-row">
+            <div class="apple-track-art">${getAppleRowArtHtml(item)}</div>
+            <div class="apple-track-copy">
+                <div class="title">${index + 1}. ${html(item.title)}</div>
+                <div class="meta">${html(item.artist)} · 下一步可映射到节目单 / 场景联动</div>
+            </div>
+            <button class="apple-track-action" onclick="promoteAppleTrack(${index})">${index === 0 ? '下一首' : '提前'}</button>
+        </div>
+    `).join('') : '<div class="apple-empty-note">当前队列为空。你可以从左侧检索结果中添加曲目。</div>';
+}
+function queueAppleTrack(trackId) {
+    postJson('/api/apple-audio/queue', { track_id: trackId }, '加入播放队列失败')
+        .then(data => {
+            if (!data.success) {
+                notify(data.message || data.msg || '加入播放队列失败', true);
+                return;
+            }
+            syncAppleState(data.state);
+            notify(`已加入队列：${state.queue[state.queue.length - 1]?.title || trackId}`);
+        })
+        .catch(err => notify(translateError(err?.message, '加入播放队列失败'), true));
+}
+function promoteAppleTrack(index) {
+    if (index < 0 || index >= state.queue.length) return;
+    postJson('/api/apple-audio/queue/promote', { index }, '调整队列顺序失败')
+        .then(data => {
+            if (!data.success) {
+                notify(data.message || data.msg || '调整队列顺序失败', true);
+                return;
+            }
+            const title = state.queue[index]?.title || '当前曲目';
+            syncAppleState(data.state);
+            notify(`已调整为优先播放：${title}`);
+        })
+        .catch(err => notify(translateError(err?.message, '调整队列顺序失败'), true));
+}
+function clearAppleQueue() {
+    postJson('/api/apple-audio/queue/clear', {}, '清空播放队列失败')
+        .then(data => {
+            if (!data.success) {
+                notify(data.message || data.msg || '清空播放队列失败', true);
+                return;
+            }
+            syncAppleState(data.state);
+            notify('播放队列已清空');
+        })
+        .catch(err => notify(translateError(err?.message, '清空播放队列失败'), true));
+}
+function appleTransport(action) {
+    postJson('/api/apple-audio/transport', { action }, '音乐播放器控制失败')
+        .then(data => {
+            if (!data.success) {
+                notify(data.message || data.msg || '音乐播放器控制失败', true);
+                return;
+            }
+            syncAppleState(data.state);
+            const actionMap = {
+                toggle: state.isPlaying ? '已开始播放' : '已暂停播放',
+                next: '已切到下一首',
+                prev: '已回到当前曲目开头',
+                favorite: `已收藏：${state.nowPlaying ? state.nowPlaying.title : '当前曲目'}`
+            };
+            notify(actionMap[action] || '操作已执行');
+        })
+        .catch(err => notify(translateError(err?.message, '音乐播放器控制失败'), true));
+}
+function syncAppleState(nextStatePayload) {
+    const nextState = nextStatePayload || {};
+    const prevTrackId = state.nowPlaying ? state.nowPlaying.id : '';
+    state.stateCache = nextState;
+    state.library = Array.isArray(nextState.library) ? nextState.library.map((item, index) => normalizeAppleTrack(item, index)) : state.library;
+    state.outputZones = Array.isArray(nextState.outputs) ? nextState.outputs.map((item, index) => ({
+        id: String(item.id || `zone_${index}`),
+        name: String(item.name || `区域 ${index + 1}`),
+        host: String(item.host || nextState.player_host || '未指定主机'),
+        mode: String(item.mode || nextState.output_mode || '默认输出'),
+        level: String(item.level || '--'),
+        active: !!item.active
+    })) : [];
+    state.queue = Array.isArray(nextState.queue) ? nextState.queue.map((item, index) => normalizeAppleTrack(item, index)) : [];
+    state.nowPlaying = nextState.current_track ? normalizeAppleTrack(nextState.current_track, 0) : null;
+    state.isPlaying = !!nextState.is_playing;
+    state.elapsedSec = Number(nextState.elapsed_sec || 0);
+    renderAppleScanProgress(nextState.scan || {});
+    renderAppleCategoryFilters();
+    renderAppleNowPlaying();
+    renderAppleOutputs();
+    renderAppleQueue();
+    renderAppleResults(document.getElementById('appleSearchInput') ? document.getElementById('appleSearchInput').value : '');
+    const nextTrackId = state.nowPlaying ? state.nowPlaying.id : '';
+    if (!nextTrackId) {
+        resetAppleLyricsState();
+        renderAppleLyrics();
+    } else if (nextTrackId !== prevTrackId) {
+        loadAppleLyrics(nextTrackId);
+    } else {
+        updateAppleLyricsHighlight();
+    }
+}
+function prepareAppleAudioForM32() {
+    postJson('/api/apple-audio/m32/prepare', {}, '配置 M32 通道失败')
+        .then(data => {
+            if (!data.success) {
+                notify(data.message || data.msg || '配置 M32 通道失败', true);
+                return;
+            }
+            if (data.apple_state) syncAppleState(data.apple_state);
+            notify('M32 音乐播放器输入通道已准备完成');
+        })
+        .catch(err => notify(translateError(err?.message, '配置 M32 通道失败'), true));
+}
+function openAppleAudioConfig() {
+    if (!canOpenConfig()) {
+        notify('当前账号无配置中心访问权限', true);
+        return;
+    }
+    window.location.href = '/config#tab-univ';
+}
+function loadAppleAudioStatus(force = false) {
+    if (state.stateLoading && !force) return;
+    state.stateLoading = true;
+    fetchJson('/api/apple-audio/status', {}, '音乐播放器状态读取失败')
+        .then(data => {
+            const nextState = data.state || {};
+            state.library = Array.isArray(nextState.library) ? nextState.library : state.library;
+            syncAppleState(nextState);
+        })
+        .catch(err => console.error('音乐播放器状态更新失败', err))
+        .finally(() => {
+            state.stateLoading = false;
+        });
+}
+function initAppleAudioDemo() {
+    loadAppleAudioStatus(true);
+}
+
+    const api = {
+        formatAppleDuration,
+        normalizeAppleTrack,
+        getAppleCategoryLabel,
+        renderAppleCategoryFilters,
+        setAppleCategoryFilter,
+        renderAppleScanProgress,
+        getAppleCoverHtml,
+        getAppleRowArtHtml,
+        resetAppleLyricsState,
+        renderAppleLyrics,
+        updateAppleLyricsHighlight,
+        loadAppleLyrics,
+        renderAppleNowPlaying,
+        renderAppleOutputs,
+        renderAppleResults,
+        renderAppleQueue,
+        queueAppleTrack,
+        promoteAppleTrack,
+        clearAppleQueue,
+        appleTransport,
+        syncAppleState,
+        prepareAppleAudioForM32,
+        openAppleAudioConfig,
+        loadAppleAudioStatus,
+        initAppleAudioDemo,
+    };
+
+    SmartCenter.appleAudio = Object.assign(state, api);
+    if (typeof SmartCenter.registerModule === 'function') {
+        SmartCenter.registerModule('views.apple-audio', {
+            kind: 'view',
+            exports: Object.keys(api),
+            source: 'static/js/views/apple-audio.js',
+        });
+    }
+
+    Object.assign(global, api);
+})(window);
