@@ -207,6 +207,14 @@ def _first_value(payload: dict[str, Any], keys: tuple[str, ...]) -> Any:
     return None
 
 
+def _to_float(value: Any) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return number
+
+
 def _device_name(device: dict[str, Any]) -> str:
     return str(
         device.get("display_name")
@@ -492,7 +500,8 @@ class LocalSmartCenterClient:
         return "\n".join(lines)
 
     def meter_energy_text(self, query: str = "") -> str:
-        ok, payload = self.get_json("/api/meters?target=total&period=day&days=7", timeout_sec=5.0)
+        query_days = 30 if _contains_any(query, ("近30天", "最近30天", "30天")) else (14 if _contains_any(query, ("上周", "上个星期")) else 7)
+        ok, payload = self.get_json(f"/api/meters?target=total&period=day&days={query_days}", timeout_sec=6.0)
         if not ok or not isinstance(payload, dict):
             return f"电表接口暂时不可用：{payload}"
 
@@ -521,8 +530,19 @@ class LocalSmartCenterClient:
             yesterday_energy = comparison.get("previous")
 
         normalized = query.strip()
+        computed = self.energy_calculation_text(normalized, payload, today_energy, yesterday_energy, month_energy, power)
+        if computed:
+            return computed
         lines: list[str]
-        if _contains_any(normalized, ("昨天", "昨日", "昨日电量")):
+        if _contains_any(normalized, ("对比", "相比", "比", "差", "多了", "少了")):
+            lines = [
+                "电量概览",
+                f"今日用电：{_fmt_number(today_energy)} kWh",
+                f"昨日电量：{_fmt_number(yesterday_energy)} kWh",
+                f"本月用电：{_fmt_number(month_energy)} kWh",
+                f"当前功率：{_fmt_number(power)} kW",
+            ]
+        elif _contains_any(normalized, ("昨天", "昨日", "昨日电量")):
             lines = [f"昨日电量：{_fmt_number(yesterday_energy)} kWh"]
         elif _contains_any(normalized, ("今天", "今日", "当天")):
             lines = [f"今日用电：{_fmt_number(today_energy)} kWh"]
@@ -547,6 +567,99 @@ class LocalSmartCenterClient:
                 lines.append(f"{index}. {_device_name(item)}：{_fmt_number(item.get(key))} kWh")
 
         return "\n".join(lines)
+
+    def energy_calculation_text(
+        self,
+        query: str,
+        payload: dict[str, Any],
+        today_energy: Any,
+        yesterday_energy: Any,
+        month_energy: Any,
+        power: Any,
+    ) -> str:
+        normalized = query.strip()
+        wants_calc = _contains_any(
+            normalized,
+            ("合计", "总计", "总共", "累计", "平均", "最大", "最高", "最小", "最低", "对比", "相比", "环比", "比", "差", "多了", "少了", "本周", "这周", "近7天", "最近7天", "7天", "近30天", "最近30天", "30天"),
+        )
+        if not wants_calc:
+            return ""
+
+        rows = []
+        for item in payload.get("trend") or []:
+            if not isinstance(item, dict):
+                continue
+            day = str(item.get("date") or item.get("period") or "")
+            value = _to_float(_first_value(item, ("consume", "value", "daily_energy")))
+            if day and value is not None:
+                rows.append({"date": day, "consume": value})
+        rows.sort(key=lambda item: item["date"])
+
+        if _contains_any(normalized, ("近7天", "最近7天", "7天")) and len(rows) < 7:
+            ok7, payload7 = self.get_json("/api/7days_energy", timeout_sec=5.0)
+            if ok7 and isinstance(payload7, list):
+                rows = []
+                for item in payload7:
+                    if not isinstance(item, dict):
+                        continue
+                    day = str(item.get("date") or "")
+                    value = _to_float(item.get("consume"))
+                    if day and value is not None:
+                        rows.append({"date": day, "consume": value})
+                rows.sort(key=lambda item: item["date"])
+
+        selected = rows
+        title = "电量计算"
+        today = date.today()
+        if _contains_any(normalized, ("本周", "这周")):
+            monday = today - timedelta(days=today.weekday())
+            selected = [item for item in rows if item["date"] >= monday.isoformat()]
+            title = "本周电能消耗"
+        elif _contains_any(normalized, ("近30天", "最近30天", "30天")):
+            selected = rows[-30:]
+            title = "最近30天电能消耗"
+        elif _contains_any(normalized, ("近7天", "最近7天", "7天")):
+            selected = rows[-7:]
+            title = "最近7天电能消耗"
+        elif _contains_any(normalized, ("本月", "这个月", "月度")) and not _contains_any(normalized, ("对比", "相比", "比", "差", "多了", "少了")):
+            return f"本月用电：{_fmt_number(month_energy)} kWh\n当前功率：{_fmt_number(power)} kW"
+        elif _contains_any(normalized, ("昨天", "昨日")) and not _contains_any(normalized, ("对比", "相比", "比", "差", "多了", "少了")):
+            return f"昨日电量：{_fmt_number(yesterday_energy)} kWh"
+        elif _contains_any(normalized, ("今天", "今日")) and not _contains_any(normalized, ("对比", "相比", "比", "差", "多了", "少了")):
+            return f"今日用电：{_fmt_number(today_energy)} kWh"
+
+        if not selected:
+            return ""
+        values = [float(item["consume"]) for item in selected]
+        total = sum(values)
+        avg = total / len(values)
+        max_item = max(selected, key=lambda item: item["consume"])
+        min_item = min(selected, key=lambda item: item["consume"])
+
+        if _contains_any(normalized, ("对比", "相比", "比", "差", "多了", "少了")) and len(selected) >= 2:
+            previous = selected[-2]["consume"]
+            current = selected[-1]["consume"]
+            delta = current - previous
+            pct = (delta / previous * 100) if previous else None
+            trend = "增加" if delta > 0 else ("减少" if delta < 0 else "持平")
+            pct_text = f"，{trend} {_fmt_number(abs(pct))}%" if pct is not None else ""
+            return f"{selected[-1]['date']} 比 {selected[-2]['date']} {trend} {_fmt_number(abs(delta))} kWh{pct_text}"
+        if _contains_any(normalized, ("平均", "日均", "每天")):
+            return f"{title}：日均 {_fmt_number(avg)} kWh（{selected[0]['date']} 至 {selected[-1]['date']}，{len(selected)} 天合计 {_fmt_number(total)} kWh）"
+        if _contains_any(normalized, ("最大", "最高", "最多")):
+            return f"{title}：最高 {max_item['date']}，{_fmt_number(max_item['consume'])} kWh"
+        if _contains_any(normalized, ("最小", "最低", "最少")):
+            return f"{title}：最低 {min_item['date']}，{_fmt_number(min_item['consume'])} kWh"
+        return "\n".join(
+            [
+                title,
+                f"范围：{selected[0]['date']} 至 {selected[-1]['date']}，{len(selected)} 天",
+                f"合计：{_fmt_number(total)} kWh",
+                f"平均：{_fmt_number(avg)} kWh/天",
+                f"最高：{max_item['date']} {_fmt_number(max_item['consume'])} kWh",
+                f"最低：{min_item['date']} {_fmt_number(min_item['consume'])} kWh",
+            ]
+        )
 
     def offline_devices_text(self) -> str:
         ok, summary = self.get_json("/api/dashboard/summary", timeout_sec=4.0)
@@ -917,6 +1030,7 @@ class LocalSmartCenterClient:
             or "kwh" in lowered
             or "kw" in lowered
             or ("电" in keyword and _contains_any(keyword, ("今天", "今日", "昨天", "昨日", "本月", "多少", "消耗")))
+            or (_contains_any(keyword, ("本周", "这周", "近7天", "最近7天", "7天", "近30天", "最近30天", "30天")) and _contains_any(keyword, ("电", "能耗", "消耗", "合计", "累计")))
         )
         if asks_energy:
             return self.meter_energy_text(keyword)

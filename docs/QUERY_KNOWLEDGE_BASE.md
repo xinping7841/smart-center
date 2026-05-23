@@ -38,6 +38,7 @@ Use deterministic routing first. A local model may classify intent, but the actu
 | Offline or abnormal devices | 离线, 不在线, 异常, 掉线, 故障 | `GET /api/dashboard/summary` | Parse `counts` and `modules.*.devices` or `modules.server.machines`. |
 | Energy now/today/yesterday/month | 电量, 用电, 耗电, 能耗, 功率, 电表, kWh, 度电 | `GET /api/meters?target=total&period=day&days=7` | Use `summary`, `dashboard_summary`, `trend`, `trend_breakdown`. |
 | Energy history | 近7天, 近30天, 历史电量, 趋势 | `GET /api/7days_energy`, `GET /api/30days_energy`, `GET /api/meters?...` | Prefer `/api/meters` when total/reference comparison is needed. |
+| Energy calculation | 本周, 最近7天合计, 平均每天, 最高, 最低, 对比, 多了多少 | `GET /api/meters?...`, `GET /api/7days_energy`, `GET /api/30days_energy` | Compute sum/avg/max/min/delta in the bot/service formatter, not in the LLM. |
 | Current collector | 电流, 采集器, 回路, 通道 | `GET /api/current-collector/status` | Return group totals first, then visible channels if needed. |
 | Server and machine health | 服务器, 主机, 机器, 节点, 电脑, CPU, GPU, 磁盘 | `GET /api/dashboard/summary`, `GET /api/machines` | `/api/dashboard/summary` has a compact server module; `/api/machines` has richer detail. |
 | Environment | 温度, 湿度, 光照, 门磁, 环境, 传感器 | `GET /api/env/status`, `GET /api/dashboard/summary` | Use sensor names from config/dashboard. |
@@ -154,6 +155,11 @@ Natural-language examples:
 - "今日用电"
 - "本月用电排行"
 - "近 7 天电量趋势"
+- "本周电能消耗"
+- "最近 7 天合计用电量"
+- "最近 7 天平均每天用电"
+- "最近 7 天最高用电是哪天"
+- "今天比昨天多用了多少电"
 - "哪个电表今天耗电最多"
 - "当前总功率"
 
@@ -162,6 +168,17 @@ Suggested reply:
 ```text
 昨日电量：326.48 kWh。
 今日当前累计：27.49 kWh；本月累计：7580.0 kWh。
+```
+
+Computed reply example:
+
+```text
+最近7天电能消耗
+范围：2026-05-18 至 2026-05-24，7 天
+合计：2507.14 kWh
+平均：358.16 kWh/天
+最高：2026-05-22 549.09 kWh
+最低：2026-05-24 29.6 kWh
 ```
 
 ### 4. Current Collector
