@@ -33,7 +33,7 @@ const startRegister = Number(env.get('CURRENT_COLLECTOR_REGISTER') || 0);
 const count = Number(env.get('CURRENT_COLLECTOR_COUNT') || 16);
 const scale = Number(env.get('CURRENT_COLLECTOR_SCALE') || 100);
 const multiplier = Number(env.get('CURRENT_COLLECTOR_MULTIPLIER') || 1);
-const timeoutMs = Number(env.get('CURRENT_COLLECTOR_TIMEOUT_MS') || 1800);
+const timeoutMs = Number(env.get('CURRENT_COLLECTOR_TIMEOUT_MS') || 3000);
 
 function crc16Modbus(buffer) {
     let crc = 0xFFFF;
@@ -61,20 +61,35 @@ function buildRequest() {
     return Buffer.concat([frame, Buffer.from([crc & 0xFF, (crc >> 8) & 0xFF])]);
 }
 
-function parseResponse(buffer) {
+function parseCandidateFrame(frame) {
     const expectedLength = 5 + count * 2;
-    if (!Buffer.isBuffer(buffer) || buffer.length < expectedLength) {
-        throw new Error(`short response ${buffer ? buffer.length : 0}/${expectedLength}: ${toHex(buffer)}`);
-    }
-    const frame = buffer.subarray(0, expectedLength);
     const expectedCrc = crc16Modbus(frame.subarray(0, -2));
     const actualCrc = frame[frame.length - 2] | (frame[frame.length - 1] << 8);
-    if (expectedCrc !== actualCrc) throw new Error(`bad crc expected=${expectedCrc.toString(16)} actual=${actualCrc.toString(16)} frame=${toHex(frame)}`);
+    if (expectedCrc !== actualCrc) return null;
     if (frame[0] !== slave || frame[1] !== 0x03 || frame[2] !== count * 2) throw new Error(`unexpected frame: ${toHex(frame)}`);
     const raw = [];
     for (let offset = 3; offset < 3 + count * 2; offset += 2) raw.push(frame.readUInt16BE(offset));
     const currents = raw.map((value) => Number(((value / scale) * multiplier).toFixed(3)));
     return { frame, raw, currents };
+}
+
+function parseResponse(buffer) {
+    const expectedLength = 5 + count * 2;
+    if (!Buffer.isBuffer(buffer) || buffer.length < expectedLength) {
+        throw new Error(`short response ${buffer ? buffer.length : 0}/${expectedLength}: ${toHex(buffer)}`);
+    }
+
+    // Transparent serial servers can return stale bytes or concatenate frames.
+    // Scan for a valid RTU response instead of assuming it starts at byte 0.
+    const candidates = [];
+    for (let offset = 0; offset <= buffer.length - expectedLength; offset += 1) {
+        if (buffer[offset] !== slave || buffer[offset + 1] !== 0x03 || buffer[offset + 2] !== count * 2) continue;
+        const frame = buffer.subarray(offset, offset + expectedLength);
+        const parsed = parseCandidateFrame(frame);
+        if (parsed) return parsed;
+        candidates.push(toHex(frame));
+    }
+    throw new Error(`no valid response frame in ${buffer.length} bytes: ${toHex(buffer)} candidates=${candidates.slice(0, 3).join(' | ')}`);
 }
 
 function readCollector() {
@@ -94,14 +109,20 @@ function readCollector() {
             chunks.push(chunk);
             const merged = Buffer.concat(chunks);
             if (merged.length >= 5 + count * 2 && !settled) {
-                settled = true;
-                clearTimeout(timer);
-                socket.end();
                 try {
                     const parsed = parseResponse(merged);
+                    settled = true;
+                    clearTimeout(timer);
+                    socket.end();
                     resolve({ request, ...parsed });
                 } catch (err) {
-                    reject(err);
+                    // Keep reading briefly; a later TCP chunk may complete a valid frame.
+                    if (merged.length >= (5 + count * 2) * 3) {
+                        settled = true;
+                        clearTimeout(timer);
+                        socket.destroy();
+                        reject(err);
+                    }
                 }
             }
         });
@@ -121,6 +142,11 @@ function readCollector() {
 }
 
 (async () => {
+    if (context.get('busy')) {
+        node.status({ fill: 'yellow', shape: 'ring', text: 'skip: previous read still running' });
+        return;
+    }
+    context.set('busy', true);
     const read = await readCollector();
     const payload = {
         source: 'node-red',
@@ -148,6 +174,8 @@ function readCollector() {
     msg.payload = { ok: false, error: msg.error };
     node.error(msg.error, msg);
     node.send([null, msg]);
+}).finally(() => {
+    context.set('busy', false);
 });
 return;
 """
