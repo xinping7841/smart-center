@@ -27,6 +27,10 @@ FEISHU_DEFAULT_CHAT_ID=
 SMART_CENTER_BASE_URL=http://192.168.50.120:6899
 FEISHU_PUSH_TIMES=09:00
 FEISHU_HTTP_TIMEOUT_SEC=4
+FEISHU_NL_MODEL_ENABLED=false
+FEISHU_NL_MODEL_URL=http://127.0.0.1:11434
+FEISHU_NL_MODEL_NAME=qwen3:14b
+FEISHU_NL_MODEL_TIMEOUT_SEC=8
 ```
 
 `FEISHU_DEFAULT_CHAT_ID` can stay empty for the first run. Start the bot, send a message in the target group, and copy `chat_id=oc_xxx` from the bot log.
@@ -65,12 +69,40 @@ Supported chat commands:
 本月用电排行
 当前电流
 服务器状态
+最近自动化日志
+最近灯光日志
+UPS状态
+机房温度
+空调状态
+代理状态
+本地模型状态
 ```
 
-The bot also accepts natural-language read-only questions. It can currently answer
-device status/offline, server status, current collector, daily/monthly energy, and
-energy ranking questions. Control actions such as switching, rebooting, or issuing
-commands are intentionally refused in Feishu.
+The bot accepts natural-language read-only questions. It can answer current status,
+history, logs, statistics, and diagnostics. Control actions such as switching,
+rebooting, issuing commands, changing configuration, or executing scenes are
+intentionally refused in Feishu.
+
+## Optional Local Model Intent Parser
+
+If Ollama is installed on the machine running the Feishu bot, enable:
+
+```env
+FEISHU_NL_MODEL_ENABLED=true
+FEISHU_NL_MODEL_URL=http://127.0.0.1:11434
+FEISHU_NL_MODEL_NAME=qwen3:14b
+```
+
+The model is only used to classify the user intent. The bot still executes only
+the internal read-only allowlist. Requests to Ollama include `think: false`, which
+is required for Qwen3 so Feishu receives the final answer instead of thinking text.
+
+If the bot runs on another machine and Ollama only listens on 120 localhost, either
+run the bot on 120 or expose a protected Ollama/proxy URL and set
+`FEISHU_NL_MODEL_URL`.
+
+See `docs/QUERY_KNOWLEDGE_BASE.md` for the full query capability map and safety
+policy.
 
 Manual one-shot daily push:
 

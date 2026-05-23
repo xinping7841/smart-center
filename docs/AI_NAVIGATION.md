@@ -17,6 +17,8 @@ Ignore historical backups, generated scripts, and runtime dumps unless the user 
 
 ## Search Order
 
+For Feishu or local-model natural-language query behavior, read `docs/QUERY_KNOWLEDGE_BASE.md` first. It defines the read-only API allowlist, forbidden control actions, and intent routing map.
+
 1. Read `docs/MODULE_INDEX.yaml` for module ownership and keywords.
 2. Read `docs/AI_CODE_MARKERS.md` for the meaning of `AI_*` code comments.
 3. Read the module `MODULE.md` if it exists.

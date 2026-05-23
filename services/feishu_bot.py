@@ -67,6 +67,10 @@ class FeishuBotConfig:
     smart_center_base_url: str
     push_times: tuple[str, ...]
     request_timeout_sec: float = 4.0
+    nl_model_enabled: bool = False
+    nl_model_url: str = "http://127.0.0.1:11434"
+    nl_model_name: str = "qwen3:14b"
+    nl_model_timeout_sec: float = 8.0
 
 
 def load_dotenv(path: Path) -> None:
@@ -96,6 +100,10 @@ def load_config(env_file: str | Path | None = None) -> FeishuBotConfig:
         timeout = max(1.0, min(float(os.environ.get("FEISHU_HTTP_TIMEOUT_SEC", "4") or 4), 30.0))
     except Exception:
         timeout = 4.0
+    try:
+        model_timeout = max(1.0, min(float(os.environ.get("FEISHU_NL_MODEL_TIMEOUT_SEC", "8") or 8), 60.0))
+    except Exception:
+        model_timeout = 8.0
     return FeishuBotConfig(
         app_id=str(os.environ.get("FEISHU_APP_ID", "") or "").strip(),
         app_secret=str(os.environ.get("FEISHU_APP_SECRET", "") or "").strip(),
@@ -103,6 +111,10 @@ def load_config(env_file: str | Path | None = None) -> FeishuBotConfig:
         smart_center_base_url=str(os.environ.get("SMART_CENTER_BASE_URL", DEFAULT_BASE_URL) or DEFAULT_BASE_URL).strip().rstrip("/"),
         push_times=push_times,
         request_timeout_sec=timeout,
+        nl_model_enabled=str(os.environ.get("FEISHU_NL_MODEL_ENABLED", "") or "").strip().lower() in {"1", "true", "yes", "on"},
+        nl_model_url=str(os.environ.get("FEISHU_NL_MODEL_URL", "http://127.0.0.1:11434") or "http://127.0.0.1:11434").strip().rstrip("/"),
+        nl_model_name=str(os.environ.get("FEISHU_NL_MODEL_NAME", "qwen3:14b") or "qwen3:14b").strip(),
+        nl_model_timeout_sec=model_timeout,
     )
 
 
@@ -199,6 +211,112 @@ def _device_name(device: dict[str, Any]) -> str:
         or device.get("id")
         or "未命名设备"
     )
+
+
+def _normalize_intent(value: Any) -> str:
+    text = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+    aliases = {
+        "status": "overview",
+        "system_status": "overview",
+        "device_status": "overview",
+        "offline": "offline_devices",
+        "abnormal": "offline_devices",
+        "energy": "energy_overview",
+        "meter": "energy_overview",
+        "current": "current_collector",
+        "current_status": "current_collector",
+        "server": "server_status",
+        "machine": "server_status",
+        "env": "environment_status",
+        "environment": "environment_status",
+        "hvac": "hvac_status",
+        "light": "lighting_status",
+        "lighting": "lighting_status",
+        "automation": "automation_status",
+        "logs": "event_logs",
+        "log": "event_logs",
+        "event": "event_logs",
+        "snmp": "snmp_status",
+        "ups": "ups_status",
+        "nvr": "nvr_status",
+        "proxy": "proxy_status",
+        "model": "local_model_status",
+        "local_model": "local_model_status",
+        "control": "forbidden_control",
+    }
+    return aliases.get(text, text)
+
+
+class OllamaIntentClassifier:
+    INTENTS = (
+        "overview",
+        "offline_devices",
+        "energy_overview",
+        "energy_history",
+        "current_collector",
+        "server_status",
+        "environment_status",
+        "hvac_status",
+        "lighting_status",
+        "lighting_logs",
+        "automation_status",
+        "automation_logs",
+        "event_logs",
+        "snmp_status",
+        "ups_status",
+        "nvr_status",
+        "proxy_status",
+        "local_model_status",
+        "forbidden_control",
+        "unknown",
+    )
+
+    def __init__(self, base_url: str, model: str, timeout_sec: float = 8.0) -> None:
+        self.base_url = (base_url or "http://127.0.0.1:11434").rstrip("/")
+        self.model = model or "qwen3:14b"
+        self.timeout_sec = timeout_sec
+
+    def classify(self, text: str) -> dict[str, Any] | None:
+        prompt = (
+            "你是中控飞书机器人的意图分类器，只输出 JSON，不要输出解释。\n"
+            "当前只允许查询状态、历史数据、日志、统计和诊断，不允许任何控制动作。\n"
+            "可选 intent："
+            + ", ".join(self.INTENTS)
+            + "\n"
+            "如果用户要求开关、控制、重启、关机、唤醒、下发、执行、修改配置、调空调、执行场景，intent 必须是 forbidden_control。\n"
+            "如果是查询日志或历史记录，优先选择 event_logs、automation_logs、lighting_logs 或 energy_history。\n"
+            "返回格式：{\"intent\":\"...\",\"query\":\"原问题\",\"allowed\":true,\"reason\":\"\"}\n"
+            f"用户问题：{text}"
+        )
+        payload = {
+            "model": self.model,
+            "prompt": prompt,
+            "stream": False,
+            "format": "json",
+            "think": False,
+            "options": {"temperature": 0},
+        }
+        try:
+            response = requests.post(
+                f"{self.base_url}/api/generate",
+                json=payload,
+                timeout=self.timeout_sec,
+                headers={"Accept": "application/json"},
+            )
+            response.raise_for_status()
+            data = response.json()
+            raw = str(data.get("response") or "").strip()
+            parsed = json.loads(raw)
+        except Exception:
+            return None
+        if not isinstance(parsed, dict):
+            return None
+        intent = _normalize_intent(parsed.get("intent"))
+        if intent not in self.INTENTS:
+            return None
+        parsed["intent"] = intent
+        parsed["query"] = str(parsed.get("query") or text).strip()
+        return parsed
 
 
 class LocalSmartCenterClient:
@@ -409,13 +527,252 @@ class LocalSmartCenterClient:
             lines.append(f"- {_device_name(item)}：{state}，CPU {cpu}%，磁盘 {disk}%")
         return "\n".join(lines)
 
+    def environment_status_text(self, query: str = "") -> str:
+        ok, payload = self.get_json("/api/env/status", timeout_sec=4.0)
+        if not ok or not isinstance(payload, dict):
+            return f"环境接口暂时不可用：{payload}"
+        name_map: dict[str, str] = {}
+        summary_ok, summary = self.get_json("/api/dashboard/summary", timeout_sec=3.0)
+        if summary_ok and isinstance(summary, dict):
+            modules = summary.get("modules") if isinstance(summary.get("modules"), dict) else {}
+            env_module = modules.get("env") if isinstance(modules.get("env"), dict) else {}
+            for device in env_module.get("devices") or []:
+                if isinstance(device, dict) and device.get("id"):
+                    name_map[str(device.get("id"))] = _device_name(device)
+        rows = []
+        for sensor_id, item in payload.items():
+            if not isinstance(item, dict):
+                continue
+            name = name_map.get(str(sensor_id)) or str(item.get("name") or sensor_id)
+            specific_query = query
+            for generic in ("环境", "温度", "湿度", "光照", "传感器", "状态", "多少", "查看", "查询", "帮我看", "现在"):
+                specific_query = specific_query.replace(generic, "")
+            specific_query = specific_query.strip()
+            if specific_query and specific_query not in f"{sensor_id} {name}":
+                compact_query = specific_query.replace("的", "").replace(" ", "")
+                compact_name = f"{sensor_id}{name}".replace("的", "").replace(" ", "")
+                if compact_query and compact_query not in compact_name:
+                    continue
+            online = "在线" if item.get("online", True) else "离线"
+            parts = [f"{name}：{online}"]
+            if item.get("temp") is not None:
+                parts.append(f"温度 {_fmt_number(item.get('temp'), 1)}°C")
+            if item.get("hum") is not None:
+                parts.append(f"湿度 {_fmt_number(item.get('hum'), 1)}%")
+            if item.get("lux") is not None:
+                parts.append(f"光照 {_fmt_number(item.get('lux'), 0)} lux")
+            if item.get("updated_at"):
+                parts.append(f"更新 {item.get('updated_at')}")
+            rows.append("，".join(parts))
+        if not rows:
+            return "没有匹配到环境传感器。"
+        return "\n".join(["环境状态：", *[f"- {row}" for row in rows[:10]], *(["... 还有更多传感器未显示"] if len(rows) > 10 else [])])
+
+    def hvac_status_text(self, query: str = "") -> str:
+        ok, payload = self.get_json("/api/hvac/status", timeout_sec=4.0)
+        if not ok or not isinstance(payload, dict):
+            return f"空调接口暂时不可用：{payload}"
+        rows = []
+        for device_id, item in payload.items():
+            if not isinstance(item, dict):
+                continue
+            name = _device_name({"name": item.get("name"), "id": device_id})
+            if query and not _contains_any(query, ("空调", "制冷", "制热", "温度", "模式")) and query not in name:
+                continue
+            online = "在线" if item.get("online", True) else "离线"
+            power = "开机" if item.get("power") else "关机"
+            rows.append(
+                f"- {name}：{online}，{power}，模式 {item.get('mode') or '--'}，设定 {_fmt_number(item.get('target_temp'), 1)}°C，室温 {_fmt_number(item.get('temp'), 1)}°C"
+            )
+        if not rows:
+            return "没有匹配到空调设备。"
+        return "\n".join(["空调状态：", *rows[:10], *(["... 还有更多空调未显示"] if len(rows) > 10 else [])])
+
+    def lighting_status_text(self) -> str:
+        ok, payload = self.get_json("/api/light/status", timeout_sec=4.0)
+        if not ok or not isinstance(payload, dict):
+            return f"灯光接口暂时不可用：{payload}"
+        extras = payload.get("extras") if isinstance(payload.get("extras"), dict) else {}
+        channels = payload.get("channels") if isinstance(payload.get("channels"), dict) else {}
+        lines = ["灯光状态："]
+        for device_id, states in list(channels.items())[:10]:
+            extra = extras.get(str(device_id), {}) if isinstance(extras.get(str(device_id)), dict) else {}
+            online = extra.get("status_label") or ("在线" if extra.get("status_level") == "online" else extra.get("status_level") or "--")
+            if isinstance(states, list):
+                on_count = sum(1 for value in states if value in {1, True})
+                known_count = sum(1 for value in states if value is not None)
+                state_text = f"{on_count}/{known_count} 路开启"
+            else:
+                state_text = "通道未知"
+            lines.append(f"- {extra.get('name') or device_id}：{online}，{state_text}")
+        return "\n".join(lines)
+
+    def automation_status_text(self) -> str:
+        ok, payload = self.get_json("/api/automation/status", timeout_sec=4.0)
+        if not ok or not isinstance(payload, dict):
+            return f"自动化接口暂时不可用：{payload}"
+        rules = [item for item in payload.get("rules") or [] if isinstance(item, dict)]
+        enabled = sum(1 for item in rules if item.get("enabled"))
+        lines = [f"自动化规则：启用 {enabled}/{len(rules)}"]
+        for item in rules[:8]:
+            state = item.get("state") if isinstance(item.get("state"), dict) else {}
+            active = "触发中" if state.get("active") or state.get("active_since") else "待机"
+            lines.append(f"- {item.get('name') or item.get('id')}：{'启用' if item.get('enabled') else '停用'}，{active}")
+        if len(rules) > 8:
+            lines.append(f"... 还有 {len(rules) - 8} 条规则未显示")
+        return "\n".join(lines)
+
+    def log_text(self, query: str = "", category: str = "", event_type: str = "") -> str:
+        params = ["limit=8"]
+        if category:
+            params.append(f"category={category}")
+        if event_type:
+            params.append(f"event_type={event_type}")
+        if _contains_any(query, ("24小时", "一天", "最近一天")):
+            params.append("hours=24")
+        elif _contains_any(query, ("一周", "7天", "七天")):
+            params.append("hours=168")
+        if query and not category and not event_type:
+            params.append(f"q={requests.utils.quote(query)}")
+        ok, payload = self.get_json(f"/api/logs/events?{'&'.join(params)}", timeout_sec=5.0)
+        if not ok or not isinstance(payload, dict):
+            return f"日志接口暂时不可用：{payload}"
+        items = [item for item in payload.get("items") or [] if isinstance(item, dict)]
+        if not items:
+            return "没有查到匹配日志。"
+        lines = [f"最近日志（匹配 {payload.get('total', len(items))} 条，显示 {len(items)} 条）："]
+        for item in items:
+            when = item.get("time") or "--"
+            label = item.get("category_label") or item.get("category") or "日志"
+            message = item.get("message") or item.get("action") or item.get("event_type") or ""
+            lines.append(f"- {when} [{label}] {message}")
+        return "\n".join(lines)
+
+    def snmp_status_text(self) -> str:
+        ok, payload = self.get_json("/api/snmp/status", timeout_sec=5.0)
+        if not ok or not isinstance(payload, dict):
+            return f"网络设备接口暂时不可用：{payload}"
+        lines = ["网络设备/SNMP 状态："]
+        for device_id, item in list(payload.items())[:8]:
+            if not isinstance(item, dict):
+                continue
+            cfg = item.get("config") if isinstance(item.get("config"), dict) else {}
+            name = cfg.get("name") or item.get("name") or device_id
+            online = "在线" if item.get("online", True) else "离线"
+            summary = item.get("summary") if isinstance(item.get("summary"), dict) else {}
+            extra = summary.get("status_text") or item.get("error") or ""
+            lines.append(f"- {name}：{online}{f'，{extra}' if extra else ''}")
+        return "\n".join(lines)
+
+    def ups_status_text(self) -> str:
+        ok, payload = self.get_json("/api/ups/status", timeout_sec=4.0)
+        if not ok or not isinstance(payload, dict):
+            return f"UPS 接口暂时不可用：{payload}"
+        lines = ["UPS 状态："]
+        for device_id, item in payload.items():
+            if not isinstance(item, dict):
+                continue
+            cfg = item.get("config") if isinstance(item.get("config"), dict) else {}
+            name = cfg.get("name") or item.get("name") or device_id
+            online = "在线" if item.get("online", True) else "离线"
+            alerts = "；".join(item.get("alerts") or []) or "无告警"
+            lines.append(
+                f"- {name}：{online}，电池 {_fmt_number(item.get('battery_capacity_percent'), 0)}%，负载 {_fmt_number(item.get('load_percent'), 0)}%，输入 {_fmt_number(item.get('input_voltage'), 1)}V，{alerts}"
+            )
+        return "\n".join(lines)
+
+    def nvr_status_text(self) -> str:
+        ok, payload = self.get_json("/api/nvr/status", timeout_sec=4.0)
+        if not ok or not isinstance(payload, dict):
+            return f"NVR 接口暂时不可用：{payload}"
+        lines = ["NVR/摄像头状态："]
+        for device_id, item in payload.items():
+            if not isinstance(item, dict):
+                continue
+            name = item.get("name") or device_id
+            online = "在线" if item.get("online", True) else "离线"
+            channels = item.get("channels") if isinstance(item.get("channels"), list) else []
+            lines.append(f"- {name}：{online}，通道 {len(channels)}")
+        return "\n".join(lines)
+
+    def proxy_status_text(self) -> str:
+        ok, payload = self.get_json("/api/proxy/status", timeout_sec=4.0)
+        if not ok or not isinstance(payload, dict):
+            return f"代理接口暂时不可用：{payload}"
+        online = "在线" if payload.get("online") else "离线"
+        lines = [f"代理状态：{online}，目标健康 {payload.get('healthy_target_count', 0)}/{payload.get('check_count', 0)}"]
+        for item in payload.get("checks") or []:
+            if isinstance(item, dict):
+                lines.append(f"- {item.get('name')}：{'正常' if item.get('healthy') else '异常'}，{item.get('latency_ms') or '--'}ms")
+        clients = payload.get("clients") if isinstance(payload.get("clients"), dict) else {}
+        if clients:
+            lines.append(f"活跃客户端：{clients.get('active_client_count', 0)}")
+        return "\n".join(lines)
+
+    def local_model_status_text(self) -> str:
+        ok, payload = self.get_json("/api/local-model/config", timeout_sec=3.0)
+        if not ok or not isinstance(payload, dict):
+            return f"本地模型配置接口暂时不可用：{payload}"
+        cfg = payload.get("config") if isinstance(payload.get("config"), dict) else {}
+        return (
+            f"本地模型：{'启用' if cfg.get('enabled') else '停用'}，模型 {cfg.get('model') or '--'}\n"
+            f"入口：{cfg.get('base_url') or '--'}\n"
+            f"vLLM：{cfg.get('vllm_base_url') or '--'}"
+        )
+
+    def answer_intent(self, intent: str, query: str = "") -> str:
+        intent = _normalize_intent(intent)
+        if intent == "overview":
+            return self.status_text()
+        if intent == "offline_devices":
+            return self.offline_devices_text()
+        if intent == "energy_overview" or intent == "energy_history":
+            return self.meter_energy_text(query)
+        if intent == "current_collector":
+            return self.current_collector_text()
+        if intent == "server_status":
+            return self.server_status_text(query)
+        if intent == "environment_status":
+            return self.environment_status_text(query)
+        if intent == "hvac_status":
+            return self.hvac_status_text(query)
+        if intent == "lighting_status":
+            return self.lighting_status_text()
+        if intent == "lighting_logs":
+            return self.log_text(query, category="light")
+        if intent == "automation_status":
+            return self.automation_status_text()
+        if intent == "automation_logs":
+            return self.log_text(query, event_type="automation")
+        if intent == "event_logs":
+            return self.log_text(query)
+        if intent == "snmp_status":
+            return self.snmp_status_text()
+        if intent == "ups_status":
+            return self.ups_status_text()
+        if intent == "nvr_status":
+            return self.nvr_status_text()
+        if intent == "proxy_status":
+            return self.proxy_status_text()
+        if intent == "local_model_status":
+            return self.local_model_status_text()
+        if intent == "forbidden_control":
+            return "当前只支持查询状态、历史数据和日志，不执行开关、重启、下发控制、配置修改等操作。"
+        return self.query_text(query)
+
     def query_text(self, keyword: str) -> str:
         keyword = re.sub(r"\s+", " ", str(keyword or "").strip())
         if not keyword:
-            return "我在。可以问：现在状态、哪些设备离线、昨日电量、今日用电、本月用电、当前电流、服务器状态。"
+            return "我在。可以问：现在状态、哪些设备离线、昨日电量、近7天用电、当前电流、服务器状态、最近自动化日志、UPS状态。"
         lowered = keyword.lower()
-        if _contains_any(keyword, ("开灯", "关灯", "开关", "控制", "重启", "关机", "执行", "下发")):
-            return "当前飞书机器人只支持只读查询，不执行开关、重启、下发控制等操作。"
+        if _contains_any(keyword, ("开灯", "关灯", "开关", "控制", "重启", "关机", "执行", "下发", "唤醒", "设置", "修改", "调温", "制冷", "制热")) and not _contains_any(keyword, ("状态", "日志", "记录", "历史")):
+            return self.answer_intent("forbidden_control", keyword)
+        if _contains_any(keyword, ("日志", "记录", "最近发生", "事件")):
+            if _contains_any(keyword, ("自动化", "场景", "联动")):
+                return self.answer_intent("automation_logs", keyword)
+            if _contains_any(keyword, ("灯", "灯光", "庭院灯")):
+                return self.answer_intent("lighting_logs", keyword)
+            return self.answer_intent("event_logs", keyword)
         if _contains_any(keyword, ("电流", "采集器")):
             return self.current_collector_text()
         if _contains_any(keyword, ("离线", "异常", "不在线", "掉线", "故障")):
@@ -432,9 +789,27 @@ class LocalSmartCenterClient:
             return self.meter_energy_text(keyword)
         if _contains_any(keyword, ("服务器", "主机", "机器", "电脑", "节点")):
             return self.server_status_text(keyword)
+        if _contains_any(keyword, ("环境", "温度", "湿度", "光照", "门磁", "传感器")):
+            return self.environment_status_text(keyword)
+        if _contains_any(keyword, ("空调", "hvac", "HVAC")):
+            return self.hvac_status_text(keyword)
+        if _contains_any(keyword, ("灯光", "继电器", "灯状态", "哪些灯")):
+            return self.lighting_status_text()
+        if _contains_any(keyword, ("自动化", "场景", "联动", "规则")):
+            return self.automation_status_text()
+        if _contains_any(keyword, ("ups", "UPS", "电池", "旁路", "输入电压", "负载", "续航")):
+            return self.ups_status_text()
+        if _contains_any(keyword, ("snmp", "SNMP", "nas", "NAS", "交换机", "网关", "网络设备", "存储")):
+            return self.snmp_status_text()
+        if _contains_any(keyword, ("nvr", "NVR", "录像机", "摄像头")):
+            return self.nvr_status_text()
+        if _contains_any(keyword, ("代理", "chatgpt", "ChatGPT", "google", "Google", "youtube", "YouTube", "github", "GitHub")):
+            return self.proxy_status_text()
+        if _contains_any(keyword, ("本地模型", "模型服务", "ollama", "Ollama", "qwen", "Qwen")):
+            return self.local_model_status_text()
         if _contains_any(keyword, ("设备", "概览", "状态", "在线", "情况", "现在")):
             return self.status_text()
-        return "我还没识别到要查什么。可以问：哪些设备离线、昨日电量、今日用电、本月用电、当前电流、服务器状态。"
+        return "我还没识别到要查什么。可以问：哪些设备离线、昨日电量、近7天用电、最近日志、当前电流、服务器状态、UPS状态。"
 
 
 class FeishuBot:
@@ -449,6 +824,11 @@ class FeishuBot:
         self.local_client = local_client or LocalSmartCenterClient(
             config.smart_center_base_url,
             config.request_timeout_sec,
+        )
+        self.intent_classifier = (
+            OllamaIntentClassifier(config.nl_model_url, config.nl_model_name, config.nl_model_timeout_sec)
+            if config.nl_model_enabled
+            else None
         )
         self.log = log or (lambda text: print(text, flush=True))
         self.api_client = (
@@ -486,6 +866,8 @@ class FeishuBot:
             self.log("Default push chat_id is empty. Send a group message and copy chat_id from logs.")
         if self.config.push_times:
             self.log(f"Scheduled push times: {', '.join(self.config.push_times)}")
+        if self.intent_classifier:
+            self.log(f"NL intent model: {self.config.nl_model_name} at {self.config.nl_model_url}")
         self.ws_client.start()
 
     def start_scheduler(self) -> None:
@@ -535,7 +917,15 @@ class FeishuBot:
         if normalized.startswith(("查询 ", "/查询 ")):
             return self.local_client.query_text(normalized.split(" ", 1)[1])
         if normalized in {"帮助", "/帮助", "help", "/help"}:
-            return "可以直接问：哪些设备离线、昨日电量、今日用电、本月用电、当前电流、服务器状态。当前仅支持只读查询。"
+            return "可以直接问：哪些设备离线、昨日电量、近7天用电、最近自动化日志、当前电流、服务器状态、UPS状态。当前仅支持只读查询。"
+        if self.intent_classifier:
+            classified = self.intent_classifier.classify(normalized)
+            if classified:
+                intent = str(classified.get("intent") or "unknown")
+                query = str(classified.get("query") or normalized)
+                self.log(f"[nl intent] text={normalized!r} intent={intent!r}")
+                if intent != "unknown":
+                    return self.local_client.answer_intent(intent, query)
         return self.local_client.query_text(normalized)
 
     def send_text(self, chat_id: str, text: str) -> bool:

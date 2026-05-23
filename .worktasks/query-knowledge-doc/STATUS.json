@@ -1,0 +1,10 @@
+﻿{
+    "task":  "query-knowledge-doc",
+    "module":  "docs",
+    "machine":  "12700k",
+    "kind":  "light",
+    "branch":  "codex/12700k-query-knowledge-doc-20260524",
+    "worktree":  "D:\\SmartCenter\\smart-center-worktrees\\query-knowledge-doc",
+    "started_at":  "2026-05-24 05:01:37",
+    "status":  "in_progress"
+}
