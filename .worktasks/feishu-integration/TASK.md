@@ -41,6 +41,7 @@ requirements*.txt
 - Acquired module worklock
 - Added standalone Feishu bot service and startup entry points
 - Added read-only status/daily/query command handling
+- Added deterministic natural-language read-only replies for offline devices, energy, current collector, and server status
 - Added optional daily scheduled push via FEISHU_PUSH_TIMES
 - Added .env.example for local credential setup
 - Set documented production SMART_CENTER_BASE_URL to http://192.168.50.120:6899
@@ -51,11 +52,11 @@ requirements*.txt
 - python -m py_compile services/feishu_bot.py run_feishu_bot.py
 - python run_feishu_bot.py --print-status
 - $env:SMART_CENTER_BASE_URL='http://192.168.50.120:6899'; python run_feishu_bot.py --print-status
+- Local natural-language query simulation against http://192.168.50.120:6899
 
 ## Not Verified
 
-- Live Feishu long-connection login and group reply require real FEISHU_APP_SECRET in local .env
-- Scheduled push requires FEISHU_DEFAULT_CHAT_ID
+- Live Feishu group natural-language replies after the bot process is restarted
 
 ## Risks
 
@@ -71,5 +72,4 @@ If this task touches templates/index.html, config.py, background.py, app.py, api
 
 ## Next
 
-- Fill .env with rotated Feishu credentials and run python run_feishu_bot.py
-- Send “状态” in the Feishu group, then copy chat_id=oc_xxx into FEISHU_DEFAULT_CHAT_ID
+- Restart python run_feishu_bot.py, then send “哪些设备离线” or “昨日电量” in the Feishu group

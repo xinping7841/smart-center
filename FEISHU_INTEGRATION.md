@@ -58,7 +58,19 @@ Supported chat commands:
 状态
 日报
 查询 电流
+哪些设备离线
+昨日电量消耗是多少
+昨天用了多少电
+今日用电
+本月用电排行
+当前电流
+服务器状态
 ```
+
+The bot also accepts natural-language read-only questions. It can currently answer
+device status/offline, server status, current collector, daily/monthly energy, and
+energy ranking questions. Control actions such as switching, rebooting, or issuing
+commands are intentionally refused in Feishu.
 
 Manual one-shot daily push:
 
