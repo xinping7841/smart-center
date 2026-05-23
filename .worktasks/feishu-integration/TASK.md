@@ -43,12 +43,14 @@ requirements*.txt
 - Added read-only status/daily/query command handling
 - Added optional daily scheduled push via FEISHU_PUSH_TIMES
 - Added .env.example for local credential setup
+- Set documented production SMART_CENTER_BASE_URL to http://192.168.50.120:6899
 - Documented local setup and tests
 
 ## Verified
 
 - python -m py_compile services/feishu_bot.py run_feishu_bot.py
 - python run_feishu_bot.py --print-status
+- $env:SMART_CENTER_BASE_URL='http://192.168.50.120:6899'; python run_feishu_bot.py --print-status
 
 ## Not Verified
 
