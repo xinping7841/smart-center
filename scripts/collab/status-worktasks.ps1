@@ -3,11 +3,13 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-$Root = (& git rev-parse --show-toplevel 2>$null).Trim()
-if (-not $Root) {
-    throw "not inside a git repository"
-}
+$ScriptDir = Split-Path -Parent $PSCommandPath
+$Root = [System.IO.Path]::GetFullPath((Join-Path $ScriptDir "../.."))
 Set-Location $Root
+& git rev-parse --is-inside-work-tree *> $null
+if ($LASTEXITCODE -ne 0) {
+    throw "not inside a git repository: $Root"
+}
 
 $TaskRoot = Join-Path $Root ".worktasks"
 if (-not (Test-Path -LiteralPath $TaskRoot)) {

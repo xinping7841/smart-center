@@ -33,11 +33,10 @@ function Get-PythonCommand {
     return ""
 }
 
-$Root = (& git rev-parse --show-toplevel 2>$null).Trim()
-if (-not $Root) {
-    throw "not inside a git repository"
-}
+$ScriptDir = Split-Path -Parent $PSCommandPath
+$Root = [System.IO.Path]::GetFullPath((Join-Path $ScriptDir "../.."))
 Set-Location $Root
+Invoke-Git rev-parse --is-inside-work-tree *> $null
 
 $LockBranch = "coordination/worklocks"
 $RemoteLockRef = "origin/$LockBranch"

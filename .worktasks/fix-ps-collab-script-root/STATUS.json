@@ -1,0 +1,10 @@
+{
+  "task": "fix-ps-collab-script-root",
+  "module": "collab",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-fix-ps-collab-script-root-20260524",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/fix-ps-collab-script-root",
+  "started_at": "2026-05-24 01:51:39",
+  "status": "in_progress"
+}

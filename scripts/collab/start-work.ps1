@@ -27,11 +27,10 @@ function Invoke-Git {
     }
 }
 
-$Root = (& git rev-parse --show-toplevel 2>$null).Trim()
-if (-not $Root) {
-    throw "not inside a git repository"
-}
+$ScriptDir = Split-Path -Parent $PSCommandPath
+$Root = [System.IO.Path]::GetFullPath((Join-Path $ScriptDir "../.."))
 Set-Location $Root
+Invoke-Git rev-parse --is-inside-work-tree *> $null
 
 if (-not $WorktreeBase) {
     $WorktreeBase = Join-Path (Split-Path -Parent $Root) "smart-center-worktrees"
