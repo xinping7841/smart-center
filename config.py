@@ -114,7 +114,7 @@ DEFAULT_CURRENT_COLLECTOR = {
     "parity": "N",
     "stopbits": 1,
     "slave": 1,
-    "register": 0,
+    "register": 0x0010,
     "count": 16,
     "scale": 100.0,
     "multiplier": 1.0,
