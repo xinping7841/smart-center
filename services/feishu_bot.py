@@ -61,12 +61,12 @@ class FeishuBotConfig:
 def load_dotenv(path: Path) -> None:
     if not path.exists():
         return
-    for raw_line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
+    for raw_line in path.read_text(encoding="utf-8-sig", errors="ignore").splitlines():
         line = raw_line.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
         key, value = line.split("=", 1)
-        key = key.strip()
+        key = key.strip().lstrip("\ufeff")
         if not key or key in os.environ:
             continue
         os.environ[key] = value.strip().strip('"').strip("'")
