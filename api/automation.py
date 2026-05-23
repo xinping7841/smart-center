@@ -16,7 +16,7 @@ from auth.decorators import require_permission
 from config import DEFAULT_AUTOMATION_CONDITION, DEFAULT_AUTOMATION_SCHEDULE
 from config import CONFIG, save_config
 from data_logger import add_log, load_logs
-from runtime.automation import get_automation_runtime_snapshot
+from runtime.automation import execute_scene, get_automation_runtime_snapshot
 
 bp = Blueprint("automation", __name__)
 
@@ -179,6 +179,82 @@ def api_automation_toggle():
         status="error",
     )
     return jsonify({"success": False, "msg": "未找到自动化规则"}), 404
+
+
+@bp.route("/api/automation/test", methods=["POST"])
+@require_permission("automation.edit")
+def api_automation_test():
+    data = request.json or {}
+    rule_id = str(data.get("id") or data.get("rule_id") or "").strip()
+    if not rule_id:
+        return jsonify({"success": False, "ok": False, "msg": "缺少自动化规则ID"}), 400
+
+    rule = next(
+        (item for item in CONFIG.get("automations", []) if str(item.get("id") or "").strip() == rule_id),
+        None,
+    )
+    if not rule:
+        log_audit_event(
+            "automation.test",
+            target=rule_id,
+            detail={"rule_id": rule_id, "error": "rule_not_found"},
+            status="error",
+        )
+        return jsonify({"success": False, "ok": False, "msg": "未找到自动化规则", "rule_id": rule_id}), 404
+
+    rule_name = str(rule.get("name") or rule_id or "未命名规则")
+    scene_id = str(rule.get("action_scene_id") or "").strip()
+    if not scene_id:
+        message = f"规则 [{rule_name}] 未绑定执行场景"
+        add_log(-1, f"[自动化] 测试执行失败: {message}")
+        log_audit_event(
+            "automation.test",
+            target=rule_id,
+            detail={"rule_id": rule_id, "rule_name": rule_name, "error": "scene_missing"},
+            status="error",
+        )
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "ok": False,
+                    "msg": message,
+                    "rule_id": rule_id,
+                    "rule_name": rule_name,
+                    "scene_id": scene_id,
+                }
+            ),
+            400,
+        )
+
+    add_log(-1, f"[自动化] 手动测试规则: [{rule_name}] -> {scene_id}")
+    ok, message = execute_scene(scene_id, async_mode=False, return_detail=True)
+    ok = bool(ok)
+    status = "ok" if ok else "error"
+    log_message = message or ("场景执行完成" if ok else "场景执行失败")
+    add_log(-1, f"[自动化] 手动测试结果: [{rule_name}] -> {'成功' if ok else '失败'} ({log_message})")
+    log_audit_event(
+        "automation.test",
+        target=rule_id,
+        detail={
+            "rule_id": rule_id,
+            "rule_name": rule_name,
+            "scene_id": scene_id,
+            "ok": ok,
+            "message": log_message,
+        },
+        status=status,
+    )
+    return jsonify(
+        {
+            "success": ok,
+            "ok": ok,
+            "msg": log_message,
+            "rule_id": rule_id,
+            "rule_name": rule_name,
+            "scene_id": scene_id,
+        }
+    )
 
 
 @bp.route("/api/automation/status")

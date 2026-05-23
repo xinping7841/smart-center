@@ -365,7 +365,7 @@ def _execute_scene_action(action):
     return False, f"[自动化] 未支持的动作: {sys_type}/{act_type}"
 
 
-def execute_scene(scene_id, async_mode=True):
+def execute_scene(scene_id, async_mode=True, return_detail=False):
     def _run():
         scene = next((s for s in CONFIG.get("scenes", []) if str(s["id"]) == str(scene_id)), None)
         if not scene:
@@ -396,8 +396,12 @@ def execute_scene(scene_id, async_mode=True):
 
     if async_mode:
         threading.Thread(target=_run, daemon=True).start()
+        if return_detail:
+            return True, "场景已开始异步执行"
         return True
-    ok, _message = _run()
+    ok, message = _run()
+    if return_detail:
+        return bool(ok), message
     return bool(ok)
 
 
@@ -412,9 +416,9 @@ def _execute_rule_scene(rule, state):
         state["last_error"] = "target_scene_missing"
         add_log(-1, message)
         return False
-    ok = execute_scene(scene_id, async_mode=False)
+    ok, message = execute_scene(scene_id, async_mode=False, return_detail=True)
     state["last_action_ok"] = bool(ok)
-    state["last_action_message"] = "scene_completed" if ok else "scene_failed"
+    state["last_action_message"] = message or ("scene_completed" if ok else "scene_failed")
     if not ok:
         state["last_error"] = "scene_action_failed"
         add_log(-1, f"[automation] action failed: [{rule['name']}] -> {scene_id}")

@@ -1,0 +1,12 @@
+{
+  "task": "automation-test-endpoint",
+  "module": "automation",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-automation-test-endpoint-20260524",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/automation-test-endpoint",
+  "started_at": "2026-05-24 04:09:39",
+  "status": "ready_to_finish",
+  "updated_at": "2026-05-24 04:20:43",
+  "verification": "python3 -m py_compile runtime/automation.py api/automation.py config.py; git diff --check"
+}
