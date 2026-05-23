@@ -1,0 +1,10 @@
+{
+  "task": "outdoor-light-automation-feedback",
+  "module": "automation",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-outdoor-light-automation-feedback-20260524",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/outdoor-light-automation-feedback",
+  "started_at": "2026-05-24 04:02:39",
+  "status": "in_progress"
+}

@@ -48,6 +48,9 @@ def _new_rule_state():
         "last_triggered_at": None,
         "last_trigger_value": None,
         "last_error": "",
+        "last_action_ok": None,
+        "last_action_at": None,
+        "last_action_message": "",
         "last_skip_reason": "",
         "last_window_key": "",
         "window_entered_at": None,
@@ -303,14 +306,20 @@ def _execute_scene_action(action):
         if dev_cfg:
             from universal_core import UniversalDriver
 
-            UniversalDriver(dev_cfg).execute_command(
-                {
-                    "payload": action.get("payload", ""),
-                    "format": action.get("format", "str"),
-                    "wait_ms": action.get("wait_ms", 0),
-                }
-            )
-            return True, f"[自动化] 泛型设备 {dev_cfg.get('name', action.get('device_id'))} 已执行指令"
+            command = {
+                "payload": action.get("payload", ""),
+                "format": action.get("format", "str"),
+                "wait_ms": action.get("wait_ms", 0),
+            }
+            success, result = UniversalDriver(dev_cfg).execute_command(command)
+            device_name = dev_cfg.get("name", action.get("device_id"))
+            target = f"{dev_cfg.get('interface', 'tcp')}://{dev_cfg.get('ip') or dev_cfg.get('com_port')}:{dev_cfg.get('port', '')}"
+            if not success:
+                return (
+                    False,
+                    f"[自动化] 协议控制 {device_name} 指令失败: {target} payload={command.get('payload')} -> {result}",
+                )
+            return True, f"[自动化] 协议控制 {device_name} 已发送指令: {target} payload={command.get('payload')}"
         return False, f"[自动化] 泛型设备未配置: {action.get('device_id')}"
 
     if sys_type == "light" and act_type not in {"on", "off", "jog"}:
@@ -361,11 +370,11 @@ def execute_scene(scene_id, async_mode=True):
         scene = next((s for s in CONFIG.get("scenes", []) if str(s["id"]) == str(scene_id)), None)
         if not scene:
             add_log(-1, f"[scene] missing: {scene_id}")
-            return
+            return False, f"场景不存在: {scene_id}"
         scene_key = str(scene.get("id"))
         if _SCENE_RUNNING.get(scene_key):
             add_log(-1, f"[scene] skip duplicate trigger: {scene['name']}")
-            return
+            return False, f"场景正在执行中: {scene['name']}"
 
         _SCENE_RUNNING[scene_key] = True
         try:
@@ -379,15 +388,39 @@ def execute_scene(scene_id, async_mode=True):
                     add_log(-1, action_msg)
                 if not ok:
                     add_log(-1, f"[自动化] 场景动作执行失败: {scene['name']} -> {action_msg}")
+                    return False, action_msg
             add_log(-1, f"[scene] completed: {scene['name']}")
+            return True, f"场景执行完成: {scene['name']}"
         finally:
             _SCENE_RUNNING[scene_key] = False
 
     if async_mode:
         threading.Thread(target=_run, daemon=True).start()
         return True
-    _run()
-    return True
+    ok, _message = _run()
+    return bool(ok)
+
+
+def _execute_rule_scene(rule, state):
+    scene_id = rule.get("action_scene_id")
+    scene_exists = any(str(scene.get("id")) == str(scene_id) for scene in CONFIG.get("scenes", []))
+    state["last_action_at"] = datetime.now().isoformat()
+    if not scene_exists:
+        message = f"[automation] target scene missing: [{rule['name']}] -> {scene_id}"
+        state["last_action_ok"] = False
+        state["last_action_message"] = message
+        state["last_error"] = "target_scene_missing"
+        add_log(-1, message)
+        return False
+    ok = execute_scene(scene_id, async_mode=False)
+    state["last_action_ok"] = bool(ok)
+    state["last_action_message"] = "scene_completed" if ok else "scene_failed"
+    if not ok:
+        state["last_error"] = "scene_action_failed"
+        add_log(-1, f"[automation] action failed: [{rule['name']}] -> {scene_id}")
+    else:
+        state["last_error"] = ""
+    return bool(ok)
 
 
 def _get_rule_state(rule_id):
@@ -1061,6 +1094,9 @@ def get_automation_runtime_snapshot():
                     "last_schedule_missed": bool(state.get("last_schedule_missed", False)),
                     "last_schedule_delay_sec": round(float(state.get("last_schedule_delay_sec", 0.0) or 0.0), 1),
                     "last_error": state.get("last_error", ""),
+                    "last_action_ok": state.get("last_action_ok"),
+                    "last_action_at": state.get("last_action_at"),
+                    "last_action_message": state.get("last_action_message", ""),
                     "last_skip_reason": state.get("last_skip_reason", ""),
                     "previous_value": state.get("previous_value"),
                     "crossing_mode": state.get("crossing_mode", "none"),
@@ -1108,11 +1144,7 @@ def automation_engine_loop():
                     state["last_trigger_value"] = current_value
                     trigger_names = "、".join(item.get("label") or item.get("key") or "触发条件" for item in fire_results)
                     add_log(-1, f"[automation] triggered: [{rule['name']}] ({trigger_names})")
-                    scene_id = rule.get("action_scene_id")
-                    scene_exists = any(str(scene.get("id")) == str(scene_id) for scene in CONFIG.get("scenes", []))
-                    if not scene_exists:
-                        add_log(-1, f"[automation] target scene missing: [{rule['name']}] -> {scene_id}")
-                    execute_scene(scene_id)
+                    _execute_rule_scene(rule, state)
                 continue
 
             if trigger_type == "schedule":
@@ -1162,11 +1194,7 @@ def automation_engine_loop():
                 if trigger_type == "schedule":
                     detail = f" ({_describe_schedule_trigger(state)})"
                 add_log(-1, f"[automation] triggered: [{rule['name']}]{detail}")
-                scene_id = rule.get("action_scene_id")
-                scene_exists = any(str(scene.get("id")) == str(scene_id) for scene in CONFIG.get("scenes", []))
-                if not scene_exists:
-                    add_log(-1, f"[automation] target scene missing: [{rule['name']}] -> {scene_id}")
-                execute_scene(scene_id)
+                _execute_rule_scene(rule, state)
             elif not trigger_matched:
                 state["latched"] = False
 

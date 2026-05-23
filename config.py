@@ -1339,7 +1339,7 @@ def _maybe_add_outdoor_midnight_off_rule(loaded_config):
     midnight_rule = _normalize_automation_rule(
         {
             "id": "auto_outdoor_light_24_off",
-            "name": "户外灯午夜兜底关灯",
+            "name": "庭院灯午夜兜底关灯",
             "enabled": bool(off_rule.get("enabled", True)),
             "trigger_type": "schedule",
             "action_scene_id": scene_id,
@@ -1558,6 +1558,29 @@ def _find_universal_device_command(device_cfg, role):
     return None
 
 
+def _normalize_outdoor_universal_device(device):
+    if not isinstance(device, dict):
+        return False
+    if not _find_universal_device_command(device, "on") or not _find_universal_device_command(device, "off"):
+        return False
+    changed = False
+    if str(device.get("name") or "").strip() in {"", "新泛型设备"}:
+        device["name"] = "庭院灯"
+        changed = True
+    return changed
+
+
+def _normalize_outdoor_universal_devices(loaded_config):
+    custom_devices = loaded_config.get("custom_devices", [])
+    if not isinstance(custom_devices, list):
+        return False
+    changed = False
+    for device in custom_devices:
+        if _normalize_outdoor_universal_device(device):
+            changed = True
+    return changed
+
+
 def _select_preferred_outdoor_universal_device(loaded_config):
     custom_devices = loaded_config.get("custom_devices", [])
     if not isinstance(custom_devices, list) or not custom_devices:
@@ -1569,6 +1592,7 @@ def _select_preferred_outdoor_universal_device(loaded_config):
     for device in custom_devices:
         if not isinstance(device, dict):
             continue
+        _normalize_outdoor_universal_device(device)
         device_id = str(device.get("id") or "").strip()
         if not device_id:
             continue
@@ -1683,7 +1707,7 @@ def _maybe_restore_outdoor_light_scenes(loaded_config):
             continue
 
     def _desired_scene(scene_id, action_type):
-        scene_name = "户外灯自动开灯" if action_type == "on" else "户外灯自动关灯"
+        scene_name = "庭院灯自动开灯" if action_type == "on" else "庭院灯自动关灯"
         universal_cmd = _find_universal_device_command(preferred_universal_device, action_type)
         if universal_cmd:
             return {
@@ -1802,6 +1826,8 @@ def load_config():
                     if command.get("show_on_home") is not False:
                         command["show_on_home"] = False
                         custom_devices_changed = True
+        if _normalize_outdoor_universal_devices(loaded_config):
+            custom_devices_changed = True
         if custom_devices_changed:
             config_needs_persist = config_file_exists
     normalized_control_center = normalize_control_center(loaded_config.get("control_center"), loaded_config.get("custom_devices"))
@@ -2562,6 +2588,8 @@ def load_config():
     if _maybe_add_outdoor_midnight_off_rule(loaded_config):
         config_needs_persist = config_file_exists
     if _maybe_upgrade_outdoor_light_on_rule(loaded_config):
+        config_needs_persist = config_file_exists
+    if _normalize_outdoor_universal_devices(loaded_config):
         config_needs_persist = config_file_exists
     if _maybe_restore_outdoor_light_scenes(loaded_config):
         config_needs_persist = config_file_exists
