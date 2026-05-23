@@ -4,6 +4,8 @@ Last updated: 2026-05-24
 
 This document is the single reference for Feishu natural-language replies and future local-model tool routing. The current policy is query-only: status, history, logs, statistics, diagnostics, and inventory are allowed; physical control actions are not allowed.
 
+The companion training/query-intent seed file is `docs/LOCAL_MODEL_QUERY_INTENTS.jsonl`. Feed it to the local model knowledge pipeline together with this document so natural-language questions map to the right read-only intent before any API call.
+
 ## Safety Policy
 
 Allowed:
@@ -32,6 +34,7 @@ Use deterministic routing first. A local model may classify intent, but the actu
 | Intent | Keywords | Primary read API | Notes |
 | --- | --- | --- | --- |
 | Overview | 状态, 概览, 在线, 现在, 情况 | `GET /api/dashboard/summary` | Fastest whole-system summary. |
+| Door/contact status | 大门, 门磁, 门状态, 大门开关状态 | `GET /api/env/status`, `GET /api/dashboard/summary` | Specific object intent; must be routed before generic status/control matching. |
 | Offline or abnormal devices | 离线, 不在线, 异常, 掉线, 故障 | `GET /api/dashboard/summary` | Parse `counts` and `modules.*.devices` or `modules.server.machines`. |
 | Energy now/today/yesterday/month | 电量, 用电, 耗电, 能耗, 功率, 电表, kWh, 度电 | `GET /api/meters?target=total&period=day&days=7` | Use `summary`, `dashboard_summary`, `trend`, `trend_breakdown`. |
 | Energy history | 近7天, 近30天, 历史电量, 趋势 | `GET /api/7days_energy`, `GET /api/30days_energy`, `GET /api/meters?...` | Prefer `/api/meters` when total/reference comparison is needed. |
@@ -66,6 +69,16 @@ Use deterministic routing first. A local model may classify intent, but the actu
 ### 1. System Overview
 
 Use `GET /api/dashboard/summary`.
+
+For "状态 / 总体情况 / 汇总中控情况", do not stop at the top card count. Build a full operational snapshot:
+
+- Base overview from `/api/dashboard/summary`.
+- Energy brief from `/api/meters?target=total&period=day&days=7`.
+- Current collector from `/api/current-collector/status`.
+- Proxy brief from `/api/proxy/status`.
+- Automation brief from `/api/automation/status`.
+- Include important object states from the dashboard modules, such as `户外大门`.
+- Include top offline/abnormal devices so the user sees actionable issues immediately.
 
 Main fields:
 
@@ -219,6 +232,15 @@ Natural-language examples:
 - "户外光照多少"
 - "二号厅门口温湿度在线吗"
 - "哪些环境传感器离线"
+
+Door/contact sensors are a specific subtype and should be answered by the door/contact intent first:
+
+- "大门状态"
+- "大门开关状态"
+- "门磁状态"
+- "户外大门开了吗"
+
+For the current production payload, `env_xiaomi_ha_contact_01` / `户外大门` exposes `contact_text`, `opening`, `contact`, `online`, `contact_updated_at`, and `updated_at`.
 
 ### 7. HVAC Status
 

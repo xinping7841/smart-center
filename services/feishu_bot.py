@@ -57,6 +57,7 @@ MODULE_LABELS = {
     "snmp": "网络设备",
     "ups": "UPS",
 }
+DOOR_WORDS = ("大门", "门磁", "门口", "门状态", "开门", "关门", "门开", "门关")
 
 
 @dataclass(frozen=True)
@@ -168,7 +169,10 @@ def _aggregate_dashboard_counts(counts: dict[str, Any]) -> dict[str, int]:
             continue
         total += int(value.get("total") or 0)
         online += int(value.get("online") or 0)
-        offline += int(value.get("offline") or 0)
+        item_offline = int(value.get("offline") or 0)
+        item_total = int(value.get("total") or 0)
+        item_online = int(value.get("online") or 0)
+        offline += max(item_offline, max(0, item_total - item_online))
         error += int(value.get("error") or 0)
         stale += int(value.get("stale") or 0)
     return {
@@ -190,6 +194,8 @@ def _fmt_number(value: Any, digits: int = 2) -> str:
     except (TypeError, ValueError):
         return "--"
     formatted = f"{number:.{digits}f}".rstrip("0").rstrip(".")
+    if "." not in formatted and digits == 0:
+        formatted = f"{number:.0f}"
     return formatted or "0"
 
 
@@ -227,6 +233,8 @@ def _normalize_intent(value: Any) -> str:
         "current_status": "current_collector",
         "server": "server_status",
         "machine": "server_status",
+        "door": "door_status",
+        "contact": "door_status",
         "env": "environment_status",
         "environment": "environment_status",
         "hvac": "hvac_status",
@@ -255,6 +263,7 @@ class OllamaIntentClassifier:
         "energy_history",
         "current_collector",
         "server_status",
+        "door_status",
         "environment_status",
         "hvac_status",
         "lighting_status",
@@ -338,9 +347,8 @@ class LocalSmartCenterClient:
 
     def status_text(self) -> str:
         lines = [
-            "中控在线",
+            "中控总体状态",
             f"时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            f"本地接口：{self.base_url}",
         ]
         ok, summary = self.get_json("/api/dashboard/summary", timeout_sec=3.0)
         if ok:
@@ -349,13 +357,63 @@ class LocalSmartCenterClient:
             total = int(counts.get("total") or 0)
             online = int(counts.get("online") or 0)
             offline = int(counts.get("offline") or max(0, total - online))
-            lines.append(f"设备概览：在线 {online}/{total}，离线 {offline}")
+            error = int(counts.get("error") or 0)
+            stale = int(counts.get("stale") or 0)
+            lines.append(f"总览：设备在线 {online}/{total}，离线 {offline}，异常 {error}，陈旧 {stale}")
+            module_parts = []
+            for key in ("server", "power", "env", "light", "snmp", "ups", "nvr", "proxy", "sequencer"):
+                item = ((summary or {}).get("counts", {}) or {}).get(key)
+                if not isinstance(item, dict):
+                    continue
+                label = MODULE_LABELS.get(key, key)
+                item_total = int(item.get("total") or 0)
+                item_online = int(item.get("online") or 0)
+                item_offline = max(int(item.get("offline") or 0), max(0, item_total - item_online))
+                module_parts.append(f"{label} {item_online}/{item_total}{f' 离线{item_offline}' if item_offline else ''}")
+            if module_parts:
+                lines.append("模块：" + "；".join(module_parts))
             server = (modules.get("server") or {}) if isinstance(modules, dict) else {}
             if server:
                 lines.append(f"服务器：在线 {server.get('online', 0)}/{server.get('total', 0)}")
+            env_devices = (((modules.get("env") or {}) if isinstance(modules, dict) else {}).get("devices") or [])
+            door = next((item for item in env_devices if isinstance(item, dict) and ("大门" in str(item.get("name") or "") or item.get("contact") is not None)), None)
+            if isinstance(door, dict):
+                contact = door.get("contact")
+                contact_text = "打开" if contact is True else ("关闭" if contact is False else "--")
+                lines.append(f"大门：{contact_text}，{'在线' if door.get('online') else '离线'}，更新 {door.get('updated_at') or '--'}")
+            offline_preview = []
+            module_iter = modules.items() if isinstance(modules, dict) else []
+            for module_key, module_payload in module_iter:
+                label = MODULE_LABELS.get(module_key, module_key)
+                devices = []
+                if isinstance(module_payload, dict):
+                    if isinstance(module_payload.get("devices"), list):
+                        devices = module_payload.get("devices") or []
+                    elif module_key == "server" and isinstance(module_payload.get("machines"), list):
+                        devices = module_payload.get("machines") or []
+                for device in devices:
+                    if not isinstance(device, dict):
+                        continue
+                    online_state = device.get("online", device.get("is_online"))
+                    level = str(device.get("status_level") or device.get("diagnostic_level") or "").lower()
+                    if online_state is False or level in {"offline", "error", "stale"}:
+                        offline_preview.append(f"[{label}] {_device_name(device)}")
+            if offline_preview:
+                lines.append("重点离线：" + "；".join(offline_preview[:5]) + (f"；... 还有 {len(offline_preview) - 5} 个" if len(offline_preview) > 5 else ""))
         else:
             lines.append(f"概览接口：不可用（{summary}）")
-        lines.append(self.current_collector_text())
+        energy_line = self.energy_brief_text()
+        if energy_line:
+            lines.append(energy_line)
+        collector_line = self.current_collector_text()
+        if collector_line:
+            lines.append(collector_line)
+        proxy_line = self.proxy_brief_text()
+        if proxy_line:
+            lines.append(proxy_line)
+        automation_line = self.automation_brief_text()
+        if automation_line:
+            lines.append(automation_line)
         return "\n".join(lines)
 
     def current_collector_text(self) -> str:
@@ -381,6 +439,39 @@ class LocalSmartCenterClient:
                     details.append(f"{item.get('name') or item.get('channel')}: {current}A")
             detail_text = "；".join(details) if details else (payload.get("error") or "暂无通道数据")
         return f"电流采集器：{online}，更新时间 {updated_at}，{detail_text}"
+
+    def energy_brief_text(self) -> str:
+        ok, payload = self.get_json("/api/meters?target=total&period=day&days=7", timeout_sec=4.0)
+        if not ok or not isinstance(payload, dict):
+            return ""
+        summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+        dashboard = payload.get("dashboard_summary") if isinstance(payload.get("dashboard_summary"), dict) else {}
+        today = _first_value(summary, ("total_daily_energy", "raw_total_daily_energy"))
+        if today is None:
+            today = _first_value(dashboard, ("daily_energy", "raw_daily_energy"))
+        month = _first_value(summary, ("total_monthly_energy",))
+        if month is None:
+            month = _first_value(dashboard, ("monthly_energy",))
+        power = _first_value(summary, ("total_realtime_power", "stable_total_realtime_power", "estimated_total_realtime_power"))
+        if power is None:
+            power = _first_value(dashboard, ("power", "stable_power", "estimated_power"))
+        return f"电力：今日 {_fmt_number(today)} kWh，本月 {_fmt_number(month)} kWh，当前功率 {_fmt_number(power)} kW"
+
+    def proxy_brief_text(self) -> str:
+        ok, payload = self.get_json("/api/proxy/status", timeout_sec=3.0)
+        if not ok or not isinstance(payload, dict):
+            return ""
+        online = "在线" if payload.get("online") else "离线"
+        return f"代理：{online}，外网检查 {payload.get('healthy_target_count', 0)}/{payload.get('check_count', 0)}"
+
+    def automation_brief_text(self) -> str:
+        ok, payload = self.get_json("/api/automation/status", timeout_sec=3.0)
+        if not ok or not isinstance(payload, dict):
+            return ""
+        rules = [item for item in payload.get("rules") or [] if isinstance(item, dict)]
+        enabled = sum(1 for item in rules if item.get("enabled"))
+        active = sum(1 for item in rules if isinstance(item.get("state"), dict) and (item["state"].get("active") or item["state"].get("active_since")))
+        return f"自动化：启用 {enabled}/{len(rules)}，触发中 {active}"
 
     def daily_text(self) -> str:
         ok, summary = self.get_json("/api/dashboard/summary", timeout_sec=3.0)
@@ -568,6 +659,44 @@ class LocalSmartCenterClient:
             return "没有匹配到环境传感器。"
         return "\n".join(["环境状态：", *[f"- {row}" for row in rows[:10]], *(["... 还有更多传感器未显示"] if len(rows) > 10 else [])])
 
+    def door_status_text(self, query: str = "") -> str:
+        ok, payload = self.get_json("/api/env/status", timeout_sec=4.0)
+        if not ok or not isinstance(payload, dict):
+            return f"门磁接口暂时不可用：{payload}"
+        summary_ok, summary = self.get_json("/api/dashboard/summary", timeout_sec=3.0)
+        name_map: dict[str, str] = {}
+        if summary_ok and isinstance(summary, dict):
+            modules = summary.get("modules") if isinstance(summary.get("modules"), dict) else {}
+            env_module = modules.get("env") if isinstance(modules.get("env"), dict) else {}
+            for device in env_module.get("devices") or []:
+                if isinstance(device, dict) and device.get("id"):
+                    name_map[str(device.get("id"))] = _device_name(device)
+        rows = []
+        compact_query = query.replace("状态", "").replace("开关", "").replace("门磁", "").replace("门", "").strip()
+        for sensor_id, item in payload.items():
+            if not isinstance(item, dict):
+                continue
+            name = name_map.get(str(sensor_id)) or str(item.get("name") or sensor_id)
+            has_contact = item.get("contact") is not None or item.get("opening") is not None or item.get("contact_text") is not None
+            if not has_contact and not _contains_any(name, ("门", "大门", "门磁")):
+                continue
+            if compact_query and compact_query not in name:
+                continue
+            if item.get("contact_text"):
+                state = str(item.get("contact_text"))
+            elif item.get("opening") is not None:
+                state = "打开" if item.get("opening") else "关闭"
+            elif item.get("contact") is not None:
+                state = "打开" if item.get("contact") else "关闭"
+            else:
+                state = "--"
+            online = "在线" if item.get("online", True) else "离线"
+            updated = item.get("contact_updated_at") or item.get("updated_at") or "--"
+            rows.append(f"- {name}：{state}，{online}，更新 {updated}")
+        if not rows:
+            return "没有匹配到门磁/大门状态。"
+        return "\n".join(["门磁状态：", *rows[:8], *(["... 还有更多门磁未显示"] if len(rows) > 8 else [])])
+
     def hvac_status_text(self, query: str = "") -> str:
         ok, payload = self.get_json("/api/hvac/status", timeout_sec=4.0)
         if not ok or not isinstance(payload, dict):
@@ -732,6 +861,8 @@ class LocalSmartCenterClient:
             return self.current_collector_text()
         if intent == "server_status":
             return self.server_status_text(query)
+        if intent == "door_status":
+            return self.door_status_text(query)
         if intent == "environment_status":
             return self.environment_status_text(query)
         if intent == "hvac_status":
@@ -765,7 +896,9 @@ class LocalSmartCenterClient:
         if not keyword:
             return "我在。可以问：现在状态、哪些设备离线、昨日电量、近7天用电、当前电流、服务器状态、最近自动化日志、UPS状态。"
         lowered = keyword.lower()
-        if _contains_any(keyword, ("开灯", "关灯", "开关", "控制", "重启", "关机", "执行", "下发", "唤醒", "设置", "修改", "调温", "制冷", "制热")) and not _contains_any(keyword, ("状态", "日志", "记录", "历史")):
+        if _contains_any(keyword, DOOR_WORDS):
+            return self.door_status_text(keyword)
+        if _contains_any(keyword, ("开灯", "关灯", "控制", "重启", "关机", "执行", "下发", "唤醒", "设置", "修改", "调温", "制冷", "制热")) and not _contains_any(keyword, ("状态", "日志", "记录", "历史")):
             return self.answer_intent("forbidden_control", keyword)
         if _contains_any(keyword, ("日志", "记录", "最近发生", "事件")):
             if _contains_any(keyword, ("自动化", "场景", "联动")):
@@ -789,7 +922,7 @@ class LocalSmartCenterClient:
             return self.meter_energy_text(keyword)
         if _contains_any(keyword, ("服务器", "主机", "机器", "电脑", "节点")):
             return self.server_status_text(keyword)
-        if _contains_any(keyword, ("环境", "温度", "湿度", "光照", "门磁", "传感器")):
+        if _contains_any(keyword, ("环境", "温度", "湿度", "光照", "传感器")):
             return self.environment_status_text(keyword)
         if _contains_any(keyword, ("空调", "hvac", "HVAC")):
             return self.hvac_status_text(keyword)
