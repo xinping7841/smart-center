@@ -1,5 +1,6 @@
 Flask==3.0.0
 fastapi==0.115.12
+requests==2.33.1
 modbus_tk==1.1.5
 numpy==2.4.3
 opencv-python==4.13.0.92
@@ -9,4 +10,5 @@ pyserial==3.5
 python-miio==0.5.12
 uvicorn==0.34.2
 wakeonlan==3.1.0
+lark-oapi==1.6.5
 mutagen==1.47.0
