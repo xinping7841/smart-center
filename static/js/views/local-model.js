@@ -166,7 +166,7 @@
     const resp = await fetch('/api/local-model/export-training', {method:'POST'});
     const data = await resp.json();
     if (info) {
-      if (data.ok) info.textContent = `已生成：设备 ${data.counts.devices}，协议 ${data.counts.protocol_records}，日志 ${data.counts.logs}，知识 ${data.counts.insights || 0}`;
+      if (data.ok) info.textContent = `已生成：设备 ${data.counts.devices}，服务器 ${data.counts.server_machines || 0}，协议 ${data.counts.protocol_records}，日志 ${data.counts.logs}，知识 ${data.counts.insights || 0}`;
       else info.textContent = data.msg || data.error || '生成失败';
     }
     await loadFiles();

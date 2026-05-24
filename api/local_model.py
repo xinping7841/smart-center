@@ -9,6 +9,7 @@
 
 import glob
 import json
+import sqlite3
 import time
 import urllib.error
 import urllib.request
@@ -22,7 +23,7 @@ from flask import Blueprint, jsonify, render_template, request, send_file
 from auth.decorators import require_permission
 from config import CONFIG, save_config
 from event_logger import query_events
-from paths import AUDIT_LOG_FILE, DATA_DIR, OPERATION_LOG_FILE, ensure_directory
+from paths import AUDIT_LOG_FILE, DATA_DIR, DB_FILE, OPERATION_LOG_FILE, ensure_directory
 
 
 bp = Blueprint("local_model", __name__)
@@ -58,6 +59,7 @@ DEVICE_SECTIONS = {
     "hvac_devices": "空调",
     "env_sensors": "环境传感器",
     "custom_devices": "泛型控制设备",
+    "server_machines": "服务器/主机",
 }
 
 SENSITIVE_KEY_PARTS = (
@@ -290,6 +292,111 @@ def _extract_device_records(config):
     return rows
 
 
+def _extract_server_machine_records():
+    rows = []
+    machines = []
+    try:
+        from api.server import get_cached_machine_payload  # local import avoids coupling normal page load to server monitor
+        machines = [item for item in (get_cached_machine_payload(force=True) or []) if isinstance(item, dict)]
+    except Exception:
+        machines = []
+    if machines:
+        return [_machine_payload_to_training_record(machine, index) for index, machine in enumerate(machines)]
+    return _extract_server_machine_records_from_db()
+
+
+def _machine_payload_to_training_record(machine, index=0):
+    status = _redact(machine.get("status") if isinstance(machine.get("status"), dict) else {})
+    agent = machine.get("agent_status") if isinstance(machine.get("agent_status"), dict) else {}
+    if not agent and isinstance(status.get("agent"), dict):
+        agent = status.get("agent")
+    diagnostic = _redact(machine.get("diagnostic") if isinstance(machine.get("diagnostic"), dict) else {})
+    gpu_list = status.get("gpu_list") if isinstance(status.get("gpu_list"), list) else []
+    storage_summary = status.get("storage_summary") if isinstance(status.get("storage_summary"), dict) else {}
+    os_info = status.get("os_info") if isinstance(status.get("os_info"), dict) else {}
+    network_primary = status.get("network_primary") if isinstance(status.get("network_primary"), dict) else {}
+    name = machine.get("custom_name") or machine.get("hostname") or machine.get("ip") or machine.get("mac") or f"server_{index + 1}"
+    return {
+        "schema": "smart_center.training.v1",
+        "kind": "device",
+        "source_section": "server_machines",
+        "device_type": "服务器/主机",
+        "device_id": machine.get("mac") or f"server_{index + 1}",
+        "name": name,
+        "hostname": machine.get("hostname") or "",
+        "custom_name": machine.get("custom_name") or "",
+        "asset_group": machine.get("asset_group") or "未分组",
+        "protocol": "Smart Center Agent",
+        "host": machine.get("ip") or network_primary.get("adapter_ip") or "",
+        "port": "",
+        "enabled": True,
+        "is_online": bool(machine.get("is_online")),
+        "last_online": machine.get("last_online") or "",
+        "agent_version": agent.get("version") or "",
+        "diagnostic_level": diagnostic.get("level") or "",
+        "diagnostic_summary": diagnostic.get("summary") or "",
+        "os": os_info.get("name") or os_info.get("id") or "",
+        "metrics": {
+            "cpu_percent": status.get("cpu_percent"),
+            "mem_percent": status.get("mem_percent"),
+            "disk_percent": status.get("disk_percent"),
+            "gpu_count": len(gpu_list),
+            "gpu_names": [str(item.get("name") or "") for item in gpu_list if isinstance(item, dict)][:8],
+            "storage_disk_count": storage_summary.get("disk_count"),
+        },
+        "raw": _redact(machine),
+    }
+
+
+def _extract_server_machine_records_from_db():
+    rows = []
+    if not Path(DB_FILE).exists():
+        return rows
+    try:
+        conn = sqlite3.connect(str(DB_FILE))
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT mac, hostname, ip, last_online, data, is_manual, custom_name,
+                   sort_order, remark, card_size, asset_group
+            FROM machines
+            ORDER BY sort_order ASC, mac ASC
+            """
+        )
+        db_rows = cursor.fetchall()
+    except Exception:
+        return rows
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+    for index, row in enumerate(db_rows):
+        raw_status = {}
+        try:
+            raw_status = json.loads(row["data"] or "{}")
+        except Exception:
+            raw_status = {}
+        if not isinstance(raw_status, dict):
+            raw_status = {}
+        machine = {
+            "mac": row["mac"],
+            "hostname": row["hostname"],
+            "ip": row["ip"],
+            "last_online": row["last_online"],
+            "custom_name": row["custom_name"],
+            "sort_order": row["sort_order"],
+            "remark": row["remark"],
+            "card_size": row["card_size"],
+            "asset_group": row["asset_group"] or "未分组",
+            "status": raw_status,
+        }
+        rows.append(_machine_payload_to_training_record(machine, index))
+    return rows
+
+
 def _extract_protocol_records(config):
     rows = []
     for section in ("control_center", "home_assistant", "meter_statistics", "server_monitor", "proxy_monitor"):
@@ -406,6 +513,8 @@ def _device_capabilities(row):
         caps.extend(["泛型协议控制", "自定义命令发送", "状态解析"])
     elif section == "current_collector":
         caps.extend(["多路电流采集", "组合回路汇总", "设备运行状态推断"])
+    elif section == "server_machines":
+        caps.extend(["服务器在线状态查询", "CPU/内存/磁盘/GPU指标读取", "Agent版本与运行诊断", "按机房/厅/资产组检索"])
     command_count = len(raw.get("commands") or raw.get("command_list") or [])
     if command_count:
         caps.append(f"配置了 {command_count} 个命令")
@@ -428,6 +537,8 @@ def _device_dependencies(row):
         deps.append("依赖 SNMP community、OID 和网络可达性")
     if "modbus" in protocol or section in {"cabinets", "meters", "current_collector"}:
         deps.append("依赖 Modbus 地址、寄存器、倍率和轮询超时配置")
+    if section == "server_machines":
+        deps.append("依赖 Smart Center Agent 上报、节点网络可达性和 monitor.db 运行快照")
     if section == "projectors":
         deps.append("状态判断可能依赖供电回路、电流采集或投影机协议回包")
     if raw.get("scene_id") or raw.get("automation_id"):
@@ -603,10 +714,85 @@ def _build_log_insights(log_rows):
     }]
 
 
+def _build_server_machine_insights(device_rows):
+    server_rows = [row for row in device_rows if row.get("source_section") == "server_machines"]
+    if not server_rows:
+        return []
+    groups = {}
+    gpu_inventory = {}
+    for row in server_rows:
+        group = str(row.get("asset_group") or "未分组").strip() or "未分组"
+        groups.setdefault(group, []).append(row)
+        metrics = row.get("metrics") if isinstance(row.get("metrics"), dict) else {}
+        for gpu_name in metrics.get("gpu_names") or []:
+            name = str(gpu_name or "").strip()
+            if name:
+                gpu_inventory[name] = gpu_inventory.get(name, 0) + 1
+    group_summary = {
+        group: {
+            "total": len(items),
+            "sample_machines": [
+                {
+                    "name": item.get("name"),
+                    "host": item.get("host"),
+                    "hostname": item.get("hostname"),
+                    "last_online": item.get("last_online"),
+                }
+                for item in items[:20]
+            ],
+        }
+        for group, items in sorted(groups.items(), key=lambda item: item[0])
+    }
+    rows = [{
+        "schema": "smart_center.training.v1",
+        "kind": "insight",
+        "insight_type": "server_inventory",
+        "title": "服务器资产分组总览",
+        "summary": (
+            f"本次导出包含 {len(server_rows)} 台服务器/主机，分布在 "
+            + "、".join(f"{group}{len(items)}台" for group, items in sorted(groups.items(), key=lambda item: item[0]))
+            + "。自然语言查询服务器时必须先检索全部分组，不应只返回第一个机房。"
+        ),
+        "facts": {
+            "total": len(server_rows),
+            "groups": group_summary,
+            "gpu_inventory": _top_items(dict(sorted(gpu_inventory.items(), key=lambda item: (-item[1], item[0]))), 20),
+        },
+        "training_hint": "回答“服务器状态、机房服务器、1号厅服务器、2号厅离线机器、node-120 CPU、GPU温度”等问题时，按 asset_group、custom_name、hostname、IP 检索，先给分组统计，再给匹配机器明细。",
+    }]
+    for group, items in sorted(groups.items(), key=lambda item: item[0]):
+        rows.append({
+            "schema": "smart_center.training.v1",
+            "kind": "insight",
+            "insight_type": "server_group_inventory",
+            "title": f"服务器分组：{group}",
+            "summary": f"{group} 当前登记 {len(items)} 台服务器/主机。可按中文分组名、主机名、自定义名或 IP 查询。",
+            "facts": {
+                "group": group,
+                "total": len(items),
+                "machines": [
+                    {
+                        "name": item.get("name"),
+                        "host": item.get("host"),
+                        "hostname": item.get("hostname"),
+                        "custom_name": item.get("custom_name"),
+                        "last_online": item.get("last_online"),
+                        "metrics": item.get("metrics"),
+                    }
+                    for item in items[:30]
+                ],
+            },
+            "training_hint": f"用户问“{group}服务器/主机/机器”时，只过滤 asset_group={group} 的记录；用户问总体服务器时需要同时覆盖其他分组。",
+        })
+    return rows
+
+
 def _build_qa_insights(device_rows):
     samples = [
         ("列出所有 TCP/网络协议设备", "按 devices 中 host 非空或 protocol/comm_mode 为 TCP/UDP/HTTP/SNMP/Modbus TCP 的记录筛选，并返回名称、地址、端口、协议。"),
         ("某设备离线应该先查什么", "先查网络可达、协议参数、桥接服务、最近事件日志，再区分设备断电、通信失败和配置错误。"),
+        ("服务器状态为什么不能只看第一个机房", "服务器资产按 asset_group 分布在多个分组，应先汇总全部分组，再按用户提到的机房、1号厅、2号厅、机房-马勇、主机名或 IP 过滤。"),
+        ("node-120 CPU 和 GPU 怎么查", "在 server_machines 里按 custom_name/hostname/IP 匹配 node-120，再读取 metrics.cpu_percent 和 gpu_names/GPU 指标。"),
         ("投影现在是断电还是关机", "先看供电回路/时序电源/电柜状态，再看电流采集和投影协议回包，不能只凭单一总功率判断。"),
         ("空调米家可控但中控离线", "优先查 Home Assistant/miio 桥接、实体映射、token、局域网连通和轮询日志。"),
         ("哪些操作需要谨慎", "强电、时序电源、投影关机、场景联动和自动化修改都需要人工确认。"),
@@ -632,6 +818,7 @@ def build_insights(config, device_rows, protocol_rows, log_rows):
     insight_rows.extend(_build_protocol_insights(device_rows, protocol_rows))
     insight_rows.extend(_build_rule_insights(config))
     insight_rows.extend(_build_log_insights(log_rows))
+    insight_rows.extend(_build_server_machine_insights(device_rows))
     insight_rows.extend(_build_qa_insights(device_rows))
     daily_summary = {
         "schema": "smart_center.training.v1",
@@ -665,6 +852,8 @@ def build_training_export():
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_dir = _training_dir()
     device_rows = _extract_device_records(config)
+    server_machine_rows = _extract_server_machine_records()
+    device_rows.extend(server_machine_rows)
     protocol_rows = _extract_protocol_records(config)
     log_rows = _extract_log_records(int(export_cfg.get("recent_log_limit", 500))) if export_cfg.get("include_logs", True) else []
     insight_rows, daily_summary = build_insights(config, device_rows, protocol_rows, log_rows)
@@ -673,8 +862,15 @@ def build_training_export():
             "schema": "smart_center.training.v1",
             "kind": "instruction",
             "instruction": "根据中控配置说明指定设备的协议、地址、用途和可用控制能力。",
-            "input": {"device_inventory_count": len(device_rows)},
+            "input": {"device_inventory_count": len(device_rows), "server_machine_count": len(server_machine_rows)},
             "output": "已归一化设备清单，可按 source_section、device_type、device_id 检索，并可结合 insights 中的 device_profile 回答。",
+        },
+        {
+            "schema": "smart_center.training.v1",
+            "kind": "instruction",
+            "instruction": "根据运行时服务器资产快照回答服务器状态、分组、离线、CPU、内存、磁盘和 GPU 查询。",
+            "input": {"server_machine_count": len(server_machine_rows)},
+            "output": "server_machines 记录来自 monitor.db，可按 asset_group、custom_name、hostname、IP、mac 检索；回答总体服务器时先汇总全部分组，回答指定分组时只返回匹配分组。",
         },
         {
             "schema": "smart_center.training.v1",
@@ -712,12 +908,14 @@ def build_training_export():
         "model_target": {k: v for k, v in model_cfg.items() if k != "api_key"},
         "counts": {
             "devices": len(device_rows),
+            "server_machines": len(server_machine_rows),
             "protocol_records": len(protocol_rows),
             "logs": len(log_rows),
             "instructions": len(instruction_rows),
             "insights": len(insight_rows),
         },
         "device_sections": DEVICE_SECTIONS,
+        "server_machine_groups": _count_by(server_machine_rows, "asset_group"),
         "insight_types": _count_by(insight_rows, "insight_type"),
         "daily_summary": daily_summary,
         "config_snapshot": _redact(config),

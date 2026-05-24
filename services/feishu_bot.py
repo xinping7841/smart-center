@@ -58,6 +58,8 @@ MODULE_LABELS = {
     "ups": "UPS",
 }
 DOOR_WORDS = ("大门", "门磁", "门口", "门状态", "开门", "关门", "门开", "门关")
+SERVER_WORDS = ("服务器", "主机", "机器", "电脑", "节点", "显卡", "内存", "磁盘")
+SERVER_OFFLINE_WORDS = ("离线", "异常", "不在线", "掉线", "故障")
 
 
 @dataclass(frozen=True)
@@ -225,6 +227,107 @@ def _device_name(device: dict[str, Any]) -> str:
         or device.get("id")
         or "未命名设备"
     )
+
+
+def _normalize_match_text(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    if not text:
+        return ""
+    replacements = {
+        "一号": "1号",
+        "二号": "2号",
+        "三号": "3号",
+        "四号": "4号",
+        "五号": "5号",
+        "六号": "6号",
+        "七号": "7号",
+        "八号": "8号",
+        "九号": "9号",
+        "十号": "10号",
+    }
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    return re.sub(r"[\s\-_:：,，.。/\\()（）\[\]【】]+", "", text)
+
+
+def _machine_group(machine: dict[str, Any]) -> str:
+    return str(machine.get("asset_group") or "").strip() or "未分组"
+
+
+def _machine_status(machine: dict[str, Any]) -> dict[str, Any]:
+    return machine.get("status") if isinstance(machine.get("status"), dict) else {}
+
+
+def _machine_metric_value(machine: dict[str, Any], metric: str) -> float | None:
+    status = _machine_status(machine)
+    if metric == "cpu":
+        return _to_float(status.get("cpu_percent"))
+    if metric == "mem":
+        return _to_float(status.get("mem_percent"))
+    if metric == "disk":
+        return _to_float(status.get("disk_percent"))
+    if metric in {"gpu_temp", "gpu_util"}:
+        values = []
+        for gpu in status.get("gpu_list") or []:
+            if not isinstance(gpu, dict):
+                continue
+            key = "temp" if metric == "gpu_temp" else "util_percent"
+            number = _to_float(gpu.get(key))
+            if number is not None:
+                values.append(number)
+        return max(values) if values else None
+    return None
+
+
+def _machine_gpu_text(machine: dict[str, Any], detail: bool = False) -> str:
+    gpu_list = _machine_status(machine).get("gpu_list")
+    if not isinstance(gpu_list, list) or not gpu_list:
+        return ""
+    parts = []
+    for gpu in gpu_list[:2]:
+        if not isinstance(gpu, dict):
+            continue
+        name = str(gpu.get("name") or "GPU").strip()
+        if detail and len(name) > 28:
+            name = name[:28] + "..."
+        elif not detail:
+            name = name.split("[")[0].replace("NVIDIA GeForce", "").replace("VGA compatible controller:", "").strip() or "GPU"
+            if len(name) > 18:
+                name = name[:18] + "..."
+        temp = _fmt_number(gpu.get("temp"), 0)
+        util = _fmt_number(gpu.get("util_percent"), 0)
+        parts.append(f"{name} {temp}°C/{util}%")
+    if len(gpu_list) > 2:
+        parts.append(f"+{len(gpu_list) - 2}GPU")
+    return "GPU " + "；".join(parts) if parts else ""
+
+
+def _server_like_query(keyword: str, lowered: str) -> bool:
+    if _contains_any(keyword, SERVER_WORDS):
+        return True
+    if any(token in lowered for token in ("cpu", "gpu", "node-")):
+        return True
+    return bool(re.search(r"(?:^|[^\d])(?:\d{1,3}\.){3}\d{1,3}(?:$|[^\d])", keyword))
+
+
+def _query_mentions_machine_field(query: str, normalized_query: str, field: Any, field_name: str = "") -> bool:
+    raw = str(field or "").strip()
+    if not raw:
+        return False
+    if field_name == "ip" or re.fullmatch(r"\d{1,3}(?:\.\d{1,3}){3}", raw):
+        return bool(re.search(rf"(?<![\d.]){re.escape(raw)}(?![\d.])", query))
+    normalized = _normalize_match_text(raw)
+    if not normalized:
+        return False
+    if field_name == "mac" or re.fullmatch(r"[0-9a-fA-F:\-]{11,17}", raw):
+        return bool(re.search(rf"(?<![0-9a-f]){re.escape(normalized)}(?![0-9a-f])", normalized_query))
+    if len(normalized) < 2:
+        return False
+    if normalized in normalized_query:
+        return True
+    if len(normalized_query) >= 3 and normalized_query in normalized:
+        return True
+    return False
 
 
 def _normalize_intent(value: Any) -> str:
@@ -704,31 +807,217 @@ class LocalSmartCenterClient:
         return "\n".join([header, *shown])
 
     def server_status_text(self, query: str = "") -> str:
-        ok, summary = self.get_json("/api/dashboard/summary", timeout_sec=4.0)
-        if not ok or not isinstance(summary, dict):
-            return f"服务器接口暂时不可用：{summary}"
-        modules = summary.get("modules", {}) if isinstance(summary.get("modules"), dict) else {}
-        server = modules.get("server") if isinstance(modules.get("server"), dict) else {}
-        machines = [item for item in server.get("machines", []) if isinstance(item, dict)]
-        total = int(server.get("total") or len(machines) or 0)
-        online = int(server.get("online") or sum(1 for item in machines if item.get("is_online")))
-        offline = [item for item in machines if item.get("is_online") is False]
+        query = str(query or "").strip()
+        ok, payload = self.get_json("/api/machines", timeout_sec=6.0)
+        source_error = ""
+        machines = [item for item in payload if isinstance(item, dict)] if ok and isinstance(payload, list) else []
+        if not machines:
+            source_error = str(payload)
+            summary_ok, summary = self.get_json("/api/dashboard/summary", timeout_sec=4.0)
+            if summary_ok and isinstance(summary, dict):
+                modules = summary.get("modules", {}) if isinstance(summary.get("modules"), dict) else {}
+                server = modules.get("server") if isinstance(modules.get("server"), dict) else {}
+                machines = [item for item in server.get("machines", []) if isinstance(item, dict)]
+        if not machines:
+            return f"服务器接口暂时不可用：{source_error or payload}"
 
-        lines = [f"服务器：在线 {online}/{total}，离线 {max(total - online, len(offline))}"]
-        if _contains_any(query, ("离线", "异常", "不在线")) and offline:
-            for item in offline[:10]:
-                last_online = item.get("last_online") or "--"
-                lines.append(f"- {_device_name(item)}（{item.get('ip') or '--'}，最后在线 {last_online}）")
-            if len(offline) > 10:
-                lines.append(f"... 还有 {len(offline) - 10} 台未显示")
+        group_order: list[str] = []
+        group_stats: dict[str, dict[str, Any]] = {}
+        for item in machines:
+            group = _machine_group(item)
+            if group not in group_stats:
+                group_order.append(group)
+                group_stats[group] = {"total": 0, "online": 0, "items": []}
+            group_stats[group]["total"] += 1
+            group_stats[group]["online"] += 1 if item.get("is_online") else 0
+            group_stats[group]["items"].append(item)
+
+        total = len(machines)
+        online = sum(1 for item in machines if item.get("is_online"))
+        offline_total = max(0, total - online)
+        normalized_query = _normalize_match_text(query)
+        wants_offline = _contains_any(query, SERVER_OFFLINE_WORDS)
+        wants_full_list = _contains_any(query, ("全部", "完整", "列表", "清单", "明细", "每台", "逐台")) or (
+            "所有" in query and not _contains_any(query, ("汇总", "概览", "分组", "总览"))
+        )
+        wants_group_summary = _contains_any(query, ("分组", "汇总", "总览", "概览"))
+        wants_diagnostics = _contains_any(query, ("诊断", "建议", "原因", "告警", "异常", "故障"))
+        metric_request = ""
+        if "gpu" in query.lower() or "显卡" in query:
+            metric_request = "gpu_temp" if _contains_any(query, ("温度", "发热", "最高")) else "gpu_util"
+        elif "cpu" in query.lower() or "处理器" in query:
+            metric_request = "cpu"
+        elif "内存" in query:
+            metric_request = "mem"
+        elif "磁盘" in query or "硬盘" in query:
+            metric_request = "disk"
+
+        matched_group = ""
+        group_aliases: list[tuple[str, str]] = []
+        for group in group_order:
+            aliases = {_normalize_match_text(group)}
+            if "-" in group or "－" in group:
+                parts = [part for part in re.split(r"[-－]+", group) if part]
+                aliases.add(_normalize_match_text("".join(parts)))
+                aliases.add(_normalize_match_text("".join(reversed(parts))))
+            for alias in aliases:
+                if alias:
+                    group_aliases.append((alias, group))
+        for alias, group in sorted(group_aliases, key=lambda item: len(item[0]), reverse=True):
+            if alias and alias in normalized_query:
+                matched_group = group
+                break
+
+        name_matches = []
+        for item in machines:
+            fields = (
+                ("custom_name", item.get("custom_name")),
+                ("hostname", item.get("hostname")),
+                ("ip", item.get("ip")),
+                ("mac", item.get("mac")),
+                ("remark", item.get("remark")),
+            )
+            for field_name, field in fields:
+                if _query_mentions_machine_field(query, normalized_query, field, field_name):
+                    name_matches.append(item)
+                    break
+
+        if name_matches:
+            selected = name_matches
+            scope_title = f"匹配服务器 {len(selected)} 台"
+            include_group = True
+        elif matched_group:
+            selected = list(group_stats[matched_group]["items"])
+            scope_title = f"{matched_group}服务器"
+            include_group = False
+        else:
+            selected = list(machines)
+            scope_title = "服务器"
+            include_group = True
+
+        selected_before_offline = list(selected)
+        if wants_offline:
+            selected = [item for item in selected if item.get("is_online") is False]
+
+        if metric_request:
+            metric_rows = [(item, _machine_metric_value(item, metric_request)) for item in selected]
+            metric_rows = [(item, value) for item, value in metric_rows if value is not None]
+            reverse = True
+            if _contains_any(query, ("最低", "最少", "最小")):
+                reverse = False
+            metric_rows.sort(key=lambda row: row[1], reverse=reverse)
+            selected = [item for item, _value in metric_rows]
+
+        lines = []
+        if name_matches:
+            lines.append(f"{scope_title}：总在线 {online}/{total}，离线 {offline_total}")
+        elif matched_group:
+            stats = group_stats[matched_group]
+            group_total = int(stats["total"])
+            group_online = int(stats["online"])
+            group_offline = max(0, group_total - group_online)
+            suffix = f"，当前列出离线 {len(selected)} 台" if wants_offline else ""
+            lines.append(f"{scope_title}：在线 {group_online}/{group_total}，离线 {group_offline}{suffix}")
+        elif wants_offline:
+            lines.append(f"离线服务器：{len(selected)} 台；总在线 {online}/{total}")
+        else:
+            lines.append(f"服务器：在线 {online}/{total}，离线 {offline_total}，分组 {len(group_order)} 个")
+
+        if not matched_group and not name_matches:
+            group_parts = []
+            for group in group_order:
+                stats = group_stats[group]
+                group_total = int(stats["total"])
+                group_online = int(stats["online"])
+                group_offline = max(0, group_total - group_online)
+                offline_text = f"，离线 {group_offline}" if group_offline else ""
+                group_parts.append(f"{group} {group_online}/{group_total}{offline_text}")
+            if group_parts:
+                lines.append("分组：" + "；".join(group_parts))
+
+        if metric_request:
+            metric_labels = {
+                "cpu": "CPU占用",
+                "mem": "内存占用",
+                "disk": "磁盘占用",
+                "gpu_temp": "GPU温度",
+                "gpu_util": "GPU利用率",
+            }
+            metric_unit = "°C" if metric_request == "gpu_temp" else "%"
+            direction = "最低" if _contains_any(query, ("最低", "最少", "最小")) else "最高"
+            lines.append(f"{metric_labels.get(metric_request, '指标')}{direction}：")
+            for item in selected[:8]:
+                value = _machine_metric_value(item, metric_request)
+                lines.append(f"- {('[%s] ' % _machine_group(item)) if include_group else ''}{_device_name(item)}（{item.get('ip') or '--'}）：{_fmt_number(value, 1)}{metric_unit}")
+            if len(selected) > 8:
+                lines.append(f"... 还有 {len(selected) - 8} 台未显示")
             return "\n".join(lines)
 
-        for item in machines[:5]:
-            status = item.get("status") if isinstance(item.get("status"), dict) else {}
+        if wants_group_summary and not wants_full_list and not matched_group and not name_matches and not wants_offline:
+            return "\n".join(lines)
+
+        def format_machine(item: dict[str, Any]) -> str:
+            status = _machine_status(item)
             state = "在线" if item.get("is_online") else "离线"
+            prefix = f"[{_machine_group(item)}] " if include_group else ""
+            metrics = []
             cpu = _fmt_number(status.get("cpu_percent"), 1)
+            mem = _fmt_number(status.get("mem_percent"), 1)
             disk = _fmt_number(status.get("disk_percent"), 1)
-            lines.append(f"- {_device_name(item)}：{state}，CPU {cpu}%，磁盘 {disk}%")
+            if cpu != "--":
+                metrics.append(f"CPU {cpu}%")
+            if mem != "--":
+                metrics.append(f"内存 {mem}%")
+            if disk != "--":
+                metrics.append(f"磁盘 {disk}%")
+            gpu_text = _machine_gpu_text(item, detail=bool(name_matches))
+            if gpu_text:
+                metrics.append(gpu_text)
+            if not item.get("is_online"):
+                metrics.append(f"最后在线 {item.get('last_online') or '--'}")
+            diagnostic = item.get("diagnostic") if isinstance(item.get("diagnostic"), dict) else {}
+            diagnostic_summary = str(diagnostic.get("summary") or "").strip()
+            if diagnostic_summary and (wants_diagnostics or not item.get("is_online")):
+                metrics.append(diagnostic_summary)
+            detail_text = "，".join(metrics) if metrics else "暂无指标"
+            return f"- {prefix}{_device_name(item)}（{item.get('ip') or '--'}）：{state}，{detail_text}"
+
+        if not selected and wants_offline:
+            if matched_group:
+                return "\n".join(lines + [f"{matched_group}当前没有离线服务器。"])
+            return "\n".join(lines + ["当前没有匹配的离线服务器。"])
+        if not selected:
+            return "\n".join(lines + ["没有匹配到服务器。"])
+
+        if name_matches:
+            limit = 8
+        elif wants_full_list:
+            limit = 20
+        elif matched_group or wants_offline:
+            limit = 12
+        else:
+            limit = 10
+
+        list_source = selected
+        if not wants_full_list and not matched_group and not name_matches and not wants_offline:
+            # Overall status should prove every group is considered, without dumping all 31 rows.
+            list_source = []
+            for group in group_order:
+                group_items = group_stats[group]["items"]
+                offline_items = [item for item in group_items if item.get("is_online") is False]
+                online_items = [item for item in group_items if item.get("is_online")]
+                list_source.extend((offline_items or online_items)[:2])
+            lines.append("各分组代表机器：")
+        elif len(selected_before_offline) != len(selected):
+            lines.append("离线明细：")
+        else:
+            lines.append("机器明细：")
+
+        for item in list_source[:limit]:
+            lines.append(format_machine(item))
+        omitted = max(0, len(list_source) - limit)
+        if omitted:
+            lines.append(f"... 还有 {omitted} 台未显示；可问“全部服务器列表”或指定分组。")
         return "\n".join(lines)
 
     def environment_status_text(self, query: str = "") -> str:
@@ -1022,7 +1311,7 @@ class LocalSmartCenterClient:
         if _contains_any(keyword, ("电流", "采集器")):
             return self.current_collector_text()
         if _contains_any(keyword, ("离线", "异常", "不在线", "掉线", "故障")):
-            if _contains_any(keyword, ("服务器", "主机", "机器", "电脑", "节点")):
+            if _server_like_query(keyword, lowered):
                 return self.server_status_text(keyword)
             return self.offline_devices_text()
         asks_energy = (
@@ -1034,7 +1323,7 @@ class LocalSmartCenterClient:
         )
         if asks_energy:
             return self.meter_energy_text(keyword)
-        if _contains_any(keyword, ("服务器", "主机", "机器", "电脑", "节点")):
+        if _server_like_query(keyword, lowered):
             return self.server_status_text(keyword)
         if _contains_any(keyword, ("环境", "温度", "湿度", "光照", "传感器")):
             return self.environment_status_text(keyword)

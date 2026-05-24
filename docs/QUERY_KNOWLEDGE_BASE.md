@@ -218,15 +218,41 @@ Detailed source:
 Main fields:
 
 - Dashboard server summary: `modules.server.online`, `total`, `all_total`, `groups`, `machines[]`.
-- Machine fields may include `custom_name`, `hostname`, `ip`, `is_online`, `last_online`, `status.cpu_percent`, `status.disk_percent`, `status.gpu_list`.
+- Full machine records from `/api/machines`: `asset_group`, `custom_name`, `hostname`, `ip`, `mac`, `is_online`, `report_online`, `network_reachable`, `last_online`, `diagnostic.summary/detail/level/suggestion`, `agent_status.version/task_state`, `status.cpu_percent`, `status.mem_percent`, `status.disk_percent`, `status.gpu_list[]`, `status.os_info`, `status.storage_summary`, `status.network_adapters`.
+- Current production groups are `机房`, `2号厅`, `机房-马勇`, `1号厅`, and `未分组`. Do not assume only the first group is relevant.
+
+Routing and filtering rules:
+
+- For `服务器状态`, `所有服务器`, `服务器分组汇总`, first read `/api/machines`, group by `asset_group`, and return every group with online/total/offline counts.
+- For `机房服务器`, `1号厅服务器`, `2号厅机器`, `机房-马勇主机`, filter by `asset_group` after normalizing `一号/二号` to `1号/2号`.
+- For `node-120`, hostname, IP, custom name, or MAC questions, match against `custom_name`, `hostname`, `ip`, `mac`, and `remark`.
+- For `离线服务器`, filter `is_online == false`; for `机房离线服务器`, apply group filter first, then offline filter.
+- For CPU/GPU/memory/disk questions, sort matching machines by `status.cpu_percent`, `status.gpu_list[].temp/util_percent`, `status.mem_percent`, or `status.disk_percent`, and return the value plus name/IP/group.
+- Include `diagnostic.summary` for offline/abnormal/detail questions. Include `last_online` when a machine is offline.
 
 Natural-language examples:
 
 - "服务器状态"
+- "所有服务器分组汇总"
+- "机房服务器状态"
+- "1号厅有哪些服务器"
+- "2号厅离线机器"
+- "机房-马勇主机列表"
 - "node-120 状态"
+- "node-120 CPU"
+- "GPU 温度最高的是哪台"
 - "哪些服务器离线"
-- "GPU 温度"
 - "CPU 占用最高的是谁"
+
+Suggested reply:
+
+```text
+服务器：在线 6/31，离线 25，分组 5 个
+分组：机房 4/13，离线 9；2号厅 1/9，离线 8；机房-马勇 0/5，离线 5；1号厅 1/3，离线 2；未分组 0/1，离线 1
+各分组代表机器：
+- [机房] node-120（192.168.50.120）：在线，CPU 4.7%，内存 5.9%，磁盘 19.8%，GPU RTX 3090 45°C/0%
+...
+```
 
 Forbidden related actions:
 
@@ -467,6 +493,7 @@ The first production natural-language integration should only call these GET rou
 ```text
 /api/dashboard/summary
 /api/current-collector/status
+/api/machines
 /api/meters?target=total&period=day&days=7
 /api/7days_energy
 /api/30days_energy
@@ -544,6 +571,18 @@ Forbidden action example:
 }
 ```
 
+## Local Model Learning Workflow
+
+The local model should not be treated as magically self-learning from chat. Use a controlled knowledge pipeline:
+
+1. Export current knowledge with `POST /api/local-model/export-training` or `python scripts/export_local_model_training.py`.
+2. The export writes JSON/JSONL under `DATA_DIR/training/local_model`, including config devices, runtime `server_machines` from `monitor.db`, protocol files, recent logs, instructions, insights, and a `knowledge_*.json` manifest.
+3. Feed those files to the local model service as a RAG/knowledge index. This is the recommended path for frequent updates because it can refresh daily or hourly without changing model weights.
+4. Optional fine-tuning/LoRA should use curated instruction examples only, not raw secrets or unreviewed logs. It is slower and less suitable for rapidly changing state such as online/offline machines.
+5. Query execution must still go through the deterministic read-only allowlist in this document. The model can classify intent and summarize evidence, but it must not directly call control APIs.
+
+For server knowledge specifically, every export now includes `server_machines` records with `asset_group`, names, IPs, last report time, Agent version, CPU/memory/disk/GPU summaries, and sanitized raw status. This allows the local model/RAG layer to answer all machine-room and hall-specific server questions instead of learning only the first visible group.
+
 ## Initial Feishu Coverage
 
 Implemented in `services/feishu_bot.py`:
@@ -552,7 +591,7 @@ Implemented in `services/feishu_bot.py`:
 - Offline devices: "哪些设备离线", "异常设备".
 - Energy: "昨日电量", "昨天用了多少电", "今日用电", "本月用电", "本月用电排行".
 - Current collector: "当前电流", "采集器".
-- Servers: "服务器状态", "哪些服务器离线".
+- Servers: "服务器状态", "所有服务器分组汇总", "机房服务器状态", "1号厅服务器", "2号厅离线机器", "node-120 CPU", "GPU温度最高".
 - Logs: "最近日志", "最近自动化日志", "最近灯光日志".
 - Environment/HVAC/UPS/SNMP/NVR/proxy/local-model read-only status.
 - Optional Ollama intent classifier via `FEISHU_NL_MODEL_ENABLED=true`.
