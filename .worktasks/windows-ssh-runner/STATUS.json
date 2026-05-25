@@ -1,0 +1,10 @@
+{
+  "task": "windows-ssh-runner",
+  "module": "remote_tools",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-windows-ssh-runner-20260526",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/windows-ssh-runner",
+  "started_at": "2026-05-26 03:23:46",
+  "status": "in_progress"
+}
