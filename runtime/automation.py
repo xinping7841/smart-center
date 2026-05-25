@@ -252,6 +252,24 @@ def _execute_hvac_action(action):
     return True, f"[自动化] 空调 {device_name} 已执行 {action_type} ({driver_class})"
 
 
+def _should_skip_node_red_action(device_id, normalized_action):
+    if device_id != "courtyard_light" or normalized_action != "on":
+        return False, ""
+
+    try:
+        from api.node_red import get_node_red_device_status
+
+        status = get_node_red_device_status(device_id)
+    except Exception as exc:
+        return False, f"status_check_failed:{exc}"
+
+    current_status = str((status or {}).get("status") or "").strip().lower()
+    display_name = str((status or {}).get("device_name") or device_id)
+    if current_status == "on":
+        return True, f"[自动化] Node-RED {display_name} 当前已开，跳过重复 on"
+    return False, ""
+
+
 def _execute_node_red_action(action):
     device_id = str(action.get("device_id") or "").strip()
     if not device_id:
@@ -273,6 +291,10 @@ def _execute_node_red_action(action):
         return False, f"[自动化] Node-RED 不支持动作: {device_id}/{action_type}"
 
     try:
+        skipped, skip_message = _should_skip_node_red_action(device_id, normalized_action)
+        if skipped:
+            return True, skip_message
+
         from api.node_red import control_node_red_device
 
         ok, result, driver_class = control_node_red_device(device_id, normalized_action, source="automation_scene")

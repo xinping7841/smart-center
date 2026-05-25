@@ -1274,6 +1274,10 @@ OUTDOOR_UNIVERSAL_COMMAND_NAME_HINTS = {
 }
 
 OUTDOOR_NODE_RED_DEVICE_ID = "courtyard_light"
+OUTDOOR_LOW_LUX_ON_THRESHOLD = 200
+OUTDOOR_LOW_LUX_REARM_VALUE = 260
+OUTDOOR_SCHEDULED_OFF_TIME = "21:00"
+OUTDOOR_SCHEDULED_OFF_WINDOW_END = "21:30"
 
 
 def _normalize_automation_rule(rule):
@@ -1432,13 +1436,6 @@ def _maybe_upgrade_outdoor_light_on_rule(loaded_config):
             schedule = {}
             item["schedule"] = schedule
 
-        threshold = condition.get("value", 300)
-        hysteresis = condition.get("hysteresis", 0)
-        try:
-            rearm_value = float(threshold) + max(float(hysteresis), 0.0)
-        except Exception:
-            rearm_value = 360.0
-
         current_device_id = str(condition.get("device_id") or "").strip()
         current_sensor = next(
             (
@@ -1476,12 +1473,52 @@ def _maybe_upgrade_outdoor_light_on_rule(loaded_config):
         if str(condition.get("crossing_mode") or "").strip().lower() != "cross_down":
             condition["crossing_mode"] = "cross_down"
             changed = True
+        if condition.get("value") != OUTDOOR_LOW_LUX_ON_THRESHOLD:
+            condition["value"] = OUTDOOR_LOW_LUX_ON_THRESHOLD
+            changed = True
         if str(condition.get("rearm_value") or "").strip() == "":
-            condition["rearm_value"] = round(rearm_value, 2)
+            condition["rearm_value"] = OUTDOOR_LOW_LUX_REARM_VALUE
+            changed = True
+        elif condition.get("rearm_value") != OUTDOOR_LOW_LUX_REARM_VALUE:
+            condition["rearm_value"] = OUTDOOR_LOW_LUX_REARM_VALUE
             changed = True
         if float(condition.get("window_bootstrap_sec", 0) or 0) <= 0:
             condition["window_bootstrap_sec"] = 180
             changed = True
+
+    return changed
+
+
+def _maybe_upgrade_outdoor_light_off_rule(loaded_config):
+    automations = loaded_config.get("automations", [])
+    if not isinstance(automations, list) or not automations:
+        return False
+
+    changed = False
+    for item in automations:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("id") or "").strip() != "auto_outdoor_light_20_off":
+            continue
+
+        if str(item.get("name") or "").strip() != "户外灯晚九点自动关灯":
+            item["name"] = "户外灯晚九点自动关灯"
+            changed = True
+
+        schedule = item.get("schedule")
+        if not isinstance(schedule, dict):
+            schedule = {}
+            item["schedule"] = schedule
+            changed = True
+        desired_schedule = {
+            "time": OUTDOOR_SCHEDULED_OFF_TIME,
+            "time_start": OUTDOOR_SCHEDULED_OFF_TIME,
+            "time_end": OUTDOOR_SCHEDULED_OFF_WINDOW_END,
+        }
+        for key, value in desired_schedule.items():
+            if str(schedule.get(key) or "").strip() != value:
+                schedule[key] = value
+                changed = True
 
     return changed
 
@@ -2562,6 +2599,8 @@ def load_config():
         config_needs_persist = config_file_exists
     if _maybe_upgrade_outdoor_light_on_rule(loaded_config):
         config_needs_persist = config_file_exists
+    if _maybe_upgrade_outdoor_light_off_rule(loaded_config):
+        config_needs_persist = config_file_exists
     if _normalize_outdoor_universal_devices(loaded_config):
         config_needs_persist = config_file_exists
     if _maybe_restore_outdoor_light_scenes(loaded_config):
@@ -2589,6 +2628,7 @@ def save_config(new_config):
     ]
     _maybe_add_outdoor_midnight_off_rule(CONFIG)
     _maybe_upgrade_outdoor_light_on_rule(CONFIG)
+    _maybe_upgrade_outdoor_light_off_rule(CONFIG)
     for device in CONFIG.get("custom_devices", []):
         _sanitize_custom_device_command_names(device)
     CONFIG["control_center"] = normalize_control_center(CONFIG.get("control_center"), CONFIG.get("custom_devices"))
