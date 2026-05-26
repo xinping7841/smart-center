@@ -94,11 +94,14 @@
     $('grid').innerHTML = rawChannels.map(item => {
       const live = hasLiveCurrent(item.current);
       const channelNo = Number(item.channel) || 0;
+      const rawText = item.is_noise
+        ? `raw ${item.raw_register ?? '--'} / ${formatA(item.measured_current)}`
+        : `raw ${item.raw_register ?? '--'}`;
       return `
       <section class="card raw-card ${live ? 'live' : ''}">
         <div class="card-head">
           <div class="channel-name" title="第${channelNo}路">第${channelNo}路</div>
-          <div class="raw">raw ${item.raw_register ?? '--'}</div>
+          <div class="raw">${escapeHtml(rawText)}</div>
         </div>
         <div class="metric"><span>原始电流</span><strong>${formatA(item.current)}</strong></div>
       </section>
