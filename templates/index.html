@@ -4584,8 +4584,16 @@
             if (!safeView) return;
             try {
                 const url = new URL(window.location.href);
-                if (url.searchParams.get('view') !== safeView) {
+                if (safeView === 'dashboard') {
+                    url.searchParams.delete('view');
+                    url.searchParams.delete('tab');
+                    url.hash = '';
+                    if (url.toString() !== window.location.href) {
+                        window.history.replaceState(null, '', url.toString());
+                    }
+                } else if (url.searchParams.get('view') !== safeView) {
                     url.searchParams.set('view', safeView);
+                    url.hash = '';
                     window.history.replaceState(null, '', url.toString());
                 }
                 if (window.parent && window.parent !== window) {
@@ -4958,6 +4966,7 @@
             const requested = String(params.get('view') || params.get('tab') || hashView || '').trim();
             if (!requested) return null;
             const safeView = requested.replace(/[^a-zA-Z0-9_-]/g, '');
+            if (safeView === 'dashboard') return null;
             if (!safeView || !document.getElementById('view-' + safeView)) return null;
             return safeView;
         }
