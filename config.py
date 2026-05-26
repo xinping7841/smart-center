@@ -154,7 +154,7 @@ DEFAULT_CURRENT_COLLECTOR = {
     "parity": "N",
     "stopbits": 1,
     "slave": 1,
-    "register": 0x0000,
+    "register": 0x2000,
     "count": 16,
     "scale": 100.0,
     "multiplier": 1.0,
@@ -452,7 +452,7 @@ def _normalize_current_collector_config(raw_config):
         "bytesize": (8, 5, 8),
         "stopbits": (1, 1, 2),
         "slave": (1, 1, 247),
-        "register": (0, 0, 65535),
+        "register": (0x2000, 0, 65535),
         "count": (16, 1, 32),
         "min_valid_channels": (0, 0, 32),
     }

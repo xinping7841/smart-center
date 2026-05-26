@@ -21,7 +21,6 @@ from current_collector import (
     CurrentCollector,
     CurrentCollectorError,
     DEFAULT_CHANNEL_COUNT,
-    DEFAULT_REGISTER_BASE_100X,
     DEFAULT_SCALE_100X,
     ModbusTcpTransport,
     RtuSerialTransport,
@@ -46,7 +45,7 @@ DEFAULT_CURRENT_COLLECTOR = {
     "parity": "N",
     "stopbits": 1,
     "slave": 1,
-    "register": DEFAULT_REGISTER_BASE_100X,
+    "register": 0x2000,
     "count": DEFAULT_CHANNEL_COUNT,
     "scale": DEFAULT_SCALE_100X,
     "multiplier": 1.0,
@@ -128,7 +127,7 @@ def normalize_current_collector_config(raw_config=None):
     parity = str(cfg.get("parity") or "N").strip().upper()
     cfg["parity"] = parity if parity in {"N", "E", "O", "M", "S"} else "N"
     cfg["slave"] = _coerce_int(cfg.get("slave"), 1, 1, 247)
-    cfg["register"] = _coerce_int(cfg.get("register"), DEFAULT_REGISTER_BASE_100X, 0, 0xFFFF)
+    cfg["register"] = _coerce_int(cfg.get("register"), DEFAULT_CURRENT_COLLECTOR["register"], 0, 0xFFFF)
     cfg["count"] = _coerce_int(cfg.get("count"), DEFAULT_CHANNEL_COUNT, 1, 32)
     cfg["scale"] = _coerce_float(cfg.get("scale"), DEFAULT_SCALE_100X, 0.001, 1000000.0)
     cfg["multiplier"] = _coerce_float(cfg.get("multiplier"), 1.0, 0.0, 1000000.0)

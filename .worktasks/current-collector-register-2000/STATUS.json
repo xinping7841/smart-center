@@ -1,0 +1,16 @@
+﻿{
+  "task": "current-collector-register-2000",
+  "module": "current_collector",
+  "machine": "12700k",
+  "kind": "light",
+  "branch": "codex/12700k-current-collector-register-2000-20260526",
+  "worktree": "D:\\SmartCenter\\smart-center-worktrees\\current-collector-register-2000",
+  "started_at": "2026-05-26 15:29:18",
+  "status": "done",
+  "runtime_fixed": true,
+  "verified": [
+    "py_compile deploy/node_red_current_collector/deploy_current_collector_flow.py config.py api/current_collector.py",
+    "node-121 /current/raw.json 10/10 nonzero channels 1-4 from 0x2000",
+    "node-120 /api/current-collector/status register 8192 and nonzero channels 1-4"
+  ]
+}

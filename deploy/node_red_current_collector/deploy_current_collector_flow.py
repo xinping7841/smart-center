@@ -35,7 +35,7 @@ const collectorPort = Number(env.get('CURRENT_COLLECTOR_PORT') || 502);
 const smartCenterUrl = env.get('SMART_CENTER_CURRENT_PUSH_URL') || 'http://192.168.50.120:6899/api/current-collector/push';
 const token = env.get('SMART_CENTER_CURRENT_PUSH_TOKEN') || '';
 const slave = Number(env.get('CURRENT_COLLECTOR_SLAVE') || 1);
-const startRegister = Number(env.get('CURRENT_COLLECTOR_REGISTER') || 0);
+const startRegister = Number(env.get('CURRENT_COLLECTOR_REGISTER') || 0x2000);
 const count = Number(env.get('CURRENT_COLLECTOR_COUNT') || 16);
 const scale = Number(env.get('CURRENT_COLLECTOR_SCALE') || 100);
 const multiplier = Number(env.get('CURRENT_COLLECTOR_MULTIPLIER') || 1);
@@ -202,6 +202,7 @@ function countActiveChannels(currents) {
         collected_at: new Date().toISOString(),
     };
     flow.set('current_collector_latest_raw', payload);
+    global.set('current_collector_latest_raw', payload);
     msg.method = 'POST';
     msg.url = smartCenterUrl;
     msg.headers = { 'Content-Type': 'application/json' };
