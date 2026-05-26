@@ -25,6 +25,16 @@
     const num = Number(value);
     return Number.isFinite(num) && Math.abs(num) > 0.001;
   }
+  function getRawChannelRows(snapshot, cfg) {
+    const count = Math.max(1, Math.min(Number(snapshot.channel_count || cfg.count || 16) || 16, 32));
+    const currents = Array.isArray(snapshot.currents) ? snapshot.currents : [];
+    const rawRegisters = Array.isArray(snapshot.raw_registers) ? snapshot.raw_registers : [];
+    return Array.from({ length: count }, (_, idx) => ({
+      channel: idx + 1,
+      current: idx < currents.length ? currents[idx] : null,
+      raw_register: idx < rawRegisters.length ? rawRegisters[idx] : null,
+    }));
+  }
   function setStatus(online, text) {
     const el = $('status');
     el.className = `status ${online ? 'online' : 'offline'}`;
@@ -48,7 +58,6 @@
     lastPayload = payload || {};
     const cfg = lastPayload.config || {};
     const snap = lastPayload.snapshot || {};
-    const channels = Array.isArray(lastPayload.channels) ? lastPayload.channels : [];
     const groups = Array.isArray(lastPayload.groups) ? lastPayload.groups : [];
     const enabled = lastPayload.enabled !== false;
     const online = !!lastPayload.online;
@@ -80,11 +89,9 @@
         <div class="group-meta">${escapeHtml(channelText)} · 有效数据 ${item.valid_count ?? 0} 路</div>
       </section>
     `}).join('');
-    const visibleChannels = channels
-      .filter(item => item.visible !== false)
-      .sort((a, b) => Number(a.sort ?? a.channel ?? 9999) - Number(b.sort ?? b.channel ?? 9999) || Number(a.channel || 0) - Number(b.channel || 0));
-    $('rawEmpty').style.display = visibleChannels.length ? 'none' : 'block';
-    $('grid').innerHTML = visibleChannels.map(item => {
+    const rawChannels = getRawChannelRows(snap, cfg);
+    $('rawEmpty').style.display = rawChannels.length ? 'none' : 'block';
+    $('grid').innerHTML = rawChannels.map(item => {
       const live = hasLiveCurrent(item.current);
       const channelNo = Number(item.channel) || 0;
       return `

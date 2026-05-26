@@ -18,6 +18,12 @@ FLOW_IDS = {
     "cc_http_push",
     "cc_debug_error",
     "cc_comment",
+    "cc_raw_page_http",
+    "cc_raw_page_renderer",
+    "cc_raw_page_response",
+    "cc_raw_json_http",
+    "cc_raw_json_renderer",
+    "cc_raw_json_response",
 }
 
 
@@ -182,16 +188,20 @@ function countActiveChannels(currents) {
     const payload = {
         source: 'node-red',
         gateway: 'node-121',
+        collector_host: collectorHost,
+        collector_port: collectorPort,
         slave,
         register_base: `0x${startRegister.toString(16).padStart(4, '0').toUpperCase()}`,
         scale,
         multiplier,
+        channel_count: count,
         raw_registers: read.raw,
         currents: read.currents,
         request_hex: toHex(read.request),
         response_hex: toHex(read.frame),
         collected_at: new Date().toISOString(),
     };
+    flow.set('current_collector_latest_raw', payload);
     msg.method = 'POST';
     msg.url = smartCenterUrl;
     msg.headers = { 'Content-Type': 'application/json' };
@@ -209,6 +219,110 @@ function countActiveChannels(currents) {
     context.set('busy', false);
 });
 return;
+"""
+
+
+RAW_JSON_CODE = r"""
+const latest = flow.get('current_collector_latest_raw') || null;
+msg.headers = { 'Content-Type': 'application/json; charset=utf-8' };
+msg.payload = JSON.stringify({
+    ok: !!latest,
+    source: 'node-red',
+    gateway: 'node-121',
+    latest,
+    served_at: new Date().toISOString(),
+}, null, 2);
+return msg;
+"""
+
+
+RAW_PAGE_CODE = r"""
+const latest = flow.get('current_collector_latest_raw') || null;
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;',
+    }[ch]));
+}
+
+function formatA(value) {
+    const num = Number(value);
+    return Number.isFinite(num) ? `${num.toFixed(3)} A` : '--';
+}
+
+function channelCards(data) {
+    const count = Number(data?.channel_count || data?.currents?.length || 16);
+    const currents = Array.isArray(data?.currents) ? data.currents : [];
+    const registers = Array.isArray(data?.raw_registers) ? data.raw_registers : [];
+    return Array.from({ length: count }, (_, idx) => {
+        const current = currents[idx];
+        const raw = registers[idx];
+        const live = Number.isFinite(Number(current)) && Math.abs(Number(current)) > 0.001;
+        return `<section class="card ${live ? 'live' : ''}">
+            <div class="card-head"><strong>第${idx + 1}路</strong><span>raw ${escapeHtml(raw ?? '--')}</span></div>
+            <div class="value">${escapeHtml(formatA(current))}</div>
+        </section>`;
+    }).join('');
+}
+
+const body = latest ? channelCards(latest) : '<div class="empty">等待 Node-RED 第一次采集数据...</div>';
+const meta = latest
+    ? `${escapeHtml(latest.collected_at || '--')} / ${escapeHtml(latest.collector_host || '--')}:${escapeHtml(latest.collector_port || '--')} / 地址 ${escapeHtml(latest.slave || '--')} / 寄存器 ${escapeHtml(latest.register_base || '--')}`
+    : '暂无数据';
+const tx = latest?.request_hex || '--';
+const rx = latest?.response_hex || '--';
+
+msg.headers = { 'Content-Type': 'text/html; charset=utf-8' };
+msg.payload = `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="refresh" content="2">
+  <title>121 Node-RED 电流原始采集</title>
+  <style>
+    :root { color-scheme: dark; font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif; background:#07111f; color:#e5edf8; }
+    * { box-sizing:border-box; }
+    body { margin:0; min-height:100vh; padding:18px; background:linear-gradient(180deg,#07111f,#0b1627); }
+    header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:14px; }
+    h1 { margin:0; font-size:22px; }
+    .meta { color:#93a4bd; font-size:13px; line-height:1.7; }
+    .badge { border:1px solid rgba(34,197,94,.28); background:rgba(34,197,94,.13); color:#86efac; border-radius:999px; padding:6px 11px; font-weight:900; font-size:12px; }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(132px,1fr)); gap:8px; }
+    .card { border:1px solid rgba(148,163,184,.18); border-radius:8px; padding:9px; background:rgba(15,23,42,.86); }
+    .card.live { border-color:rgba(34,197,94,.62); }
+    .card-head { display:flex; justify-content:space-between; gap:8px; color:#94a3b8; font-size:11px; font-family:Consolas,monospace; }
+    .card-head strong { color:#f8fafc; font-family:"Segoe UI","Microsoft YaHei",Arial,sans-serif; font-size:13px; }
+    .value { margin-top:8px; font-family:Consolas,monospace; font-size:20px; font-weight:900; color:#e5edf8; }
+    .live .value { color:#86efac; }
+    .log { margin-top:12px; color:#9fb0c8; font-family:Consolas,monospace; font-size:11px; line-height:1.5; word-break:break-all; }
+    .empty { border:1px dashed rgba(148,163,184,.25); border-radius:12px; padding:20px; color:#94a3b8; }
+    a { color:#93c5fd; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Node-RED 电流原始采集</h1>
+      <div class="meta">${meta}<br>只显示采集器原始 16 路数据，不带中控备注、排序和组合。</div>
+    </div>
+    <div class="badge">${latest ? 'ONLINE' : 'WAITING'}</div>
+  </header>
+  <main>
+    <div class="grid">${body}</div>
+    <div class="log">
+      <div>TX: ${escapeHtml(tx)}</div>
+      <div>RX: ${escapeHtml(rx)}</div>
+      <div>JSON: <a href="/current/raw.json">/current/raw.json</a></div>
+    </div>
+  </main>
+</body>
+</html>`;
+return msg;
 """
 
 
@@ -299,6 +413,86 @@ def build_flow() -> list[dict]:
             "statusType": "auto",
             "x": 900,
             "y": 100,
+            "wires": [],
+        },
+        {
+            "id": "cc_raw_page_http",
+            "type": "http in",
+            "z": "tab_current_collector_push",
+            "name": "实时原始数据页面",
+            "url": "/current/raw",
+            "method": "get",
+            "upload": False,
+            "swaggerDoc": "",
+            "x": 180,
+            "y": 180,
+            "wires": [["cc_raw_page_renderer"]],
+        },
+        {
+            "id": "cc_raw_page_renderer",
+            "type": "function",
+            "z": "tab_current_collector_push",
+            "name": "渲染原始16路页面",
+            "func": RAW_PAGE_CODE.strip(),
+            "outputs": 1,
+            "timeout": 0,
+            "noerr": 0,
+            "initialize": "",
+            "finalize": "",
+            "libs": [],
+            "x": 430,
+            "y": 180,
+            "wires": [["cc_raw_page_response"]],
+        },
+        {
+            "id": "cc_raw_page_response",
+            "type": "http response",
+            "z": "tab_current_collector_push",
+            "name": "返回实时页面",
+            "statusCode": "",
+            "headers": {},
+            "x": 670,
+            "y": 180,
+            "wires": [],
+        },
+        {
+            "id": "cc_raw_json_http",
+            "type": "http in",
+            "z": "tab_current_collector_push",
+            "name": "实时原始数据 JSON",
+            "url": "/current/raw.json",
+            "method": "get",
+            "upload": False,
+            "swaggerDoc": "",
+            "x": 180,
+            "y": 240,
+            "wires": [["cc_raw_json_renderer"]],
+        },
+        {
+            "id": "cc_raw_json_renderer",
+            "type": "function",
+            "z": "tab_current_collector_push",
+            "name": "返回原始16路 JSON",
+            "func": RAW_JSON_CODE.strip(),
+            "outputs": 1,
+            "timeout": 0,
+            "noerr": 0,
+            "initialize": "",
+            "finalize": "",
+            "libs": [],
+            "x": 430,
+            "y": 240,
+            "wires": [["cc_raw_json_response"]],
+        },
+        {
+            "id": "cc_raw_json_response",
+            "type": "http response",
+            "z": "tab_current_collector_push",
+            "name": "返回 JSON",
+            "statusCode": "",
+            "headers": {},
+            "x": 660,
+            "y": 240,
             "wires": [],
         },
     ]
