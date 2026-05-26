@@ -53,9 +53,50 @@ DEFAULT_SIDEBAR = [
     {"id": "projector", "icon": "🎥", "name": "投影机集群", "sort": 9, "visible": True},
     {"id": "universal", "icon": "🎛️", "name": "协议控制", "sort": 10, "visible": True},
     {"id": "local_model", "icon": "AI", "name": "本地模型", "sort": 10.5, "visible": True},
+    {"id": "logs", "icon": "🧾", "name": "日志中心", "sort": 10.8, "visible": True},
     {"id": "env", "icon": "🌡️", "name": "环境监测", "sort": 11, "visible": True},
     {"id": "auto", "icon": "🤖", "name": "自动化运行", "sort": 12, "visible": True}
 ]
+
+SIDEBAR_DEFAULTS_BY_ID = {str(item["id"]): deepcopy(item) for item in DEFAULT_SIDEBAR}
+
+
+def _is_broken_sidebar_text(value):
+    text = str(value or "").strip()
+    if not text:
+        return True
+    if "?" in text or "�" in text:
+        return True
+    mojibake_markers = ("馃", "鈿", "锟", "Ã", "Â", "æ", "ç", "è", "é", "å", "ä")
+    return any(marker in text for marker in mojibake_markers)
+
+
+def _repair_sidebar_item(nav):
+    nav_id = str((nav or {}).get("id") or "").strip()
+    defaults = SIDEBAR_DEFAULTS_BY_ID.get(nav_id)
+    if not defaults:
+        return False
+
+    changed = False
+    for key in ("icon", "name"):
+        if _is_broken_sidebar_text(nav.get(key)):
+            nav[key] = defaults[key]
+            changed = True
+    for key in ("sort", "visible"):
+        if key not in nav:
+            nav[key] = defaults[key]
+            changed = True
+    return changed
+
+
+def _ensure_sidebar_item(sidebar, nav_id):
+    if any(str((item or {}).get("id") or "") == nav_id for item in sidebar):
+        return False
+    defaults = SIDEBAR_DEFAULTS_BY_ID.get(nav_id)
+    if not defaults:
+        return False
+    sidebar.append(deepcopy(defaults))
+    return True
 
 DEFAULT_REGION = {"p_x1": 0.2, "p_y1": 0.2, "p_x2": 0.8, "p_y2": 0.8}
 
@@ -2034,22 +2075,44 @@ def load_config():
     
     if "users" in loaded_config: del loaded_config["users"]
 
-    if "sidebar" not in loaded_config: 
-        loaded_config["sidebar"] = DEFAULT_SIDEBAR.copy()
+    if "sidebar" not in loaded_config:
+        loaded_config["sidebar"] = deepcopy(DEFAULT_SIDEBAR)
+        config_needs_persist = config_file_exists
     else:
-        loaded_config["sidebar"] = [nav for nav in loaded_config["sidebar"] if nav["id"] not in ["universal", "automation", "env", "auto", "users"]]
-        if not any(nav["id"] == "m32r" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "m32r", "icon": "🎛", "name": "M32R 控台", "sort": 3, "visible": True})
-        if not any(nav["id"] == "meter" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "meter", "icon": "🔋", "name": "电表中心", "sort": 3, "visible": True})
-        if not any(nav["id"] == "current_collector" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "current_collector", "icon": "∿", "name": "电流采集", "sort": 3.4, "visible": True})
-        if not any(nav["id"] == "ups" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "ups", "icon": "🔌", "name": "UPS监测", "sort": 4, "visible": True})
-        if not any(nav["id"] == "snmp" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "snmp", "icon": "🛰", "name": "SNMP监测", "sort": 4, "visible": True})
-        if not any(nav["id"] == "camera_preview" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "camera_preview", "icon": "🎦", "name": "监控预览", "sort": 4.3, "visible": True})
-        if not any(nav["id"] == "proxy" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "proxy", "icon": "🌐", "name": "代理监控", "sort": 4.4, "visible": True})
-        if not any(nav["id"] == "projector" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "projector", "icon": "🎥", "name": "投影机集群", "sort": 7, "visible": True})
-        if not any(nav["id"] == "universal" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "universal", "icon": "🎛️", "name": "协议控制", "sort": 8, "visible": True})
-        if not any(nav["id"] == "env" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "env", "icon": "🌡️", "name": "环境监测", "sort": 9, "visible": True})
-        if not any(nav["id"] == "local_model" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "local_model", "icon": "AI", "name": "本地模型", "sort": 9.5, "visible": True})
-        if not any(nav["id"] == "auto" for nav in loaded_config["sidebar"]): loaded_config["sidebar"].append({"id": "auto", "icon": "🤖", "name": "自动化运行", "sort": 10, "visible": True})
+        sidebar_changed = False
+        normalized_sidebar = []
+        for nav in loaded_config["sidebar"]:
+            if not isinstance(nav, dict):
+                sidebar_changed = True
+                continue
+            nav_id = str(nav.get("id") or "").strip()
+            if nav_id in {"automation", "users"}:
+                sidebar_changed = True
+                continue
+            nav["id"] = nav_id
+            if _repair_sidebar_item(nav):
+                sidebar_changed = True
+            normalized_sidebar.append(nav)
+        loaded_config["sidebar"] = normalized_sidebar
+        for nav_id in (
+            "m32r",
+            "meter",
+            "current_collector",
+            "ups",
+            "snmp",
+            "camera_preview",
+            "proxy",
+            "projector",
+            "universal",
+            "env",
+            "local_model",
+            "logs",
+            "auto",
+        ):
+            if _ensure_sidebar_item(loaded_config["sidebar"], nav_id):
+                sidebar_changed = True
+        if sidebar_changed:
+            config_needs_persist = config_file_exists
 
     for cab in loaded_config["cabinets"]:
         if "ui_text" not in cab: cab["ui_text"] = DEFAULT_UI_TEXT.copy()

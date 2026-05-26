@@ -85,9 +85,11 @@
                 </li>
                 {% endif %}
             {% endfor %}
-            <li onclick="switchTab('logs', '????', this)">
-                <span>??</span> ????
+            {% if not (config.sidebar|default([])|selectattr('id', 'equalto', 'logs')|list) %}
+            <li onclick="switchTab('logs', '日志中心', this)">
+                <span>🧾</span> 日志中心
             </li>
+            {% endif %}
             {% if not (config.sidebar|default([])|selectattr('id', 'equalto', 'sequencer')|list) %}
             <li onclick="switchTab('sequencer', '时序电源', this)">
                 <span>🔌</span> 时序电源
