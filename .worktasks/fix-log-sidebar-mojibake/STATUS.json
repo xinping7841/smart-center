@@ -1,0 +1,15 @@
+﻿{
+    "task":  "fix-log-sidebar-mojibake",
+    "module":  "logs",
+    "machine":  "12700k",
+    "kind":  "light",
+    "branch":  "codex/12700k-fix-log-sidebar-mojibake-20260526",
+    "worktree":  "D:\\SmartCenter\\smart-center-worktrees\\fix-log-sidebar-mojibake",
+    "started_at":  "2026-05-26 13:05:52",
+    "status":  "ready_to_finish",
+    "changed_files":  [
+                          "config.py",
+                          "templates/index.html"
+                      ],
+    "verification":  "python -m compileall config.py api runtime services app.py background.py; sidebar logs item loads as 日志中心"
+}
