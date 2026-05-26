@@ -9,15 +9,14 @@
     * { box-sizing:border-box; }
     body { margin:0; min-height:100vh; background:#07111f; }
     .layout { min-height:100vh; display:flex; }
-    .sidebar { width:248px; flex:0 0 248px; background:#0b1627; border-right:1px solid rgba(148,163,184,.14); display:flex; flex-direction:column; }
-    .logo { padding:22px 18px; font-size:19px; font-weight:900; border-bottom:1px solid rgba(148,163,184,.10); color:#f8fafc; }
-    .nav-menu { list-style:none; margin:0; padding:14px 10px; overflow-y:auto; }
-    .nav-menu li { margin:0 2px 5px; border-radius:8px; }
-    .nav-menu a { display:flex; align-items:center; gap:11px; padding:10px 12px; color:#9fb0c8; font-size:14px; font-weight:700; text-decoration:none; border-left:3px solid transparent; border-radius:8px; }
-    .nav-menu li.active a { color:#dbeafe; background:rgba(59,130,246,.16); border-left-color:#4f8dfd; }
-    .nav-menu a:hover { color:#f8fafc; background:rgba(59,130,246,.10); }
-    .nav-icon { width:24px; text-align:center; flex:none; font-size:12px; font-weight:900; }
-    .sys-info { margin-top:auto; padding:14px 16px 18px; border-top:1px solid rgba(148,163,184,.10); color:#72839a; font-size:12px; line-height:1.6; text-align:center; }
+    .sidebar { width:248px; flex:0 0 248px; min-height:0; background:linear-gradient(180deg, rgba(10,21,37,.98), rgba(14,27,46,.98)); border-right:1px solid rgba(79,141,253,.12); box-shadow:16px 0 42px rgba(2,6,23,.18); display:flex; flex-direction:column; }
+    .logo { padding:24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(148,163,184,.10); color:#f8fafc; letter-spacing:.8px; display:flex; align-items:center; gap:10px; }
+    .nav-menu { list-style:none; margin:0; padding:18px 10px 16px; flex:1; min-height:0; overflow-y:auto; scrollbar-gutter:stable both-edges; }
+    .nav-menu li { margin:0 4px 6px; padding:13px 16px; border-left:4px solid transparent; border-radius:14px; color:#9fb0c8; font-size:15px; font-weight:700; display:flex; align-items:center; gap:12px; cursor:pointer; transition:all .22s ease; }
+    .nav-menu li.active { color:#dbeafe; background:linear-gradient(135deg, rgba(79,141,253,.18), rgba(34,211,238,.09)); border-left-color:#4f8dfd; }
+    .nav-menu li:hover { color:#f8fafc; background:rgba(79,141,253,.12); transform:translateX(2px); }
+    .nav-menu li span { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; flex:none; }
+    .sys-info { padding:18px 16px 22px; border-top:1px solid rgba(148,163,184,.10); color:#72839a; font-size:12px; line-height:1.75; text-align:center; }
     .content { flex:1; min-width:0; display:flex; flex-direction:column; }
     header { padding:14px 20px; background:rgba(7,17,31,.96); border-bottom:1px solid rgba(148,163,184,.16); display:flex; justify-content:space-between; gap:16px; align-items:center; }
     h1 { margin:0; font-size:21px; }
@@ -69,14 +68,10 @@
     <aside class="sidebar">
       <div class="logo">演播中控</div>
       <ul class="nav-menu">
-        {% set path_map = {'current_collector':'/current-collector','local_model':'/local-model'} %}
         {% for item in (config.sidebar|sort(attribute='sort') if config.sidebar else []) %}
           {% if item.visible %}
-          <li class="{{ 'active' if item.id == 'local_model' else '' }}">
-            <a href="{{ path_map.get(item.id, '/#view-' ~ item.id) }}">
-              <span class="nav-icon">{{ item.icon }}</span>
-              <span>{{ item.name }}</span>
-            </a>
+          <li class="{{ 'active' if item.id == 'local_model' else '' }}" onclick="navigateFromStandalonePage({{ item.id|tojson }})">
+            <span>{{ item.icon }}</span> {{ item.name }}
           </li>
           {% endif %}
         {% endfor %}
@@ -119,6 +114,21 @@
       </main>
     </div>
   </div>
-<script src="/static/js/views/local-model.js?v=20260522-stage2-local-model-view"></script>
+<script>
+  function navigateFromStandalonePage(viewId) {
+    const safeView = String(viewId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!safeView || safeView === 'local_model') return;
+    if (safeView === 'current_collector') {
+      window.location.href = '/current-collector';
+      return;
+    }
+    if (safeView === 'm32r') {
+      window.location.href = '/m32r';
+      return;
+    }
+    window.location.href = `/?view=${encodeURIComponent(safeView)}`;
+  }
+</script>
+<script src="/static/js/views/local-model.js?v=20260522-sidebar-nav"></script>
 </body>
 </html>

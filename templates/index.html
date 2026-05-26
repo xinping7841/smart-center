@@ -4954,7 +4954,8 @@
         }
         function getInitialViewFromUrl() {
             const params = new URLSearchParams(window.location.search || '');
-            const requested = String(params.get('view') || params.get('tab') || '').trim();
+            const hashView = String(window.location.hash || '').replace(/^#view-/, '');
+            const requested = String(params.get('view') || params.get('tab') || hashView || '').trim();
             if (!requested) return null;
             const safeView = requested.replace(/[^a-zA-Z0-9_-]/g, '');
             if (!safeView || !document.getElementById('view-' + safeView)) return null;
