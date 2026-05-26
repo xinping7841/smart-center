@@ -52,7 +52,7 @@ DEFAULT_CURRENT_COLLECTOR = {
     "timeout": 2.0,
     "poll_interval": 5.0,
     "push_stale_seconds": 15.0,
-    "zero_deadband_a": 0.15,
+    "zero_deadband_a": 0.25,
     "push_allowed_hosts": ["127.0.0.1", "::1", "192.168.50.121", "100.122.235.56"],
     "push_token": "",
     "reject_sparse_push": False,
@@ -341,7 +341,7 @@ def _apply_zero_deadband(value, config):
         0.0,
         100.0,
     )
-    if abs(number) < deadband:
+    if abs(number) <= deadband:
         return 0.0
     return round(number, 3)
 

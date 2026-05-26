@@ -161,7 +161,7 @@ DEFAULT_CURRENT_COLLECTOR = {
     "timeout": 2.0,
     "poll_interval": 5.0,
     "push_stale_seconds": 15.0,
-    "zero_deadband_a": 0.15,
+    "zero_deadband_a": 0.25,
     "push_allowed_hosts": ["127.0.0.1", "::1", "192.168.50.121", "100.122.235.56"],
     "push_token": "",
     "reject_sparse_push": False,
@@ -468,7 +468,7 @@ def _normalize_current_collector_config(raw_config):
         ("timeout", 1.0, 0.1, 10.0),
         ("poll_interval", 2.0, 0.5, 300.0),
         ("push_stale_seconds", 15.0, 2.0, 300.0),
-        ("zero_deadband_a", 0.15, 0.0, 100.0),
+        ("zero_deadband_a", 0.25, 0.0, 100.0),
     ):
         try:
             merged[key] = max(minimum, min(float(merged.get(key, default)), maximum))

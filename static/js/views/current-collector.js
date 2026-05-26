@@ -25,21 +25,31 @@
     const num = Number(value);
     return Number.isFinite(num) && Math.abs(num) > 0.001;
   }
+  function getZeroDeadband(cfg) {
+    const value = Number(cfg?.zero_deadband_a);
+    return Number.isFinite(value) && value >= 0 ? value : 0.25;
+  }
+  function applyZeroDeadband(value, cfg) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return null;
+    return Math.abs(num) <= getZeroDeadband(cfg) ? 0 : num;
+  }
   function getRawChannelRows(snapshot, cfg) {
     const count = Math.max(1, Math.min(Number(snapshot.channel_count || cfg.count || 16) || 16, 32));
     const currents = Array.isArray(snapshot.currents) ? snapshot.currents : [];
     const measuredCurrents = Array.isArray(snapshot.measured_currents) ? snapshot.measured_currents : currents;
     const rawRegisters = Array.isArray(snapshot.raw_registers) ? snapshot.raw_registers : [];
-    return Array.from({ length: count }, (_, idx) => ({
-      channel: idx + 1,
-      current: idx < currents.length ? currents[idx] : null,
-      measured_current: idx < measuredCurrents.length ? measuredCurrents[idx] : (idx < currents.length ? currents[idx] : null),
-      is_noise: idx < measuredCurrents.length
-        && idx < currents.length
-        && Number(currents[idx]) === 0
-        && Math.abs(Number(measuredCurrents[idx])) > 0,
-      raw_register: idx < rawRegisters.length ? rawRegisters[idx] : null,
-    }));
+    return Array.from({ length: count }, (_, idx) => {
+      const measured = idx < measuredCurrents.length ? measuredCurrents[idx] : (idx < currents.length ? currents[idx] : null);
+      const current = applyZeroDeadband(measured, cfg);
+      return {
+        channel: idx + 1,
+        current,
+        measured_current: measured,
+        is_noise: current === 0 && Math.abs(Number(measured)) > 0,
+        raw_register: idx < rawRegisters.length ? rawRegisters[idx] : null,
+      };
+    });
   }
   function setStatus(online, text) {
     const el = $('status');
