@@ -1,0 +1,10 @@
+﻿{
+    "task":  "courtyard-light-response-gate",
+    "module":  "node_red",
+    "machine":  "12700k",
+    "kind":  "light",
+    "branch":  "codex/12700k-courtyard-light-response-gate-20260526",
+    "worktree":  "D:\\SmartCenter\\smart-center-worktrees\\courtyard-light-response-gate",
+    "started_at":  "2026-05-26 13:57:11",
+    "status":  "ready_for_review"
+}

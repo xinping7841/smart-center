@@ -100,7 +100,7 @@
         const status = String(device?.display_status || device?.status || 'unknown').toLowerCase();
         const id = String(device?.device_id || '');
         const remaining = getNodeRedCooldownRemainingSec(id, device);
-        if (nodeRedPending[id] || remaining > 0) return 'is-busy';
+        if (nodeRedPending[id] || remaining > 0 || isNodeRedControlPending(device)) return 'is-busy';
         if (status === 'on') return 'is-on';
         if (status === 'off') return 'is-off';
         if (['starting', 'stopping', 'pending_ack', 'partial'].includes(status)) return 'is-busy';
@@ -123,6 +123,7 @@
         const id = String(device?.device_id || '');
         const remaining = getNodeRedCooldownRemainingSec(id, device);
         if (nodeRedPending[id]) return '\u6267\u884c\u4e2d / \u8bf7\u7a0d\u5019';
+        if (isNodeRedControlPending(device)) return '\u56de\u8bfb\u4e2d / \u8bf7\u7a0d\u5019';
         if (remaining > 0) return `\u4fdd\u62a4\u51b7\u5374 / ${remaining}\u79d2`;
         const health = device?.health && typeof device.health === 'object' ? device.health : {};
         const message = health.message || health.status || '';
@@ -136,6 +137,7 @@
         const id = String(device?.device_id || '');
         const remaining = getNodeRedCooldownRemainingSec(id, device);
         if (nodeRedPending[id]) return '\u6267\u884c\u4e2d';
+        if (isNodeRedControlPending(device)) return '\u56de\u8bfb\u4e2d';
         if (remaining > 0) return `\u4fdd\u62a4 ${remaining}s`;
         const status = String(device?.status || '').toLowerCase();
         if (status === 'on') return '\u4eae';
@@ -150,6 +152,10 @@
         if (remaining > 0) {
             nodeRedCooldownUntil[id] = Math.max(nodeRedCooldownUntil[id] || 0, nowMs() + remaining * 1000);
         }
+    }
+
+    function isNodeRedControlPending(device) {
+        return !!device?.control_pending || Number(device?.control_pending_remaining_sec || 0) > 0;
     }
 
     function getNodeRedCooldownRemainingSec(deviceId, device = null) {
@@ -173,10 +179,10 @@
         const action = nodeRedActionForToggle(device);
         const checked = String(device?.status || '').toLowerCase() === 'on' ? 'checked' : '';
         const remaining = getNodeRedCooldownRemainingSec(id, device);
-        const isPending = !!nodeRedPending[id];
+        const isPending = !!nodeRedPending[id] || isNodeRedControlPending(device);
         const controlDisabled = disabled || isPending || remaining > 0 ? 'disabled' : '';
         const title = isPending
-            ? '\u6307\u4ee4\u6267\u884c\u4e2d'
+            ? '\u6307\u4ee4\u6267\u884c\u6216\u72b6\u6001\u56de\u8bfb\u4e2d'
             : (remaining > 0 ? `\u5f00\u5173\u4fdd\u62a4\u51b7\u5374\u4e2d\uff0c${remaining}\u79d2\u540e\u53ef\u64cd\u4f5c` : nodeRedActionLabel(device));
         return `<div class="protocol-light-switch-card ${statusClass}" data-node-red-device="${safeId}">
             <div class="protocol-light-switch-head">
@@ -241,7 +247,7 @@
                     notify(data.msg || '\u6267\u884c\u6210\u529f', false);
                     return updateNodeRedDevices(true);
                 }
-                if (data.error === 'cooldown' || Number(data.retry_after_sec || 0) > 0) {
+                if (data.error === 'cooldown') {
                     const retrySec = Math.max(1, Number(data.retry_after_sec || 1));
                     nodeRedCooldownUntil[id] = nowMs() + retrySec * 1000;
                 }
