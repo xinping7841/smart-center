@@ -72,7 +72,9 @@
                     hardwareRefreshedAt: st.hardware_refreshed_at || '',
                 };
             }
-            const level = String(diagnostic.level || (isOnline && hasRuntime ? 'success' : 'warn'));
+            const rawLevel = String(diagnostic.level || (isOnline && hasRuntime ? 'success' : 'warn')).toLowerCase();
+            const levelAlias = { ok: 'success', online: 'success', normal: 'success', warning: 'warn', stale: 'warn' };
+            const level = levelAlias[rawLevel] || rawLevel;
             const code = String(diagnostic.code || '').trim();
             const badgeMap = {
                 healthy: ['运行正常', 'normal'],

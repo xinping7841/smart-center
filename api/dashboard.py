@@ -244,6 +244,12 @@ def _compact_server_machine(item):
     status = dict(machine.get("status", {}) or {})
     agent = dict(machine.get("agent_status", {}) or status.get("agent", {}) or {})
     diagnostic = dict(machine.get("diagnostic", {}) or {})
+    runtime_fresh = machine.get("runtime_fresh")
+    if runtime_fresh is None:
+        runtime_fresh = diagnostic.get("runtime_fresh")
+    report_online = machine.get("report_online")
+    if report_online is None:
+        report_online = diagnostic.get("report_online")
     return {
         "mac": machine.get("mac"),
         "hostname": machine.get("hostname"),
@@ -251,22 +257,38 @@ def _compact_server_machine(item):
         "remark": machine.get("remark"),
         "ip": machine.get("ip"),
         "is_online": bool(machine.get("is_online")),
+        "report_online": bool(report_online),
+        "runtime_fresh": bool(runtime_fresh),
+        "agent_heartbeat_online": bool(machine.get("agent_heartbeat_online") or diagnostic.get("agent_heartbeat_online")),
+        "ping_online": machine.get("ping_online"),
         "asset_group": machine.get("asset_group"),
         "sort_order": machine.get("sort_order"),
         "card_size": machine.get("card_size"),
         "last_online": machine.get("last_online"),
+        "server_received_at": machine.get("server_received_at"),
+        "client_reported_at": machine.get("client_reported_at"),
+        "clock_offset_sec": machine.get("clock_offset_sec"),
+        "last_report_kind": machine.get("last_report_kind") or diagnostic.get("last_report_kind") or status.get("last_report_kind"),
         "diagnostic": {
             "level": diagnostic.get("level"),
+            "code": diagnostic.get("code"),
             "summary": diagnostic.get("summary"),
             "detail": diagnostic.get("detail"),
+            "root_cause": diagnostic.get("root_cause"),
             "suggestion": diagnostic.get("suggestion"),
+            "log_excerpt": diagnostic.get("log_excerpt"),
             "has_runtime_metrics": diagnostic.get("has_runtime_metrics"),
+            "report_online": bool(report_online),
+            "runtime_fresh": bool(runtime_fresh),
+            "agent_heartbeat_online": bool(machine.get("agent_heartbeat_online") or diagnostic.get("agent_heartbeat_online")),
+            "last_report_kind": diagnostic.get("last_report_kind") or machine.get("last_report_kind") or status.get("last_report_kind"),
             "needs_redeploy": diagnostic.get("needs_redeploy"),
         },
         "agent_status": {
             "task_exists": agent.get("task_exists"),
             "task_state": agent.get("task_state"),
             "version": agent.get("version"),
+            "updated_at": agent.get("updated_at"),
         },
         "status": {
             "cpu_percent": status.get("cpu_percent"),
