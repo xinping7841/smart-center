@@ -12,6 +12,7 @@
     const SmartCenter = global.SmartCenter || (global.SmartCenter = {});
     const inFlight = new Map();
     const scriptLoads = new Map();
+    const stylesheetLoads = new Map();
     let toastTimer = null;
 
     function escapeHtml(value) {
@@ -129,6 +130,35 @@
             throw err;
         });
         scriptLoads.set(url, promise);
+        return promise;
+    }
+
+    function loadStylesheetOnce(href) {
+        const url = String(href || '').trim();
+        if (!url) return Promise.reject(new Error('stylesheet_url_empty'));
+        if (Array.from(document.styleSheets || []).some(sheet => String(sheet.href || '').endsWith(url) || String(sheet.href || '') === url)) {
+            return Promise.resolve(true);
+        }
+        if (stylesheetLoads.has(url)) return stylesheetLoads.get(url);
+        const promise = new Promise((resolve, reject) => {
+            const existingTag = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).find(item => item.dataset.smartLazyHref === url || item.getAttribute('href') === url);
+            if (existingTag) {
+                existingTag.addEventListener('load', () => resolve(true), { once: true });
+                existingTag.addEventListener('error', () => reject(new Error(`stylesheet_load_failed:${url}`)), { once: true });
+                return;
+            }
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = url;
+            link.dataset.smartLazyHref = url;
+            link.onload = () => resolve(true);
+            link.onerror = () => reject(new Error(`stylesheet_load_failed:${url}`));
+            document.head.appendChild(link);
+        }).catch(err => {
+            stylesheetLoads.delete(url);
+            throw err;
+        });
+        stylesheetLoads.set(url, promise);
         return promise;
     }
 
@@ -491,6 +521,7 @@
         fetchJsonLoose,
         postJsonLoose,
         loadScriptOnce,
+        loadStylesheetOnce,
         ensureEChartsLoaded,
         parseDateTimeText,
         formatRelativeSeconds,

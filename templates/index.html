@@ -7,7 +7,6 @@
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
     <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260522-mini-projector-switch">
     <link rel="stylesheet" href="/static/css/views/dashboard-inline.css?v=20260522-stage6-inline-css">
-    <link rel="stylesheet" href="/static/css/views/local-model.css?v=20260522-local-model-main">
     <style id="codemeter-four-column-hotfix">
         .server-codemeter-line { display:block !important; margin:8px 0 0 !important; padding:6px 8px !important; border-radius:8px !important; background:rgba(2,6,23,0.24) !important; border:1px solid rgba(148,163,184,0.10) !important; overflow:hidden !important; min-width:0 !important; }
         .server-codemeter-line .codemeter-license-table { display:grid !important; gap:2px !important; width:100% !important; min-width:0 !important; }
@@ -1706,7 +1705,6 @@
     <script src="/static/js/views/proxy.js?v=20260522-stage2-proxy-view"></script>
     <script src="/static/js/views/ups.js?v=20260522-stage2-ups-view"></script>
     <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
-    <script src="/static/js/views/universal.js?v=20260522-real-light-switch"></script>
     <script src="/static/js/views/env.js?v=20260522-stage2-env-view"></script>
     <script src="/static/js/views/snmp.js?v=20260522-stage3-snmp-render"></script>
     <script src="/static/js/views/server-monitor.js?v=20260522-codemeter-days-visible"></script>
@@ -1723,13 +1721,25 @@
         const currentUser = window.currentUser || { permissions: [] };
         const lazyViewScripts = {
             apple_audio: '/static/js/views/apple-audio.js?v=20260527-lazy-view',
-            local_model: '/static/js/views/local-model.js?v=20260527-lazy-view'
+            local_model: '/static/js/views/local-model.js?v=20260527-lazy-view',
+            universal: '/static/js/views/universal.js?v=20260527-lazy-view'
+        };
+        const lazyViewStylesheets = {
+            local_model: '/static/css/views/local-model.css?v=20260527-lazy-view'
         };
         function ensureViewScript(viewId) {
             const src = lazyViewScripts[String(viewId || '')];
             if (!src) return Promise.resolve(true);
             if (window.SmartCenter?.utils?.loadScriptOnce) return window.SmartCenter.utils.loadScriptOnce(src);
             return Promise.reject(new Error('view_script_loader_missing'));
+        }
+        function ensureViewAssets(viewId) {
+            const key = String(viewId || '');
+            const stylesheet = lazyViewStylesheets[key];
+            const stylePromise = stylesheet && window.SmartCenter?.utils?.loadStylesheetOnce
+                ? window.SmartCenter.utils.loadStylesheetOnce(stylesheet)
+                : Promise.resolve(true);
+            return stylePromise.then(() => ensureViewScript(key));
         }
         function ensureInitialVisibleView() {
             const activeView = document.querySelector('.view-section.active');
@@ -4571,14 +4581,18 @@
             if (viewId === 'hvac') setTimeout(() => { updateHvacStatus(true); updateEnvData(); }, 80);
             if (viewId === 'door') setTimeout(() => { initCanvas(); updateDoorStatus(true).finally(() => startDoorVideoStream()); }, 100);
             if (viewId === 'sequencer') setTimeout(() => { updateSequencerStatus(); }, 80);
-            if (viewId === 'universal') setTimeout(() => { updateNodeRedDevices(true); }, 80);
+            if (viewId === 'universal') {
+                ensureViewAssets('universal')
+                    .then(() => setTimeout(() => { if (typeof updateNodeRedDevices === 'function') updateNodeRedDevices(true); }, 80))
+                    .catch(err => console.error('协议控制模块加载失败', err));
+            }
             if (viewId === 'apple_audio') {
-                ensureViewScript('apple_audio')
+                ensureViewAssets('apple_audio')
                     .then(() => setTimeout(() => { if (typeof initAppleAudioDemo === 'function') initAppleAudioDemo(); }, 60))
                     .catch(err => console.error('音乐播放器模块加载失败', err));
             }
             if (viewId === 'local_model') {
-                ensureViewScript('local_model')
+                ensureViewAssets('local_model')
                     .then(() => setTimeout(() => { if (window.SmartCenter?.localModel) window.SmartCenter.localModel.init(); }, 60))
                     .catch(err => console.error('本地模型模块加载失败', err));
             }
@@ -6308,7 +6322,9 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         registerPollingTask('snmp', 9000, () => updateSnmpStatus(), () => ['dashboard', 'snmp'].includes(getActiveViewId()) || isDashboardSectionVisible('snmp'));
         registerPollingTask('hvac', 5000, () => updateHvacStatus(), () => ['dashboard', 'hvac'].includes(getActiveViewId()) || isDashboardSectionVisible('hvac'));
         registerPollingTask('light', 2200, () => updateLightData(), () => ['dashboard', 'light'].includes(getActiveViewId()) || isDashboardSectionVisible('light_compact') || isDashboardSectionVisible('light'));
-        registerPollingTask('node_red', 5000, () => updateNodeRedDevices(), () => getActiveViewId() === 'universal');
+        registerPollingTask('node_red', 5000, () => {
+            if (typeof updateNodeRedDevices === 'function') updateNodeRedDevices();
+        }, () => getActiveViewId() === 'universal' && typeof updateNodeRedDevices === 'function');
         registerPollingTask('server', 5000, () => updateServerData(), () => getActiveViewId() === 'server');
         registerPollingTask('door', 1200, () => updateDoorStatus(), () => ['dashboard', 'door'].includes(getActiveViewId()) || isDashboardSectionVisible('door'));
         registerPollingTask('env', 3500, () => updateEnvData(), () => ['dashboard', 'env', 'hvac'].includes(getActiveViewId()) || isDashboardSectionVisible('env') || isDashboardSectionVisible('hvac'));
