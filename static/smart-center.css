@@ -1376,7 +1376,7 @@
             .automation-scene-grid { grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); }
             .automation-scene-card { min-height:112px; }
         }
-        .apple-audio-shell { display:grid; grid-template-columns:minmax(0, 1.35fr) minmax(320px, 0.75fr); gap:18px; align-items:start; }
+        .apple-audio-shell { display:grid; grid-template-columns:minmax(0, 1fr); gap:18px; align-items:start; }
         .apple-audio-main { display:flex; flex-direction:column; gap:18px; }
         .apple-audio-panel { background:
             radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 34%),
@@ -1454,8 +1454,10 @@
         .apple-track-copy { min-width:0; }
         .apple-track-copy .title { color:#fff; font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .apple-track-copy .meta { margin-top:4px; color:#94a3b8; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .apple-track-action { min-width:78px; height:38px; padding:0 14px; border:none; border-radius:12px; background:rgba(255,255,255,0.10); color:#fff; font-size:12px; font-weight:800; cursor:pointer; }
-        .apple-side-stack { display:flex; flex-direction:column; gap:18px; }
+        .apple-track-actions { display:flex; gap:8px; align-items:center; }
+        .apple-track-action { min-width:62px; height:38px; padding:0 12px; border:none; border-radius:12px; background:rgba(255,255,255,0.10); color:#fff; font-size:12px; font-weight:800; cursor:pointer; }
+        .apple-track-action.primary { background:linear-gradient(135deg, rgba(59,130,246,0.88), rgba(20,184,166,0.78)); }
+        .apple-side-stack { display:none; }
         .apple-auth-card { padding:20px; border-radius:24px; background:
             linear-gradient(145deg, rgba(251,113,133,0.16), rgba(15,23,42,0.96)),
             radial-gradient(circle at top left, rgba(255,255,255,0.12), transparent 34%);

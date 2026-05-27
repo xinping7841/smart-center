@@ -72,6 +72,9 @@ state.lyricsPlain = state.lyricsPlain || '';
 state.lyricsLines = Array.isArray(state.lyricsLines) ? state.lyricsLines : [];
 state.lyricsActiveIndex = Number.isFinite(Number(state.lyricsActiveIndex)) ? Number(state.lyricsActiveIndex) : -1;
 state.categorySelected = state.categorySelected || 'all';
+state.remoteResults = Array.isArray(state.remoteResults) ? state.remoteResults : [];
+state.searchSeq = Number(state.searchSeq || 0);
+state.audioEl = state.audioEl || null;
 function formatAppleDuration(sec) {
     const total = Math.max(0, Number(sec) || 0);
     const m = String(Math.floor(total / 60)).padStart(2, '0');
@@ -89,6 +92,10 @@ function normalizeAppleTrack(track, fallbackIndex = 0) {
         tag: String(item.tag || ''),
         accent: String(item.accent || '♪'),
         category: String(item.category || ''),
+        source: String(item.source || 'nas'),
+        sourceLabel: String(item.source_label || item.source || 'NAS'),
+        playable: item.playable !== false,
+        streamUrl: String(item.stream_url || (item.id ? `/api/apple-audio/stream/${item.id}` : '')),
         coverUrl: String(item.cover_url || (item.id ? `/api/apple-audio/cover/${item.id}` : '')),
         coverAvailable: !!item.cover_available,
         lyricsAvailable: !!item.lyrics_available,
@@ -181,6 +188,48 @@ function resetAppleLyricsState() {
     state.lyricsPlain = '';
     state.lyricsLines = [];
     state.lyricsActiveIndex = -1;
+}
+function getAppleAudioEl() {
+    if (state.audioEl && document.body.contains(state.audioEl)) return state.audioEl;
+    const audio = document.getElementById('appleAudioElement') || document.createElement('audio');
+    audio.id = 'appleAudioElement';
+    audio.preload = 'metadata';
+    audio.style.display = 'none';
+    if (!audio.parentNode) document.body.appendChild(audio);
+    audio.onended = () => appleTransport('next');
+    audio.ontimeupdate = () => {
+        if (!state.nowPlaying) return;
+        state.elapsedSec = Math.floor(audio.currentTime || 0);
+        renderAppleNowPlaying();
+    };
+    audio.onplay = () => {
+        state.isPlaying = true;
+        renderAppleNowPlaying();
+    };
+    audio.onpause = () => {
+        state.isPlaying = false;
+        renderAppleNowPlaying();
+    };
+    state.audioEl = audio;
+    return audio;
+}
+function playAppleTrackInBrowser(track) {
+    const item = normalizeAppleTrack(track || {});
+    if (!item.streamUrl || !item.playable) {
+        notify('当前曲目没有可播放音频地址', true);
+        return;
+    }
+    const audio = getAppleAudioEl();
+    const nextUrl = item.streamUrl;
+    if (audio.src !== new URL(nextUrl, window.location.href).href) {
+        audio.src = nextUrl;
+        audio.currentTime = 0;
+    }
+    audio.play().catch(err => notify(translateError(err?.message, '浏览器播放失败'), true));
+}
+function pauseAppleBrowserAudio() {
+    const audio = getAppleAudioEl();
+    audio.pause();
 }
 function renderAppleLyrics() {
     const boxEl = document.getElementById('appleLyricsBox');
@@ -336,7 +385,9 @@ function renderAppleResults(keyword='') {
     const list = document.getElementById('appleResultList');
     if (!list) return;
     const text = String(keyword || '').trim().toLowerCase();
-    const sourceTracks = state.library.map((item, index) => normalizeAppleTrack(item, index));
+    const sourceTracks = state.library
+        .concat(text ? (state.remoteResults || []) : [])
+        .map((item, index) => normalizeAppleTrack(item, index));
     const matched = sourceTracks.filter(item => {
         const categoryOk = state.categorySelected === 'all' || getAppleCategoryLabel(item.category) === state.categorySelected;
         if (!categoryOk) return false;
@@ -349,11 +400,36 @@ function renderAppleResults(keyword='') {
             <div class="apple-track-art">${getAppleRowArtHtml(item)}</div>
             <div class="apple-track-copy">
                 <div class="title">${html(item.title)}</div>
-                <div class="meta">${html(item.artist)} · ${html(item.album)} · ${formatAppleDuration(item.duration)} · ${html(getAppleCategoryLabel(item.category))}</div>
+                <div class="meta">${html(item.artist)} · ${html(item.album)} · ${formatAppleDuration(item.duration)} · ${html(item.sourceLabel)}</div>
             </div>
-            <button class="apple-track-action" onclick="queueAppleTrack('${item.id}')">加入队列</button>
+            <div class="apple-track-actions">
+                <button class="apple-track-action primary" onclick="playAppleTrackNow('${html(item.id)}')">播放</button>
+                <button class="apple-track-action" onclick="queueAppleTrack('${html(item.id)}')">加入</button>
+            </div>
         </div>
     `).join('') : '<div class="apple-empty-note">没有找到匹配曲目。可以换个关键词，或检查后端播放代理配置。</div>';
+}
+function searchAppleSources(keyword='') {
+    const text = String(keyword || '').trim();
+    renderAppleResults(text);
+    if (state.searchTimer) window.clearTimeout(state.searchTimer);
+    if (!text) {
+        state.remoteResults = [];
+        renderAppleResults('');
+        return;
+    }
+    const seq = ++state.searchSeq;
+    state.searchTimer = window.setTimeout(() => {
+        fetchJson(`/api/apple-audio/search?q=${encodeURIComponent(text)}&source=all&limit=30`, {}, '音乐搜索失败')
+            .then(data => {
+                if (seq !== state.searchSeq) return;
+                state.remoteResults = Array.isArray(data.jamendo) ? data.jamendo.map((item, index) => normalizeAppleTrack(item, index)) : [];
+                renderAppleResults(text);
+            })
+            .catch(err => {
+                console.warn('Jamendo search failed', err);
+            });
+    }, 360);
 }
 function renderAppleQueue() {
     const list = document.getElementById('appleQueueList');
@@ -382,6 +458,25 @@ function queueAppleTrack(trackId) {
             notify(`已加入队列：${state.queue[state.queue.length - 1]?.title || trackId}`);
         })
         .catch(err => notify(translateError(err?.message, '加入播放队列失败'), true));
+}
+function findAppleTrackById(trackId) {
+    const safeId = String(trackId || '');
+    return (state.library || []).concat(state.remoteResults || [], state.queue || [])
+        .map((item, index) => normalizeAppleTrack(item, index))
+        .find(item => item.id === safeId);
+}
+function playAppleTrackNow(trackId) {
+    postJson('/api/apple-audio/queue', { track_id: trackId, play_now: true }, '播放曲目失败')
+        .then(data => {
+            if (!data.success) {
+                notify(data.message || data.msg || '播放曲目失败', true);
+                return;
+            }
+            syncAppleState(data.state);
+            const track = state.nowPlaying || findAppleTrackById(trackId);
+            playAppleTrackInBrowser(track);
+        })
+        .catch(err => notify(translateError(err?.message, '播放曲目失败'), true));
 }
 function promoteAppleTrack(index) {
     if (index < 0 || index >= state.queue.length) return;
@@ -416,7 +511,15 @@ function appleTransport(action) {
                 notify(data.message || data.msg || '音乐播放器控制失败', true);
                 return;
             }
+            const beforeTrackId = state.nowPlaying ? state.nowPlaying.id : '';
             syncAppleState(data.state);
+            const afterTrackId = state.nowPlaying ? state.nowPlaying.id : '';
+            if (action === 'toggle') {
+                if (state.isPlaying && state.nowPlaying) playAppleTrackInBrowser(state.nowPlaying);
+                else pauseAppleBrowserAudio();
+            } else if (['next', 'prev'].includes(action) && state.nowPlaying) {
+                if (afterTrackId !== beforeTrackId || action === 'prev') playAppleTrackInBrowser(state.nowPlaying);
+            }
             const actionMap = {
                 toggle: state.isPlaying ? '已开始播放' : '已暂停播放',
                 next: '已切到下一首',
@@ -513,8 +616,10 @@ function initAppleAudioDemo() {
         renderAppleNowPlaying,
         renderAppleOutputs,
         renderAppleResults,
+        searchAppleSources,
         renderAppleQueue,
         queueAppleTrack,
+        playAppleTrackNow,
         promoteAppleTrack,
         clearAppleQueue,
         appleTransport,
