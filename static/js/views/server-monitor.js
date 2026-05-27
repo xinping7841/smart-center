@@ -52,17 +52,19 @@
             const hasRuntime = !!diagnostic.has_runtime_metrics;
             const reportOnline = !!(machine?.report_online || diagnostic.report_online);
             if (!isOnline && !reportOnline) {
+                const offlineCode = String(diagnostic.code || 'agent_offline').trim();
+                const unreachable = offlineCode === 'agent_offline_network_unreachable' || machine?.ping_online === false;
                 return {
-                    level: 'offline',
-                    code: String(diagnostic.code || 'offline_unreachable').trim(),
-                    badgeText: '离线',
-                    badgeClass: 'error',
-                    summary: '节点离线',
-                    detail: '',
-                    rootCause: '',
-                    recommendation: '',
+                    level: unreachable ? 'warn' : 'offline',
+                    code: offlineCode,
+                    badgeText: unreachable ? 'Agent离线' : '离线',
+                    badgeClass: unreachable ? 'warn' : 'error',
+                    summary: diagnostic.summary || (unreachable ? 'Agent离线 / 网络不可达' : '节点离线'),
+                    detail: String(diagnostic.detail || '').trim(),
+                    rootCause: String(diagnostic.root_cause || '').trim(),
+                    recommendation: String(diagnostic.suggestion || '').trim(),
                     logExcerpt: '',
-                    needsRedeploy: false,
+                    needsRedeploy: !!diagnostic.needs_redeploy,
                     hasRuntime,
                     isOnline,
                     reportOnline: false,
@@ -79,6 +81,7 @@
             const badgeMap = {
                 healthy: ['运行正常', 'normal'],
                 offline_unreachable: ['离线', 'error'],
+                agent_offline_network_unreachable: ['Agent离线', 'warn'],
                 agent_offline_host_reachable: ['Agent离线', 'warn'],
                 offline: ['离线', 'error'],
                 runtime_stale: ['采集陈旧', 'warn'],
@@ -465,7 +468,7 @@
             const serverReceivedAt = m.server_received_at || st.server_received_at || m.last_online || '';
             const clientReportedAt = m.client_reported_at || st.client_reported_at || '';
             const reportOnline = !!(m.report_online || diagnostic.reportOnline);
-            const runtimeFresh = !!(m.runtime_fresh || diagnostic.runtimeFresh);
+            const runtimeFresh = !!((m.report_online || diagnostic.reportOnline) && (m.runtime_fresh || diagnostic.runtimeFresh));
             const reportKind = String(m.last_report_kind || diagnostic.lastReportKind || st.last_report_kind || '').trim();
             const clockOffset = m.clock_offset_sec ?? st.clock_offset_sec;
             const clockClass = getServerClockOffsetClass(clockOffset);
@@ -473,8 +476,8 @@
                 ? `120接收: ${formatServerTime(serverReceivedAt)}\n客户端: ${formatServerTime(clientReportedAt)}\n偏差: ${formatServerClockOffset(clockOffset)}`
                 : `120接收: ${formatServerTime(serverReceivedAt)}\n客户端时间暂未上报`;
             const reportKindLabel = reportKind === 'full' ? '完整采集' : (reportKind === 'bootstrap' ? '安装心跳' : (reportKind === 'agent_heartbeat' ? 'Agent心跳' : (reportKind || '')));
-            const pingText = m.ping_online === true ? 'Ping可达' : (m.ping_online === false ? 'Ping不通' : (reportOnline ? (reportKindLabel || '心跳在线') : '未检测'));
-            const collectText = runtimeFresh ? taskText : (reportOnline ? '采集停滞' : taskText);
+            const pingText = m.ping_online === true ? 'Ping可达' : (m.ping_online === false ? '网络不可达' : (reportOnline ? (reportKindLabel || '心跳在线') : '未检测'));
+            const collectText = runtimeFresh ? taskText : (reportOnline ? '采集停滞' : 'Agent未上报');
             const reachClass = m.ping_online === false ? ' clock-bad' : ((runtimeFresh || m.ping_online === true) ? ' clock-ok' : (reportOnline ? ' clock-warn' : ''));
             return `<div class="server-meta-strip">
                 <div class="server-meta-chip"><span>120接收</span><strong>${escapeHtml(formatServerTime(serverReceivedAt))}</strong></div>
@@ -819,7 +822,7 @@
                 st.codemeter
             );
             const offlineSnapshotHtml = (!m.is_online && hasStoredMetrics)
-                ? `<div class="server-offline-snapshot">节点离线，以下为最后一次上报信息</div>`
+                ? `<div class="server-offline-snapshot">Agent未上报，以下为最后一次采集快照，不代表当前开关机状态</div>`
                 : '';
             const showLastMetrics = !!(m.is_online || hasStoredMetrics || (diagnostic.reportOnline && diagnostic.hasRuntime));
             const metricsHtml = showLastMetrics
@@ -830,8 +833,11 @@
             remarkHtml = groupHtml + remarkHtml;
             const cardStateClass = m.is_online ? 'online' : (diagnostic.reportOnline ? 'warning' : 'offline');
             const wakeButton = `<button class="server-action-btn wake${(typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '')}" ${(typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '')} onclick="wakeServer('${escapeHtml(m.mac)}')">唤醒</button>`;
+            const offlineCommandHint = cardStateClass === 'offline'
+                ? `<div class="server-command-disabled-note">Agent未上报，关机/重启命令无法实时送达；请先恢复 Agent 或使用现场电源确认。</div>`
+                : '';
             const actionHtml = cardStateClass === 'offline'
-                ? `<div class="server-compact-actions offline-only"><span class="spacer"></span>${wakeButton}</div>`
+                ? `${offlineCommandHint}<div class="server-compact-actions offline-only"><span class="spacer"></span>${wakeButton}</div>`
                 : `<div class="server-compact-actions"><button class="server-action-btn${(typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '')}" ${(typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '')} title="上移" onclick="moveServer('${escapeHtml(m.mac)}', -1)">↑</button><button class="server-action-btn${(typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '')}" ${(typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '')} title="下移" onclick="moveServer('${escapeHtml(m.mac)}', 1)">↓</button><span class="spacer"></span>${diagnostic.needsRedeploy ? `<button class="server-action-btn" style="color:var(--warning); border-color:var(--warning);" onclick="copyDeployCommand()">重部署</button>` : ''}<button class="server-action-btn${(typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '')}" ${(typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '')} onclick="sendServerCmd('${escapeHtml(m.mac)}', 'refresh')">刷新</button><button class="server-action-btn${(typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '')}" style="color:var(--warning); border-color:var(--warning);" ${(typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '')} onclick="sendServerCmd('${escapeHtml(m.mac)}', 'restart')">重启</button><button class="server-action-btn${(typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '')}" style="color:var(--danger); border-color:var(--danger);" ${(typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '')} onclick="sendServerCmd('${escapeHtml(m.mac)}', 'shutdown')">关机</button>${wakeButton}</div>`;
             return `<div class="server-card ${cardStateClass} size-${escapeHtml(m.card_size || 'normal')}"><div class="server-title"><span>${escapeHtml(getServerDisplayName(m))}</span><span class="tag ${diagnostic.badgeClass}">${escapeHtml(diagnostic.badgeText)}</span></div><div class="server-ip" title="${escapeHtml(identityLine.title)}">${escapeHtml(identityLine.text)}</div>${renderServerCommandPending(pendingCommand)}${commandResultHtml}${metricsHtml}${remarkHtml}${actionHtml}</div>`;
         }

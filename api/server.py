@@ -2380,14 +2380,14 @@ def _build_machine_diagnostic(machine):
         if ping_online is False:
             diagnostic.update(
                 {
-                    "level": "error",
-                    "code": "offline_unreachable",
-                    "summary": "节点离线",
-                    "detail": "节点超过上报窗口，且当前 IP ping 不通，判断为关机、断网或网络不可达。",
+                    "level": "warn",
+                    "code": "agent_offline_network_unreachable",
+                    "summary": "Agent离线 / 网络不可达",
+                    "detail": "节点超过上报窗口，且当前 IP ping 不通。该状态只能说明中控无法触达 Agent 或目标 IP，不能单独判定机器已经关机。",
                     "root_cause": _detect_bootstrap_root_cause(log_tail).get("root_cause", "") if log_tail else "",
-                    "suggestion": "先确认机器电源与网络；如需要远程恢复，可尝试网络唤醒，开机后再观察 Agent 是否恢复上报。",
+                    "suggestion": "先确认目标机器是否能访问 120 中控；如机器实际开着，请优先恢复 SmartCenterAgent 上报或检查 VLAN/防火墙，不要把该状态当作已关机。",
                     "needs_attention": True,
-                    "needs_redeploy": False,
+                    "needs_redeploy": True,
                 }
             )
             return diagnostic
