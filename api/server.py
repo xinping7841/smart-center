@@ -25,7 +25,7 @@ from paths import DB_FILE as DB_FILE_PATH, ensure_parent_dir
 
 bp = Blueprint('server', __name__)
 DB_FILE = str(DB_FILE_PATH)
-AGENT_VERSION = "2026.05.22.05"
+AGENT_VERSION = "2026.05.27.01"
 REPORT_MAX_BYTES = 8 * 1024 * 1024
 REPORT_MIN_INTERVAL_SEC = 2.0
 REPORT_CACHE = {}
@@ -2992,17 +2992,23 @@ function Invoke-AgentPowerCommand([string]$action) {{
     $args = if ($action -eq 'restart') {{ @('/r','/f','/t','0') }} else {{ @('/s','/f','/t','0') }}
     $startedAt = (Get-Date).ToString('o')
     try {{
-        $proc = Start-Process -FilePath $shutdownExe -ArgumentList $args -WindowStyle Hidden -PassThru -ErrorAction Stop
-        Write-AgentLog ($action + ' shutdown.exe started pid=' + $proc.Id)
-        Write-CommandResult @{{
-            action = $action
-            ok = $true
-            method = 'shutdown.exe'
-            executable = $shutdownExe
-            arguments = ($args -join ' ')
-            pid = $proc.Id
-            started_at = $startedAt
+        $proc = Start-Process -FilePath $shutdownExe -ArgumentList $args -WindowStyle Hidden -PassThru -Wait -ErrorAction Stop
+        $exitCode = $proc.ExitCode
+        Write-AgentLog ($action + ' shutdown.exe exited pid=' + $proc.Id + ' exit=' + $exitCode)
+        if ($exitCode -eq 0) {{
+            Write-CommandResult @{{
+                action = $action
+                ok = $true
+                method = 'shutdown.exe'
+                executable = $shutdownExe
+                arguments = ($args -join ' ')
+                pid = $proc.Id
+                exit_code = $exitCode
+                started_at = $startedAt
+            }}
+            return
         }}
+        throw ('shutdown.exe exit code ' + $exitCode)
     }} catch {{
         $err = Get-ErrorDetails $_
         Write-AgentLog ($action + ' shutdown.exe failed: ' + $err)
@@ -3018,8 +3024,25 @@ function Invoke-AgentPowerCommand([string]$action) {{
         try {{
             if ($action -eq 'restart') {{ Restart-Computer -Force -ErrorAction Stop }} else {{ Stop-Computer -Force -ErrorAction Stop }}
             Write-AgentLog ($action + ' PowerShell fallback invoked')
+            Write-CommandResult @{{
+                action = $action
+                ok = $true
+                method = 'PowerShell'
+                fallback_from = 'shutdown.exe'
+                started_at = $startedAt
+            }}
         }} catch {{
-            Write-AgentLog ($action + ' PowerShell fallback failed: ' + (Get-ErrorDetails $_))
+            $fallbackErr = Get-ErrorDetails $_
+            Write-AgentLog ($action + ' PowerShell fallback failed: ' + $fallbackErr)
+            Write-CommandResult @{{
+                action = $action
+                ok = $false
+                method = 'PowerShell'
+                fallback_from = 'shutdown.exe'
+                started_at = $startedAt
+                error = $fallbackErr
+                remediation = '请用管理员权限重新部署 SmartCenterAgent 计划任务，确认任务用户为 SYSTEM 且允许最高权限运行。'
+            }}
         }}
     }}
 }}

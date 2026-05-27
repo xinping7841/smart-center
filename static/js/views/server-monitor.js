@@ -771,12 +771,26 @@
             return `<div class="server-pending-command">${escapeHtml(pending.actionName)}已下发 · ${seconds}s · ${suffix}</div>`;
         }
 
+    function renderServerCommandResult(result) {
+            if (!result || typeof result !== 'object' || !result.action) return '';
+            const actionName = { shutdown: '关机', restart: '重启', refresh: '刷新' }[result.action] || result.action;
+            const ok = result.ok === true;
+            const statusText = ok ? '已接收' : '失败';
+            const method = result.method ? ` · ${result.method}` : '';
+            const exitCode = Number.isFinite(Number(result.exit_code)) ? ` · 退出码 ${result.exit_code}` : '';
+            const error = result.error ? ` · ${result.error}` : '';
+            const remediation = result.remediation ? ` · ${result.remediation}` : '';
+            const cls = ok ? 'ok' : 'error';
+            return `<div class="server-command-result ${cls}" title="${escapeHtml(error + remediation)}">${escapeHtml(actionName)}${escapeHtml(statusText)}${escapeHtml(method)}${escapeHtml(exitCode)}${escapeHtml(error || remediation)}</div>`;
+        }
+
     function renderServerCard(m, context = {}) {
             const st = m.status || {};
             const agent = m.agent_status || {};
             const ctx = getContext(context);
             const diagnostic = buildServerDiagnostic(agent, m, ctx);
             const pendingCommand = typeof ctx.getServerCommandPending === 'function' ? ctx.getServerCommandPending(m.mac) : null;
+            const commandResultHtml = renderServerCommandResult(st.command_result);
             const identityLine = getServerIdentityLine(m);
             const gpuHtml = renderServerGpuList(st.gpu_list);
             const statusMetaHtml = renderServerMetaStrip(m, st, agent, diagnostic, ctx);
@@ -819,7 +833,7 @@
             const actionHtml = cardStateClass === 'offline'
                 ? `<div class="server-compact-actions offline-only"><span class="spacer"></span>${wakeButton}</div>`
                 : `<div class="server-compact-actions"><button class="server-action-btn${(typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '')}" ${(typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '')} title="上移" onclick="moveServer('${escapeHtml(m.mac)}', -1)">↑</button><button class="server-action-btn${(typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '')}" ${(typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '')} title="下移" onclick="moveServer('${escapeHtml(m.mac)}', 1)">↓</button><span class="spacer"></span>${diagnostic.needsRedeploy ? `<button class="server-action-btn" style="color:var(--warning); border-color:var(--warning);" onclick="copyDeployCommand()">重部署</button>` : ''}<button class="server-action-btn${(typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '')}" ${(typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '')} onclick="sendServerCmd('${escapeHtml(m.mac)}', 'refresh')">刷新</button><button class="server-action-btn${(typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '')}" style="color:var(--warning); border-color:var(--warning);" ${(typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '')} onclick="sendServerCmd('${escapeHtml(m.mac)}', 'restart')">重启</button><button class="server-action-btn${(typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '')}" style="color:var(--danger); border-color:var(--danger);" ${(typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '')} onclick="sendServerCmd('${escapeHtml(m.mac)}', 'shutdown')">关机</button>${wakeButton}</div>`;
-            return `<div class="server-card ${cardStateClass} size-${escapeHtml(m.card_size || 'normal')}"><div class="server-title"><span>${escapeHtml(getServerDisplayName(m))}</span><span class="tag ${diagnostic.badgeClass}">${escapeHtml(diagnostic.badgeText)}</span></div><div class="server-ip" title="${escapeHtml(identityLine.title)}">${escapeHtml(identityLine.text)}</div>${renderServerCommandPending(pendingCommand)}${metricsHtml}${remarkHtml}${actionHtml}</div>`;
+            return `<div class="server-card ${cardStateClass} size-${escapeHtml(m.card_size || 'normal')}"><div class="server-title"><span>${escapeHtml(getServerDisplayName(m))}</span><span class="tag ${diagnostic.badgeClass}">${escapeHtml(diagnostic.badgeText)}</span></div><div class="server-ip" title="${escapeHtml(identityLine.title)}">${escapeHtml(identityLine.text)}</div>${renderServerCommandPending(pendingCommand)}${commandResultHtml}${metricsHtml}${remarkHtml}${actionHtml}</div>`;
         }
 
     function renderServerGroupedGrid(machines, context = {}) {
@@ -898,6 +912,7 @@
         isAgentVersionOutdated,
         getAgentUpdateHint,
         renderServerCommandPending,
+        renderServerCommandResult,
         renderServerCard,
         renderServerGroupedGrid,
         getColor,
