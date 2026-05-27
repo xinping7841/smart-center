@@ -1700,14 +1700,12 @@
         </div>
     </div>
 
-    <script src="/static/vendor/echarts.min.js?v=6.0.0"></script>
     <script src="/static/js/core/bootstrap.js?v=20260522-stage2"></script>
     <script src="/static/js/core/utils.js?v=20260522-stage2-shared-utils"></script>
     <script src="/static/js/views/logs.js?v=20260522-stage2-logs-view"></script>
     <script src="/static/js/views/proxy.js?v=20260522-stage2-proxy-view"></script>
     <script src="/static/js/views/ups.js?v=20260522-stage2-ups-view"></script>
     <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
-    <script src="/static/js/views/apple-audio.js?v=20260522-stage2-apple-audio-view"></script>
     <script src="/static/js/views/universal.js?v=20260522-real-light-switch"></script>
     <script src="/static/js/views/env.js?v=20260522-stage2-env-view"></script>
     <script src="/static/js/views/snmp.js?v=20260522-stage3-snmp-render"></script>
@@ -1716,7 +1714,6 @@
     <script src="/static/js/views/automation-view.js?v=20260522-stage4-automation-view"></script>
     <script src="/static/js/views/dashboard-summary.js?v=20260522-stage8-dashboard-summary"></script>
     <script src="/static/js/views/hvac-view.js?v=20260522-stage5-hvac-view"></script>
-    <script src="/static/js/views/local-model.js?v=20260522-local-model-main"></script>
 
     <script>
         // AI map: dashboard.inline_runtime. This large script is being split
@@ -1724,6 +1721,16 @@
         const configData = {{ config | tojson | safe }};
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
+        const lazyViewScripts = {
+            apple_audio: '/static/js/views/apple-audio.js?v=20260527-lazy-view',
+            local_model: '/static/js/views/local-model.js?v=20260527-lazy-view'
+        };
+        function ensureViewScript(viewId) {
+            const src = lazyViewScripts[String(viewId || '')];
+            if (!src) return Promise.resolve(true);
+            if (window.SmartCenter?.utils?.loadScriptOnce) return window.SmartCenter.utils.loadScriptOnce(src);
+            return Promise.reject(new Error('view_script_loader_missing'));
+        }
         function ensureInitialVisibleView() {
             const activeView = document.querySelector('.view-section.active');
             if (!activeView) {
@@ -3307,6 +3314,11 @@
                 automationStatusLoading = false;
             }
         }
+        function ensureChartLibrary() {
+            if (window.echarts) return Promise.resolve(window.echarts);
+            if (window.SmartCenter?.utils?.ensureEChartsLoaded) return window.SmartCenter.utils.ensureEChartsLoaded();
+            return Promise.reject(new Error('echarts_loader_missing'));
+        }
         function ensurePowerChart(cabId) {
             if (typeof echarts === 'undefined') return null;
             const chartEl = document.getElementById(`energyChart_${cabId}`);
@@ -3328,6 +3340,12 @@
             });
         }
         function renderPowerEnergyChart(cabId, rawData) {
+            if (typeof echarts === 'undefined') {
+                ensureChartLibrary()
+                    .then(() => renderPowerEnergyChart(cabId, rawData))
+                    .catch(err => console.error('强电图表库加载失败', err));
+                return;
+            }
             const chart = ensurePowerChart(cabId);
             if (!chart) return;
             const data = Array.isArray(rawData) ? rawData : [];
@@ -3571,7 +3589,13 @@
         }
         function renderMeterTrendChart(rows) {
             const dom = document.getElementById('meterTrendChart');
-            if (!dom || typeof echarts === 'undefined') return;
+            if (!dom) return;
+            if (typeof echarts === 'undefined') {
+                ensureChartLibrary()
+                    .then(() => renderMeterTrendChart(rows))
+                    .catch(err => console.error('电表趋势图表库加载失败', err));
+                return;
+            }
             if (!myCharts.meterTrend) {
                 myCharts.meterTrend = echarts.init(dom);
             }
@@ -3689,7 +3713,13 @@
         }
         function renderDashboardEnergyTrend(rows, summary = {}) {
             const dom = document.getElementById('dashboardEnergyTrendChart');
-            if (!dom || typeof echarts === 'undefined') return;
+            if (!dom) return;
+            if (typeof echarts === 'undefined') {
+                ensureChartLibrary()
+                    .then(() => renderDashboardEnergyTrend(rows, summary))
+                    .catch(err => console.error('首页能耗图表库加载失败', err));
+                return;
+            }
             const safeRows = Array.isArray(rows) ? rows : [];
             const labels = safeRows.map(item => String(item.period || item.date || '').slice(-5)).filter(Boolean);
             const values = safeRows.map(item => Number(item.consume || 0));
@@ -4542,8 +4572,16 @@
             if (viewId === 'door') setTimeout(() => { initCanvas(); updateDoorStatus(true).finally(() => startDoorVideoStream()); }, 100);
             if (viewId === 'sequencer') setTimeout(() => { updateSequencerStatus(); }, 80);
             if (viewId === 'universal') setTimeout(() => { updateNodeRedDevices(true); }, 80);
-            if (viewId === 'apple_audio') setTimeout(() => { initAppleAudioDemo(); }, 60);
-            if (viewId === 'local_model' && window.SmartCenter?.localModel) setTimeout(() => { window.SmartCenter.localModel.init(); }, 60);
+            if (viewId === 'apple_audio') {
+                ensureViewScript('apple_audio')
+                    .then(() => setTimeout(() => { if (typeof initAppleAudioDemo === 'function') initAppleAudioDemo(); }, 60))
+                    .catch(err => console.error('音乐播放器模块加载失败', err));
+            }
+            if (viewId === 'local_model') {
+                ensureViewScript('local_model')
+                    .then(() => setTimeout(() => { if (window.SmartCenter?.localModel) window.SmartCenter.localModel.init(); }, 60))
+                    .catch(err => console.error('本地模型模块加载失败', err));
+            }
             refreshPollingVisibility();
         }
         function formatGlobalTime(now = new Date()) {
@@ -6184,7 +6222,6 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             guardFrontendStep('bootstrap.dashboard_masonry', () => scheduleDashboardMasonry(160));
             guardFrontendStep('bootstrap.global_clock', () => updateGlobalClock());
             guardFrontendStep('bootstrap.agent_version', () => refreshLatestAgentVersion());
-            guardFrontendStep('bootstrap.apple_audio', () => initAppleAudioDemo());
             guardFrontendStep('bootstrap.server_compact', () => refreshDashboardServerCompactFallback());
             const userBadge = document.getElementById('top-user-badge');
             if (userBadge) {
@@ -6282,7 +6319,9 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         registerPollingTask('projector', 6000, () => updateProjectorStatus(), () => ['dashboard', 'projector'].includes(getActiveViewId()) || isDashboardSectionVisible('projector'));
         registerPollingTask('sequencer', 4500, () => updateSequencerStatus(), () => ['dashboard', 'sequencer'].includes(getActiveViewId()) || isDashboardSectionVisible('sequencer'));
         registerPollingTask('screen', 4500, () => updateScreenStatus(), () => ['dashboard', 'screen'].includes(getActiveViewId()) || isDashboardSectionVisible('screen'));
-        registerPollingTask('apple_audio', 3200, () => loadAppleAudioStatus(), () => ['apple_audio'].includes(getActiveViewId()));
+        registerPollingTask('apple_audio', 3200, () => {
+            if (typeof loadAppleAudioStatus === 'function') loadAppleAudioStatus();
+        }, () => ['apple_audio'].includes(getActiveViewId()) && typeof loadAppleAudioStatus === 'function');
         registerPollingTask('logs', 5000, () => updateDashboardLogs(), () => getActiveViewId() === 'dashboard');
         registerPollingTask('event_logs', 5000, () => refreshEventLogs(false), () => getActiveViewId() === 'logs');
 

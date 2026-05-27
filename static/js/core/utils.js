@@ -11,6 +11,7 @@
 
     const SmartCenter = global.SmartCenter || (global.SmartCenter = {});
     const inFlight = new Map();
+    const scriptLoads = new Map();
     let toastTimer = null;
 
     function escapeHtml(value) {
@@ -100,6 +101,40 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
         }, fallbackText);
+    }
+
+    function loadScriptOnce(src, options = {}) {
+        const url = String(src || '').trim();
+        if (!url) return Promise.reject(new Error('script_url_empty'));
+        const existingGlobal = options.globalName ? global[options.globalName] : null;
+        if (existingGlobal) return Promise.resolve(existingGlobal);
+        if (scriptLoads.has(url)) return scriptLoads.get(url);
+        const promise = new Promise((resolve, reject) => {
+            const existingTag = Array.from(document.scripts || []).find(item => item.dataset.smartLazySrc === url || item.getAttribute('src') === url);
+            if (existingTag) {
+                existingTag.addEventListener('load', () => resolve(options.globalName ? global[options.globalName] : true), { once: true });
+                existingTag.addEventListener('error', () => reject(new Error(`script_load_failed:${url}`)), { once: true });
+                return;
+            }
+            const script = document.createElement('script');
+            script.src = url;
+            script.async = true;
+            script.defer = true;
+            script.dataset.smartLazySrc = url;
+            script.onload = () => resolve(options.globalName ? global[options.globalName] : true);
+            script.onerror = () => reject(new Error(`script_load_failed:${url}`));
+            document.head.appendChild(script);
+        }).catch(err => {
+            scriptLoads.delete(url);
+            throw err;
+        });
+        scriptLoads.set(url, promise);
+        return promise;
+    }
+
+    function ensureEChartsLoaded() {
+        if (global.echarts) return Promise.resolve(global.echarts);
+        return loadScriptOnce('/static/vendor/echarts.min.js?v=6.0.0', { globalName: 'echarts' });
     }
 
     function parseDateTimeText(value) {
@@ -455,6 +490,8 @@
         fetchJson,
         fetchJsonLoose,
         postJsonLoose,
+        loadScriptOnce,
+        ensureEChartsLoaded,
         parseDateTimeText,
         formatRelativeSeconds,
         formatDateTimeText,
