@@ -16,7 +16,7 @@ if [ ! -x "$VENV_DIR/bin/python" ]; then
   exit 1
 fi
 
-"$VENV_DIR/bin/python" -m pip install -q fastapi==0.115.12 uvicorn==0.34.2
+"$VENV_DIR/bin/python" -m pip install -q -r "$APP_DIR/deploy/snmp_agent/requirements-snmp-agent.txt"
 
 sudo -n install -m 0644 "$APP_DIR/deploy/snmp_agent/smart-snmp.service" "$SERVICE_FILE"
 if [ ! -f "$ENV_FILE" ]; then
