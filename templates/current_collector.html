@@ -85,7 +85,7 @@
 <body>
   <div class="layout">
     <aside class="sidebar">
-      <div class="logo">泛型控制</div>
+      <div class="logo">展厅中控系统</div>
       <ul class="nav-menu">
         {% for item in (config.sidebar|sort(attribute='sort') if config.sidebar else []) %}
           {% if item.visible %}
@@ -98,7 +98,7 @@
           {% endif %}
         {% endfor %}
       </ul>
-      <div class="sys-info">Smart Center<br>电流采集</div>
+      <div class="sys-info">系统核心: 稳定运行中<br>版本: v11.0 Pro-Max</div>
     </aside>
     <div class="content">
       <header>
