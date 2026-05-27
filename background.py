@@ -1561,6 +1561,15 @@ def poll_single_snmp(snmp_cfg):
 
 
 def snmp_update_loop():
+    try:
+        from services.snmp_remote import is_remote_snmp_agent_enabled, snmp_remote_agent_loop
+
+        if is_remote_snmp_agent_enabled():
+            snmp_remote_agent_loop()
+            return
+    except Exception as exc:
+        print(f"[snmp] remote agent mode init failed, fallback to local polling: {exc}", file=sys.stderr)
+
     # pysnmp/pyasn1 on the current 32-bit Python 3.14 runtime is unstable and can
     # trigger a sustained exception storm plus high memory pressure. Keep the rest
     # of the control system available by pausing background SNMP polling here.

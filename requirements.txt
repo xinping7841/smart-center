@@ -1,4 +1,5 @@
 Flask==3.0.0
+fastapi==0.115.12
 modbus_tk==1.1.5
 numpy==2.4.3
 opencv-python==4.13.0.92
@@ -6,5 +7,6 @@ paho-mqtt==2.1.0
 pysnmp==6.2.6
 pyserial==3.5
 python-miio==0.5.12
+uvicorn==0.34.2
 wakeonlan==3.1.0
 mutagen==1.47.0
