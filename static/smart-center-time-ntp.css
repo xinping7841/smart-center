@@ -5819,7 +5819,7 @@
             gap:7px;
         }
         body.fold-desktop-layout.dashboard-compact-mode {
-            --sidebar-width:190px;
+            --sidebar-width:214px;
         }
         body.fold-desktop-layout.dashboard-compact-mode #view-dashboard > .card,
         body.touch-wide-layout.dashboard-compact-mode #view-dashboard > .card {
