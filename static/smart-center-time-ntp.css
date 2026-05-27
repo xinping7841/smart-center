@@ -11594,15 +11594,15 @@
             }
         }
 
-        /* Codex 2026-05-27: keep the home page natural after removing the fixed 16:9 canvas. */
+        /* Codex 2026-05-27: natural left-aligned home layout, no forced horizontal stretching. */
         body.dashboard-compact-mode #view-dashboard.view-section.active {
-            display:grid !important;
-            grid-template-columns:repeat(12, minmax(0, 1fr)) !important;
-            grid-auto-rows:auto !important;
-            grid-auto-flow:row dense !important;
-            align-items:start !important;
+            display:flex !important;
+            flex-wrap:wrap !important;
+            align-items:flex-start !important;
+            align-content:flex-start !important;
+            justify-content:flex-start !important;
             gap:10px !important;
-            width:auto !important;
+            width:100% !important;
             min-width:0 !important;
             max-width:none !important;
             transform:none !important;
@@ -11610,7 +11610,9 @@
         body.dashboard-compact-mode #view-dashboard.view-section.active > [data-section-id],
         body.dashboard-compact-mode #view-dashboard.view-section.active > .card,
         body.dashboard-compact-mode #view-dashboard.view-section.active > .dash-grid {
+            flex:0 0 auto !important;
             grid-row:auto !important;
+            grid-column:auto !important;
             min-width:0 !important;
             min-height:0 !important;
             height:auto !important;
@@ -11623,15 +11625,18 @@
             border-radius:12px !important;
         }
         body.dashboard-compact-mode #dashboard-section-stats {
-            grid-column:1 / -1 !important;
-            grid-template-columns:repeat(6, minmax(0, 1fr)) !important;
+            width:auto !important;
+            max-width:100% !important;
+            grid-template-columns:repeat(auto-fill, 260px) !important;
             gap:8px !important;
+            justify-content:start !important;
         }
         body.dashboard-compact-mode #dashboard-section-projector,
         body.dashboard-compact-mode #dashboard-section-hy_edge,
         body.dashboard-compact-mode #dashboard-section-ups_compact,
         body.dashboard-compact-mode #dashboard-section-screen {
-            grid-column:span 3 !important;
+            width:360px !important;
+            max-width:calc(100vw - 24px) !important;
         }
         body.dashboard-compact-mode #dashboard-section-hvac,
         body.dashboard-compact-mode #dashboard-section-sequencer,
@@ -11640,7 +11645,8 @@
         body.dashboard-compact-mode #dashboard-section-server_compact,
         body.dashboard-compact-mode #dashboard-section-energy_trend,
         body.dashboard-compact-mode #dashboard-section-snmp {
-            grid-column:span 6 !important;
+            width:720px !important;
+            max-width:calc(100vw - 24px) !important;
         }
         body.dashboard-compact-mode #dashboard-section-power_quick,
         body.dashboard-compact-mode #dashboard-section-light_quick,
@@ -11670,37 +11676,91 @@
         }
         @media screen and (max-width: 1500px) {
             body.dashboard-compact-mode #view-dashboard.view-section.active {
-                grid-template-columns:repeat(8, minmax(0, 1fr)) !important;
+                display:flex !important;
             }
             body.dashboard-compact-mode #dashboard-section-stats {
-                grid-template-columns:repeat(4, minmax(0, 1fr)) !important;
+                grid-template-columns:repeat(auto-fill, 220px) !important;
             }
             body.dashboard-compact-mode #dashboard-section-projector,
             body.dashboard-compact-mode #dashboard-section-hy_edge,
             body.dashboard-compact-mode #dashboard-section-ups_compact,
             body.dashboard-compact-mode #dashboard-section-screen {
-                grid-column:span 4 !important;
-            }
-            body.dashboard-compact-mode #dashboard-section-hvac,
-            body.dashboard-compact-mode #dashboard-section-sequencer,
-            body.dashboard-compact-mode #dashboard-section-power_compact,
-            body.dashboard-compact-mode #dashboard-section-light_compact,
-            body.dashboard-compact-mode #dashboard-section-server_compact,
-            body.dashboard-compact-mode #dashboard-section-energy_trend,
-            body.dashboard-compact-mode #dashboard-section-snmp {
-                grid-column:1 / -1 !important;
+                width:340px !important;
             }
         }
         @media screen and (max-width: 760px) {
             body.dashboard-compact-mode #view-dashboard.view-section.active {
-                grid-template-columns:1fr !important;
+                display:flex !important;
             }
             body.dashboard-compact-mode #dashboard-section-stats {
                 grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+                width:100% !important;
             }
             body.dashboard-compact-mode #view-dashboard.view-section.active > [data-section-id],
             body.dashboard-compact-mode #view-dashboard.view-section.active > .card,
             body.dashboard-compact-mode #view-dashboard.view-section.active > .dash-grid {
-                grid-column:1 / -1 !important;
+                width:100% !important;
+                max-width:none !important;
+            }
+        }
+
+        /* Codex 2026-05-27: page-level card collections use fixed widths instead of stretching to fill rows. */
+        #view-power .dashboard-power-grid,
+        #view-light .dashboard-compact-grid,
+        #view-sequencer .sequencer-grid,
+        #view-ups .ups-grid,
+        #view-env .env-stat-grid,
+        #view-scene .scene-grid,
+        #view-auto .automation-scene-grid,
+        #view-meter .meter-summary-grid,
+        #view-meter .meter-center-grid,
+        #view-snmp .snmp-device-grid,
+        #view-snmp .snmp-dashboard-grid,
+        #view-server .server-group-grid {
+            justify-content:start !important;
+            justify-items:start !important;
+            align-items:start !important;
+        }
+        #view-power .dashboard-power-grid { grid-template-columns:repeat(auto-fill, 320px) !important; }
+        #view-light .dashboard-compact-grid { grid-template-columns:repeat(auto-fill, 260px) !important; }
+        #view-sequencer .sequencer-grid { grid-template-columns:repeat(auto-fill, 520px) !important; }
+        #view-ups .ups-grid { grid-template-columns:repeat(auto-fill, 360px) !important; }
+        #view-env .env-stat-grid { grid-template-columns:repeat(auto-fill, 300px) !important; }
+        #view-scene .scene-grid,
+        #view-auto .automation-scene-grid { grid-template-columns:repeat(auto-fill, 260px) !important; }
+        #view-meter .meter-summary-grid { grid-template-columns:repeat(auto-fill, 260px) !important; }
+        #view-meter .meter-center-grid { grid-template-columns:repeat(auto-fill, 360px) !important; }
+        #view-snmp .snmp-device-grid { grid-template-columns:repeat(auto-fill, 380px) !important; }
+        #view-snmp .snmp-dashboard-grid { grid-template-columns:repeat(auto-fill, 260px) !important; }
+        #view-server .server-group-grid { grid-template-columns:repeat(auto-fill, 380px) !important; }
+        #view-power .dashboard-power-grid > *,
+        #view-light .dashboard-compact-grid > *,
+        #view-sequencer .sequencer-grid > *,
+        #view-ups .ups-grid > *,
+        #view-env .env-stat-grid > *,
+        #view-scene .scene-grid > *,
+        #view-auto .automation-scene-grid > *,
+        #view-meter .meter-summary-grid > *,
+        #view-meter .meter-center-grid > *,
+        #view-snmp .snmp-device-grid > *,
+        #view-snmp .snmp-dashboard-grid > *,
+        #view-server .server-group-grid > * {
+            width:100% !important;
+            max-width:100% !important;
+        }
+        @media screen and (max-width: 760px) {
+            #view-power .dashboard-power-grid,
+            #view-light .dashboard-compact-grid,
+            #view-sequencer .sequencer-grid,
+            #view-ups .ups-grid,
+            #view-env .env-stat-grid,
+            #view-scene .scene-grid,
+            #view-auto .automation-scene-grid,
+            #view-meter .meter-summary-grid,
+            #view-meter .meter-center-grid,
+            #view-snmp .snmp-device-grid,
+            #view-snmp .snmp-dashboard-grid,
+            #view-server .server-group-grid {
+                grid-template-columns:1fr !important;
             }
         }
