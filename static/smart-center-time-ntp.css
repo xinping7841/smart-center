@@ -6540,33 +6540,8 @@
                 text-overflow:ellipsis;
             }
         }
-        /* Codex 2026-04-30: 16:9 monitoring wall presets.
-           Keep 1080p unchanged; scale the dashboard canvas on 2K/4K so the
-           same information reads at a similar physical size on larger panels. */
-        @media screen and (min-width: 2200px) and (min-height: 1200px) {
-            body.dashboard-compact-mode:not(.fold-desktop-layout):not(.touch-wide-layout):not(.mobile-layout):not(.tablet-layout) {
-                --dashboard-wall-scale:1.18;
-            }
-            body.dashboard-compact-mode:not(.fold-desktop-layout):not(.touch-wide-layout):not(.mobile-layout):not(.tablet-layout) .view-container {
-                overflow:hidden;
-            }
-            body.dashboard-compact-mode:not(.fold-desktop-layout):not(.touch-wide-layout):not(.mobile-layout):not(.tablet-layout) #view-dashboard.view-section.active {
-                width:calc(100% / var(--dashboard-wall-scale));
-                transform:scale(var(--dashboard-wall-scale));
-                transform-origin:left top;
-                gap:8px !important;
-            }
-        }
-        @media screen and (min-width: 3400px) and (min-height: 1800px) {
-            body.dashboard-compact-mode:not(.fold-desktop-layout):not(.touch-wide-layout):not(.mobile-layout):not(.tablet-layout) {
-                --dashboard-wall-scale:1.42;
-            }
-            body.dashboard-compact-mode:not(.fold-desktop-layout):not(.touch-wide-layout):not(.mobile-layout):not(.tablet-layout) #view-dashboard.view-section.active {
-                gap:10px !important;
-            }
-        }
-        /* Normal mobile/fold browsers must remain readable and scrollable.
-           Desktop-site mode is handled separately by dashboard-fixed-canvas. */
+        /* Dashboard uses normal responsive layout; do not scale the page on 2K/4K panels. */
+        /* Normal mobile/fold browsers must remain readable and scrollable. */
         body.mobile-layout.dashboard-compact-mode {
             display:block;
             height:auto;

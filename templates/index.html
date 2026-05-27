@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="/static/js/core/viewport-layout.js?v=20260522-stage7-viewport"></script>
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
-    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260522-mini-projector-switch">
+    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260527-layout-unified">
     <link rel="stylesheet" href="/static/css/views/dashboard-inline.css?v=20260522-stage6-inline-css">
     <style id="codemeter-four-column-hotfix">
         .server-codemeter-line { display:block !important; margin:8px 0 0 !important; padding:6px 8px !important; border-radius:8px !important; background:rgba(2,6,23,0.24) !important; border:1px solid rgba(148,163,184,0.10) !important; overflow:hidden !important; min-width:0 !important; }
@@ -4508,72 +4508,12 @@
         }
         function applyDashboardBrowserFit(info = {}) {
             const root = document.documentElement;
-            const params = new URLSearchParams(window.location.search);
-            const disabled = ['0', 'false', 'off', 'none'].includes(String(params.get('fit_dashboard') || '').toLowerCase());
-            const useSavedLayout = params.get('use_saved_layout') === '1' || params.get('remember_layout') === '1';
-            const activeView = getActiveViewId();
-            const width = Number(info.width || window.innerWidth || document.documentElement.clientWidth || 0);
-            const height = Number(info.height || window.innerHeight || document.documentElement.clientHeight || 0);
-            const visualW = Number(info.visualW || window.visualViewport?.width || width || 0);
-            const visualH = Number(info.visualH || window.visualViewport?.height || height || 0);
-            const fitW = Math.max(1, Math.min(width || visualW, visualW || width));
-            const fitH = Math.max(1, Math.min(height || visualH, visualH || height));
-            const baseW = 1920;
-            const baseH = 1080;
-            const mobileMode = typeof info.isMobile === 'boolean' ? info.isMobile : document.body.classList.contains('mobile-layout');
-            const tabletMode = typeof info.isTablet === 'boolean' ? info.isTablet : document.body.classList.contains('tablet-layout');
-            const touchWideMode = typeof info.isTouchWide === 'boolean' ? info.isTouchWide : document.body.classList.contains('touch-wide-layout');
-            const touchPortraitMode = typeof info.isTouchPortrait === 'boolean' ? info.isTouchPortrait : document.body.classList.contains('touch-portrait-layout');
-            const coarsePointer = window.matchMedia ? window.matchMedia('(pointer: coarse)').matches : false;
-            const touchPoints = Number(navigator.maxTouchPoints || 0);
-            const isTouch = coarsePointer || touchPoints > 0;
-            const ua = navigator.userAgent || '';
-            const uaDataMobile = navigator.userAgentData && typeof navigator.userAgentData.mobile === 'boolean'
-                ? navigator.userAgentData.mobile
-                : null;
-            const uaLooksTouchOs = /Android|iPhone|iPad|iPod|HarmonyOS|Adr/i.test(ua);
-            const uaLooksMobile = /Mobile|iPhone|iPad|iPod|Android|HarmonyOS|Adr/i.test(ua);
-            const forceMode = String(info.forceLayoutMode || '').toLowerCase();
-            let savedLayout = '';
-            try { savedLayout = useSavedLayout ? (localStorage.getItem('smartCenterDashboardLayout') || '') : ''; } catch (_) {}
-            const forcedMobile = ['mobile', 'phone', 'outer'].includes(forceMode) || params.get('mobile') === '1' || savedLayout === 'mobile' || mobileMode;
-            const tabletRequested = ['tablet', 'pad', 'fold'].includes(forceMode) || params.get('tablet') === '1' || info.explicitTablet === true || savedLayout === 'tablet' || tabletMode;
-            const forcedDesktop = !forcedMobile && !tabletRequested && (
-                ['desktop', 'pc', 'wide'].includes(forceMode) || params.get('desktop') === '1' || info.explicitDesktop === true || savedLayout === 'desktop'
-            );
-            const browserDesktopSite = !forcedMobile && !tabletRequested && (info.browserDesktopSite === true || (
-                isTouch
-                && !['mobile', 'phone', 'outer'].includes(forceMode)
-                && (
-                    document.documentElement.dataset.viewportPreset === 'desktop-touch'
-                    || (!uaLooksTouchOs && (uaDataMobile === false || !uaLooksMobile))
-                    || (uaDataMobile === false && Math.max(width, height, visualW, visualH) >= 960)
-                )
-            ));
-            const desktopCanvasRequested = forcedDesktop || browserDesktopSite;
-            const desktopLike = desktopCanvasRequested || (!mobileMode && !tabletMode && !touchWideMode && !touchPortraitMode && !coarsePointer);
-            const directDesktop = desktopLike && !['mobile', 'phone', 'outer'].includes(forceMode)
-                && (desktopCanvasRequested || (width >= 1181 && fitW >= 1181));
-            const shouldFit = !disabled && activeView === 'dashboard' && directDesktop;
-            if (!shouldFit) {
-                root.classList.remove('dashboard-browser-fit', 'dashboard-fixed-canvas', 'dashboard-fixed-canvas-locked');
-                root.style.removeProperty('--dashboard-fit-scale');
-                root.style.removeProperty('--dashboard-fit-base-width');
-                root.style.removeProperty('--dashboard-fit-base-height');
-                root.style.removeProperty('--dashboard-fit-offset-x');
-                root.style.removeProperty('--dashboard-fit-offset-y');
-                return;
-            }
-            const scale = Math.max(0.1, Math.min(fitW / baseW, fitH / baseH));
-            const offsetX = Math.max(0, (fitW - baseW * scale) / 2);
-            const offsetY = Math.max(0, (fitH - baseH * scale) / 2);
-            root.classList.remove('dashboard-browser-fit');
-            root.classList.add('dashboard-fixed-canvas', 'dashboard-fixed-canvas-locked');
-            root.style.setProperty('--dashboard-fit-scale', scale.toFixed(5));
-            root.style.setProperty('--dashboard-fit-base-width', `${baseW}px`);
-            root.style.setProperty('--dashboard-fit-base-height', `${baseH}px`);
-            root.style.setProperty('--dashboard-fit-offset-x', `${offsetX.toFixed(2)}px`);
-            root.style.setProperty('--dashboard-fit-offset-y', `${offsetY.toFixed(2)}px`);
+            root.classList.remove('dashboard-browser-fit', 'dashboard-fixed-canvas', 'dashboard-fixed-canvas-locked');
+            root.style.removeProperty('--dashboard-fit-scale');
+            root.style.removeProperty('--dashboard-fit-base-width');
+            root.style.removeProperty('--dashboard-fit-base-height');
+            root.style.removeProperty('--dashboard-fit-offset-x');
+            root.style.removeProperty('--dashboard-fit-offset-y');
         }
         function syncDashboardCompactMode(viewId = getActiveViewId()) {
             document.body.classList.toggle('dashboard-compact-mode', viewId === 'dashboard');

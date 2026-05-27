@@ -7,8 +7,8 @@
   <style>
     :root { color-scheme: dark; font-family: "Segoe UI", "Microsoft YaHei", Arial, sans-serif; background:#07111f; color:#e5edf8; }
     * { box-sizing:border-box; }
-    body { margin:0; min-height:100vh; background:linear-gradient(180deg,#07111f,#0b1627); }
-    .layout { min-height:100vh; display:flex; }
+    body { margin:0; min-height:100vh; height:100dvh; overflow:hidden; background:linear-gradient(180deg,#07111f,#0b1627); }
+    .layout { min-height:100vh; height:100dvh; display:flex; }
     .sidebar { width:248px; flex:0 0 248px; min-height:0; background:linear-gradient(180deg, rgba(10,21,37,.98), rgba(14,27,46,.98)); border-right:1px solid rgba(79,141,253,.12); box-shadow:16px 0 42px rgba(2,6,23,.18); display:flex; flex-direction:column; }
     .logo { padding:24px 20px; font-size:20px; font-weight:800; border-bottom:1px solid rgba(148,163,184,.10); color:#f8fafc; letter-spacing:.8px; display:flex; align-items:center; gap:10px; }
     .nav-menu { list-style:none; margin:0; padding:18px 10px 16px; flex:1; min-height:0; overflow-y:auto; scrollbar-gutter:stable both-edges; }
@@ -18,10 +18,10 @@
     .nav-menu a:hover { color:#f8fafc; background:rgba(79,141,253,.12); transform:translateX(2px); }
     .nav-menu a span { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; flex:none; }
     .sys-info { padding:18px 16px 22px; border-top:1px solid rgba(148,163,184,.10); color:#72839a; font-size:12px; line-height:1.75; text-align:center; }
-    .content { flex:1; min-width:0; }
-    header { position:sticky; top:0; z-index:2; padding:16px 22px; background:rgba(7,17,31,.94); border-bottom:1px solid rgba(148,163,184,.18); display:flex; justify-content:space-between; gap:16px; align-items:center; }
+    .content { flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+    header { flex:0 0 auto; padding:14px 20px; background:rgba(7,17,31,.94); border-bottom:1px solid rgba(148,163,184,.18); display:flex; justify-content:space-between; gap:16px; align-items:center; }
     h1 { margin:0; font-size:22px; }
-    main { padding:14px 18px 22px; }
+    main { flex:1; min-height:0; overflow:auto; padding:14px 18px 22px; }
     a { color:#93c5fd; text-decoration:none; }
     .meta { color:#9fb0c8; font-size:13px; line-height:1.6; }
     .status { display:inline-flex; align-items:center; border-radius:999px; padding:6px 12px; font-size:13px; font-weight:800; background:#334155; color:#cbd5e1; }
@@ -75,6 +75,7 @@
     @media (max-width: 760px) {
       .layout { display:block; }
       .sidebar { display:none; }
+      body { height:auto; overflow:auto; }
       header { align-items:flex-start; flex-direction:column; }
       main { padding:12px; }
       .grid { grid-template-columns:1fr; }
@@ -89,7 +90,7 @@
         {% for item in (config.sidebar|sort(attribute='sort') if config.sidebar else []) %}
           {% if item.visible %}
           <li class="{{ 'active' if item.id == 'current_collector' else '' }}">
-            <a href="{{ '/current-collector' if item.id == 'current_collector' else ('/m32r' if item.id == 'm32r' else '/?view=' ~ item.id) }}">
+            <a href="{{ '/current-collector' if item.id == 'current_collector' else ('/local-model' if item.id == 'local_model' else ('/m32r' if item.id == 'm32r' else '/?view=' ~ item.id)) }}">
               <span class="nav-icon">{{ item.icon }}</span>
               <span>{{ item.name }}</span>
             </a>
