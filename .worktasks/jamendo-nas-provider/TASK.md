@@ -17,7 +17,7 @@ Integrate NAS local music with an optional Jamendo API provider, simplify the mu
 
 ## Current Phase
 
-ready_to_merge
+merged
 
 ## Change Scope
 
@@ -60,4 +60,4 @@ ready_to_merge
 
 ## Next
 
-- Commit, merge to `main`, release `apple_audio` worklock, and create a post-merge backup.
+- Create a post-merge backup.
