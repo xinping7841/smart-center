@@ -1707,7 +1707,6 @@
     <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
     <script src="/static/js/views/env.js?v=20260522-stage2-env-view"></script>
     <script src="/static/js/views/snmp.js?v=20260522-stage3-snmp-render"></script>
-    <script src="/static/js/views/server-monitor.js?v=20260522-codemeter-days-visible"></script>
     <script src="/static/js/views/power-meter.js?v=20260522-stage4-power-meter"></script>
     <script src="/static/js/views/automation-view.js?v=20260522-stage4-automation-view"></script>
     <script src="/static/js/views/dashboard-summary.js?v=20260522-stage8-dashboard-summary"></script>
@@ -1722,6 +1721,7 @@
         const lazyViewScripts = {
             apple_audio: '/static/js/views/apple-audio.js?v=20260527-lazy-view',
             local_model: '/static/js/views/local-model.js?v=20260527-lazy-view',
+            server: '/static/js/views/server-monitor.js?v=20260528-lazy-view',
             universal: '/static/js/views/universal.js?v=20260527-lazy-view'
         };
         const lazyViewStylesheets = {
@@ -2345,7 +2345,7 @@
                 if (version) {
                     latestAgentVersion = version;
                     updateDeployModalInfo();
-                    if (Array.isArray(globalServerList) && globalServerList.length) {
+                    if (window.SmartCenter?.serverMonitor && Array.isArray(globalServerList) && globalServerList.length) {
                         const sContainer = document.getElementById('server-grid-container');
                         if (sContainer) sContainer.innerHTML = renderServerGroupedGrid(globalServerList);
                         renderDashboardServerCompact(globalServerList);
@@ -2370,7 +2370,45 @@
             return copyTextWithToast(getDeployBatUrl(), '批处理地址已复制');
         }
         function buildServerDiagnostic(agent = {}, machine = {}) {
-            return SmartCenter.serverMonitor.buildServerDiagnostic.apply(SmartCenter.serverMonitor, Array.from(arguments).concat([getServerRenderContext()]));
+            if (window.SmartCenter?.serverMonitor?.buildServerDiagnostic) {
+                return SmartCenter.serverMonitor.buildServerDiagnostic.apply(SmartCenter.serverMonitor, Array.from(arguments).concat([getServerRenderContext()]));
+            }
+            const diagnostic = machine?.diagnostic || {};
+            const st = machine?.status || {};
+            const isOnline = !!machine?.is_online;
+            const reportOnline = !!(machine?.report_online || diagnostic.report_online);
+            const hasRuntime = !!diagnostic.has_runtime_metrics || !!(st.cpu_name || st.mem_total || st.hardware_refreshed_at);
+            if (!isOnline && !reportOnline) {
+                return {
+                    level: 'offline',
+                    code: String(diagnostic.code || 'offline_unreachable'),
+                    badgeText: '离线',
+                    badgeClass: 'error',
+                    summary: '节点离线',
+                    reportOnline: false,
+                    hasRuntime,
+                };
+            }
+            const level = String(diagnostic.level || (isOnline && hasRuntime ? 'success' : 'warn'));
+            const code = String(diagnostic.code || '').trim();
+            const badgeMap = {
+                healthy: ['运行正常', 'normal'],
+                offline_unreachable: ['离线', 'error'],
+                agent_offline_host_reachable: ['Agent离线', 'warn'],
+                runtime_stale: ['采集陈旧', 'warn'],
+                agent_outdated: ['需更新', 'warn'],
+                partial_metrics: ['采集不全', 'warn'],
+            };
+            const mapped = badgeMap[code] || null;
+            return {
+                level,
+                code,
+                badgeText: mapped ? mapped[0] : (level === 'success' ? '运行正常' : (level === 'error' ? '需要处理' : '关注中')),
+                badgeClass: mapped ? mapped[1] : (level === 'success' ? 'normal' : (level === 'error' ? 'error' : 'warn')),
+                summary: String(diagnostic.summary || '').trim() || (isOnline ? '在线' : '等待上报'),
+                reportOnline,
+                hasRuntime,
+            };
         }
         function showToast(msg, isError=false) {
             return SmartCenter.utils.showToast(msg, isError);
@@ -4581,6 +4619,11 @@
             if (viewId === 'hvac') setTimeout(() => { updateHvacStatus(true); updateEnvData(); }, 80);
             if (viewId === 'door') setTimeout(() => { initCanvas(); updateDoorStatus(true).finally(() => startDoorVideoStream()); }, 100);
             if (viewId === 'sequencer') setTimeout(() => { updateSequencerStatus(); }, 80);
+            if (viewId === 'server') {
+                ensureViewAssets('server')
+                    .then(() => setTimeout(() => { if (typeof updateServerData === 'function') updateServerData(); }, 80))
+                    .catch(err => console.error('服务器监测模块加载失败', err));
+            }
             if (viewId === 'universal') {
                 ensureViewAssets('universal')
                     .then(() => setTimeout(() => { if (typeof updateNodeRedDevices === 'function') updateNodeRedDevices(true); }, 80))
@@ -6325,7 +6368,9 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         registerPollingTask('node_red', 5000, () => {
             if (typeof updateNodeRedDevices === 'function') updateNodeRedDevices();
         }, () => getActiveViewId() === 'universal' && typeof updateNodeRedDevices === 'function');
-        registerPollingTask('server', 5000, () => updateServerData(), () => getActiveViewId() === 'server');
+        registerPollingTask('server', 5000, () => {
+            if (window.SmartCenter?.serverMonitor && typeof updateServerData === 'function') updateServerData();
+        }, () => getActiveViewId() === 'server' && !!window.SmartCenter?.serverMonitor);
         registerPollingTask('door', 1200, () => updateDoorStatus(), () => ['dashboard', 'door'].includes(getActiveViewId()) || isDashboardSectionVisible('door'));
         registerPollingTask('env', 3500, () => updateEnvData(), () => ['dashboard', 'env', 'hvac'].includes(getActiveViewId()) || isDashboardSectionVisible('env') || isDashboardSectionVisible('hvac'));
         registerPollingTask('automation', 4000, () => {
@@ -7034,28 +7079,89 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             return SmartCenter.serverMonitor.renderServerGpuList.apply(SmartCenter.serverMonitor, Array.from(arguments));
         }
         function getServerCompactGpuText(rawGpuList) {
-            return SmartCenter.serverMonitor.getServerCompactGpuText.apply(SmartCenter.serverMonitor, Array.from(arguments));
+            if (window.SmartCenter?.serverMonitor?.getServerCompactGpuText) {
+                return SmartCenter.serverMonitor.getServerCompactGpuText.apply(SmartCenter.serverMonitor, Array.from(arguments));
+            }
+            const rows = Array.isArray(rawGpuList) ? rawGpuList.filter(item => item && item.name) : [];
+            if (!rows.length) return 'GPU 未采到';
+            const first = rows[0] || {};
+            const util = Number(first.util_percent ?? first.load_percent);
+            const temp = Number(first.temp);
+            const parts = [String(first.name || 'GPU').replace(/^NVIDIA\s+/i, '').replace(/\s+Graphics$/i, '').slice(0, 24)];
+            if (Number.isFinite(util) && util > 0) parts.push(`${util.toFixed(0)}%`);
+            if (Number.isFinite(temp) && temp > 0) parts.push(`${temp.toFixed(0)}°C`);
+            return parts.join(' · ');
         }
         function getServerCompactMetricClass(value) {
-            return SmartCenter.serverMonitor.getServerCompactMetricClass.apply(SmartCenter.serverMonitor, Array.from(arguments));
+            if (window.SmartCenter?.serverMonitor?.getServerCompactMetricClass) {
+                return SmartCenter.serverMonitor.getServerCompactMetricClass.apply(SmartCenter.serverMonitor, Array.from(arguments));
+            }
+            const num = Number(value);
+            if (!Number.isFinite(num)) return '';
+            if (num >= 90) return 'danger';
+            if (num >= 75) return 'warning';
+            return '';
         }
         function getServerCompactGroupName(machine) {
-            return SmartCenter.serverMonitor.getServerCompactGroupName.apply(SmartCenter.serverMonitor, Array.from(arguments));
+            if (window.SmartCenter?.serverMonitor?.getServerCompactGroupName) {
+                return SmartCenter.serverMonitor.getServerCompactGroupName.apply(SmartCenter.serverMonitor, Array.from(arguments));
+            }
+            return String(machine?.asset_group || machine?.group || '').trim() || '未分组';
         }
         function getServerDisplayName(machine) {
-            return SmartCenter.serverMonitor.getServerDisplayName.apply(SmartCenter.serverMonitor, Array.from(arguments));
+            if (window.SmartCenter?.serverMonitor?.getServerDisplayName) {
+                return SmartCenter.serverMonitor.getServerDisplayName.apply(SmartCenter.serverMonitor, Array.from(arguments));
+            }
+            return String(machine?.name || machine?.hostname || machine?.ip || machine?.mac || '未命名机器').trim();
         }
         function buildServerCompactGroups(machines) {
-            return SmartCenter.serverMonitor.buildServerCompactGroups.apply(SmartCenter.serverMonitor, Array.from(arguments));
+            if (window.SmartCenter?.serverMonitor?.buildServerCompactGroups) {
+                return SmartCenter.serverMonitor.buildServerCompactGroups.apply(SmartCenter.serverMonitor, Array.from(arguments));
+            }
+            const map = new Map();
+            (Array.isArray(machines) ? machines : []).forEach(machine => {
+                const group = getServerCompactGroupName(machine);
+                if (!map.has(group)) map.set(group, []);
+                map.get(group).push(machine);
+            });
+            return Array.from(map.entries());
         }
         function isServerDashboardVisible(machine) {
-            return SmartCenter.serverMonitor.isServerDashboardVisible.apply(SmartCenter.serverMonitor, Array.from(arguments));
+            if (window.SmartCenter?.serverMonitor?.isServerDashboardVisible) {
+                return SmartCenter.serverMonitor.isServerDashboardVisible.apply(SmartCenter.serverMonitor, Array.from(arguments));
+            }
+            if (!machine || machine.dashboard_visible === false || machine.visible === false) return false;
+            return !!String(machine.asset_group || machine.group || '').trim();
         }
         function getServerCompactAlertText(machine, diagnostic, online) {
-            return SmartCenter.serverMonitor.getServerCompactAlertText.apply(SmartCenter.serverMonitor, Array.from(arguments));
+            if (window.SmartCenter?.serverMonitor?.getServerCompactAlertText) {
+                return SmartCenter.serverMonitor.getServerCompactAlertText.apply(SmartCenter.serverMonitor, Array.from(arguments));
+            }
+            if (!online && !diagnostic?.reportOnline) return '离线';
+            if (diagnostic?.level && diagnostic.level !== 'success') return diagnostic.badgeText || diagnostic.summary || '关注';
+            const st = machine?.status || {};
+            const alerts = [];
+            const cpu = Number(st.cpu_percent);
+            const mem = Number(st.mem_percent);
+            const disk = Number(st.disk_percent);
+            if (Number.isFinite(cpu) && cpu >= 90) alerts.push(`CPU ${cpu.toFixed(0)}%`);
+            if (Number.isFinite(mem) && mem >= 90) alerts.push(`内存 ${mem.toFixed(0)}%`);
+            if (Number.isFinite(disk) && disk >= 90) alerts.push(`硬盘 ${disk.toFixed(0)}%`);
+            return alerts.join(' / ');
         }
         function getServerCompactTooltip(machine, diagnostic, st, gpuText, alertText) {
-            return SmartCenter.serverMonitor.getServerCompactTooltip.apply(SmartCenter.serverMonitor, Array.from(arguments));
+            if (window.SmartCenter?.serverMonitor?.getServerCompactTooltip) {
+                return SmartCenter.serverMonitor.getServerCompactTooltip.apply(SmartCenter.serverMonitor, Array.from(arguments));
+            }
+            const parts = [
+                getServerDisplayName(machine),
+                machine?.ip ? `IP ${machine.ip}` : '',
+                diagnostic?.badgeText || '',
+                alertText || '',
+                gpuText || '',
+                st?.hardware_refreshed_at ? `硬件 ${st.hardware_refreshed_at}` : '',
+            ].filter(Boolean);
+            return parts.join('\n');
         }
         function renderDashboardServerCompact(data = []) {
             const container = document.getElementById('dashboard-server-compact-grid');
