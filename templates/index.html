@@ -1706,7 +1706,7 @@
     <script src="/static/js/views/ups.js?v=20260522-stage2-ups-view"></script>
     <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
     <script src="/static/js/views/env.js?v=20260522-stage2-env-view"></script>
-    <script src="/static/js/views/snmp.js?v=20260522-stage3-snmp-render"></script>
+    <script src="/static/js/views/snmp-summary.js?v=20260528-snmp-summary"></script>
     <script src="/static/js/views/power-meter.js?v=20260522-stage4-power-meter"></script>
     <script src="/static/js/views/automation-view.js?v=20260522-stage4-automation-view"></script>
     <script src="/static/js/views/dashboard-summary.js?v=20260522-stage8-dashboard-summary"></script>
@@ -1722,6 +1722,7 @@
             apple_audio: '/static/js/views/apple-audio.js?v=20260527-lazy-view',
             local_model: '/static/js/views/local-model.js?v=20260527-lazy-view',
             server: '/static/js/views/server-monitor.js?v=20260528-lazy-view',
+            snmp: '/static/js/views/snmp.js?v=20260528-lazy-view',
             universal: '/static/js/views/universal.js?v=20260527-lazy-view'
         };
         const lazyViewStylesheets = {
@@ -4247,6 +4248,14 @@
         function updateSnmpStatus(options = {}) {
             const forceFull = !!options.full || getActiveViewId() === 'snmp';
             const mode = forceFull ? 'full' : 'compact';
+            if (mode === 'full' && !window.SmartCenter?.snmp?.renderSnmpCompactCard) {
+                return ensureViewAssets('snmp')
+                    .then(() => updateSnmpStatus(Object.assign({}, options, { full: true })))
+                    .catch(err => {
+                        console.error('SNMP 监测模块加载失败', err);
+                        showToast('SNMP 监测模块加载失败，请刷新后重试', true);
+                    });
+            }
             if (snmpFetchInFlight) {
                 if (snmpFetchMode === mode || (mode === 'compact' && snmpFetchMode === 'full')) return snmpFetchInFlight;
                 if (mode === 'full') return snmpFetchInFlight.then(() => updateSnmpStatus({ full: true }));
@@ -4613,7 +4622,11 @@
             if (viewId === 'power') setTimeout(() => { resizePowerCharts(); updatePowerData(); }, 120);
             if (viewId === 'meter') setTimeout(() => { updateMeterCenter(); }, 80);
             if (viewId === 'ups') setTimeout(() => { updateUpsStatus(); }, 80);
-            if (viewId === 'snmp') setTimeout(() => { updateSnmpStatus({ full: true }); }, 80);
+            if (viewId === 'snmp') {
+                ensureViewAssets('snmp')
+                    .then(() => setTimeout(() => { updateSnmpStatus({ full: true }); }, 80))
+                    .catch(err => console.error('SNMP 监测模块加载失败', err));
+            }
             if (viewId === 'proxy') setTimeout(() => { updateProxyStatus(); }, 80);
             if (viewId === 'auto') setTimeout(() => { loadAutomationStatus(true); loadAutomationLogs(); }, 80);
             if (viewId === 'hvac') setTimeout(() => { updateHvacStatus(true); updateEnvData(); }, 80);
