@@ -11641,14 +11641,41 @@
             align-items:stretch !important;
             align-content:flex-start !important;
             justify-content:flex-start !important;
-            grid-column:span 12 !important;
+            grid-column:span 18 !important;
             max-width:100% !important;
-            gap:8px !important;
+            gap:6px !important;
         }
         body.dashboard-compact-mode #dashboard-section-stats > .dash-stat-card {
-            flex:0 0 260px !important;
-            width:260px !important;
-            max-width:260px !important;
+            flex:0 0 128px !important;
+            width:128px !important;
+            max-width:128px !important;
+            min-height:38px !important;
+            padding:5px 7px !important;
+            border-radius:8px !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-stats > .dash-stat-card:nth-child(6),
+        body.dashboard-compact-mode #dashboard-section-stats > .dash-stat-card:nth-child(8),
+        body.dashboard-compact-mode #dashboard-section-stats > .dash-stat-card:nth-child(9) {
+            flex-basis:184px !important;
+            width:184px !important;
+            max-width:184px !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-stats > .dash-stat-card .label {
+            font-size:9px !important;
+            margin-bottom:2px !important;
+            line-height:1.15 !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-stats > .dash-stat-card .value {
+            font-size:15px !important;
+            line-height:1.05 !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-stats > .dash-stat-card .meta {
+            margin-top:2px !important;
+            font-size:8px !important;
+            line-height:1.12 !important;
+            white-space:nowrap !important;
+            overflow:hidden !important;
+            text-overflow:ellipsis !important;
         }
         body.dashboard-compact-mode #dashboard-section-projector,
         body.dashboard-compact-mode #dashboard-section-hy_edge,
@@ -11661,10 +11688,16 @@
         body.dashboard-compact-mode #dashboard-section-sequencer,
         body.dashboard-compact-mode #dashboard-section-power_compact,
         body.dashboard-compact-mode #dashboard-section-light_compact,
-        body.dashboard-compact-mode #dashboard-section-server_compact,
-        body.dashboard-compact-mode #dashboard-section-energy_trend,
         body.dashboard-compact-mode #dashboard-section-snmp {
             grid-column:span 8 !important;
+            max-width:calc(100vw - 24px) !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-server_compact {
+            grid-column:span 16 !important;
+            max-width:calc(100vw - 24px) !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-energy_trend {
+            grid-column:span 6 !important;
             max-width:calc(100vw - 24px) !important;
         }
         body.dashboard-compact-mode #dashboard-section-stats { order:10 !important; }
@@ -11689,6 +11722,38 @@
         body.dashboard-compact-mode #dashboard-section-power_compact #dashboard-power-compact-grid {
             max-height:none !important;
             overflow:visible !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-server_compact #dashboard-server-compact-grid.server-compact-grouped {
+            grid-template-columns:repeat(5, minmax(0, 1fr)) !important;
+            gap:6px !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-server_compact .home-server-group {
+            padding:5px !important;
+            border-radius:8px !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-server_compact .home-server-group-list {
+            gap:2px !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-server_compact .home-server-group:first-child {
+            grid-column:span 2 !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-server_compact .home-server-group:first-child .home-server-group-list {
+            display:grid !important;
+            grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+            gap:2px 4px !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-server_compact .home-server-row {
+            min-height:17px !important;
+            padding:1px 5px !important;
+            border-radius:6px !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-server_compact .home-server-row strong {
+            font-size:9px !important;
+            line-height:1.1 !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-server_compact .home-server-alert {
+            font-size:8px !important;
+            line-height:1.1 !important;
         }
         body.dashboard-compact-mode #dashboard-section-energy_trend .home-total-log-list {
             max-height:260px !important;
@@ -11720,15 +11785,28 @@
                 display:flex !important;
             }
             body.dashboard-compact-mode #dashboard-section-stats > .dash-stat-card {
-                flex-basis:220px !important;
-                width:220px !important;
-                max-width:220px !important;
+                flex-basis:128px !important;
+                width:128px !important;
+                max-width:128px !important;
+            }
+            body.dashboard-compact-mode #dashboard-section-stats > .dash-stat-card:nth-child(6),
+            body.dashboard-compact-mode #dashboard-section-stats > .dash-stat-card:nth-child(8),
+            body.dashboard-compact-mode #dashboard-section-stats > .dash-stat-card:nth-child(9) {
+                flex-basis:184px !important;
+                width:184px !important;
+                max-width:184px !important;
             }
             body.dashboard-compact-mode #dashboard-section-projector,
             body.dashboard-compact-mode #dashboard-section-hy_edge,
             body.dashboard-compact-mode #dashboard-section-ups_compact,
             body.dashboard-compact-mode #dashboard-section-screen {
                 grid-column:span 4 !important;
+            }
+            body.dashboard-compact-mode #dashboard-section-server_compact {
+                grid-column:span 12 !important;
+            }
+            body.dashboard-compact-mode #dashboard-section-server_compact #dashboard-server-compact-grid.server-compact-grouped {
+                grid-template-columns:repeat(5, minmax(0, 1fr)) !important;
             }
         }
         @media screen and (max-width: 760px) {
@@ -11751,6 +11829,57 @@
                 width:100% !important;
                 max-width:none !important;
                 margin-bottom:10px !important;
+            }
+        }
+
+        /* Codex 2026-05-27: exhibition density overrides beat older fold/touch full-row rules. */
+        html body.dashboard-compact-mode #view-dashboard.view-section.active > #dashboard-section-stats.dash-grid {
+            display:flex !important;
+            flex-wrap:wrap !important;
+            justify-content:flex-start !important;
+            align-content:flex-start !important;
+            gap:6px !important;
+            grid-column:auto / span 18 !important;
+        }
+        html body.dashboard-compact-mode #view-dashboard.view-section.active > #dashboard-section-stats.dash-grid > .dash-stat-card {
+            flex:0 0 128px !important;
+            width:128px !important;
+            max-width:128px !important;
+            margin:0 !important;
+        }
+        html body.dashboard-compact-mode #view-dashboard.view-section.active > #dashboard-section-stats.dash-grid > .dash-stat-card:nth-child(6),
+        html body.dashboard-compact-mode #view-dashboard.view-section.active > #dashboard-section-stats.dash-grid > .dash-stat-card:nth-child(8),
+        html body.dashboard-compact-mode #view-dashboard.view-section.active > #dashboard-section-stats.dash-grid > .dash-stat-card:nth-child(9) {
+            flex-basis:184px !important;
+            width:184px !important;
+            max-width:184px !important;
+        }
+        html body.dashboard-compact-mode #view-dashboard.view-section.active > #dashboard-section-snmp.card {
+            grid-column:auto / span 8 !important;
+        }
+        html body.dashboard-compact-mode #view-dashboard.view-section.active > #dashboard-section-server_compact.card {
+            grid-column:auto / span 12 !important;
+        }
+        html body.dashboard-compact-mode #view-dashboard.view-section.active > #dashboard-section-energy_trend.card {
+            grid-column:auto / span 6 !important;
+        }
+        html body.dashboard-compact-mode #view-dashboard.view-section.active > #dashboard-section-server_compact.card #dashboard-server-compact-grid.server-compact-grouped {
+            grid-template-columns:repeat(5, minmax(0, 1fr)) !important;
+        }
+        html body.dashboard-compact-mode #view-dashboard.view-section.active > #dashboard-section-server_compact.card .home-server-group:first-child {
+            grid-column:span 2 !important;
+        }
+        html body.dashboard-compact-mode #view-dashboard.view-section.active > #dashboard-section-server_compact.card .home-server-group:first-child .home-server-group-list {
+            display:grid !important;
+            grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+            gap:2px 4px !important;
+        }
+        @media screen and (min-width: 2200px) {
+            html body.dashboard-compact-mode #view-dashboard.view-section.active > #dashboard-section-stats.dash-grid {
+                grid-column:auto / span 18 !important;
+            }
+            html body.dashboard-compact-mode #view-dashboard.view-section.active > #dashboard-section-server_compact.card {
+                grid-column:auto / span 12 !important;
             }
         }
 
