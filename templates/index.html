@@ -7106,7 +7106,9 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
 
         moveServer = function(mac, direction) {
             if (!ensurePermission('server.control', '调整服务器排序')) return;
-            const idx = globalServerList.findIndex(m => m.mac === mac);
+            const normalizeMacForSort = value => String(value || '').replace(/[^0-9a-f]/gi, '').toUpperCase();
+            const targetMac = normalizeMacForSort(mac);
+            const idx = globalServerList.findIndex(m => normalizeMacForSort(m.mac) === targetMac);
             if (idx < 0) return;
             const newIdx = idx + direction;
             if (newIdx < 0 || newIdx >= globalServerList.length) return;
@@ -7114,6 +7116,9 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             globalServerList[idx] = globalServerList[newIdx];
             globalServerList[newIdx] = temp;
             globalServerList.forEach((m, i) => { m.sort_order = i + 1; });
+            const sContainer = document.getElementById('server-grid-container');
+            if (sContainer) sContainer.innerHTML = renderServerGroupedGrid(globalServerList);
+            renderDashboardServerCompact(globalServerList);
             postJsonLoose('/api/machines/sort', { macs: globalServerList.map(m => m.mac) }, '服务器排序保存失败')
                 .then(() => updateServerData())
                 .catch(err => {

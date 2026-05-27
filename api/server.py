@@ -7408,9 +7408,19 @@ def report_data():
 @require_permission("server.control")
 def sort_machines():
     mac_list = request.json.get("macs", [])
-    conn = sqlite3.connect(DB_FILE); c = conn.cursor()
-    for idx, mac in enumerate(mac_list): c.execute("UPDATE machines SET sort_order=? WHERE mac=?", (idx, mac))
-    conn.commit(); conn.close()
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    for idx, raw_mac in enumerate(mac_list):
+        mac = normalize_machine_mac(raw_mac)
+        if not mac:
+            continue
+        compact_mac = mac.replace("-", "")
+        c.execute(
+            "UPDATE machines SET sort_order=? WHERE mac=? OR REPLACE(mac, '-', '')=?",
+            (idx + 1, mac, compact_mac),
+        )
+    conn.commit()
+    conn.close()
     invalidate_machines_cache()
     log_audit_event("server.sort", target="machines", detail={"count": len(mac_list), "macs": mac_list})
     return jsonify({"status": "ok"})
