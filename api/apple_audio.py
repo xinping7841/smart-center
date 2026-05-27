@@ -9,8 +9,9 @@
 
 import mimetypes
 from pathlib import Path
+from urllib.parse import urlparse
 
-from flask import Blueprint, Response, jsonify, request, stream_with_context
+from flask import Blueprint, Response, jsonify, redirect, request, stream_with_context
 
 from apple_audio_core import apple_audio_service
 from auth.decorators import require_permission
@@ -94,6 +95,8 @@ def api_apple_audio_config():
         "m32_label",
         "nas_music_roots",
         "nas_music_exclude_dirs",
+        "jamendo_client_id",
+        "jamendo_api_base",
     ]:
         if key in data:
             value = data.get(key)
@@ -109,6 +112,8 @@ def api_apple_audio_config():
             cfg[key] = bool(data.get(key))
     if "nas_auto_scan_on_start" in data:
         cfg["nas_auto_scan_on_start"] = bool(data.get("nas_auto_scan_on_start"))
+    if "jamendo_enabled" in data:
+        cfg["jamendo_enabled"] = bool(data.get("jamendo_enabled"))
     for key in ["m32_channel_left", "m32_channel_right"]:
         if key in data:
             try:
@@ -120,6 +125,11 @@ def api_apple_audio_config():
             cfg["m32_prepare_level"] = max(0.0, min(float(data.get("m32_prepare_level")), 1.0))
         except Exception:
             pass
+    if "jamendo_limit" in data:
+        try:
+            cfg["jamendo_limit"] = max(1, min(int(data.get("jamendo_limit")), 50))
+        except Exception:
+            pass
     _save_cfg(cfg)
     return jsonify({"success": True, "config": cfg, "state": apple_audio_service.snapshot()})
 
@@ -128,7 +138,15 @@ def api_apple_audio_config():
 @require_permission("meter.view")
 def api_apple_audio_search():
     query = request.args.get("q", "")
-    return jsonify({"success": True, "results": apple_audio_service.search(query)})
+    source = str(request.args.get("source", "local") or "local").strip().lower()
+    include_jamendo = source in {"all", "jamendo"}
+    limit = request.args.get("limit", "")
+    try:
+        max_items = max(1, min(int(limit or 50), 300))
+    except Exception:
+        max_items = 50
+    payload = apple_audio_service.search_sources(query, include_jamendo=include_jamendo, limit=max_items)
+    return jsonify({"success": True, **payload})
 
 
 @bp.route("/api/apple-audio/library")
@@ -175,6 +193,9 @@ def api_apple_audio_stream(track_id):
     file_path = apple_audio_service.get_track_path(track_id)
     if not file_path:
         return jsonify({"success": False, "message": "track not found"}), 404
+    parsed = urlparse(file_path)
+    if parsed.scheme in {"http", "https"}:
+        return redirect(file_path, code=302)
     path = Path(file_path)
     if not path.exists() or not path.is_file():
         return jsonify({"success": False, "message": "audio file missing"}), 404

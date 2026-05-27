@@ -8,6 +8,9 @@ import re
 import struct
 import threading
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -90,7 +93,13 @@ DEFAULT_CONFIG = {
     "nas_music_roots": [],
     "nas_music_exclude_dirs": [],
     "nas_auto_scan_on_start": True,
+    "jamendo_enabled": False,
+    "jamendo_client_id": "",
+    "jamendo_limit": 20,
+    "jamendo_api_base": "https://api.jamendo.com/v3.0",
 }
+
+JAMENDO_TRACKS_ENDPOINT = "https://api.jamendo.com/v3.0/tracks/"
 
 
 def _try_decode_text(raw):
@@ -377,6 +386,59 @@ def _find_lyrics_sidecar(audio_path: Path):
     return None
 
 
+def _find_named_cover(audio_path: Path):
+    base = audio_path.with_suffix("")
+    for ext in (".jpg", ".jpeg", ".png", ".webp"):
+        for candidate in (base.with_suffix(ext), base.with_suffix(ext.upper())):
+            if candidate.exists() and candidate.is_file():
+                return str(candidate.resolve()), _guess_mime(candidate, fallback="image/jpeg")
+    return None
+
+
+def _pick_filename_metadata(path: Path):
+    name = path.stem.strip()
+    if not name:
+        return "", ""
+    normalized = re.sub(r"\s+", " ", name)
+    normalized = re.sub(r"^\s*\d{1,3}\s*[-_. ]+\s*", "", normalized).strip()
+    patterns = [
+        r"^(?P<artist>.+?)\s+-\s+(?P<title>.+)$",
+        r"^(?P<artist>.+?)\s+--\s+(?P<title>.+)$",
+        r"^(?P<title>.+?)\s+-\s+(?P<artist>.+)$",
+    ]
+    for pattern in patterns:
+        match = re.match(pattern, normalized)
+        if not match:
+            continue
+        artist = _try_decode_text(match.groupdict().get("artist", ""))
+        title = _try_decode_text(match.groupdict().get("title", ""))
+        if title and artist:
+            return title, artist
+    return normalized, ""
+
+
+def _guess_album_from_path(path: Path, root: Path):
+    try:
+        rel_parent = path.parent.relative_to(root)
+        parts = [part for part in rel_parent.parts if part]
+    except Exception:
+        parts = [path.parent.name]
+    if parts:
+        return str(parts[-1] or "").strip()
+    return str(root.name or "").strip()
+
+
+def _jamendo_client_id(cfg):
+    raw = str(cfg.get("jamendo_client_id") or "").strip()
+    env = str(os.environ.get("JAMENDO_CLIENT_ID") or "").strip()
+    return raw or env
+
+
+def _is_remote_track(item):
+    source = str((item or {}).get("source") or "").strip().lower()
+    return source in {"jamendo", "remote"}
+
+
 def _derive_category(relative_path: str, root_name: str):
     rel = str(relative_path or "").replace("\\", "/").strip("/")
     if not rel:
@@ -440,6 +502,13 @@ class AppleAudioService:
         if not isinstance(excludes, list):
             excludes = []
         merged["nas_music_exclude_dirs"] = [str(item or "").strip() for item in excludes if str(item or "").strip()]
+        merged["jamendo_enabled"] = bool(merged.get("jamendo_enabled", False))
+        merged["jamendo_client_id"] = str(merged.get("jamendo_client_id") or "").strip()
+        merged["jamendo_api_base"] = str(merged.get("jamendo_api_base") or JAMENDO_TRACKS_ENDPOINT.rsplit("/", 2)[0]).strip()
+        try:
+            merged["jamendo_limit"] = max(1, min(int(merged.get("jamendo_limit", 20) or 20), 50))
+        except Exception:
+            merged["jamendo_limit"] = 20
         if not isinstance(merged.get("outputs"), list) or not merged.get("outputs"):
             merged["outputs"] = deepcopy(DEFAULT_OUTPUTS)
         return merged
@@ -614,13 +683,14 @@ class AppleAudioService:
             return ""
         return str(target)
 
-    def _extract_metadata(self, path: Path):
+    def _extract_metadata(self, path: Path, root: Path):
         tag_fallback = _read_id3v1_tag(path)
         audio, tags, duration = _load_audio(path)
+        filename_title, filename_artist = _pick_filename_metadata(path)
 
-        title = _pick_tag_text(tags, ["title", "TIT2", "\xa9nam"]) or tag_fallback.get("title") or path.stem
-        artist = _pick_tag_join(tags, ["artist", "TPE1", "\xa9ART"], sep=" / ") or tag_fallback.get("artist") or "Unknown Artist"
-        album = _pick_tag_text(tags, ["album", "TALB", "\xa9alb"]) or tag_fallback.get("album") or "Unknown Album"
+        title = _pick_tag_text(tags, ["title", "TIT2", "\xa9nam"]) or tag_fallback.get("title") or filename_title or path.stem
+        artist = _pick_tag_join(tags, ["artist", "TPE1", "\xa9ART"], sep=" / ") or tag_fallback.get("artist") or filename_artist or "Unknown Artist"
+        album = _pick_tag_text(tags, ["album", "TALB", "\xa9alb"]) or tag_fallback.get("album") or _guess_album_from_path(path, root) or "Unknown Album"
         album_artist = _pick_tag_join(tags, ["albumartist", "TPE2", "aART"], sep=" / ")
         genre = _pick_tag_join(tags, ["genre", "TCON", "\xa9gen"], sep=" / ")
         year = _parse_year(
@@ -725,6 +795,10 @@ class AppleAudioService:
             cached_path = self._store_embedded_cover(track_id, embedded_bytes, embedded_mime)
             if cached_path:
                 return True, "embedded", embedded_mime, cached_path
+        named_cover = _find_named_cover(path)
+        if named_cover:
+            cover_path, cover_mime = named_cover
+            return True, "sidecar", cover_mime, cover_path
         folder_cover = self._find_folder_cover(path.parent, folder_cover_cache)
         if folder_cover:
             cover_path, cover_mime = folder_cover
@@ -737,7 +811,7 @@ class AppleAudioService:
         track_id_source = f"{path.resolve()}::{stat.st_mtime_ns}::{stat.st_size}"
         track_id = hashlib.sha1(track_id_source.encode("utf-8", errors="ignore")).hexdigest()[:16]
 
-        parsed = self._extract_metadata(path)
+        parsed = self._extract_metadata(path, root)
         title = parsed["title"]
         artist = parsed["artist"]
         album = parsed["album"]
@@ -773,6 +847,9 @@ class AppleAudioService:
             "root_name": root_name,
             "root_key": root_key,
             "root_label": root_label,
+            "source": "nas",
+            "source_label": "NAS",
+            "playable": True,
             "stream_url": f"/api/apple-audio/stream/{track_id}",
             "cover_available": bool(cover_available),
             "cover_type": cover_type,
@@ -835,6 +912,10 @@ class AppleAudioService:
         normalized["cover_mime"] = str(normalized.get("cover_mime") or "")
         normalized["cover_path"] = str(normalized.get("cover_path") or "")
         normalized["cover_url"] = str(normalized.get("cover_url") or f"/api/apple-audio/cover/{track_id}")
+        normalized["source"] = str(normalized.get("source") or "nas")
+        normalized["source_label"] = str(normalized.get("source_label") or "NAS")
+        normalized["playable"] = bool(normalized.get("playable", True))
+        normalized["stream_url"] = str(normalized.get("stream_url") or f"/api/apple-audio/stream/{track_id}")
         normalized["lyrics_available"] = bool(normalized.get("lyrics_available", False))
         normalized["lyrics_type"] = str(normalized.get("lyrics_type") or "none")
         normalized["lyrics_url"] = str(normalized.get("lyrics_url") or f"/api/apple-audio/lyrics/{track_id}")
@@ -1027,17 +1108,36 @@ class AppleAudioService:
             item = self.library_by_id.get(str(track_id or "").strip())
             return deepcopy(item) if item else None
 
+    def _remember_remote_track(self, track):
+        if not isinstance(track, dict):
+            return
+        track_id = str(track.get("id") or "").strip()
+        if not track_id or not _is_remote_track(track):
+            return
+        normalized = self._normalize_cached_track(track)
+        normalized["path"] = ""
+        normalized["source"] = str(track.get("source") or "remote")
+        normalized["source_label"] = str(track.get("source_label") or normalized["source"]).upper()
+        normalized["playable"] = bool(track.get("playable", True))
+        with self.lock:
+            self.library_by_id[track_id] = normalized
+            self.state["updated_at"] = datetime.now().isoformat()
+
     def get_track_path(self, track_id):
         with self.lock:
             item = self.library_by_id.get(str(track_id or "").strip())
             if not item:
                 return ""
+            if _is_remote_track(item):
+                return str(item.get("stream_url") or "")
             return str(item.get("path") or "")
 
     def get_track_cover(self, track_id):
         with self.lock:
             item = self.library_by_id.get(str(track_id or "").strip())
             if not item:
+                return "", ""
+            if _is_remote_track(item):
                 return "", ""
             cover_path = Path(str(item.get("cover_path") or ""))
             cover_mime = str(item.get("cover_mime") or "")
@@ -1077,6 +1177,8 @@ class AppleAudioService:
             if not item:
                 return None
             item_copy = deepcopy(item)
+            if _is_remote_track(item_copy):
+                return _normalize_lyrics_payload(item_copy, lyrics_type="none", source="remote")
             cache_item = self.lyrics_cache.get(item_copy["id"])
             if cache_item and int(cache_item.get("mtime", -1)) == int(item_copy.get("mtime", -2)):
                 return deepcopy(cache_item.get("payload"))
@@ -1199,7 +1301,7 @@ class AppleAudioService:
     def search(self, query):
         text = str(query or "").strip().lower()
         with self.lock:
-            source = list(self.library)
+            source = [deepcopy(item) for item in self.library]
         if not text:
             return source[:200]
         results = []
@@ -1220,6 +1322,128 @@ class AppleAudioService:
                 if len(results) >= 300:
                     break
         return results
+
+    def _jamendo_enabled(self, cfg=None):
+        cfg = cfg or self._config()
+        return bool(cfg.get("jamendo_enabled")) and bool(_jamendo_client_id(cfg))
+
+    def _jamendo_track_to_item(self, raw):
+        track_id = str(raw.get("id") or "").strip()
+        if not track_id:
+            return None
+        title = str(raw.get("name") or "Untitled").strip() or "Untitled"
+        artist = str(raw.get("artist_name") or "Jamendo Artist").strip() or "Jamendo Artist"
+        album = str(raw.get("album_name") or "Jamendo").strip() or "Jamendo"
+        duration = 0
+        try:
+            duration = int(float(raw.get("duration") or 0))
+        except Exception:
+            duration = 0
+        audio_url = str(raw.get("audio") or raw.get("audiodownload") or "").strip()
+        cover_url = str(
+            raw.get("album_image")
+            or raw.get("image")
+            or raw.get("artist_image")
+            or ""
+        ).strip()
+        return {
+            "id": f"jamendo:{track_id}",
+            "remote_id": track_id,
+            "title": title,
+            "artist": artist,
+            "album": album,
+            "album_artist": artist,
+            "genre": str(raw.get("musicinfo", {}).get("tags", {}).get("genres", [""])[0] if isinstance(raw.get("musicinfo"), dict) and raw.get("musicinfo", {}).get("tags", {}).get("genres") else ""),
+            "track_no": 0,
+            "duration": duration,
+            "tag": "JAMENDO",
+            "accent": (artist[:1] or title[:1] or "J").upper(),
+            "path": "",
+            "size": 0,
+            "mtime": 0,
+            "year": str(raw.get("releasedate") or "")[:4],
+            "relative_path": "",
+            "category": "Jamendo",
+            "root_name": "Jamendo",
+            "root_key": "jamendo",
+            "root_label": "Jamendo API",
+            "source": "jamendo",
+            "source_label": "Jamendo",
+            "playable": bool(audio_url),
+            "stream_url": audio_url,
+            "cover_available": bool(cover_url),
+            "cover_type": "remote",
+            "cover_mime": "",
+            "cover_path": "",
+            "cover_url": cover_url,
+            "lyrics_available": False,
+            "lyrics_type": "none",
+            "lyrics_url": f"/api/apple-audio/lyrics/jamendo:{track_id}",
+        }
+
+    def search_jamendo(self, query, limit=None):
+        cfg = self._config()
+        text = str(query or "").strip()
+        if not text or not self._jamendo_enabled(cfg):
+            return []
+        client_id = _jamendo_client_id(cfg)
+        try:
+            max_items = max(1, min(int(limit or cfg.get("jamendo_limit", 20) or 20), 50))
+        except Exception:
+            max_items = 20
+        base = str(cfg.get("jamendo_api_base") or "https://api.jamendo.com/v3.0").rstrip("/")
+        endpoint = f"{base}/tracks/"
+        params = {
+            "client_id": client_id,
+            "format": "json",
+            "limit": str(max_items),
+            "search": text,
+            "include": "musicinfo",
+            "audioformat": "mp32",
+            "order": "popularity_total",
+        }
+        url = f"{endpoint}?{urllib.parse.urlencode(params)}"
+        request = urllib.request.Request(url, headers={"User-Agent": "SmartCenter/1.0"})
+        try:
+            with urllib.request.urlopen(request, timeout=8) as response:
+                payload = json.loads(response.read().decode("utf-8", errors="ignore") or "{}")
+        except (urllib.error.URLError, TimeoutError, ValueError):
+            return []
+        raw_results = payload.get("results", [])
+        if not isinstance(raw_results, list):
+            return []
+        results = []
+        for raw in raw_results:
+            if not isinstance(raw, dict):
+                continue
+            item = self._jamendo_track_to_item(raw)
+            if not item:
+                continue
+            results.append(item)
+            self._remember_remote_track(item)
+        return results
+
+    def search_sources(self, query, include_jamendo=False, limit=None):
+        local_results = self.search(query)
+        if limit:
+            try:
+                local_results = local_results[: max(1, int(limit))]
+            except Exception:
+                pass
+        jamendo_results = self.search_jamendo(query, limit=limit) if include_jamendo else []
+        merged = local_results + jamendo_results
+        return {
+            "results": merged,
+            "local": local_results,
+            "jamendo": jamendo_results,
+            "sources": {
+                "nas": {"enabled": True, "count": len(local_results)},
+                "jamendo": {
+                    "enabled": self._jamendo_enabled(),
+                    "count": len(jamendo_results),
+                },
+            },
+        }
 
     def queue_track(self, track_id, play_now=False):
         track_id = str(track_id or "").strip()
