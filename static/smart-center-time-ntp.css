@@ -11593,3 +11593,114 @@
                 grid-template-columns:1fr !important;
             }
         }
+
+        /* Codex 2026-05-27: keep the home page natural after removing the fixed 16:9 canvas. */
+        body.dashboard-compact-mode #view-dashboard.view-section.active {
+            display:grid !important;
+            grid-template-columns:repeat(12, minmax(0, 1fr)) !important;
+            grid-auto-rows:auto !important;
+            grid-auto-flow:row dense !important;
+            align-items:start !important;
+            gap:10px !important;
+            width:auto !important;
+            min-width:0 !important;
+            max-width:none !important;
+            transform:none !important;
+        }
+        body.dashboard-compact-mode #view-dashboard.view-section.active > [data-section-id],
+        body.dashboard-compact-mode #view-dashboard.view-section.active > .card,
+        body.dashboard-compact-mode #view-dashboard.view-section.active > .dash-grid {
+            grid-row:auto !important;
+            min-width:0 !important;
+            min-height:0 !important;
+            height:auto !important;
+            max-height:none !important;
+            margin:0 !important;
+            overflow:visible !important;
+        }
+        body.dashboard-compact-mode #view-dashboard.view-section.active > .card {
+            padding:10px !important;
+            border-radius:12px !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-stats {
+            grid-column:1 / -1 !important;
+            grid-template-columns:repeat(6, minmax(0, 1fr)) !important;
+            gap:8px !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-projector,
+        body.dashboard-compact-mode #dashboard-section-hy_edge,
+        body.dashboard-compact-mode #dashboard-section-ups_compact,
+        body.dashboard-compact-mode #dashboard-section-screen {
+            grid-column:span 3 !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-hvac,
+        body.dashboard-compact-mode #dashboard-section-sequencer,
+        body.dashboard-compact-mode #dashboard-section-power_compact,
+        body.dashboard-compact-mode #dashboard-section-light_compact,
+        body.dashboard-compact-mode #dashboard-section-server_compact,
+        body.dashboard-compact-mode #dashboard-section-energy_trend,
+        body.dashboard-compact-mode #dashboard-section-snmp {
+            grid-column:span 6 !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-power_quick,
+        body.dashboard-compact-mode #dashboard-section-light_quick,
+        body.dashboard-compact-mode #dashboard-section-system_logs {
+            display:none !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-light_compact .home-status-list,
+        body.dashboard-compact-mode #dashboard-section-server_compact .home-status-list,
+        body.dashboard-compact-mode #dashboard-section-power_compact #dashboard-power-compact-grid {
+            max-height:none !important;
+            overflow:visible !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-energy_trend .home-total-log-list {
+            max-height:260px !important;
+            overflow:auto !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-hvac .hvac-dashboard-grid {
+            grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)) !important;
+            gap:8px !important;
+            overflow:visible !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-hvac .hvac-dashboard-grid .hvac-group-section {
+            grid-column:auto !important;
+        }
+        body.dashboard-compact-mode #dashboard-section-hvac .hvac-dashboard-grid .hvac-group-grid {
+            grid-template-columns:repeat(auto-fit, minmax(132px, 1fr)) !important;
+        }
+        @media screen and (max-width: 1500px) {
+            body.dashboard-compact-mode #view-dashboard.view-section.active {
+                grid-template-columns:repeat(8, minmax(0, 1fr)) !important;
+            }
+            body.dashboard-compact-mode #dashboard-section-stats {
+                grid-template-columns:repeat(4, minmax(0, 1fr)) !important;
+            }
+            body.dashboard-compact-mode #dashboard-section-projector,
+            body.dashboard-compact-mode #dashboard-section-hy_edge,
+            body.dashboard-compact-mode #dashboard-section-ups_compact,
+            body.dashboard-compact-mode #dashboard-section-screen {
+                grid-column:span 4 !important;
+            }
+            body.dashboard-compact-mode #dashboard-section-hvac,
+            body.dashboard-compact-mode #dashboard-section-sequencer,
+            body.dashboard-compact-mode #dashboard-section-power_compact,
+            body.dashboard-compact-mode #dashboard-section-light_compact,
+            body.dashboard-compact-mode #dashboard-section-server_compact,
+            body.dashboard-compact-mode #dashboard-section-energy_trend,
+            body.dashboard-compact-mode #dashboard-section-snmp {
+                grid-column:1 / -1 !important;
+            }
+        }
+        @media screen and (max-width: 760px) {
+            body.dashboard-compact-mode #view-dashboard.view-section.active {
+                grid-template-columns:1fr !important;
+            }
+            body.dashboard-compact-mode #dashboard-section-stats {
+                grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+            }
+            body.dashboard-compact-mode #view-dashboard.view-section.active > [data-section-id],
+            body.dashboard-compact-mode #view-dashboard.view-section.active > .card,
+            body.dashboard-compact-mode #view-dashboard.view-section.active > .dash-grid {
+                grid-column:1 / -1 !important;
+            }
+        }
