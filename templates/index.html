@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="/static/js/core/viewport-layout.js?v=20260522-stage7-viewport"></script>
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
-    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260527-packed-home-1">
+    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260527-packed-home-2">
     <link rel="stylesheet" href="/static/css/views/dashboard-inline.css?v=20260522-stage6-inline-css">
     <style id="codemeter-four-column-hotfix">
         .server-codemeter-line { display:block !important; margin:8px 0 0 !important; padding:6px 8px !important; border-radius:8px !important; background:rgba(2,6,23,0.24) !important; border:1px solid rgba(148,163,184,0.10) !important; overflow:hidden !important; min-width:0 !important; }
@@ -70,6 +70,11 @@
     </style>
     <style id="dashboard-natural-layout-final">
         body.dashboard-compact-mode #view-dashboard.view-section.active { display:grid !important; grid-template-columns:repeat(auto-fill,84px) !important; grid-auto-rows:8px !important; grid-auto-flow:dense !important; align-items:flex-start !important; justify-content:flex-start !important; gap:10px !important; width:100% !important; min-width:0 !important; max-width:none !important; transform:none !important; }
+        html body.dashboard-compact-mode.fold-desktop-layout #view-dashboard.view-section.active,
+        html body.dashboard-compact-mode.touch-layout #view-dashboard.view-section.active,
+        html body.dashboard-compact-mode.tablet-layout #view-dashboard.view-section.active,
+        html body.dashboard-compact-mode.compact-layout #view-dashboard.view-section.active,
+        html body.dashboard-compact-mode.dashboard-masonry-mode #view-dashboard.view-section.active { display:grid !important; grid-template-columns:repeat(auto-fill,84px) !important; grid-auto-rows:8px !important; grid-auto-flow:dense !important; justify-content:flex-start !important; align-items:flex-start !important; }
         body.dashboard-compact-mode #view-dashboard.view-section.active > [data-section-id],
         body.dashboard-compact-mode #view-dashboard.view-section.active > .card,
         body.dashboard-compact-mode #view-dashboard.view-section.active > .dash-grid { min-width:0 !important; min-height:0 !important; width:auto !important; height:auto !important; max-height:none !important; margin:0 !important; overflow:visible !important; }
@@ -111,6 +116,11 @@
         body.dashboard-compact-mode #dashboard-section-hvac .hvac-dashboard-grid .hvac-group-grid { grid-template-columns:repeat(auto-fit,minmax(132px,1fr)) !important; }
         @media screen and (max-width:1500px) {
             body.dashboard-compact-mode #view-dashboard.view-section.active { grid-template-columns:repeat(auto-fill,80px) !important; }
+            html body.dashboard-compact-mode.fold-desktop-layout #view-dashboard.view-section.active,
+            html body.dashboard-compact-mode.touch-layout #view-dashboard.view-section.active,
+            html body.dashboard-compact-mode.tablet-layout #view-dashboard.view-section.active,
+            html body.dashboard-compact-mode.compact-layout #view-dashboard.view-section.active,
+            html body.dashboard-compact-mode.dashboard-masonry-mode #view-dashboard.view-section.active { grid-template-columns:repeat(auto-fill,80px) !important; }
             body.dashboard-compact-mode #dashboard-section-stats { display:flex !important; }
             body.dashboard-compact-mode #dashboard-section-stats > .dash-stat-card { flex-basis:220px !important; width:220px !important; max-width:220px !important; }
             body.dashboard-compact-mode #dashboard-section-projector,
@@ -4886,6 +4896,18 @@
         }
         function initDashboardMasonryObservers() {
             applyDashboardMasonry();
+            const dashboard = document.getElementById('view-dashboard');
+            if (!dashboard) return;
+            if (!dashboardResizeObserver && 'ResizeObserver' in window) {
+                dashboardResizeObserver = new ResizeObserver(() => scheduleDashboardMasonry(60));
+                dashboardResizeObserver.observe(dashboard);
+                dashboard.querySelectorAll('[data-section-id]').forEach(section => dashboardResizeObserver.observe(section));
+            }
+            if (!dashboardMasonryObserver && 'MutationObserver' in window) {
+                dashboardMasonryObserver = new MutationObserver(() => scheduleDashboardMasonry(80));
+                dashboardMasonryObserver.observe(dashboard, { childList: true, subtree: true, characterData: true });
+            }
+            [250, 800, 1600, 3200, 6000].forEach(delay => setTimeout(() => scheduleDashboardMasonry(20), delay));
         }
         function getHvacViewContext() {
             return { statusMap: hvacStatusCache };

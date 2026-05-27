@@ -11608,6 +11608,18 @@
             max-width:none !important;
             transform:none !important;
         }
+        html body.dashboard-compact-mode.fold-desktop-layout #view-dashboard.view-section.active,
+        html body.dashboard-compact-mode.touch-layout #view-dashboard.view-section.active,
+        html body.dashboard-compact-mode.tablet-layout #view-dashboard.view-section.active,
+        html body.dashboard-compact-mode.compact-layout #view-dashboard.view-section.active,
+        html body.dashboard-compact-mode.dashboard-masonry-mode #view-dashboard.view-section.active {
+            display:grid !important;
+            grid-template-columns:repeat(auto-fill, 84px) !important;
+            grid-auto-rows:8px !important;
+            grid-auto-flow:dense !important;
+            justify-content:flex-start !important;
+            align-items:flex-start !important;
+        }
         body.dashboard-compact-mode #view-dashboard.view-section.active > [data-section-id],
         body.dashboard-compact-mode #view-dashboard.view-section.active > .card,
         body.dashboard-compact-mode #view-dashboard.view-section.active > .dash-grid {
@@ -11695,6 +11707,13 @@
         }
         @media screen and (max-width: 1500px) {
             body.dashboard-compact-mode #view-dashboard.view-section.active {
+                grid-template-columns:repeat(auto-fill, 80px) !important;
+            }
+            html body.dashboard-compact-mode.fold-desktop-layout #view-dashboard.view-section.active,
+            html body.dashboard-compact-mode.touch-layout #view-dashboard.view-section.active,
+            html body.dashboard-compact-mode.tablet-layout #view-dashboard.view-section.active,
+            html body.dashboard-compact-mode.compact-layout #view-dashboard.view-section.active,
+            html body.dashboard-compact-mode.dashboard-masonry-mode #view-dashboard.view-section.active {
                 grid-template-columns:repeat(auto-fill, 80px) !important;
             }
             body.dashboard-compact-mode #dashboard-section-stats {
