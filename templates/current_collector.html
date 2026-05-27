@@ -16,7 +16,8 @@
     .nav-menu a { padding:10px 14px; border-left:4px solid transparent; border-radius:14px; color:#9fb0c8; font-size:14px; font-weight:700; display:flex; align-items:center; gap:12px; cursor:pointer; transition:all .22s ease; text-decoration:none; }
     .nav-menu li.active a { color:#dbeafe; background:linear-gradient(135deg, rgba(79,141,253,.18), rgba(34,211,238,.10)); border-left-color:#4f8dfd; }
     .nav-menu a:hover { color:#f8fafc; background:rgba(79,141,253,.12); transform:translateX(2px); }
-    .nav-menu a span { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; flex:none; }
+    .nav-menu a .nav-icon { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; flex:none; }
+    .nav-menu a .nav-label { min-width:0; flex:1 1 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .sys-info { padding:18px 16px 22px; border-top:1px solid rgba(148,163,184,.10); color:#9fb0c8; font-size:12px; line-height:1.75; text-align:center; }
     .content { flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
     header { flex:0 0 auto; padding:14px 20px; background:rgba(7,17,31,.94); border-bottom:1px solid rgba(148,163,184,.18); display:flex; justify-content:space-between; gap:16px; align-items:center; }
@@ -92,7 +93,7 @@
           <li class="{{ 'active' if item.id == 'current_collector' else '' }}">
             <a href="{{ '/current-collector' if item.id == 'current_collector' else ('/local-model' if item.id == 'local_model' else ('/m32r' if item.id == 'm32r' else '/?view=' ~ item.id)) }}">
               <span class="nav-icon">{{ item.icon }}</span>
-              <span>{{ item.name }}</span>
+              <span class="nav-label">{{ item.name }}</span>
             </a>
           </li>
           {% endif %}
