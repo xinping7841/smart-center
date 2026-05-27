@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="/static/js/core/viewport-layout.js?v=20260522-stage7-viewport"></script>
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
-    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260527-no-stretch-2">
+    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260527-packed-home-1">
     <link rel="stylesheet" href="/static/css/views/dashboard-inline.css?v=20260522-stage6-inline-css">
     <style id="codemeter-four-column-hotfix">
         .server-codemeter-line { display:block !important; margin:8px 0 0 !important; padding:6px 8px !important; border-radius:8px !important; background:rgba(2,6,23,0.24) !important; border:1px solid rgba(148,163,184,0.10) !important; overflow:hidden !important; min-width:0 !important; }
@@ -69,24 +69,36 @@
         @media screen and (max-width:760px) { #view-projector #projector-page-grid, #view-universal .node-red-device-grid { grid-template-columns:1fr !important; } #view-universal .protocol-light-switch-card { width:100% !important; } }
     </style>
     <style id="dashboard-natural-layout-final">
-        body.dashboard-compact-mode #view-dashboard.view-section.active { display:flex !important; flex-wrap:wrap !important; align-items:flex-start !important; align-content:flex-start !important; justify-content:flex-start !important; gap:10px !important; width:100% !important; min-width:0 !important; max-width:none !important; transform:none !important; }
+        body.dashboard-compact-mode #view-dashboard.view-section.active { display:grid !important; grid-template-columns:repeat(auto-fill,84px) !important; grid-auto-rows:8px !important; grid-auto-flow:dense !important; align-items:flex-start !important; justify-content:flex-start !important; gap:10px !important; width:100% !important; min-width:0 !important; max-width:none !important; transform:none !important; }
         body.dashboard-compact-mode #view-dashboard.view-section.active > [data-section-id],
         body.dashboard-compact-mode #view-dashboard.view-section.active > .card,
-        body.dashboard-compact-mode #view-dashboard.view-section.active > .dash-grid { flex:0 0 auto !important; grid-row:auto !important; grid-column:auto !important; min-width:0 !important; min-height:0 !important; height:auto !important; max-height:none !important; margin:0 !important; overflow:visible !important; }
+        body.dashboard-compact-mode #view-dashboard.view-section.active > .dash-grid { min-width:0 !important; min-height:0 !important; width:auto !important; height:auto !important; max-height:none !important; margin:0 !important; overflow:visible !important; }
         body.dashboard-compact-mode #view-dashboard.view-section.active > .card { padding:10px !important; border-radius:12px !important; }
-        body.dashboard-compact-mode #dashboard-section-stats { display:flex !important; flex-wrap:wrap !important; align-items:stretch !important; align-content:flex-start !important; justify-content:flex-start !important; width:auto !important; max-width:100% !important; gap:8px !important; }
+        body.dashboard-compact-mode #dashboard-section-stats { display:flex !important; flex-wrap:wrap !important; align-items:stretch !important; align-content:flex-start !important; justify-content:flex-start !important; grid-column:span 12 !important; max-width:100% !important; gap:8px !important; }
         body.dashboard-compact-mode #dashboard-section-stats > .dash-stat-card { flex:0 0 260px !important; width:260px !important; max-width:260px !important; }
         body.dashboard-compact-mode #dashboard-section-projector,
         body.dashboard-compact-mode #dashboard-section-hy_edge,
         body.dashboard-compact-mode #dashboard-section-ups_compact,
-        body.dashboard-compact-mode #dashboard-section-screen { width:360px !important; max-width:calc(100vw - 24px) !important; }
+        body.dashboard-compact-mode #dashboard-section-screen { grid-column:span 4 !important; max-width:calc(100vw - 24px) !important; }
         body.dashboard-compact-mode #dashboard-section-hvac,
         body.dashboard-compact-mode #dashboard-section-sequencer,
         body.dashboard-compact-mode #dashboard-section-power_compact,
         body.dashboard-compact-mode #dashboard-section-light_compact,
         body.dashboard-compact-mode #dashboard-section-server_compact,
         body.dashboard-compact-mode #dashboard-section-energy_trend,
-        body.dashboard-compact-mode #dashboard-section-snmp { width:720px !important; max-width:calc(100vw - 24px) !important; }
+        body.dashboard-compact-mode #dashboard-section-snmp { grid-column:span 8 !important; max-width:calc(100vw - 24px) !important; }
+        body.dashboard-compact-mode #dashboard-section-stats { order:10 !important; }
+        body.dashboard-compact-mode #dashboard-section-projector { order:11 !important; }
+        body.dashboard-compact-mode #dashboard-section-hy_edge { order:12 !important; }
+        body.dashboard-compact-mode #dashboard-section-ups_compact { order:13 !important; }
+        body.dashboard-compact-mode #dashboard-section-screen { order:14 !important; }
+        body.dashboard-compact-mode #dashboard-section-hvac { order:20 !important; }
+        body.dashboard-compact-mode #dashboard-section-sequencer { order:30 !important; }
+        body.dashboard-compact-mode #dashboard-section-light_compact { order:31 !important; }
+        body.dashboard-compact-mode #dashboard-section-power_compact { order:40 !important; }
+        body.dashboard-compact-mode #dashboard-section-snmp { order:41 !important; }
+        body.dashboard-compact-mode #dashboard-section-server_compact { order:50 !important; }
+        body.dashboard-compact-mode #dashboard-section-energy_trend { order:51 !important; }
         body.dashboard-compact-mode #dashboard-section-power_quick,
         body.dashboard-compact-mode #dashboard-section-light_quick,
         body.dashboard-compact-mode #dashboard-section-system_logs { display:none !important; }
@@ -98,21 +110,21 @@
         body.dashboard-compact-mode #dashboard-section-hvac .hvac-dashboard-grid .hvac-group-section { grid-column:auto !important; }
         body.dashboard-compact-mode #dashboard-section-hvac .hvac-dashboard-grid .hvac-group-grid { grid-template-columns:repeat(auto-fit,minmax(132px,1fr)) !important; }
         @media screen and (max-width:1500px) {
-            body.dashboard-compact-mode #view-dashboard.view-section.active { display:flex !important; }
+            body.dashboard-compact-mode #view-dashboard.view-section.active { grid-template-columns:repeat(auto-fill,80px) !important; }
             body.dashboard-compact-mode #dashboard-section-stats { display:flex !important; }
             body.dashboard-compact-mode #dashboard-section-stats > .dash-stat-card { flex-basis:220px !important; width:220px !important; max-width:220px !important; }
             body.dashboard-compact-mode #dashboard-section-projector,
             body.dashboard-compact-mode #dashboard-section-hy_edge,
             body.dashboard-compact-mode #dashboard-section-ups_compact,
-            body.dashboard-compact-mode #dashboard-section-screen { width:340px !important; }
+            body.dashboard-compact-mode #dashboard-section-screen { grid-column:span 4 !important; }
         }
         @media screen and (max-width:760px) {
-            body.dashboard-compact-mode #view-dashboard.view-section.active { display:flex !important; }
+            body.dashboard-compact-mode #view-dashboard.view-section.active { display:block !important; }
             body.dashboard-compact-mode #dashboard-section-stats { display:grid !important; grid-template-columns:repeat(2,minmax(0,1fr)) !important; width:100% !important; }
             body.dashboard-compact-mode #dashboard-section-stats > .dash-stat-card { flex:auto !important; width:auto !important; max-width:none !important; }
             body.dashboard-compact-mode #view-dashboard.view-section.active > [data-section-id],
             body.dashboard-compact-mode #view-dashboard.view-section.active > .card,
-            body.dashboard-compact-mode #view-dashboard.view-section.active > .dash-grid { width:100% !important; max-width:none !important; }
+            body.dashboard-compact-mode #view-dashboard.view-section.active > .dash-grid { width:100% !important; max-width:none !important; margin-bottom:10px !important; }
         }
     </style>
 </head>
@@ -4853,10 +4865,20 @@
         function applyDashboardMasonry() {
             const dashboard = document.getElementById('view-dashboard');
             if (!dashboard || getActiveViewId() !== 'dashboard') return;
-            // Keep the monitoring wall deterministic across browsers: no masonry reflow.
-            document.body.classList.remove('dashboard-masonry-mode');
+            document.body.classList.add('dashboard-masonry-mode');
             const sections = Array.from(dashboard.querySelectorAll('[data-section-id]'));
-            sections.forEach(section => { section.style.gridRowEnd = ''; });
+            const rowHeight = parseFloat(getComputedStyle(dashboard).gridAutoRows || '8') || 8;
+            const gap = parseFloat(getComputedStyle(dashboard).rowGap || '10') || 10;
+            sections.forEach(section => {
+                if (getComputedStyle(section).display === 'none') {
+                    section.style.gridRowEnd = '';
+                    return;
+                }
+                section.style.gridRowEnd = '';
+                const height = section.getBoundingClientRect().height;
+                const span = Math.max(1, Math.ceil((height + gap) / (rowHeight + gap)));
+                section.style.gridRowEnd = `span ${span}`;
+            });
         }
         function scheduleDashboardMasonry(delay = 80) {
             window.clearTimeout(dashboardMasonryTimer);
