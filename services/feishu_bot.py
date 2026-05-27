@@ -49,7 +49,6 @@ BOT_NAME_HINTS = ("深澜中控AI运维", "中控AI运维", "中控")
 MODULE_LABELS = {
     "env": "环境",
     "light": "灯光",
-    "nvr": "录像机",
     "power": "电表",
     "proxy": "代理",
     "sequencer": "时序器",
@@ -357,7 +356,6 @@ def _normalize_intent(value: Any) -> str:
         "event": "event_logs",
         "snmp": "snmp_status",
         "ups": "ups_status",
-        "nvr": "nvr_status",
         "proxy": "proxy_status",
         "model": "local_model_status",
         "local_model": "local_model_status",
@@ -384,7 +382,6 @@ class OllamaIntentClassifier:
         "event_logs",
         "snmp_status",
         "ups_status",
-        "nvr_status",
         "proxy_status",
         "local_model_status",
         "forbidden_control",
@@ -472,7 +469,7 @@ class LocalSmartCenterClient:
             stale = int(counts.get("stale") or 0)
             lines.append(f"总览：设备在线 {online}/{total}，离线 {offline}，异常 {error}，陈旧 {stale}")
             module_parts = []
-            for key in ("server", "power", "env", "light", "snmp", "ups", "nvr", "proxy", "sequencer"):
+            for key in ("server", "power", "env", "light", "snmp", "ups", "proxy", "sequencer"):
                 item = ((summary or {}).get("counts", {}) or {}).get(key)
                 if not isinstance(item, dict):
                     continue
@@ -1213,18 +1210,7 @@ class LocalSmartCenterClient:
         return "\n".join(lines)
 
     def nvr_status_text(self) -> str:
-        ok, payload = self.get_json("/api/nvr/status", timeout_sec=4.0)
-        if not ok or not isinstance(payload, dict):
-            return f"NVR 接口暂时不可用：{payload}"
-        lines = ["NVR/摄像头状态："]
-        for device_id, item in payload.items():
-            if not isinstance(item, dict):
-                continue
-            name = item.get("name") or device_id
-            online = "在线" if item.get("online", True) else "离线"
-            channels = item.get("channels") if isinstance(item.get("channels"), list) else []
-            lines.append(f"- {name}：{online}，通道 {len(channels)}")
-        return "\n".join(lines)
+        return "NVR/海康监控模块已从当前中控主服务归档移除，暂不在飞书机器人里查询。"
 
     def proxy_status_text(self) -> str:
         ok, payload = self.get_json("/api/proxy/status", timeout_sec=4.0)
@@ -1283,8 +1269,6 @@ class LocalSmartCenterClient:
             return self.snmp_status_text()
         if intent == "ups_status":
             return self.ups_status_text()
-        if intent == "nvr_status":
-            return self.nvr_status_text()
         if intent == "proxy_status":
             return self.proxy_status_text()
         if intent == "local_model_status":
