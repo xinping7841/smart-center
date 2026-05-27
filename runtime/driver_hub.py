@@ -215,21 +215,6 @@ def list_drivers(include_disabled: bool = True) -> List[Dict[str, Any]]:
         if include_disabled or (entry["enabled"] and entry["visible"]):
             drivers.append(entry)
 
-    m32r = dict(CONFIG.get("m32r", {}) or {})
-    if m32r:
-        drivers.append(
-            _base_driver(
-                driver_id="m32r:mixer",
-                group="m32r",
-                name=str(m32r.get("name") or "M32R"),
-                protocol="OSC",
-                comm_mode="UDP",
-                cfg=m32r,
-                enabled=_to_bool(m32r.get("enabled"), True),
-                visible=True,
-            )
-        )
-
     return drivers
 
 
@@ -285,11 +270,6 @@ def _snapshot_for_driver(driver: Dict[str, Any]) -> Dict[str, Any]:
         elif group == "screen":
             screen_id = str(cfg.get("id") or "")
             payload = dict(SCREEN_STATUS.get(screen_id) or {})
-            online = bool(payload.get("online", False))
-        elif group == "m32r":
-            from m32r_core import m32r_service
-
-            payload = dict(m32r_service.snapshot() or {})
             online = bool(payload.get("online", False))
         elif group == "custom":
             interface = str(cfg.get("interface") or "tcp").strip().lower()

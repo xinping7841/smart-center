@@ -1,11 +1,11 @@
 # AI_MODULE: apple_audio_api
-# AI_PURPOSE: 音乐库、队列、播放控制、歌词封面和 M32R 准备动作接口。
+# AI_PURPOSE: 音乐库、队列、播放控制、歌词和封面接口。
 # AI_BOUNDARY: 播放器核心状态在 apple_audio_core.py；页面渲染在 apple-audio.js。
 # AI_DATA_FLOW: 本地音乐库/播放器 -> /api/apple-audio/* -> 前端音乐卡片。
 # AI_RUNTIME: 首页音乐模块和 Apple Audio 页面调用。
-# AI_RISK: 中，M32R 准备动作可能影响音频路由；音乐扫描可能影响加载性能。
-# AI_COMPAT: queue/transport/lyrics/cover/m32/prepare 路由需保持。
-# AI_SEARCH_KEYWORDS: apple audio, music, queue, lyrics, cover, m32.
+# AI_RISK: 中，音乐扫描可能影响加载性能。
+# AI_COMPAT: queue/transport/lyrics/cover 路由需保持。
+# AI_SEARCH_KEYWORDS: apple audio, music, queue, lyrics, cover.
 
 import mimetypes
 from pathlib import Path
@@ -17,7 +17,6 @@ from apple_audio_core import apple_audio_service
 from auth.decorators import require_permission
 from config import CONFIG, save_config
 from data_logger import add_log
-from m32r_core import m32r_service
 
 bp = Blueprint("apple_audio", __name__)
 
@@ -39,40 +38,6 @@ def _error_payload(message, status=400):
     return jsonify({"success": False, "message": str(message or "request failed")}), int(status)
 
 
-def _auto_prepare_on_play_enabled(cfg):
-    if not isinstance(cfg, dict):
-        return True
-    return bool(cfg.get("m32_auto_prepare_on_play", True))
-
-
-def _prepare_m32_channels(cfg=None):
-    cfg = cfg if isinstance(cfg, dict) else _cfg()
-    left = max(1, min(int(cfg.get("m32_channel_left", 17) or 17), 32))
-    right = max(1, min(int(cfg.get("m32_channel_right", 18) or 18), 32))
-    level = max(0.0, min(float(cfg.get("m32_prepare_level", 0.68) or 0.68), 1.0))
-    label = str(cfg.get("m32_label", "Music Player") or "Music Player").strip() or "Music Player"
-    prepare_main = bool(cfg.get("m32_prepare_main", False))
-
-    m32r_service.set_channel_label(left, f"{label} L", "")
-    m32r_service.set_channel_label(right, f"{label} R", "")
-    m32r_service.set_channel_on(left, True)
-    m32r_service.set_channel_on(right, True)
-    m32r_service.set_channel_fader(left, level)
-    m32r_service.set_channel_fader(right, level)
-    m32r_service.set_channel_pan(left, 0.0)
-    m32r_service.set_channel_pan(right, 1.0)
-    if prepare_main:
-        m32r_service.set_main_on(True)
-
-    return {
-        "left_channel": left,
-        "right_channel": right,
-        "label": label,
-        "prepare_level": level,
-        "prepare_main": prepare_main,
-    }
-
-
 @bp.route("/api/apple-audio/status")
 @require_permission("meter.view")
 def api_apple_audio_status():
@@ -91,8 +56,6 @@ def api_apple_audio_config():
         "player_host",
         "output_mode",
         "auth_state",
-        "m32_channel_mode",
-        "m32_label",
         "nas_music_roots",
         "nas_music_exclude_dirs",
         "jamendo_client_id",
@@ -107,24 +70,13 @@ def api_apple_audio_config():
                     cfg[key] = [line.strip() for line in value.splitlines() if line.strip()]
             else:
                 cfg[key] = str(value or "").strip()
-    for key in ["enabled", "m32_prepare_main", "m32_auto_prepare_on_play"]:
+    for key in ["enabled"]:
         if key in data:
             cfg[key] = bool(data.get(key))
     if "nas_auto_scan_on_start" in data:
         cfg["nas_auto_scan_on_start"] = bool(data.get("nas_auto_scan_on_start"))
     if "jamendo_enabled" in data:
         cfg["jamendo_enabled"] = bool(data.get("jamendo_enabled"))
-    for key in ["m32_channel_left", "m32_channel_right"]:
-        if key in data:
-            try:
-                cfg[key] = max(1, min(int(data.get(key)), 32))
-            except Exception:
-                pass
-    if "m32_prepare_level" in data:
-        try:
-            cfg["m32_prepare_level"] = max(0.0, min(float(data.get("m32_prepare_level")), 1.0))
-        except Exception:
-            pass
     if "jamendo_limit" in data:
         try:
             cfg["jamendo_limit"] = max(1, min(int(data.get("jamendo_limit")), 50))
@@ -275,20 +227,8 @@ def api_apple_audio_queue():
     play_now = bool(data.get("play_now"))
     try:
         snapshot = apple_audio_service.queue_track(track_id, play_now=play_now)
-        m32_snapshot = None
-        cfg = _cfg()
-        if play_now and _auto_prepare_on_play_enabled(cfg):
-            prepared = _prepare_m32_channels(cfg)
-            m32_snapshot = m32r_service.snapshot()
-            add_log(
-                -1,
-                f"[MusicPlayer] auto-prepare M32 CH{prepared['left_channel']:02d}/{prepared['right_channel']:02d}",
-            )
         add_log(-1, f"[MusicPlayer] queued track {track_id}")
-        payload = {"success": True, "state": snapshot}
-        if m32_snapshot is not None:
-            payload["m32_state"] = m32_snapshot
-        return jsonify(payload)
+        return jsonify({"success": True, "state": snapshot})
     except ValueError as ex:
         return _error_payload(ex, 400)
     except Exception as ex:
@@ -325,42 +265,10 @@ def api_apple_audio_transport():
     action = data.get("action", "")
     try:
         snapshot = apple_audio_service.transport(action)
-        cfg = _cfg()
-        m32_snapshot = None
-        if action in {"toggle", "next", "prev"} and snapshot.get("current_track") and _auto_prepare_on_play_enabled(cfg):
-            prepared = _prepare_m32_channels(cfg)
-            m32_snapshot = m32r_service.snapshot()
-            add_log(
-                -1,
-                f"[MusicPlayer] auto-prepare M32 CH{prepared['left_channel']:02d}/{prepared['right_channel']:02d}",
-            )
         add_log(-1, f"[MusicPlayer] transport {action}")
-        payload = {"success": True, "state": snapshot}
-        if m32_snapshot is not None:
-            payload["m32_state"] = m32_snapshot
-        return jsonify(payload)
+        return jsonify({"success": True, "state": snapshot})
     except ValueError as ex:
         return _error_payload(ex, 400)
     except Exception as ex:
         return _error_payload(ex, 500)
 
-
-@bp.route("/api/apple-audio/m32/prepare", methods=["POST"])
-@require_permission("meter.view")
-def api_apple_audio_m32_prepare():
-    try:
-        prepared = _prepare_m32_channels(_cfg())
-        add_log(
-            -1,
-            f"[MusicPlayer] M32 prepare CH{prepared['left_channel']:02d}/{prepared['right_channel']:02d}",
-        )
-        return jsonify(
-            {
-                "success": True,
-                "apple_state": apple_audio_service.snapshot(),
-                "m32_state": m32r_service.snapshot(),
-                "prepare": prepared,
-            }
-        )
-    except Exception as ex:
-        return _error_payload(ex, 500)

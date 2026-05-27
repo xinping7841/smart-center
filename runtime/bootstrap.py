@@ -9,10 +9,8 @@ from background import (
     hvac_update_loop,
     init_light_drivers,
     light_update_loop,
-    m32r_update_loop,
     meter_statistics_maintenance_loop,
     meter_update_loop,
-    nvr_update_loop,
     proxy_update_loop,
     projector_update_loop,
     screen_update_loop,
@@ -42,7 +40,6 @@ BACKGROUND_SERVICES: Sequence[BackgroundService] = (
     BackgroundService("sequencer-poller", sequencer_update_loop, "sequencer", "Poll sequencer devices."),
     BackgroundService("ups-poller", ups_update_loop, "ups", "Poll UPS devices."),
     BackgroundService("snmp-poller", snmp_update_loop, "snmp", "Poll SNMP devices."),
-    BackgroundService("nvr-poller", nvr_update_loop, "snmp", "Poll NVR devices through vendor ISAPI."),
     BackgroundService("proxy-monitor", proxy_update_loop, "network", "Monitor upstream proxy health."),
     BackgroundService("screen-poller", screen_update_loop, "screen", "Poll screen devices."),
     BackgroundService("door-camera", camera_capture_loop, "door", "Capture door camera frames."),
@@ -51,7 +48,6 @@ BACKGROUND_SERVICES: Sequence[BackgroundService] = (
     BackgroundService("hvac-poller", hvac_update_loop, "hvac", "Poll HVAC devices."),
     BackgroundService("automation-engine", automation_engine_loop, "automation", "Evaluate automation rules."),
     BackgroundService("meter-statistics", meter_statistics_maintenance_loop, "meter", "Export meter reports and maintain display reset snapshots."),
-    BackgroundService("m32r-poller", m32r_update_loop, "audio", "Poll M32R mixer state."),
 )
 
 _runtime_lock = threading.Lock()

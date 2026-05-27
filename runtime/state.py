@@ -4,8 +4,8 @@
 # AI_DATA_FLOW: background/services 写入状态字典 -> api 读取 -> 前端渲染。
 # AI_RUNTIME: Python 进程内内存状态，服务重启后重新由后台轮询填充。
 # AI_RISK: 中，字段名变化会影响多个 API 和前端页面；缓存陈旧会导致状态显示滞后。
-# AI_COMPAT: SNMP_STATUS、UPS_STATUS、PROJECTOR_STATUS、NVR_STATUS 等全局对象名称需稳定。
-# AI_SEARCH_KEYWORDS: runtime state, cache, SNMP_STATUS, UPS_STATUS, PROJECTOR_STATUS, NVR_STATUS.
+# AI_COMPAT: SNMP_STATUS、UPS_STATUS、PROJECTOR_STATUS 等全局对象名称需稳定。
+# AI_SEARCH_KEYWORDS: runtime state, cache, SNMP_STATUS, UPS_STATUS, PROJECTOR_STATUS.
 
 from config import CONFIG, DEVICE_STATUS, ENV_STATUS, LIGHT_ONLINE, LIGHT_STATUS, METER_STATUS
 
@@ -15,7 +15,6 @@ PROJECTOR_STATUS = {}
 SCREEN_STATUS = {}
 UPS_STATUS = {}
 SNMP_STATUS = {}
-NVR_STATUS = {}
 PROXY_STATUS = {}
 
 STATUS_SNAPSHOT = {
@@ -24,7 +23,6 @@ STATUS_SNAPSHOT = {
     "meters": METER_STATUS,
     "ups": UPS_STATUS,
     "snmp": SNMP_STATUS,
-    "nvr": NVR_STATUS,
     "proxy": PROXY_STATUS,
 }
 
@@ -270,8 +268,6 @@ def get_state_snapshot(source_type, device_id, prop=None, channel=None):
         return UPS_STATUS.get(str(device_id))
     if source_type == "snmp":
         return SNMP_STATUS.get(str(device_id))
-    if source_type == "nvr":
-        return NVR_STATUS.get(str(device_id))
     if source_type == "proxy":
         default_state = PROXY_STATUS.get("default")
         if device_id in [None, "", "default"]:

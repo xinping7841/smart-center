@@ -14,7 +14,7 @@ from flask import Blueprint, jsonify
 
 from auth.decorators import require_permission
 from config import CONFIG, DEVICE_STATUS, ENV_STATUS, LIGHT_ONLINE, LIGHT_STATUS
-from runtime.state import NVR_STATUS, PROXY_STATUS, SNMP_STATUS, UPS_STATUS
+from runtime.state import PROXY_STATUS, SNMP_STATUS, UPS_STATUS
 
 
 bp = Blueprint("dashboard", __name__)
@@ -174,26 +174,6 @@ def _snmp_snapshot():
     return devices
 
 
-def _nvr_snapshot():
-    devices = []
-    for cfg in _safe_config_items("nvr_devices"):
-        dev_id = str(cfg.get("id"))
-        state = dict(NVR_STATUS.get(dev_id, {}) or {})
-        channels = list(state.get("channels", []) or cfg.get("channels", []) or [])
-        online_channels = sum(1 for item in channels if bool((item or {}).get("online", True)))
-        devices.append({
-            "id": dev_id,
-            "name": cfg.get("name") or dev_id,
-            "online": bool(state.get("online")),
-            "status_level": _status_level(state),
-            "channel_count": len(channels),
-            "online_channel_count": online_channels,
-            "last_success_at": state.get("last_success_at"),
-            "last_error": state.get("last_error") or state.get("error"),
-        })
-    return devices
-
-
 def _sequencer_snapshot():
     try:
         from api.sequencer import SEQUENCER_STATUS, ensure_config_devices
@@ -336,7 +316,6 @@ def api_dashboard_summary():
     env = _env_snapshot()
     ups = _ups_snapshot()
     snmp = _snmp_snapshot()
-    nvr = _nvr_snapshot()
     sequencers = _sequencer_snapshot()
     servers = _server_snapshot()
     proxy = _proxy_snapshot()
@@ -351,7 +330,6 @@ def api_dashboard_summary():
             "env": _counts_from_items(env),
             "ups": _counts_from_items(ups),
             "snmp": _counts_from_items(snmp),
-            "nvr": _counts_from_items(nvr),
             "sequencer": _counts_from_items(sequencers),
             "server": {key: value for key, value in servers.items() if key != "machines"},
             "proxy": {
@@ -368,7 +346,6 @@ def api_dashboard_summary():
             "env": {"devices": env},
             "ups": {"devices": ups},
             "snmp": {"devices": snmp},
-            "nvr": {"devices": nvr},
             "sequencer": {"devices": sequencers},
             "server": servers,
             "proxy": proxy,

@@ -74,11 +74,7 @@
         const sequencer = counts.sequencer || {};
         const server = counts.server || {};
         const snmp = counts.snmp || {};
-        const nvr = counts.nvr || {};
-        const networkDevices = [
-            ...(((modules.snmp || {}).devices) || []),
-            ...(((modules.nvr || {}).devices) || []),
-        ];
+        const networkDevices = (((modules.snmp || {}).devices) || []);
         const proxy = modules.proxy || {};
         setText('dash-power-online', String(power.online ?? 0));
         setText('dash-light-online', String(light.online ?? 0));
@@ -86,8 +82,8 @@
         setText('dash-sequencer-total', String(sequencer.total ?? 0));
         setText('dash-server-online', String(server.online ?? 0));
         setText('dash-server-total', String(server.total ?? 0));
-        const snmpOnline = Number(snmp.online || 0) + Number(nvr.online || 0);
-        const snmpTotal = Number(snmp.total || 0) + Number(nvr.total || 0);
+        const snmpOnline = Number(snmp.online || 0);
+        const snmpTotal = Number(snmp.total || 0);
         const snmpCritical = networkDevices.filter(item => {
             const risk = String((item?.summary || {}).risk_level || item?.status_level || '').toLowerCase();
             return risk === 'critical' || risk === 'error';

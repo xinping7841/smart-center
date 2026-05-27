@@ -9,7 +9,7 @@ The dashboard currently works, so frontend splitting must be done as behavior-pr
 - `templates/index.html` is the main shell and contains large inline CSS/JS.
 - Static CSS files are large and mostly shared; the first dashboard-specific leftovers are now in `static/css/views/dashboard-inline.css`.
 - Most buttons still call global functions from inline `onclick` attributes.
-- The following behavior-preserving modules have been extracted to `static/js/views/`: `logs.js`, `proxy.js`, `ups.js`, `hy-edge.js`, `apple-audio.js`, `universal.js`, `env.js`, `snmp.js`, `server-monitor.js`, `power-meter.js`, `automation-view.js`, `dashboard-summary.js`, `hvac-view.js`, `nvr-view.js`, `current-collector.js`, `m32r.js`, `driver-hub.js`, `local-model.js`, `login.js`, and `lighting.js`.
+- The following behavior-preserving modules have been extracted to `static/js/views/`: `logs.js`, `proxy.js`, `ups.js`, `hy-edge.js`, `apple-audio.js`, `universal.js`, `env.js`, `snmp.js`, `server-monitor.js`, `power-meter.js`, `automation-view.js`, `dashboard-summary.js`, `hvac-view.js`, `current-collector.js`, `driver-hub.js`, `local-model.js`, `login.js`, and `lighting.js`.
 
 ## Stage 2A: Bootstrap And Boundaries
 
@@ -46,18 +46,17 @@ Recommended order:
 6. Protocol/universal command shims. Completed: `static/js/views/universal.js`.
 7. Environment sensor page and dashboard summary. Completed: `static/js/views/env.js`.
 8. Current collector page. Completed: `static/js/views/current-collector.js`.
-9. M32R page. Completed: `static/js/views/m32r.js`.
-10. Driver hub page. Completed: `static/js/views/driver-hub.js`.
-11. Local model page. Completed: `static/js/views/local-model.js`.
-12. Login page. Completed: `static/js/views/login.js`.
-13. Legacy lighting page. Completed: `static/js/views/lighting.js`.
+9. Driver hub page. Completed: `static/js/views/driver-hub.js`.
+10. Local model page. Completed: `static/js/views/local-model.js`.
+11. Login page. Completed: `static/js/views/login.js`.
+12. Legacy lighting page. Completed: `static/js/views/lighting.js`.
 
 ## Stage 2D: Extract Heavy Views
 
 Recommended order after utilities are stable:
 
 1. SNMP monitor.
-   - Completed: `static/js/views/snmp.js` now holds SNMP formatting, filters, storage/interface/switch helpers, overview/detail render helpers, and NAS/router/switch/NVR card rendering while `templates/index.html` keeps polling, selected-device state, and compatibility wrappers.
+   - Completed: `static/js/views/snmp.js` now holds SNMP formatting, filters, storage/interface/switch helpers, overview/detail render helpers, and NAS/router/switch card rendering while `templates/index.html` keeps polling, selected-device state, and compatibility wrappers.
 2. Server monitor.
    - Completed: `static/js/views/server-monitor.js` now holds server hardware/card render helpers, CodeMeter display helpers, diagnostics, offline snapshot markup, and grouped grid rendering. `templates/index.html` keeps polling, pending command state, WOL/shutdown/restart actions, sorting, and compatibility wrappers.
 3. Power/meter dashboard.
@@ -66,9 +65,7 @@ Recommended order after utilities are stable:
    - Completed: `static/js/views/automation-view.js` now holds runtime status helpers, condition chips, schedule summaries, action labels, and node-flow data/HTML builders. `templates/index.html` still keeps modal state, drag/zoom, inline panel rendering, API status polling, rule enable/disable, and save actions.
 5. HVAC room cards.
    - Completed: `static/js/views/hvac-view.js` now holds status/mode/fan/power display helpers, room grouping/sorting, room environment chips, dashboard overview HTML, and HVAC card/group rendering. `templates/index.html` still keeps polling, status cache, temperature/mode popover state, and `/api/hvac/control` actions.
-6. NVR preview.
-   - Completed: `static/js/views/nvr-view.js` now holds preview mode/grid helpers, stream/snapshot/MJPEG URL builders, channel buttons, and preview wall/single-frame markup. `templates/index.html` still keeps selection state, stream stop/cleanup, lazy iframe activation, snapshot refresh timers, and SNMP/NVR status polling.
-7. Dashboard summary display.
+6. Dashboard summary display.
    - Completed: `static/js/views/dashboard-summary.js` now holds top counter, proxy/env summary bridge, and footer health summary render helpers. `templates/index.html` still keeps summary polling, cached payload state, and compatibility wrappers.
 
 ## Stage 2E: Extract View CSS

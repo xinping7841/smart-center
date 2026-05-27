@@ -80,7 +80,7 @@
             {% set first_active = namespace(found=false) %}
             {% for item in (config.sidebar|sort(attribute='sort') if config.sidebar else []) %}
                 {% if item.visible %}
-                <li class="{% if not first_active.found %}active{% set first_active.found = true %}{% endif %}" onclick="{% if item.id == 'm32r' %}window.location.href='/m32r'{% elif item.id == 'current_collector' %}window.location.href='/current-collector'{% else %}switchTab('{{ item.id }}', '{{ item.name }}', this){% endif %}">
+                <li class="{% if not first_active.found %}active{% set first_active.found = true %}{% endif %}" onclick="{% if item.id == 'current_collector' %}window.location.href='/current-collector'{% else %}switchTab('{{ item.id }}', '{{ item.name }}', this){% endif %}">
                     <span>{{ item.icon }}</span> {{ item.name }}
                 </li>
                 {% endif %}
@@ -598,12 +598,11 @@
             <div id="view-snmp" class="view-section">
                 <div class="card snmp-page-card">
                     <div class="card-title">
-                        <span>网络与录像机监测中心</span>
-                        <span style="font-size:12px; color:var(--text-sub);">SNMP 设备与录像机 ISAPI 状态统一展示，点击卡片查看完整详情</span>
-                        <button class="nvr-preview-btn" type="button" onclick="switchTab('camera_preview', '监控预览', findNavElementByView('camera_preview'))">打开监控预览</button>
+                        <span>网络设备监测中心</span>
+                        <span style="font-size:12px; color:var(--text-sub);">SNMP 设备状态统一展示，点击卡片查看完整详情</span>
                     </div>
                     <div class="ups-grid snmp-page-grid" id="snmp-page-grid">
-                        <div style="color:var(--text-sub); grid-column:1/-1; text-align:center; padding:20px;">正在加载网络与录像机设备...</div>
+                        <div style="color:var(--text-sub); grid-column:1/-1; text-align:center; padding:20px;">正在加载网络设备...</div>
                     </div>
                 </div>
             </div>
@@ -671,20 +670,6 @@
                                     <tr><td colspan="8">正在加载代理客户端...</td></tr>
                                 </tbody>
                             </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="view-camera_preview" class="view-section">
-                <div class="card">
-                    <div class="card-title">
-                        <span>监控画面预览</span>
-                        <span style="font-size:12px; color:var(--text-sub);">默认 16 路快照墙，4 路稳定直播分页，点击画面切换单路低延迟</span>
-                    </div>
-                    <div class="nvr-preview-card standalone">
-                        <div id="nvr-preview-panel">
-                            <div class="nvr-preview-empty">正在加载录像机通道...</div>
                         </div>
                     </div>
                 </div>
@@ -1108,10 +1093,9 @@
                         <div class="apple-auth-card">
                             <div class="apple-auth-kicker">♪ NAS 音乐接入</div>
                             <div class="apple-auth-title">音乐播放器已切到真实服务接口。</div>
-                            <div class="apple-auth-copy">这里会显示后端音乐服务的连接状态、输出区域与当前队列。可以继续接播放代理，或者直接把播放主机音频送入 M32。</div>
+                            <div class="apple-auth-copy">这里会显示后端音乐服务的连接状态、输出区域与当前队列。</div>
                             <div class="apple-auth-actions">
                                 <button class="apple-auth-btn primary" onclick="openAppleAudioConfig()">打开配置页</button>
-                                <button class="apple-auth-btn secondary" onclick="prepareAppleAudioForM32()">准备 M32 输入</button>
                             </div>
                             <div class="apple-mini-metrics">
                                 <div class="apple-mini-stat">
@@ -1732,7 +1716,6 @@
     <script src="/static/js/views/automation-view.js?v=20260522-stage4-automation-view"></script>
     <script src="/static/js/views/dashboard-summary.js?v=20260522-stage8-dashboard-summary"></script>
     <script src="/static/js/views/hvac-view.js?v=20260522-stage5-hvac-view"></script>
-    <script src="/static/js/views/nvr-view.js?v=20260522-stage5-nvr-view"></script>
     <script src="/static/js/views/local-model.js?v=20260522-local-model-main"></script>
 
     <script>
@@ -1776,7 +1759,6 @@
         let meterTrendAxisKey = '';
         let meterTrendYAxisMax = 0;
         let snmpStatusCache = {};
-        let nvrStatusCache = {};
         let snmpCardFilter = 'all';
         let snmpStatusSignature = '';
         let snmpLastSuccessAt = 0;
@@ -1787,16 +1769,6 @@
         let snmpStatusMode = '';
         let snmpLastRenderAt = 0;
         let snmpSelectedDeviceId = '';
-        let nvrSelectedDeviceId = '';
-        let nvrSelectedChannelId = '';
-        let nvrPreviewMode = 'smart';
-        let nvrPreviewGrid = 16;
-        let nvrPreviewPage = 0;
-        const NVR_STREAM_CONCURRENCY_LIMIT = 8;
-        const NVR_STREAM_STAGGER_MS = 520;
-        const NVR_WALL_SNAPSHOT_REFRESH_MS = 10000;
-        const nvrWallFrameTimers = [];
-        let nvrWallSnapshotRefreshTimer = null;
         let automationStatusCache = { server_time: '', rules: [] };
         let automationStatusLoading = false;
         let automationGroupSignature = '';
@@ -1893,7 +1865,6 @@
         window.upsConfigs = upsConfigs;
         if (window.SmartCenter?.ups?.setUpsConfigs) window.SmartCenter.ups.setUpsConfigs(upsConfigs);
         const snmpConfigs = configData.snmp_devices || [];
-        const nvrConfigs = Array.isArray(configData.nvr_devices) ? configData.nvr_devices : [];
         const sequencerConfigs = Array.isArray(configData.sequencers) ? configData.sequencers : [];
         const dashboardSectionConfig = configData.dashboard_sections || {};
         let doorVideoActive = false;
@@ -3978,163 +3949,11 @@
         }
         function getNetworkMonitorConfigs() {
             return [
-                ...(Array.isArray(snmpConfigs) ? snmpConfigs : []).map(cfg => Object.assign({ monitor_kind: 'snmp' }, cfg)),
-                ...(Array.isArray(nvrConfigs) ? nvrConfigs : []).map(cfg => Object.assign({ monitor_kind: 'nvr', device_type: 'nvr' }, cfg))
+                ...(Array.isArray(snmpConfigs) ? snmpConfigs : []).map(cfg => Object.assign({ monitor_kind: 'snmp' }, cfg))
             ].filter(cfg => cfg && cfg.visible !== false);
         }
         function getNetworkStatusCache() {
-            return Object.assign({}, snmpStatusCache || {}, nvrStatusCache || {});
-        }
-        function getNvrPreviewChannels(deviceId = '') {
-            const cfg = nvrConfigs.find(item => String(item.id) === String(deviceId)) || nvrConfigs.find(item => item && item.visible !== false) || null;
-            if (!cfg) return { cfg: null, status: {}, channels: [] };
-            const status = nvrStatusCache[cfg.id] || {};
-            const channels = Array.isArray(status.channels)
-                ? status.channels.slice().sort((a, b) => Number(a?.id || 9999) - Number(b?.id || 9999))
-                : [];
-            return { cfg, status, channels };
-        }
-        function applyNvrPreviewUrlParams() {
-            const params = new URLSearchParams(window.location.search || '');
-            const mode = params.get('nvr_mode') || params.get('preview_mode') || '';
-            const grid = params.get('nvr_grid') || params.get('preview_grid') || '';
-            const page = params.get('nvr_page') || params.get('preview_page') || '';
-            if (mode) nvrPreviewMode = getNvrPreviewMode(mode);
-            if (grid) nvrPreviewGrid = getNvrPreviewGrid(grid);
-            if (nvrPreviewMode === 'stream4') nvrPreviewGrid = 4;
-            if (nvrPreviewMode === 'stream8') nvrPreviewGrid = 8;
-            if (nvrPreviewMode === 'stream') nvrPreviewGrid = 1;
-            if (page !== '') nvrPreviewPage = Math.max(0, Number(page) || 0);
-        }
-        function selectNvrPreview(deviceId, channelId, options = {}) {
-            nvrSelectedDeviceId = String(deviceId || '').trim();
-            nvrSelectedChannelId = String(channelId || '').trim();
-            if (options.mode) nvrPreviewMode = getNvrPreviewMode(options.mode);
-            if (options.grid) nvrPreviewGrid = getNvrPreviewGrid(options.grid);
-            if (options.page !== undefined) nvrPreviewPage = Math.max(0, Number(options.page) || 0);
-            if (options.live) {
-                nvrPreviewGrid = 1;
-                nvrPreviewMode = 'stream';
-                nvrPreviewPage = 0;
-            }
-            renderNvrPreviewPanel({ refresh: !!options.refresh });
-        }
-        function setNvrPreviewMode(mode) {
-            nvrPreviewMode = getNvrPreviewMode(mode);
-            if (nvrPreviewMode === 'stream') nvrPreviewGrid = 1;
-            if (nvrPreviewMode === 'stream4') nvrPreviewGrid = 4;
-            if (nvrPreviewMode === 'stream8') nvrPreviewGrid = 8;
-            nvrPreviewPage = 0;
-            renderNvrPreviewPanel({ refresh: true });
-        }
-        function setNvrPreviewGrid(grid) {
-            nvrPreviewGrid = getNvrPreviewGrid(grid);
-            if (nvrPreviewGrid > 1 && nvrPreviewMode === 'stream') nvrPreviewMode = nvrPreviewGrid > 4 ? 'stream8' : 'stream4';
-            if (nvrPreviewMode === 'stream4' && nvrPreviewGrid !== 4) nvrPreviewMode = 'smart';
-            if (nvrPreviewMode === 'stream8' && nvrPreviewGrid !== 8) nvrPreviewMode = 'smart';
-            nvrPreviewPage = 0;
-            renderNvrPreviewPanel({ refresh: true });
-        }
-        function setNvrPreviewPage(delta) {
-            nvrPreviewPage = Math.max(0, Number(nvrPreviewPage || 0) + Number(delta || 0));
-            renderNvrPreviewPanel({ refresh: true });
-        }
-        function activateNvrWallFrame(frame) {
-            if (!frame || !frame.isConnected || frame.dataset.loaded === '1') return;
-            const src = frame.dataset.src;
-            if (!src) return;
-            frame.dataset.loaded = '1';
-            const cell = frame.closest('.nvr-wall-cell');
-            if (cell) cell.classList.add('loading');
-            frame.src = src;
-        }
-        function scheduleNvrWallFrames() {
-            while (nvrWallFrameTimers.length) window.clearTimeout(nvrWallFrameTimers.pop());
-            const frames = Array.from(document.querySelectorAll('#nvr-preview-panel iframe[data-nvr-lazy="1"]'));
-            frames.forEach((frame, index) => {
-                const timer = window.setTimeout(() => activateNvrWallFrame(frame), index * NVR_STREAM_STAGGER_MS);
-                nvrWallFrameTimers.push(timer);
-            });
-        }
-        function stopNvrWallSnapshotRefresh() {
-            if (nvrWallSnapshotRefreshTimer) {
-                window.clearTimeout(nvrWallSnapshotRefreshTimer);
-                nvrWallSnapshotRefreshTimer = null;
-            }
-        }
-        function scheduleNvrWallSnapshotRefresh() {
-            stopNvrWallSnapshotRefresh();
-            if (getActiveViewId() !== 'camera_preview') return;
-            if (document.hidden || getNvrPreviewGrid(nvrPreviewGrid) <= 1) return;
-            const mode = getNvrPreviewMode(nvrPreviewMode);
-            if (!['smart', 'snapshot'].includes(mode)) return;
-            nvrWallSnapshotRefreshTimer = window.setTimeout(() => {
-                renderNvrPreviewPanel({ refresh: true, autoRefresh: true });
-            }, NVR_WALL_SNAPSHOT_REFRESH_MS);
-        }
-        function stopNvrPreviewStreams() {
-            while (nvrWallFrameTimers.length) window.clearTimeout(nvrWallFrameTimers.pop());
-            stopNvrWallSnapshotRefresh();
-            const panel = document.getElementById('nvr-preview-panel');
-            if (!panel) return;
-            panel.querySelectorAll('iframe').forEach(frame => {
-                try { frame.src = 'about:blank'; } catch (err) {}
-                try { frame.removeAttribute('src'); } catch (err) {}
-            });
-            panel.querySelectorAll('.nvr-wall-cell.loading, .nvr-preview-frame.loading').forEach(el => el.classList.remove('loading'));
-        }
-        function renderNvrPreviewPanel(options = {}) {
-            const panel = document.getElementById('nvr-preview-panel');
-            if (!panel) return;
-            stopNvrPreviewStreams();
-            const visibleNvrConfigs = (Array.isArray(nvrConfigs) ? nvrConfigs : []).filter(cfg => cfg && cfg.visible !== false);
-            if (!visibleNvrConfigs.length) {
-                panel.innerHTML = '<div class="nvr-preview-empty">未配置录像机设备。</div>';
-                return;
-            }
-            const selectedExists = visibleNvrConfigs.some(cfg => String(cfg.id) === String(nvrSelectedDeviceId));
-            if (!nvrSelectedDeviceId || !selectedExists) {
-                nvrSelectedDeviceId = String(visibleNvrConfigs[0].id || '');
-            }
-            let { cfg, status, channels } = getNvrPreviewChannels(nvrSelectedDeviceId);
-            if (!cfg) {
-                panel.innerHTML = '<div class="nvr-preview-empty">未找到可预览的录像机。</div>';
-                return;
-            }
-            if (!channels.length) {
-                const expected = Number(cfg.expected_channel_count || 0);
-                channels = Array.from({ length: expected || 32 }, (_, index) => ({
-                    id: String(index + 1),
-                    name: `D${index + 1}`,
-                    online: false
-                }));
-            }
-            const channelExists = channels.some(item => String(item.id) === String(nvrSelectedChannelId));
-            if (!nvrSelectedChannelId || !channelExists) {
-                const firstOnline = channels.find(item => item && item.online);
-                nvrSelectedChannelId = String((firstOnline || channels[0] || {}).id || '');
-            }
-            const selected = channels.find(item => String(item.id) === String(nvrSelectedChannelId)) || channels[0] || {};
-            const preview = buildNvrPreviewPanelHtml({
-                cfg,
-                status,
-                channels,
-                selected,
-                selectedChannelId: nvrSelectedChannelId,
-                previewMode: nvrPreviewMode,
-                previewGrid: nvrPreviewGrid,
-                previewPage: nvrPreviewPage,
-                streamLimit: NVR_STREAM_CONCURRENCY_LIMIT,
-                snapshotRefreshMs: NVR_WALL_SNAPSHOT_REFRESH_MS,
-                options,
-            });
-            nvrPreviewPage = preview.currentPage;
-            panel.innerHTML = preview.html;
-            scheduleNvrWallFrames();
-            scheduleNvrWallSnapshotRefresh();
-        }
-        function normalizeNvrStatusForSnmp(cfg, status) {
-            return SmartCenter.snmp.normalizeNvrStatusForSnmp.apply(SmartCenter.snmp, arguments);
+            return Object.assign({}, snmpStatusCache || {});
         }
         function getSnmpStorageRows(summary) {
             return SmartCenter.snmp.getSnmpStorageRows.apply(SmartCenter.snmp, arguments);
@@ -4356,34 +4175,14 @@
                 return snmpFetchInFlight;
             }
             const snmpUrl = mode === 'full' ? '/api/snmp/status' : '/api/snmp/status?compact=1';
-            const nvrUrl = mode === 'full' ? '/api/nvr/status' : '/api/nvr/status?compact=1';
             const safeRenderSnmpCards = () => guardFrontendStep('snmp.render_cards', () => renderSnmpCards({
                 mode,
                 renderDetailPage: mode === 'full'
             }), '网络监控卡片渲染异常，请稍后重试');
             snmpFetchMode = mode;
-            snmpFetchInFlight = Promise.allSettled([
-                fetchJson(snmpUrl, {}, 'SNMP 状态读取失败'),
-                nvrConfigs.length ? fetchJson(nvrUrl, {}, '录像机状态读取失败') : Promise.resolve({})
-            ])
-                .then(results => {
-                    const [snmpResult, nvrResult] = results;
-                    const snmpFailed = snmpResult.status === 'rejected';
-                    const nvrFailed = nvrResult.status === 'rejected';
-                    if (snmpFailed && nvrFailed) {
-                        throw snmpResult.reason || nvrResult.reason || new Error('网络监控状态读取失败');
-                    }
-                    if (snmpFailed) console.error('SNMP 状态更新失败', snmpResult.reason);
-                    if (nvrFailed) console.error('录像机状态更新失败', nvrResult.reason);
-                    const nextSnmpData = snmpResult.status === 'fulfilled' ? (snmpResult.value || {}) : (snmpStatusCache || {});
-                    const rawNvrData = nvrResult.status === 'fulfilled' ? (nvrResult.value || {}) : (nvrStatusCache || {});
-                    const nextNvrData = {};
-                    (Array.isArray(nvrConfigs) ? nvrConfigs : []).forEach(cfg => {
-                        if (!cfg || !cfg.id) return;
-                        nextNvrData[cfg.id] = normalizeNvrStatusForSnmp(cfg, rawNvrData[cfg.id] || {});
-                    });
+            snmpFetchInFlight = fetchJson(snmpUrl, {}, 'SNMP 状态读取失败')
+                .then(nextSnmpData => {
                     snmpStatusCache = nextSnmpData;
-                    nvrStatusCache = nextNvrData;
                     const mergedData = getNetworkStatusCache();
                     const nextSignature = `${mode}:${summarizeSnmpPayload(mergedData)}`;
                     const shouldRender = nextSignature !== snmpStatusSignature;
@@ -4719,7 +4518,6 @@
         function closeSidebar() { document.body.classList.remove('sidebar-open'); }
         function switchTab(viewId, title, navEl) {
             const previousView = getActiveViewId();
-            if (previousView === 'camera_preview' && viewId !== 'camera_preview') stopNvrPreviewStreams();
             if (viewId !== 'snmp' && snmpSelectedDeviceId) {
                 snmpSelectedDeviceId = '';
                 syncSnmpSelectedDeviceToUrl('');
@@ -4740,12 +4538,6 @@
             if (viewId === 'snmp') setTimeout(() => { updateSnmpStatus({ full: true }); }, 80);
             if (viewId === 'proxy') setTimeout(() => { updateProxyStatus(); }, 80);
             if (viewId === 'auto') setTimeout(() => { loadAutomationStatus(true); loadAutomationLogs(); }, 80);
-            if (viewId === 'camera_preview') {
-                setTimeout(() => {
-                    applyNvrPreviewUrlParams();
-                    updateSnmpStatus({ full: true }).finally(() => renderNvrPreviewPanel({ refresh: true }));
-                }, 80);
-            }
             if (viewId === 'hvac') setTimeout(() => { updateHvacStatus(true); updateEnvData(); }, 80);
             if (viewId === 'door') setTimeout(() => { initCanvas(); updateDoorStatus(true).finally(() => startDoorVideoStream()); }, 100);
             if (viewId === 'sequencer') setTimeout(() => { updateSequencerStatus(); }, 80);
@@ -6423,14 +6215,12 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 }
             });
             document.addEventListener('visibilitychange', () => {
-                if (document.hidden) stopNvrPreviewStreams();
                 refreshPollingVisibility();
             });
             window.addEventListener('focus', () => {
                 refreshPollingVisibility();
             });
             window.addEventListener('beforeunload', () => {
-                stopNvrPreviewStreams();
                 stopDoorVideoStream();
                 stopAllPollingTasks();
             });
@@ -6478,7 +6268,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         registerPollingTask('hy_edge', 6000, () => updateHyEdgeStatus(), () => ['dashboard'].includes(getActiveViewId()) || isDashboardSectionVisible('hy_edge'));
         registerPollingTask('dashboard_summary', 5000, () => updateDashboardSummary(), () => getActiveViewId() === 'dashboard' || isDashboardSectionVisible('stats'));
         registerPollingTask('proxy', 5000, () => updateProxyStatus(), () => getActiveViewId() === 'proxy');
-        registerPollingTask('snmp', 9000, () => updateSnmpStatus(), () => ['dashboard', 'snmp', 'camera_preview'].includes(getActiveViewId()) || isDashboardSectionVisible('snmp'));
+        registerPollingTask('snmp', 9000, () => updateSnmpStatus(), () => ['dashboard', 'snmp'].includes(getActiveViewId()) || isDashboardSectionVisible('snmp'));
         registerPollingTask('hvac', 5000, () => updateHvacStatus(), () => ['dashboard', 'hvac'].includes(getActiveViewId()) || isDashboardSectionVisible('hvac'));
         registerPollingTask('light', 2200, () => updateLightData(), () => ['dashboard', 'light'].includes(getActiveViewId()) || isDashboardSectionVisible('light_compact') || isDashboardSectionVisible('light'));
         registerPollingTask('node_red', 5000, () => updateNodeRedDevices(), () => getActiveViewId() === 'universal');

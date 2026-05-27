@@ -1,10 +1,10 @@
 // AI_MODULE: apple_audio_view
-// AI_PURPOSE: 音乐库、播放队列、歌词、封面和 M32R 准备动作的前端展示。
+// AI_PURPOSE: 音乐库、播放队列、歌词和封面的前端展示。
 // AI_BOUNDARY: 不直接控制音频设备；所有动作走 /api/apple-audio/*。
 // AI_DATA_FLOW: /api/apple-audio/status/queue/transport -> 音乐卡片和控制按钮。
 // AI_RUNTIME: 首页或音乐页面加载。
-// AI_RISK: 中，M32R 路由准备可能影响现场音频输出。
-// AI_SEARCH_KEYWORDS: apple audio, music, queue, lyrics, cover, m32.
+// AI_RISK: 中，音乐扫描和播放控制会影响首页加载与现场播放体验。
+// AI_SEARCH_KEYWORDS: apple audio, music, queue, lyrics, cover.
 
 (function installSmartCenterAppleAudio(global) {
     'use strict';
@@ -563,18 +563,6 @@ function syncAppleState(nextStatePayload) {
         updateAppleLyricsHighlight();
     }
 }
-function prepareAppleAudioForM32() {
-    postJson('/api/apple-audio/m32/prepare', {}, '配置 M32 通道失败')
-        .then(data => {
-            if (!data.success) {
-                notify(data.message || data.msg || '配置 M32 通道失败', true);
-                return;
-            }
-            if (data.apple_state) syncAppleState(data.apple_state);
-            notify('M32 音乐播放器输入通道已准备完成');
-        })
-        .catch(err => notify(translateError(err?.message, '配置 M32 通道失败'), true));
-}
 function openAppleAudioConfig() {
     if (!canOpenConfig()) {
         notify('当前账号无配置中心访问权限', true);
@@ -624,7 +612,6 @@ function initAppleAudioDemo() {
         clearAppleQueue,
         appleTransport,
         syncAppleState,
-        prepareAppleAudioForM32,
         openAppleAudioConfig,
         loadAppleAudioStatus,
         initAppleAudioDemo,

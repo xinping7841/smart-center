@@ -51,7 +51,6 @@ DEVICE_SECTIONS = {
     "meters": "电表",
     "ups_devices": "UPS",
     "snmp_devices": "SNMP设备",
-    "nvr_devices": "NVR/摄像机",
     "light_devices": "灯光/继电器",
     "projectors": "投影机",
     "screens": "幕布",
@@ -389,8 +388,6 @@ def _device_capabilities(row):
         caps.extend(["UPS状态监测", "电池/负载告警"])
     elif section == "snmp_devices":
         caps.extend(["SNMP轮询", "网络设备/服务器/NAS指标监测"])
-    elif section == "nvr_devices":
-        caps.extend(["NVR/摄像机状态监测", "视频通道可用性检查"])
     elif section == "light_devices":
         caps.extend(["灯光/继电器输出控制", "输出状态读取"])
         if raw.get("input_count"):

@@ -11,15 +11,13 @@ This directory is the target for gradually extracting logic from `templates/inde
 - `apple-audio.js`: music player page state, queue, lyrics, output list, and `/api/apple-audio/*` actions.
 - `universal.js`: protocol control center and legacy universal command button shims for `/api/control_center/execute` and `/api/universal/control`.
 - `env.js`: environment sensor polling, top/dashboard summaries, env page cards, and door/contact status bridge.
-- `snmp.js`: SNMP/network monitor helper utilities, overview/detail render helpers, NAS/router/switch/NVR card rendering, interface summaries, and switch-port normalization.
+- `snmp.js`: SNMP/network monitor helper utilities, overview/detail render helpers, NAS/router/switch card rendering, interface summaries, and switch-port normalization.
 - `server-monitor.js`: server monitor render helpers, hardware metric cards, CodeMeter display, diagnostic badges, and grouped server grid rendering.
 - `power-meter.js`: shared power cabinet and meter display helpers, cabinet/channel labels, meter cards, reference summaries, and source badges.
 - `automation-view.js`: automation runtime/status helpers, condition chips, schedule summaries, node data builders, and node HTML rendering.
 - `dashboard-summary.js`: dashboard top counters, proxy/env summary bridge, and footer health summary render helpers.
 - `hvac-view.js`: HVAC room grouping, status text, mode/fan/power display helpers, dashboard overview cards, and room temperature/humidity chips.
-- `nvr-view.js`: NVR preview mode/grid helpers, live/snapshot URL builders, channel buttons, and preview wall markup.
 - `current-collector.js`: standalone current collector page, live polling, pause/resume display, group totals, raw channel cards, and `/api/current-collector/*` actions.
-- `m32r.js`: standalone M32R virtual console page, mixer status polling, channel/main controls, templates, and Apple Audio route helpers.
 - `driver-hub.js`: standalone driver hub snapshot page, group filtering, health counters, and driver table rendering.
 - `local-model.js`: local AI model console for the main sidebar view and standalone page, configuration form, health check, chat, and training data export UI.
 - `login.js`: login page submit handler, remember-me local storage, and Enter-key shortcut.

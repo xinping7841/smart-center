@@ -121,16 +121,6 @@ modules:
     runtime_state: ['PROJECTOR_STATUS','SCREEN_STATUS']
     split_priority: medium
     ai_keywords: ['projector','pjlink','rs232','screen','inferred']
-  nvr:
-    frontend_module: 'static/js/views/nvr-view.js'
-    purpose: Hikvision NVR status, snapshots, player proxy, live preview.
-    routes: ['/api/nvr/status','/api/nvr/snapshot/*','/api/nvr/player/*','/api/nvr/live/*']
-    backend: ['api/nvr.py','services/hikvision_nvr.py','background.py']
-    frontend: ['templates/index.html','templates/config.html','static/js/views/nvr-view.js']
-    config_keys: ['nvr_devices']
-    runtime_state: ['NVR_STATUS']
-    split_priority: medium
-    ai_keywords: ['nvr','hikvision','camera','live','snapshot','player']
   door_vision:
     purpose: Door camera detection, video feed, AI wizard, recording and model rebuild.
     routes: ['/video_feed','/get_door_status','/api/door/*','/door_control/<action>']
@@ -180,24 +170,14 @@ modules:
     split_priority: low
     ai_keywords: ['hy','edge','HY506','remote room','edge node']
   apple_audio:
-    purpose: Music player UI, library search, queue, lyrics, output zones, and M32 preparation actions.
-    routes: ['/api/apple-audio/status','/api/apple-audio/queue','/api/apple-audio/transport','/api/apple-audio/lyrics/*','/api/apple-audio/m32/prepare']
+    purpose: Music player UI, library search, queue, lyrics, and output zones.
+    routes: ['/api/apple-audio/status','/api/apple-audio/queue','/api/apple-audio/transport','/api/apple-audio/lyrics/*']
     backend: ['api/apple_audio.py','apple_audio_core.py']
     frontend: ['templates/index.html','static/js/views/apple-audio.js']
-    config_keys: ['apple_audio','universal_devices','m32r']
+    config_keys: ['apple_audio','universal_devices']
     runtime_state: ['music_tag_library.json']
     split_priority: low
-    ai_keywords: ['apple audio','music','queue','lyrics','cover','M32']
-  m32r:
-    frontend_module: 'static/js/views/m32r.js'
-    purpose: Standalone M32R virtual console page, mixer status polling, channel/main controls, templates, and Apple Audio route helpers.
-    routes: ['/m32r','/api/m32r/status','/api/m32r/connect','/api/m32r/channel','/api/m32r/main','/api/m32r/templates']
-    backend: ['api/m32r.py','m32r_core.py','background.py']
-    frontend: ['templates/m32r.html','templates/config.html','static/js/views/m32r.js']
-    config_keys: ['m32r','apple_audio']
-    runtime_state: ['m32r_service.state','music_tag_library.json']
-    split_priority: low
-    ai_keywords: ['m32r','midas','mixer','osc','channel','template','apple audio route']
+    ai_keywords: ['apple audio','music','queue','lyrics','cover']
   driver_hub:
     frontend_module: 'static/js/views/driver-hub.js'
     purpose: Standalone driver hub snapshot page for driver health counters, group filtering, and driver table rendering.

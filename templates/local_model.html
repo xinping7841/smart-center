@@ -69,7 +69,7 @@
     <aside class="sidebar">
       <div class="logo">演播中控</div>
       <ul class="nav-menu">
-        {% set path_map = {'current_collector':'/current-collector','m32r':'/m32r','local_model':'/local-model'} %}
+        {% set path_map = {'current_collector':'/current-collector','local_model':'/local-model'} %}
         {% for item in (config.sidebar|sort(attribute='sort') if config.sidebar else []) %}
           {% if item.visible %}
           <li class="{{ 'active' if item.id == 'local_model' else '' }}">

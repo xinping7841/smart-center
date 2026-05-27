@@ -59,7 +59,6 @@ For production work:
 - Automation scenes and rules: `automation`, `scene`, `condition`, `runtime/automation.py`.
 - HVAC and sensors: `hvac`, `home_assistant`, `miio`, `env`, `temperature`, `humidity`.
 - Projector and screen: `projector`, `pjlink`, `screen`, `inferred`, `rs232`.
-- NVR preview: `nvr`, `hikvision`, `live`, `snapshot`, `player`.
 - Door/camera vision: `door`, `vision`, `camera`, `recording`, `dataset`.
 
 ## Commenting Standard

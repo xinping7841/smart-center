@@ -134,7 +134,6 @@
             nas: 'NAS 存储',
             router: '路由网关',
             switch: '交换机',
-            nvr: '录像机',
             firewall: '防火墙',
             server: '服务器',
             network: '网络设备',
@@ -158,13 +157,12 @@
     function getSnmpFilterMeta(filterKey) {
         const key = String(filterKey || 'all').trim().toLowerCase() || 'all';
         const map = {
-            all: { label: '全部设备', hint: '展示当前所有已启用网络与录像机设备', level: '' },
+            all: { label: '全部设备', hint: '展示当前所有已启用网络设备', level: '' },
             critical: { label: '高风险设备', hint: '优先关注 critical 级设备', level: 'critical' },
             warning: { label: '中风险设备', hint: '重点跟进 warning 级设备', level: 'warning' },
             nas: { label: 'NAS 设备', hint: '聚焦 CPU / 内存 / 存储 / 网卡', level: '' },
             router: { label: '网关设备', hint: '聚焦 WAN / LAN / 总吞吐', level: '' },
             switch: { label: '交换机设备', hint: '聚焦端口 / 上联 / 异常', level: '' },
-            nvr: { label: '录像机设备', hint: '聚焦通道、硬盘、固件与预览', level: '' },
         };
         return map[key] || map.all;
     }
@@ -181,7 +179,6 @@
         const nasCount = list.filter(item => String(item.summary.device_type || item.cfg.device_type || '').toLowerCase() === 'nas').length;
         const routerCount = list.filter(item => String(item.summary.device_type || item.cfg.device_type || '').toLowerCase() === 'router').length;
         const switchCount = list.filter(item => String(item.summary.device_type || item.cfg.device_type || '').toLowerCase() === 'switch').length;
-        const nvrCount = list.filter(item => String(item.summary.device_type || item.cfg.device_type || '').toLowerCase() === 'nvr').length;
         return [
             { key: 'all', label: '设备总数', value: String(total), meta: `在线 ${online} / 离线 ${Math.max(0, total - online)}`, level: '' },
             { key: 'critical', label: '高风险', value: String(critical), meta: '优先处理 critical 设备', level: 'critical' },
@@ -189,7 +186,6 @@
             { key: 'nas', label: 'NAS', value: String(nasCount), meta: '存储 / 负载 / 磁盘', level: '' },
             { key: 'router', label: '网关', value: String(routerCount), meta: 'WAN / LAN / 总吞吐', level: '' },
             { key: 'switch', label: '交换机', value: String(switchCount), meta: '端口 / 上联 / 异常', level: '' },
-            { key: 'nvr', label: '录像机', value: String(nvrCount), meta: '通道 / 硬盘 / 预览', level: '' },
         ];
     }
 
@@ -538,34 +534,6 @@
             });
         }
 
-    function normalizeNvrStatusForSnmp(cfg, status) {
-            const payload = Object.assign({}, status || {});
-            const summary = Object.assign({}, payload.summary || {});
-            payload.online = payload.online !== undefined ? !!payload.online : false;
-            payload.status_level = payload.status_level || (payload.online ? 'online' : 'offline');
-            payload.status_label = payload.status_label || (payload.online ? '正常' : '离线');
-            summary.device_type = 'nvr';
-            summary.risk_level = summary.risk_level || (payload.status_level === 'error' ? 'critical' : (payload.status_level === 'stale' ? 'warning' : 'normal'));
-            summary.health_score = summary.health_score ?? (payload.online ? 100 : 0);
-            summary.channel_total = summary.channel_total ?? payload.channel_total ?? 0;
-            summary.channel_online = summary.channel_online ?? payload.channel_online ?? 0;
-            summary.channel_offline = summary.channel_offline ?? payload.channel_offline ?? 0;
-            summary.hdd_total = summary.hdd_total ?? payload.hdd_total ?? 0;
-            summary.hdd_ok_count = summary.hdd_ok_count ?? payload.hdd_ok_count ?? 0;
-            summary.hdd_error_count = summary.hdd_error_count ?? payload.hdd_error_count ?? 0;
-            summary.weak_password_count = summary.weak_password_count ?? payload.weak_password_count ?? 0;
-            summary.uptime_text = summary.uptime_text || payload.uptime_text || '--';
-            summary.alert_counts = summary.alert_counts || {
-                critical: Number(summary.hdd_error_count || 0) > 0 ? 1 : 0,
-                warning: Number(summary.channel_offline || 0) + Number(summary.weak_password_count || 0),
-                info: 0
-            };
-            payload.summary = summary;
-            payload.version = payload.version || 'ISAPI';
-            payload.sys_name = payload.sys_name || payload.device_info?.device_name || cfg?.name || 'NVR';
-            return payload;
-        }
-
     function getSnmpStorageRows(summary) {
             const primary = Array.isArray(summary?.storage_rows) && summary.storage_rows.length
                 ? summary.storage_rows
@@ -657,9 +625,6 @@
     function getSnmpProtocolProfile(cfg, status, summary) {
             const deviceType = String(summary?.device_type || cfg?.device_type || '').trim().toLowerCase();
             const brand = String(cfg?.brand || status?.config?.brand || '').trim().toLowerCase();
-            if (deviceType === 'nvr') {
-                return { label: '海康 ISAPI', note: '厂商接口：通道、硬盘、固件、抓拍/预览', level: 'online' };
-            }
             if (brand.includes('qnap') || String(cfg?.model || '').toLowerCase().includes('ts-')) {
                 return { label: 'QNAP MIB', note: '私有 MIB + HOST-RESOURCES：卷、盘位、温度、风扇', level: 'online' };
             }
@@ -689,15 +654,6 @@
     function buildSnmpDeviceFactItems(deviceType, summary, status) {
             const interfaceSummary = summary.interface_summary || {};
             const updatedAt = status.updated_at ? String(status.updated_at).replace('T', ' ').slice(11, 19) : '--';
-            if (deviceType === 'nvr') {
-                const info = status.device_info || {};
-                return [
-                    { label: '通道在线', value: `${summary.channel_online ?? 0} / ${summary.channel_total ?? 0}`, meta: `离线 ${summary.channel_offline ?? 0}` },
-                    { label: '硬盘状态', value: `${summary.hdd_ok_count ?? 0} / ${summary.hdd_total ?? 0}`, meta: `异常 ${summary.hdd_error_count ?? 0}` },
-                    { label: '固件版本', value: info.firmware_version || '--', meta: info.firmware_build || info.model || '--' },
-                    { label: '采集时间', value: updatedAt, meta: summary.uptime_text || status.uptime_text || '--' }
-                ];
-            }
             if (deviceType === 'nas') {
                 return [
                     { label: '在线接口', value: `${interfaceSummary.up_count ?? '--'}`, meta: `物理 ${(interfaceSummary.physical_count ?? 0)} · 聚合 ${(interfaceSummary.bond_count ?? 0)}` },
@@ -730,40 +686,6 @@
 
     function buildSnmpPrimaryMetricItems(deviceType, summary, status, customMetrics = []) {
             const interfaceSummary = summary.interface_summary || {};
-            if (deviceType === 'nvr') {
-                const offlineNames = (Array.isArray(status.offline_channels) ? status.offline_channels : [])
-                    .slice(0, 3)
-                    .map(item => item?.name || `D${item?.id || ''}`)
-                    .filter(Boolean)
-                    .join(' / ');
-                const hddErrorText = Number(summary.hdd_error_count || 0) > 0 ? `异常 ${summary.hdd_error_count}` : '正常';
-                return [
-                    {
-                        label: '通道在线',
-                        value: `${summary.channel_online ?? 0} / ${summary.channel_total ?? 0}`,
-                        meta: offlineNames ? `离线 ${offlineNames}` : '全部在线',
-                        level: Number(summary.channel_offline || 0) > 0 ? 'warning' : ''
-                    },
-                    {
-                        label: '硬盘',
-                        value: `${summary.hdd_ok_count ?? 0} / ${summary.hdd_total ?? 0}`,
-                        meta: `${hddErrorText} · 剩余 ${status.hdd_free_text || '--'}`,
-                        level: Number(summary.hdd_error_count || 0) > 0 ? 'critical' : ''
-                    },
-                    {
-                        label: '内存 / 运行',
-                        value: `${status.memory_usage_percent ?? '--'}%`,
-                        meta: status.uptime_text || '--',
-                        level: Number(status.memory_usage_percent || 0) >= 85 ? 'warning' : ''
-                    },
-                    {
-                        label: '安全',
-                        value: `${summary.weak_password_count ?? 0}`,
-                        meta: '弱密码通道',
-                        level: Number(summary.weak_password_count || 0) > 0 ? 'warning' : ''
-                    }
-                ];
-            }
             if (deviceType === 'nas') {
                 const capacity = summarizeSnmpStorageCapacity(summary);
                 const primaryStorageDisplay = getSnmpPrimaryStorageDisplay(summary);
@@ -867,50 +789,6 @@
 
     function renderSnmpDevicePrimaryPanels(deviceId, deviceType, summary, status, customMetrics = []) {
             const interfaceSummary = summary.interface_summary || {};
-            if (deviceType === 'nvr') {
-                const channels = Array.isArray(status.channels) ? status.channels : [];
-                const hdds = Array.isArray(status.hdds) ? status.hdds : [];
-                const offlineChannels = Array.isArray(status.offline_channels) ? status.offline_channels : channels.filter(item => !item.online);
-                const weakChannels = Array.isArray(status.weak_password_channels) ? status.weak_password_channels : channels.filter(item => {
-                    const text = String(item?.password_status || '').trim().toLowerCase();
-                    return text && !['strong', 'safe', 'normal', 'ok'].includes(text);
-                });
-                const channelBody = renderSnmpMiniList([
-                    {
-                        label: '在线通道',
-                        meta: `总通道 ${summary.channel_total ?? channels.length ?? 0}`,
-                        value: `${summary.channel_online ?? 0} / ${summary.channel_total ?? 0}`,
-                        level: Number(summary.channel_offline || 0) > 0 ? 'warning' : ''
-                    },
-                    ...offlineChannels.slice(0, 5).map(item => ({
-                        label: item?.name || `D${item?.id || '--'}`,
-                        meta: item?.ip || item?.detect_result || '离线通道',
-                        value: '离线',
-                        level: 'warning'
-                    }))
-                ], { maxCount: 6, emptyText: '通道状态正常' });
-                const hddBody = renderSnmpMiniList(hdds.map(item => {
-                    const statusText = item?.status_text || item?.status || '--';
-                    const level = ['ok', 'normal', '正常'].includes(String(statusText).toLowerCase()) || statusText === '正常' ? '' : 'critical';
-                    return {
-                        label: item?.name || `HDD${item?.id || ''}`,
-                        meta: `${item?.capacity_text || '--'} / 剩余 ${item?.free_text || '--'}`,
-                        value: statusText,
-                        level
-                    };
-                }), { maxCount: 6, emptyText: '未采到硬盘信息' });
-                const runtimeBody = renderSnmpMiniList([
-                    { label: '设备型号', meta: status.device_info?.manufacturer || 'Hikvision ISAPI', value: status.device_info?.model || status.config?.model || '--' },
-                    { label: '固件版本', meta: status.device_info?.firmware_build || '--', value: status.device_info?.firmware_version || '--' },
-                    { label: '内存占用', meta: status.uptime_text || summary.uptime_text || '--', value: status.memory_usage_percent !== undefined && status.memory_usage_percent !== null ? `${status.memory_usage_percent}%` : '--', level: Number(status.memory_usage_percent || 0) >= 85 ? 'warning' : '' },
-                    { label: '弱密码通道', meta: weakChannels.slice(0, 3).map(item => item?.name || `D${item?.id || ''}`).filter(Boolean).join(' / ') || '未发现', value: String(summary.weak_password_count ?? weakChannels.length ?? 0), level: Number(summary.weak_password_count || weakChannels.length || 0) > 0 ? 'warning' : '' }
-                ], { maxCount: 4, emptyText: '暂无录像机运行信息' });
-                return `<div class="snmp-focus-grid">
-                    ${renderSnmpFocusPanel('通道状态', '在线、离线与缺失通道快速定位', channelBody)}
-                    ${renderSnmpFocusPanel('硬盘状态', '录像盘容量与健康状态', hddBody)}
-                    ${renderSnmpFocusPanel('录像机信息', '固件、运行时长与安全提示', runtimeBody)}
-                </div>`;
-            }
             if (deviceType === 'nas') {
                 const networkRows = Array.isArray(summary.physical_top_rows) && summary.physical_top_rows.length ? summary.physical_top_rows : (Array.isArray(summary.network_top_rows) ? summary.network_top_rows : []);
                 const storageRows = getSnmpStorageDisplayRows(summary, 8);
@@ -1068,35 +946,7 @@
                     value: item.value || '--'
                 })), { maxCount: 8, emptyText: '暂无扩展指标' }), { wide: true }));
             }
-            if (deviceType === 'nvr') {
-                const channels = Array.isArray(status.channels) ? status.channels : [];
-                const hdds = Array.isArray(status.hdds) ? status.hdds : [];
-                const offlineChannels = Array.isArray(status.offline_channels) ? status.offline_channels : [];
-                if (channels.length) {
-                    sections.push(renderSnmpFocusPanel('通道清单', '最多展示 64 路通道，预览栏按需抓拍单路画面', renderSnmpMiniList(channels.map(item => ({
-                        label: `${item.name || `D${item.id || '--'}`}`,
-                        meta: `${item.ip || '--'} · ${item.detect_result || item.protocol || '--'}`,
-                        value: item.online ? '在线' : '离线',
-                        level: item.online ? '' : 'warning'
-                    })), { maxCount: 64, emptyText: '暂无通道清单' }), { wide: true }));
-                }
-                if (hdds.length) {
-                    sections.push(renderSnmpFocusPanel('硬盘明细', '录像机存储盘健康与剩余空间', renderSnmpMiniList(hdds.map(item => ({
-                        label: item.name || `HDD${item.id || ''}`,
-                        meta: `${item.capacity_text || '--'} / 剩余 ${item.free_text || '--'} · ${item.property || '--'}`,
-                        value: item.status_text || item.status || '--',
-                        level: ['ok', 'normal', '正常'].includes(String(item.status || item.status_text || '').toLowerCase()) || item.status_text === '正常' ? '' : 'critical'
-                    })), { maxCount: 8, emptyText: '暂无硬盘明细' }), { wide: true }));
-                }
-                if (offlineChannels.length) {
-                    sections.push(renderSnmpFocusPanel('离线通道', '需要优先核对的摄像头通道', renderSnmpMiniList(offlineChannels.map(item => ({
-                        label: item.name || `D${item.id || '--'}`,
-                        meta: item.ip || item.detect_result || '--',
-                        value: '离线',
-                        level: 'warning'
-                    })), { maxCount: 32, emptyText: '暂无离线通道' }), { wide: true }));
-                }
-            } else if (deviceType === 'nas') {
+            if (deviceType === 'nas') {
                 const storageRows = Array.isArray(summary.storage_top_rows) ? summary.storage_top_rows : [];
                 const diskRows = Array.isArray(summary.disk_top_rows) ? summary.disk_top_rows : [];
                 const diskIoRows = Array.isArray(summary.ucd_disk_io_top_rows) ? summary.ucd_disk_io_top_rows : [];
@@ -1681,7 +1531,6 @@
             if (normalized === 'router') return '🌐';
             if (normalized === 'switch') return '🔀';
             if (normalized === 'server') return '🖥';
-            if (normalized === 'nvr') return '🎥';
             return '📡';
         }
 
@@ -2205,15 +2054,6 @@
             const bridgeCount = Array.isArray(interfaceSummary.bridge_names) ? interfaceSummary.bridge_names.length : 0;
             const upCount = interfaceSummary.up_count ?? '--';
             const switchStats = deviceType === 'switch' ? getSnmpSwitchDerivedStats(summary, interfaceSummary) : null;
-            if (deviceType === 'nvr') {
-                return `<div class="ups-meta-grid">
-                    <div class="ups-meta-item"><div class="label">录像角色</div><div class="value">NVR / 摄像头汇聚</div></div>
-                    <div class="ups-meta-item"><div class="label">通道在线</div><div class="value">${escapeHtml(String(summary.channel_online ?? 0))} / ${escapeHtml(String(summary.channel_total ?? 0))}</div></div>
-                    <div class="ups-meta-item"><div class="label">硬盘正常</div><div class="value">${escapeHtml(String(summary.hdd_ok_count ?? 0))} / ${escapeHtml(String(summary.hdd_total ?? 0))}</div></div>
-                    <div class="ups-meta-item"><div class="label">运行时长</div><div class="value">${escapeHtml(String(summary.uptime_text || status.uptime_text || '--'))}</div></div>
-                    <div class="ups-meta-item"><div class="label">采集协议</div><div class="value">${escapeHtml(String(status.checked_source || 'Hikvision ISAPI'))}</div></div>
-                </div>`;
-            }
             if (deviceType === 'nas') {
                 return `<div class="ups-meta-grid">
                     <div class="ups-meta-item"><div class="label">存储角色</div><div class="value">NAS / 统一资源采集</div></div>
@@ -2274,11 +2114,6 @@
                 tiles.push({ label: '上联 / 忙碌', value: `${switchStats.uplinkCount ?? 0} / ${interfaceSummary.busy_port_count ?? 0}` });
                 tiles.push({ label: 'MAC / VLAN', value: `${switchStats.bridgeMacCount ?? 0} / ${switchStats.bridgeVlanCount ?? 0}` });
                 tiles.push({ label: '新增异常', value: `${interfaceSummary.delta_error_port_count ?? 0} / ${interfaceSummary.delta_discard_port_count ?? 0}` });
-                tiles.push({ label: '采集时间', value: updatedAt });
-            } else if (deviceType === 'nvr') {
-                tiles.push({ label: '通道在线', value: `${summary.channel_online ?? 0} / ${summary.channel_total ?? 0}` });
-                tiles.push({ label: '硬盘正常', value: `${summary.hdd_ok_count ?? 0} / ${summary.hdd_total ?? 0}` });
-                tiles.push({ label: '内存 / 运行', value: `${status.memory_usage_percent ?? '--'}% / ${status.uptime_text || '--'}` });
                 tiles.push({ label: '采集时间', value: updatedAt });
             } else {
                 tiles.push({ label: 'CPU / 内存', value: `${summary.cpu_avg_percent ?? '--'}% / ${summary.memory_usage_percent ?? '--'}%` });
@@ -2388,9 +2223,9 @@
             const deviceTypeLabel = getSnmpDeviceTypeLabel(deviceType);
             const deviceIcon = getSnmpDeviceIcon(deviceType);
             const displayName = normalizeSnmpDeviceName(cfg, status);
-            const heroPort = deviceType === 'nvr' ? (cfg.port || 80) : (cfg.port || 161);
+            const heroPort = cfg.port || 161;
             const heroSubtitle = `${escapeHtml(cfg.brand || '--')} / ${escapeHtml(cfg.model || '--')} / ${escapeHtml(cfg.host || '--')}:${escapeHtml(String(heroPort))}`;
-            const shouldCompact = !online || (!hasFreshData && deviceType !== 'nvr');
+            const shouldCompact = !online || !hasFreshData;
             if (shouldCompact) {
                 return renderSnmpCompactCard(cfg, status, summary, deviceType, interfaceSummary);
             }
@@ -2483,20 +2318,6 @@
                 );
                 return items;
             }
-            if (deviceType === 'nvr') {
-                const offlineNames = (Array.isArray(status.offline_channels) ? status.offline_channels : [])
-                    .slice(0, 2)
-                    .map(item => item?.name || `D${item?.id || ''}`)
-                    .filter(Boolean)
-                    .join(' / ');
-                items.push(
-                    { label: '通道在线', value: `${summary.channel_online ?? 0} / ${summary.channel_total ?? 0}`, meta: offlineNames ? `离线 ${offlineNames}` : '通道正常', level: Number(summary.channel_offline || 0) > 0 ? 'warning' : '' },
-                    { label: '硬盘', value: `${summary.hdd_ok_count ?? 0} / ${summary.hdd_total ?? 0}`, meta: `剩余 ${status.hdd_free_text || '--'}`, level: Number(summary.hdd_error_count || 0) > 0 ? 'critical' : '' },
-                    { label: '内存 / 运行', value: `${status.memory_usage_percent ?? '--'}%`, meta: status.uptime_text || '--', level: Number(status.memory_usage_percent || 0) >= 85 ? 'warning' : '' },
-                    { label: '弱密码', value: `${summary.weak_password_count ?? 0}`, meta: '通道安全', level: Number(summary.weak_password_count || 0) > 0 ? 'warning' : '' }
-                );
-                return items;
-            }
             const capacityDisplay = getSnmpCapacityDisplay(summary);
             const primaryStorageDisplay = getSnmpPrimaryStorageDisplay(summary);
             const capacity = summarizeSnmpStorageCapacity(summary);
@@ -2548,7 +2369,6 @@
         buildSnmpDetailStateKey,
         renderPersistedSnmpDetails,
         bindSnmpDetailToggles,
-        normalizeNvrStatusForSnmp,
         getSnmpStorageRows,
         getSnmpStorageDisplayRows,
         getSnmpPrimaryStorageRow,
