@@ -1,6 +1,6 @@
 // AI_MODULE: local_model_view
 // AI_PURPOSE: 本地模型控制台、健康检查、对话和训练数据导出入口。
-// AI_BOUNDARY: 不直接执行设备动作；模型建议必须回到权限 API 和人工确认。
+// AI_BOUNDARY: 可作为自然语言控制入口；真实动作必须回到中控权限 API、审计和二次确认链路。
 // AI_DATA_FLOW: /api/local-model/* -> 本地模型页面。
 // AI_RUNTIME: 主界面本地模型栏目和独立 /local-model 页面共用。
 // AI_RISK: 中，提示词和训练数据会影响模型后续建议。
@@ -12,6 +12,7 @@
   let modelConfig = null;
   let chatMessages = [];
   let initialized = false;
+  let pendingControl = null;
 
   function $(id) { return document.getElementById(id); }
   function esc(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
@@ -43,11 +44,59 @@
     chatMessages.push({role, content});
     renderMessages();
   }
+  function isConfirmText(text) {
+    return ['确认', '确认执行', '执行确认', '是的', '确定', '确认下发'].includes(String(text || '').replace(/\s+/g, ''));
+  }
+  function isCancelText(text) {
+    return ['取消', '别执行', '不要执行', '撤销'].includes(String(text || '').replace(/\s+/g, ''));
+  }
+  function formatControlDryRun(data) {
+    const cmd = data.command || {};
+    if (!data.is_control_request) return '';
+    if (!data.matched) return data.msg || '识别到控制请求，但没有明确匹配到设备。';
+    const lines = [
+      `控制解析：${cmd.label || '设备'} -> ${cmd.action_text || cmd.action || '控制'}`,
+      `类型：${cmd.type || '--'}，风险：${cmd.risk || '--'}，置信度：${cmd.confidence || '--'}`,
+      `权限：${data.permission || cmd.permission || '--'}${data.allowed === false ? '（未通过）' : ''}`,
+    ];
+    if (cmd.inference_reason) lines.push(`推断理由：${cmd.inference_reason}`);
+    if (data.allowed === false) {
+      lines.push(`无法执行：${data.deny_reason || '权限不足'}`);
+    } else {
+      lines.push('已进入待确认状态，未执行真实设备控制。回复“确认”执行，回复“取消”放弃。');
+    }
+    return lines.join('\n');
+  }
+  async function handlePendingControl(prompt) {
+    if (!pendingControl) return false;
+    if (isCancelText(prompt)) {
+      pendingControl = null;
+      addMessage('system', '已取消待确认控制。');
+      return true;
+    }
+    if (!isConfirmText(prompt)) return false;
+    const token = pendingControl.pending_token;
+    pendingControl = null;
+    const resp = await fetch('/api/local-model/control/confirm', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({pending_token: token})});
+    const data = await resp.json();
+    if (data.ok) addMessage('assistant', data.result || '控制已执行。');
+    else addMessage('system', data.msg || data.error || '确认执行失败');
+    return true;
+  }
+  async function tryControlDryRun(prompt) {
+    const resp = await fetch('/api/local-model/control/dry-run', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text: prompt})});
+    const data = await resp.json();
+    if (!data.ok || !data.is_control_request) return false;
+    const text = formatControlDryRun(data);
+    if (text) addMessage(data.allowed === false ? 'system' : 'assistant', text);
+    pendingControl = data.pending_token ? data : null;
+    return true;
+  }
   function renderMessages() {
     const box = $('messages');
     if (!box) return;
     if (!chatMessages.length) {
-      box.innerHTML = '<div class="local-model-msg msg system">本地模型只负责分析与建议；涉及开关机、断电、联动等动作，请在中控对应页面执行。</div>';
+      box.innerHTML = '<div class="local-model-msg msg system">本地模型可识别状态查询和受控控制意图；强电柜、时序电源、服务器关机/重启等高风险动作必须二次确认，不确定目标会先给出推断让你判断。</div>';
       return;
     }
     box.innerHTML = chatMessages.map(m => `<div class="local-model-msg msg ${esc(m.role)}">${esc(m.content)}</div>`).join('');
@@ -140,6 +189,8 @@
     addMessage('user', prompt);
     $('sendBtn').disabled = true;
     try {
+      if (await handlePendingControl(prompt)) return;
+      if (await tryControlDryRun(prompt)) return;
       const history = chatMessages.filter(m => m.role === 'user' || m.role === 'assistant').slice(-10);
       const resp = await fetch('/api/local-model/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({messages: history})});
       const data = await resp.json();

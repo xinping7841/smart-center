@@ -1,6 +1,6 @@
 # AI_MODULE: local_model_api
 # AI_PURPOSE: 本地 AI 控制台、OpenAI-compatible 调用、训练/学习数据导出和脱敏知识包生成。
-# AI_BOUNDARY: 不直接执行设备控制；模型只能辅助分析，真实动作必须走原有 API 权限和人工确认。
+# AI_BOUNDARY: 本地模型可识别/推断控制意图，但真实动作必须走中控 API 权限、审计和二次确认链路。
 # AI_DATA_FLOW: CONFIG/事件日志/设备清单 -> training/local_model JSONL/JSON -> 本地模型/RAG。
 # AI_RUNTIME: /local-model 页面和 /api/local-model/* 调用；导出脚本 scripts/export_local_model_training.py 复用这里的构建函数。
 # AI_RISK: 中，导出数据必须脱敏，不能把账号、token、SNMP community、密码喂给模型。
@@ -13,6 +13,7 @@ import sqlite3
 import time
 import urllib.error
 import urllib.request
+import uuid
 from copy import deepcopy
 from datetime import datetime
 from pathlib import Path
@@ -21,12 +22,28 @@ from urllib.parse import urlsplit, urlunsplit
 from flask import Blueprint, jsonify, render_template, request, send_file
 
 from auth.decorators import require_permission
+from auth.permissions import has_permission
+from auth.policy import resolve_permission_grant
+from auth.session import get_current_user
 from config import CONFIG, save_config
 from event_logger import query_events
 from paths import AUDIT_LOG_FILE, DATA_DIR, DB_FILE, OPERATION_LOG_FILE, ensure_directory
+from services.feishu_bot import HIGH_RISK_CONTROL_TYPES, INFERRED_CONTROL_CONFIDENCE, LocalSmartCenterClient, _control_action_from_text, _format_control_action, _is_control_request
 
 
 bp = Blueprint("local_model", __name__)
+LOCAL_MODEL_PENDING_CONTROLS = {}
+LOCAL_MODEL_PENDING_TTL_SEC = 10 * 60
+LOCAL_MODEL_CONTROL_PERMISSIONS = {
+    "hvac": "hvac.control",
+    "light": "light.control",
+    "node_red": "control_center.control",
+    "projector": "projector.control",
+    "power": "power.control",
+    "sequencer": "sequencer.control",
+    "server": "server.control",
+    "ups": "ups.control",
+}
 
 DEFAULT_LOCAL_MODEL = {
     "enabled": True,
@@ -40,7 +57,7 @@ DEFAULT_LOCAL_MODEL = {
     "temperature": 0.2,
     "max_tokens": 512,
     "max_model_len": 32768,
-    "system_prompt": "你是演播中控系统的本地助手，回答要基于中控设备、协议、日志和运行状态。涉及真实控制动作时，先说明风险并等待人工确认。",
+    "system_prompt": "你是演播中控系统的本地助手，回答要基于中控设备、协议、日志和运行状态。允许识别和发起受控控制意图；涉及强电、时序电源、服务器关机等高风险动作时，必须说明风险并走二次确认。",
     "training_export": {"enabled": True, "include_logs": True, "recent_log_limit": 500},
 }
 
@@ -249,6 +266,87 @@ def _jsonl_write(path, rows):
     with open(path, "w", encoding="utf-8") as handle:
         for row in rows:
             handle.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
+
+
+def _read_control_intent_rows():
+    path = Path(__file__).resolve().parents[1] / "docs" / "LOCAL_MODEL_CONTROL_INTENTS.jsonl"
+    rows = []
+    if not path.is_file():
+        return rows
+    for line in path.read_text(encoding="utf-8-sig", errors="ignore").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        try:
+            row = json.loads(line)
+        except Exception:
+            continue
+        if isinstance(row, dict):
+            rows.append(row)
+    return rows
+
+
+def _local_model_control_permission(command):
+    command_type = str((command or {}).get("type") or "").strip()
+    return LOCAL_MODEL_CONTROL_PERMISSIONS.get(command_type, "local_model.control")
+
+
+def _user_can_execute_local_model_control(command):
+    user = get_current_user()
+    permission = _local_model_control_permission(command)
+    if not has_permission(user.role, permission, user.permissions):
+        return False, permission, "当前账号没有对应设备控制权限"
+    state = resolve_permission_grant(user, permission)
+    if not state.get("allowed", False):
+        return False, permission, "当前时段不允许执行该控制"
+    return True, permission, ""
+
+
+def _summarize_control_command(command):
+    if not isinstance(command, dict):
+        return {}
+    command_type = str(command.get("type") or "")
+    confidence = str(command.get("confidence") or "high")
+    inferred = confidence in INFERRED_CONTROL_CONFIDENCE
+    high_risk = command_type in HIGH_RISK_CONTROL_TYPES or str(command.get("risk") or "") == "high"
+    return {
+        "type": command_type,
+        "risk": command.get("risk") or ("high" if high_risk else "normal"),
+        "label": command.get("label") or "设备",
+        "action": command.get("action") or "",
+        "action_text": _format_control_action(str(command.get("action") or "")),
+        "path": command.get("path") or "",
+        "method": command.get("method") or "POST",
+        "payload": command.get("payload") or {},
+        "confidence": confidence,
+        "inference_reason": command.get("inference_reason") or "",
+        "requires_confirmation": bool(high_risk or inferred),
+        "permission": _local_model_control_permission(command),
+    }
+
+
+def _store_local_model_pending_control(command, source_text):
+    token = uuid.uuid4().hex
+    now = time.time()
+    LOCAL_MODEL_PENDING_CONTROLS[token] = {
+        "command": command,
+        "source_text": source_text,
+        "created_at": now,
+        "expires_at": now + LOCAL_MODEL_PENDING_TTL_SEC,
+        "user": get_current_user().username,
+    }
+    if len(LOCAL_MODEL_PENDING_CONTROLS) > 100:
+        expired = [key for key, row in LOCAL_MODEL_PENDING_CONTROLS.items() if now > float(row.get("expires_at") or 0)]
+        for key in expired:
+            LOCAL_MODEL_PENDING_CONTROLS.pop(key, None)
+    return token
+
+
+def _smart_center_self_base_url():
+    configured = str(CONFIG.get("smart_center_base_url") or "").strip().rstrip("/")
+    if configured:
+        return configured
+    return str(request.host_url or "http://127.0.0.1:6899").strip().rstrip("/")
 
 
 def _extract_device_records(config):
@@ -655,8 +753,12 @@ def _build_rule_insights(config):
         },
         {
             "title": "控制安全：高风险动作必须二次确认",
-            "summary": "强电断电、时序电源关闭、投影关机、场景批量联动、自动化规则修改都可能影响现场演出或参观，模型只能给建议，不能替用户直接执行。",
-            "facts": {"high_risk_actions": ["power_off", "sequencer_off", "projector_off", "scene_run", "automation_edit"]},
+            "summary": "本地模型已经允许识别和发起控制意图，但真实控制必须走中控现有 API、权限、审计和确认链路。强电断电、时序电源关闭、服务器关机/重启、场景批量联动、自动化规则修改都必须二次确认；不确定目标时只给推断并等待人工判断。",
+            "facts": {
+                "control_enabled": True,
+                "execution_boundary": "Smart Center API / Feishu confirmation flow",
+                "high_risk_actions": ["power_off", "sequencer_off", "server_shutdown", "server_restart", "scene_run", "automation_edit"],
+            },
         },
     ]
     return [
@@ -842,7 +944,7 @@ def build_insights(config, device_rows, protocol_rows, log_rows):
         "recommended_model_use": [
             "优先用 insights 做中控知识库/RAG 检索",
             "用 devices/protocols/logs 作为证据来源",
-            "涉及真实控制动作时只给建议和风险，不直接执行",
+            "可识别和发起受控控制意图；真实动作必须走中控权限、审计和二次确认链路",
             "每天比较 daily_summary 可发现设备、协议和异常趋势变化",
         ],
     }
@@ -861,6 +963,7 @@ def build_training_export():
     protocol_rows = _extract_protocol_records(config)
     log_rows = _extract_log_records(int(export_cfg.get("recent_log_limit", 500))) if export_cfg.get("include_logs", True) else []
     insight_rows, daily_summary = build_insights(config, device_rows, protocol_rows, log_rows)
+    control_intent_rows = _read_control_intent_rows()
     instruction_rows = [
         {
             "schema": "smart_center.training.v1",
@@ -888,7 +991,14 @@ def build_training_export():
             "kind": "instruction",
             "instruction": "回答中控状态推断和排障问题时，优先引用提炼后的规则、设备画像和协议能力卡。",
             "input": {"insight_count": len(insight_rows)},
-            "output": "先给结论，再列证据，最后给排查或操作建议；涉及真实控制动作必须提醒人工确认。",
+            "output": "先给结论，再列证据，最后给排查或操作建议；涉及真实控制动作时允许生成受控控制意图，但必须标注风险、目标、动作和确认策略。",
+        },
+        {
+            "schema": "smart_center.training.v1",
+            "kind": "instruction",
+            "instruction": "根据自然语言控制请求识别设备、动作、风险和确认策略。",
+            "input": {"control_enabled": True},
+            "output": "普通低风险设备可进入受控执行链路；强电柜、时序电源、服务器关机/重启等高风险动作必须二次确认；目标不明确时只返回推断和候选项，等待人工判断。",
         },
     ]
     files = {
@@ -896,6 +1006,7 @@ def build_training_export():
         "protocols": out_dir / f"protocols_{stamp}.jsonl",
         "logs": out_dir / f"logs_{stamp}.jsonl",
         "instructions": out_dir / f"instructions_{stamp}.jsonl",
+        "control_intents": out_dir / f"control_intents_{stamp}.jsonl",
         "insights": out_dir / f"insights_{stamp}.jsonl",
         "daily_summary": out_dir / f"daily_summary_{stamp}.json",
         "knowledge": out_dir / f"knowledge_{stamp}.json",
@@ -904,6 +1015,7 @@ def build_training_export():
     _jsonl_write(files["protocols"], protocol_rows)
     _jsonl_write(files["logs"], log_rows)
     _jsonl_write(files["instructions"], instruction_rows)
+    _jsonl_write(files["control_intents"], control_intent_rows)
     _jsonl_write(files["insights"], insight_rows)
     files["daily_summary"].write_text(json.dumps(daily_summary, ensure_ascii=False, indent=2), encoding="utf-8")
     knowledge = {
@@ -916,6 +1028,7 @@ def build_training_export():
             "protocol_records": len(protocol_rows),
             "logs": len(log_rows),
             "instructions": len(instruction_rows),
+            "control_intents": len(control_intent_rows),
             "insights": len(insight_rows),
         },
         "device_sections": DEVICE_SECTIONS,
@@ -1049,6 +1162,86 @@ def api_local_model_chat():
         return jsonify({"ok": False, "error": "http_error", "status": exc.code, "msg": detail}), 502
     except Exception as exc:
         return jsonify({"ok": False, "error": "request_failed", "msg": str(exc)}), 502
+
+
+@bp.route("/api/local-model/control/dry-run", methods=["POST"])
+@require_permission("local_model.control")
+def api_local_model_control_dry_run():
+    payload = request.get_json(silent=True) or {}
+    text = str(payload.get("text") or payload.get("prompt") or "").strip()
+    if not text:
+        return jsonify({"ok": False, "error": "empty_text", "msg": "请输入控制内容"}), 400
+    action = _control_action_from_text(text)
+    if not _is_control_request(text):
+        return jsonify({
+            "ok": True,
+            "dry_run": True,
+            "is_control_request": False,
+            "recognized_action": action,
+            "msg": "这句话不像明确控制请求，可以继续补充设备和动作。",
+        })
+    client = LocalSmartCenterClient(_smart_center_self_base_url())
+    command = client.resolve_control_command(text)
+    if not command:
+        return jsonify({
+            "ok": True,
+            "dry_run": True,
+            "is_control_request": True,
+            "recognized_action": action,
+            "matched": False,
+            "msg": "识别到控制请求，但没有明确匹配到设备。",
+        })
+    if command.get("type") == "error":
+        return jsonify({
+            "ok": True,
+            "dry_run": True,
+            "is_control_request": True,
+            "matched": False,
+            "recognized_action": action,
+            "command": _summarize_control_command(command),
+            "msg": command.get("message") or "控制请求无法执行。",
+        })
+    allowed, permission, reason = _user_can_execute_local_model_control(command)
+    summary = _summarize_control_command(command)
+    token = ""
+    if allowed:
+        token = _store_local_model_pending_control(command, text)
+    return jsonify({
+        "ok": True,
+        "dry_run": True,
+        "is_control_request": True,
+        "matched": True,
+        "recognized_action": action,
+        "allowed": allowed,
+        "permission": permission,
+        "deny_reason": reason,
+        "pending_token": token,
+        "command": summary,
+        "msg": "已解析控制意图，未执行真实设备控制。",
+    })
+
+
+@bp.route("/api/local-model/control/confirm", methods=["POST"])
+@require_permission("local_model.control")
+def api_local_model_control_confirm():
+    payload = request.get_json(silent=True) or {}
+    token = str(payload.get("pending_token") or "").strip()
+    if not token:
+        return jsonify({"ok": False, "error": "missing_token", "msg": "缺少待确认控制 token"}), 400
+    pending = LOCAL_MODEL_PENDING_CONTROLS.pop(token, None)
+    if not pending:
+        return jsonify({"ok": False, "error": "not_found", "msg": "待确认控制不存在或已被处理"}), 404
+    if time.time() > float(pending.get("expires_at") or 0):
+        return jsonify({"ok": False, "error": "expired", "msg": "待确认控制已过期，请重新解析"}), 409
+    command = pending.get("command")
+    if not isinstance(command, dict):
+        return jsonify({"ok": False, "error": "invalid_command", "msg": "待确认控制格式无效"}), 400
+    allowed, permission, reason = _user_can_execute_local_model_control(command)
+    if not allowed:
+        return jsonify({"ok": False, "error": "permission_denied", "permission": permission, "msg": reason}), 403
+    client = LocalSmartCenterClient(_smart_center_self_base_url())
+    result_text = client.execute_control_command(command)
+    return jsonify({"ok": True, "executed": True, "permission": permission, "result": result_text, "command": _summarize_control_command(command)})
 
 
 @bp.route("/api/local-model/export-training", methods=["POST"])

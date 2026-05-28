@@ -521,7 +521,8 @@ def _normalize_intent(value: Any) -> str:
         "proxy": "proxy_status",
         "model": "local_model_status",
         "local_model": "local_model_status",
-        "control": "forbidden_control",
+        "control": "control_request",
+        "forbidden_control": "control_request",
     }
     return aliases.get(text, text)
 
@@ -546,6 +547,7 @@ class OllamaIntentClassifier:
         "ups_status",
         "proxy_status",
         "local_model_status",
+        "control_request",
         "forbidden_control",
         "unknown",
     )
@@ -558,11 +560,11 @@ class OllamaIntentClassifier:
     def classify(self, text: str) -> dict[str, Any] | None:
         prompt = (
             "你是中控飞书机器人的意图分类器，只输出 JSON，不要输出解释。\n"
-            "当前只允许查询状态、历史数据、日志、统计和诊断，不允许任何控制动作。\n"
+            "当前允许查询，也允许识别控制请求；真实控制由飞书/中控安全链路负责权限、审计和二次确认。\n"
             "可选 intent："
             + ", ".join(self.INTENTS)
             + "\n"
-            "如果用户要求开关、控制、重启、关机、唤醒、下发、执行、修改配置、调空调、执行场景，intent 必须是 forbidden_control。\n"
+            "如果用户要求开关、控制、重启、关机、唤醒、下发、执行、修改配置、调空调、执行场景，intent 必须是 control_request。\n"
             "如果是查询日志或历史记录，优先选择 event_logs、automation_logs、lighting_logs 或 energy_history。\n"
             "返回格式：{\"intent\":\"...\",\"query\":\"原问题\",\"allowed\":true,\"reason\":\"\"}\n"
             f"用户问题：{text}"
@@ -1857,7 +1859,7 @@ class LocalSmartCenterClient:
             return self.proxy_status_text()
         if intent == "local_model_status":
             return self.local_model_status_text()
-        if intent == "forbidden_control":
+        if intent in {"control_request", "forbidden_control"}:
             return "飞书机器人已支持控制；请说清楚设备和动作，例如：打开庭院灯、关闭机房空调、唤醒门口LED服务器。强电柜和时序电源会要求二次确认。"
         return self.query_text(query)
 

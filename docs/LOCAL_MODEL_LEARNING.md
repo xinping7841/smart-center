@@ -39,6 +39,8 @@ Server assets are exported from `monitor.db` as `source_section=server_machines`
 
 Natural language should query all server groups by default. Specific group queries must filter by `asset_group`; specific host queries must match `custom_name`, `hostname`, `ip`, or `mac`.
 
-## Safety Boundary
+## Control Boundary
 
-The model may classify intent, retrieve evidence, and summarize. It must not directly execute control routes. Feishu and local-model chat remain read-only unless a later approval workflow explicitly enables control.
+The model may classify intent, retrieve evidence, summarize, and act as a natural-language control entry from Feishu or the Smart Center local-model page.
+
+Real device actions must still go through the existing Smart Center control chain: API permission, audit log, target matching, risk classification, and confirmation policy. Strong-current cabinets, sequencers, server shutdown/restart, and unclear inferred targets must require confirmation before execution. The model must never invent a separate direct-control route that bypasses this chain.

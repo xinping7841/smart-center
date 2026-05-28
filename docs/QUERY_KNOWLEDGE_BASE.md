@@ -2,9 +2,9 @@
 
 Last updated: 2026-05-24
 
-This document is the single reference for Feishu natural-language replies and future local-model tool routing. The current policy is query-only: status, history, logs, statistics, diagnostics, and inventory are allowed; physical control actions are not allowed.
+This document is the single reference for Feishu natural-language replies and local-model tool routing. Query intents use deterministic read APIs; control intents are enabled but must enter the Smart Center safety chain: permission, audit, target matching, risk classification, and confirmation policy.
 
-The companion training/query-intent seed file is `docs/LOCAL_MODEL_QUERY_INTENTS.jsonl`. Feed it to the local model knowledge pipeline together with this document so natural-language questions map to the right read-only intent before any API call.
+The companion seed files are `docs/LOCAL_MODEL_QUERY_INTENTS.jsonl` and `docs/LOCAL_MODEL_CONTROL_INTENTS.jsonl`. Feed them to the local model knowledge pipeline together with this document so natural-language requests map to the right query intent or controlled-action intent before any API call.
 
 ## Safety Policy
 
@@ -13,23 +13,18 @@ Allowed:
 - Read current device status, online/offline state, health, diagnostics, and configuration inventory.
 - Read historical data such as energy trends, meter statistics, state changes, events, and operation logs.
 - Summarize and compare existing data, for example "昨天用了多少电" or "最近自动化失败记录".
-- Explain risk and suggest manual next steps without executing an action.
+- Recognize and initiate controlled actions from Feishu or the Smart Center local-model page.
 
-Forbidden until explicitly enabled by a later design:
+Control boundary:
 
-- Device control: open, close, switch, start, stop, reboot, shutdown, wake, set mode, set temperature, scene execution, command execution, one-key start/stop, calibration, model rebuild, recording start/stop.
-- Any POST/PUT/DELETE route that changes real equipment, config, runtime state, training data, or credentials.
-- Any indirect control through "debug", "test", "execute", "control", "save", "update", "toggle", "wake", "command", "onekey", "rebuild", "recording", or "calibrate" routes.
-
-Natural-language assistants must answer forbidden requests with a refusal such as:
-
-```text
-当前只支持查询状态、历史数据和日志，不执行开关、重启、下发控制、配置修改等操作。
-```
+- Query answers should use the read API allowlist below.
+- Real control must go through the existing Smart Center control APIs, permission checks, audit logs, target matching, risk classification, and confirmation policy.
+- Strong-current cabinets, sequencers, server shutdown/restart, batch scene actions, and unclear inferred targets must require confirmation.
+- The model must not invent a direct device-control path or bypass the Smart Center safety chain.
 
 ## Query Routing Rules
 
-Use deterministic routing first. A local model may classify intent, but the actual tool call should still be selected from this allowlist.
+Use deterministic routing first. A local model may classify query and control intent, but query tool calls should still be selected from this read allowlist; control tool calls must use the controlled-action chain.
 
 | Intent | Keywords | Primary read API | Notes |
 | --- | --- | --- | --- |
@@ -254,7 +249,7 @@ Suggested reply:
 ...
 ```
 
-Forbidden related actions:
+Controlled related actions:
 
 - `/api/wake/<mac>`
 - `/api/machines/<mac>/command`
@@ -303,7 +298,7 @@ Natural-language examples:
 - "哪些空调离线"
 - "空调当前功率"
 
-Forbidden related action:
+Controlled related action:
 
 - `POST /api/hvac/control`
 
@@ -330,7 +325,7 @@ Natural-language examples:
 - "最近灯光日志"
 - "庭院灯最近为什么没开"
 
-Forbidden related action:
+Controlled related action:
 
 - `POST /api/light/control`
 
@@ -358,7 +353,7 @@ Natural-language examples:
 - "最近自动化失败记录"
 - "今天有哪些场景执行"
 
-Forbidden related actions:
+Controlled related actions:
 
 - `POST /api/automation/toggle`
 - `POST /api/automation/test`
@@ -412,7 +407,7 @@ UPS:
 
 - `GET /api/ups/status`
 - Ask examples: "UPS 状态", "电池容量", "输入电压", "续航多久", "有没有旁路/故障".
-- Forbidden: `POST /api/ups/control`.
+- Controlled action: `POST /api/ups/control` if later enabled through the safety chain.
 
 NVR:
 
@@ -459,7 +454,7 @@ Notes:
 - Config responses redact API keys.
 - Training export redacts sensitive fields, but it is still an admin action.
 - Qwen3 Ollama requests must include `think: false`; otherwise Feishu may receive thinking text instead of the final JSON/result.
-- The Ollama model is an intent classifier only. It must not directly call Smart Center APIs.
+- The Ollama/local model can classify natural-language control requests and feed the Smart Center/Feishu control chain. It must not bypass API permissions, audit logs, target matching, risk classification, or confirmation policy.
 - If Ollama only listens on `127.0.0.1` of node-120, run the Feishu bot on node-120 or expose a protected proxy URL.
 
 Suggested Ollama classification request:
@@ -467,7 +462,7 @@ Suggested Ollama classification request:
 ```json
 {
   "model": "qwen3:14b",
-  "prompt": "只输出 JSON。将用户问题分类为只读查询 intent；控制动作返回 forbidden_control。",
+  "prompt": "只输出 JSON。将用户问题分类为查询 intent 或 control_request；控制动作需要后续走中控安全链路。",
   "stream": false,
   "format": "json",
   "think": false,
@@ -516,7 +511,7 @@ The first production natural-language integration should only call these GET rou
 /api/local-model/health
 ```
 
-Do not call these from chat automation until a separate approval workflow exists:
+Control routes. Call only through the Smart Center safety chain, never directly from a model response:
 
 ```text
 /api/set
@@ -560,14 +555,18 @@ Future local-model service can return this JSON before tool execution:
 }
 ```
 
-Forbidden action example:
+Controlled action example:
 
 ```json
 {
-  "intent": "device_control",
-  "allowed": false,
+  "intent": "control_request",
+  "allowed": true,
   "read_only": false,
-  "reason": "control_actions_are_disabled_in_chat"
+  "requires_confirmation": true,
+  "risk": "high",
+  "target": "主电柜 回路8",
+  "action": "off",
+  "reason": "强电柜控制必须二次确认"
 }
 ```
 
@@ -579,7 +578,7 @@ The local model should not be treated as magically self-learning from chat. Use 
 2. The export writes JSON/JSONL under `DATA_DIR/training/local_model`, including config devices, runtime `server_machines` from `monitor.db`, protocol files, recent logs, instructions, insights, and a `knowledge_*.json` manifest.
 3. Feed those files to the local model service as a RAG/knowledge index. This is the recommended path for frequent updates because it can refresh daily or hourly without changing model weights.
 4. Optional fine-tuning/LoRA should use curated instruction examples only, not raw secrets or unreviewed logs. It is slower and less suitable for rapidly changing state such as online/offline machines.
-5. Query execution must still go through the deterministic read-only allowlist in this document. The model can classify intent and summarize evidence, but it must not directly call control APIs.
+5. Query execution must still go through the deterministic read allowlist in this document. Control execution must go through the Smart Center safety chain; the model can classify intent and produce a controlled-action request, but must not directly call device APIs outside that chain.
 
 For server knowledge specifically, every export now includes `server_machines` records with `asset_group`, names, IPs, last report time, Agent version, CPU/memory/disk/GPU summaries, and sanitized raw status. This allows the local model/RAG layer to answer all machine-room and hall-specific server questions instead of learning only the first visible group.
 
@@ -593,9 +592,9 @@ Implemented in `services/feishu_bot.py`:
 - Current collector: "当前电流", "采集器".
 - Servers: "服务器状态", "所有服务器分组汇总", "机房服务器状态", "1号厅服务器", "2号厅离线机器", "node-120 CPU", "GPU温度最高".
 - Logs: "最近日志", "最近自动化日志", "最近灯光日志".
-- Environment/HVAC/UPS/SNMP/NVR/proxy/local-model read-only status.
+- Environment/HVAC/UPS/SNMP/NVR/proxy/local-model status queries.
 - Optional Ollama intent classifier via `FEISHU_NL_MODEL_ENABLED=true`.
-- Control refusal: "开灯", "关灯", "控制", "重启", "关机", "执行", "下发".
+- Controlled actions: "开灯", "关灯", "控制", "重启", "关机", "执行", "下发" route into the same target matching and confirmation policy.
 
 Next useful expansion:
 
