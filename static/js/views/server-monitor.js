@@ -206,7 +206,7 @@
                 const state = String(adapter?.state || adapter?.status || '').trim();
                 const name = getAdapterName(adapter, `网卡 ${idx + 1}`);
                 const meta = [ips.length ? `IP ${ips.join(' / ')}` : 'IP 未上报', mac ? `MAC ${mac}` : 'MAC 未上报', speed, state].filter(Boolean);
-                return `<div class="server-adapter-row" title="${escapeHtml([name, ...meta].join('\n'))}"><span class="server-adapter-index">${escapeHtml(`网卡 ${idx + 1}`)}</span><strong>${escapeHtml(name)}</strong>${meta.map(item => `<em>${escapeHtml(item)}</em>`).join('')}</div>`;
+                return `<div class="server-adapter-row" title="${escapeHtml([name, ...meta].join('\n'))}"><span class="server-adapter-index">${escapeHtml(`网卡 ${idx + 1}`)}</span><span class="server-adapter-body"><strong>${escapeHtml(name)}</strong><span class="server-adapter-detail">${meta.map(item => `<em>${escapeHtml(item)}</em>`).join('')}</span></span></div>`;
             }).join('')}</div>`;
         }
 
