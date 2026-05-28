@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="/static/js/core/viewport-layout.js?v=20260522-stage7-viewport"></script>
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
-    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260528-server-network-font-unify">
+    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260528-server-network-left-align">
     <link rel="stylesheet" href="/static/css/views/dashboard-inline.css?v=20260522-stage6-inline-css">
     <link rel="stylesheet" href="/static/css/views/local-model.css?v=20260528-integrated-ui">
     <style id="codemeter-four-column-hotfix">
@@ -30,10 +30,10 @@
     </style>
     <style id="server-adapter-wrap-hotfix">
         #view-server .server-card .server-adapter-list { display:flex !important; flex-direction:column !important; gap:3px !important; margin-top:2px !important; padding-top:3px !important; border-top:1px dashed rgba(148,163,184,0.14) !important; }
-        #view-server .server-card .server-adapter-row { min-height:34px !important; display:grid !important; grid-template-columns:48px minmax(0,1fr) !important; align-items:start !important; gap:6px !important; padding:0 !important; border:0 !important; border-radius:0 !important; background:transparent !important; min-width:0 !important; color:#cbd5e1 !important; font-size:12px !important; line-height:1.45 !important; white-space:normal !important; overflow:visible !important; }
+        #view-server .server-card .server-adapter-row { min-height:34px !important; display:flex !important; flex-direction:column !important; gap:1px !important; padding:0 !important; border:0 !important; border-radius:0 !important; background:transparent !important; min-width:0 !important; color:#cbd5e1 !important; font-size:12px !important; line-height:1.45 !important; white-space:normal !important; overflow:visible !important; }
+        #view-server .server-card .server-adapter-head { min-width:0 !important; display:flex !important; align-items:center !important; gap:8px !important; color:#cbd5e1 !important; overflow:hidden !important; }
         #view-server .server-card .server-adapter-index { color:#64748b !important; font-size:12px !important; font-weight:400 !important; white-space:nowrap !important; margin-left:0 !important; }
-        #view-server .server-card .server-adapter-body { min-width:0 !important; display:flex !important; flex-direction:column !important; gap:1px !important; color:#cbd5e1 !important; overflow:hidden !important; }
-        #view-server .server-card .server-adapter-body strong { min-width:0 !important; color:#cbd5e1 !important; font-size:12px !important; font-weight:400 !important; line-height:1.45 !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; }
+        #view-server .server-card .server-adapter-head strong { min-width:0 !important; color:#cbd5e1 !important; font-size:12px !important; font-weight:400 !important; line-height:1.45 !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; }
         #view-server .server-card .server-adapter-detail { min-width:0 !important; display:flex !important; flex-wrap:wrap !important; gap:0 8px !important; color:#cbd5e1 !important; font-size:12px !important; line-height:1.45 !important; }
         #view-server .server-card .server-adapter-detail em { min-width:0 !important; max-width:100% !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; display:inline !important; padding:0 !important; border:0 !important; border-radius:0 !important; background:transparent !important; color:#cbd5e1 !important; font-style:normal !important; font-size:12px !important; font-weight:400 !important; line-height:1.45 !important; }
     </style>
@@ -1850,7 +1850,7 @@
     <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
     <script src="/static/js/views/env.js?v=20260522-stage2-env-view"></script>
     <script src="/static/js/views/snmp-summary.js?v=20260528-snmp-summary"></script>
-    <script src="/static/js/views/server-monitor.js?v=20260528-server-network-font-unify"></script>
+    <script src="/static/js/views/server-monitor.js?v=20260528-server-network-left-align"></script>
     <script src="/static/js/views/power-meter.js?v=20260522-stage4-power-meter"></script>
     <script src="/static/js/views/automation-view.js?v=20260522-stage4-automation-view"></script>
     <script src="/static/js/views/dashboard-summary.js?v=20260522-stage8-dashboard-summary"></script>
@@ -1865,7 +1865,7 @@
         const lazyViewScripts = {
             apple_audio: '/static/js/views/apple-audio.js?v=20260527-lazy-view',
             local_model: '/static/js/views/local-model.js?v=20260527-lazy-view',
-            server: '/static/js/views/server-monitor.js?v=20260528-server-network-font-unify',
+            server: '/static/js/views/server-monitor.js?v=20260528-server-network-left-align',
             snmp: '/static/js/views/snmp.js?v=20260528-lazy-view',
             universal: '/static/js/views/universal.js?v=20260527-lazy-view'
         };
