@@ -6363,14 +6363,752 @@
     "enabled": true,
     "version": 1,
     "transports": [],
-    "target_groups": [],
-    "command_library": [],
-    "devices": [],
+    "target_groups": [
+      {
+        "id": "niren_poe_kp_i101_192_168_50_35_rtu",
+        "name": "泥人继电器 50.35 RTU",
+        "protocol": "tcp",
+        "mode": "single",
+        "host": "192.168.50.35",
+        "port": 502,
+        "timeout_ms": 2000,
+        "wait_ms": 700,
+        "send_strategy": "serial",
+        "max_workers": 1,
+        "enabled": true,
+        "vendor": "Niren",
+        "model": "POE-KP-I101",
+        "mac": "4E:24:04:17:01:42",
+        "data_protocol": "modbus_rtu_over_tcp",
+        "unit_id": "01",
+        "do_channels": 1,
+        "di_channels": 1
+      },
+      {
+        "id": "niren_poe_kp_i101_192_168_50_52_rtu",
+        "name": "泥人继电器 50.52 RTU",
+        "protocol": "tcp",
+        "mode": "single",
+        "host": "192.168.50.52",
+        "port": 22222,
+        "timeout_ms": 2000,
+        "wait_ms": 700,
+        "send_strategy": "serial",
+        "max_workers": 1,
+        "enabled": true,
+        "vendor": "Niren",
+        "model": "POE-KP-I101",
+        "mac": "4E:25:03:05:01:86",
+        "data_protocol": "modbus_rtu_over_tcp",
+        "unit_id": "01",
+        "do_channels": 1,
+        "di_channels": 1
+      },
+      {
+        "id": "niren_poe_kp_i101_192_168_50_89_at",
+        "name": "泥人继电器 50.89 AT",
+        "protocol": "tcp",
+        "mode": "single",
+        "host": "192.168.50.89",
+        "port": 44489,
+        "timeout_ms": 2000,
+        "wait_ms": 500,
+        "send_strategy": "serial",
+        "max_workers": 1,
+        "enabled": true,
+        "vendor": "Niren",
+        "model": "POE-KP-I101",
+        "mac": "4E:24:04:17:01:46",
+        "data_protocol": "at_over_tcp",
+        "unit_id": "01",
+        "do_channels": 1,
+        "di_channels": 1
+      },
+      {
+        "id": "niren_poe_kp_i101_192_168_50_107_rtu",
+        "name": "泥人继电器 50.107 RTU",
+        "protocol": "tcp",
+        "mode": "single",
+        "host": "192.168.50.107",
+        "port": 502,
+        "timeout_ms": 2000,
+        "wait_ms": 700,
+        "send_strategy": "serial",
+        "max_workers": 1,
+        "enabled": true,
+        "vendor": "Niren",
+        "model": "POE-KP-I101",
+        "mac": "4E:24:04:17:02:58",
+        "data_protocol": "modbus_rtu_over_tcp",
+        "unit_id": "01",
+        "do_channels": 1,
+        "di_channels": 1
+      },
+      {
+        "id": "niren_poe_kp_i101_192_168_50_108_rtu",
+        "name": "泥人继电器 50.108 RTU",
+        "protocol": "tcp",
+        "mode": "single",
+        "host": "192.168.50.108",
+        "port": 502,
+        "timeout_ms": 2000,
+        "wait_ms": 700,
+        "send_strategy": "serial",
+        "max_workers": 1,
+        "enabled": true,
+        "vendor": "Niren",
+        "model": "POE-KP-I101",
+        "mac": "4E:24:04:17:01:31",
+        "data_protocol": "modbus_rtu_over_tcp",
+        "unit_id": "01",
+        "do_channels": 1,
+        "di_channels": 1
+      }
+    ],
+    "command_library": [
+      {
+        "id": "niren_at_ping",
+        "name": "AT 握手",
+        "category": "泥人继电器 AT",
+        "protocol": "tcp",
+        "format": "str",
+        "line_ending": "crlf",
+        "payload_template": "AT",
+        "wait_ms": 500,
+        "enabled": true
+      },
+      {
+        "id": "niren_at_device_info",
+        "name": "读取设备信息",
+        "category": "泥人继电器 AT",
+        "protocol": "tcp",
+        "format": "str",
+        "line_ending": "crlf",
+        "payload_template": "AT+DEVICEINFO=?",
+        "wait_ms": 700,
+        "enabled": true
+      },
+      {
+        "id": "niren_at_do_read",
+        "name": "读取 DO 通道",
+        "category": "泥人继电器 AT",
+        "protocol": "tcp",
+        "format": "str",
+        "line_ending": "crlf",
+        "payload_template": "AT+STACH{{channel}}=?",
+        "params": [
+          {
+            "id": "channel",
+            "label": "通道",
+            "type": "int",
+            "default": 1,
+            "min": 1,
+            "max": 64,
+            "step": 1
+          }
+        ],
+        "wait_ms": 700,
+        "enabled": true
+      },
+      {
+        "id": "niren_at_do_on",
+        "name": "DO 吸合",
+        "category": "泥人继电器 AT",
+        "protocol": "tcp",
+        "format": "str",
+        "line_ending": "crlf",
+        "payload_template": "AT+STACH{{channel}}=1",
+        "params": [
+          {
+            "id": "channel",
+            "label": "通道",
+            "type": "int",
+            "default": 1,
+            "min": 1,
+            "max": 64,
+            "step": 1
+          }
+        ],
+        "wait_ms": 700,
+        "enabled": true
+      },
+      {
+        "id": "niren_at_do_off",
+        "name": "DO 断开",
+        "category": "泥人继电器 AT",
+        "protocol": "tcp",
+        "format": "str",
+        "line_ending": "crlf",
+        "payload_template": "AT+STACH{{channel}}=0",
+        "params": [
+          {
+            "id": "channel",
+            "label": "通道",
+            "type": "int",
+            "default": 1,
+            "min": 1,
+            "max": 64,
+            "step": 1
+          }
+        ],
+        "wait_ms": 700,
+        "enabled": true
+      },
+      {
+        "id": "niren_at_do_pulse",
+        "name": "DO 点动",
+        "category": "泥人继电器 AT",
+        "protocol": "tcp",
+        "format": "str",
+        "line_ending": "crlf",
+        "payload_template": "AT+STACH{{channel}}=3,{{seconds}}",
+        "params": [
+          {
+            "id": "channel",
+            "label": "通道",
+            "type": "int",
+            "default": 1,
+            "min": 1,
+            "max": 64,
+            "step": 1
+          },
+          {
+            "id": "seconds",
+            "label": "秒",
+            "type": "int",
+            "default": 1,
+            "min": 1,
+            "max": 100000,
+            "step": 1
+          }
+        ],
+        "wait_ms": 700,
+        "enabled": true
+      },
+      {
+        "id": "niren_at_di_read",
+        "name": "读取 DI 输入",
+        "category": "泥人继电器 AT",
+        "protocol": "tcp",
+        "format": "str",
+        "line_ending": "crlf",
+        "payload_template": "AT+OCCH{{channel}}=?",
+        "params": [
+          {
+            "id": "channel",
+            "label": "通道",
+            "type": "int",
+            "default": 1,
+            "min": 1,
+            "max": 64,
+            "step": 1
+          }
+        ],
+        "wait_ms": 700,
+        "enabled": true
+      },
+      {
+        "id": "niren_modbus_rtu_read_do",
+        "name": "读取 DO1 RTU",
+        "category": "泥人继电器 Modbus RTU-over-TCP",
+        "protocol": "tcp",
+        "format": "modbus_rtu",
+        "payload_template": "{{unit_id}} 01 00 00 00 01",
+        "params": [
+          {
+            "id": "unit_id",
+            "label": "站号 Hex",
+            "type": "string",
+            "default": "01"
+          }
+        ],
+        "wait_ms": 700,
+        "enabled": true
+      },
+      {
+        "id": "niren_modbus_rtu_read_di",
+        "name": "读取 DI1 RTU",
+        "category": "泥人继电器 Modbus RTU-over-TCP",
+        "protocol": "tcp",
+        "format": "modbus_rtu",
+        "payload_template": "{{unit_id}} 02 00 00 00 01",
+        "params": [
+          {
+            "id": "unit_id",
+            "label": "站号 Hex",
+            "type": "string",
+            "default": "01"
+          }
+        ],
+        "wait_ms": 700,
+        "enabled": true
+      },
+      {
+        "id": "niren_modbus_rtu_do_on",
+        "name": "DO1 吸合 RTU",
+        "category": "泥人继电器 Modbus RTU-over-TCP",
+        "protocol": "tcp",
+        "format": "modbus_rtu",
+        "payload_template": "{{unit_id}} 05 00 00 FF 00",
+        "params": [
+          {
+            "id": "unit_id",
+            "label": "站号 Hex",
+            "type": "string",
+            "default": "01"
+          }
+        ],
+        "wait_ms": 700,
+        "enabled": true
+      },
+      {
+        "id": "niren_modbus_rtu_do_off",
+        "name": "DO1 断开 RTU",
+        "category": "泥人继电器 Modbus RTU-over-TCP",
+        "protocol": "tcp",
+        "format": "modbus_rtu",
+        "payload_template": "{{unit_id}} 05 00 00 00 00",
+        "params": [
+          {
+            "id": "unit_id",
+            "label": "站号 Hex",
+            "type": "string",
+            "default": "01"
+          }
+        ],
+        "wait_ms": 700,
+        "enabled": true
+      },
+      {
+        "id": "niren_modbus_tcp_read_do",
+        "name": "读取 DO1 TCP",
+        "category": "泥人继电器 Modbus TCP",
+        "protocol": "tcp",
+        "format": "modbus_tcp",
+        "payload_template": "{{unit_id}} 01 00 00 00 01",
+        "params": [
+          {
+            "id": "unit_id",
+            "label": "站号 Hex",
+            "type": "string",
+            "default": "01"
+          }
+        ],
+        "wait_ms": 700,
+        "enabled": true
+      },
+      {
+        "id": "niren_modbus_tcp_read_di",
+        "name": "读取 DI1 TCP",
+        "category": "泥人继电器 Modbus TCP",
+        "protocol": "tcp",
+        "format": "modbus_tcp",
+        "payload_template": "{{unit_id}} 02 00 00 00 01",
+        "params": [
+          {
+            "id": "unit_id",
+            "label": "站号 Hex",
+            "type": "string",
+            "default": "01"
+          }
+        ],
+        "wait_ms": 700,
+        "enabled": true
+      },
+      {
+        "id": "niren_modbus_tcp_do_on",
+        "name": "DO1 吸合 TCP",
+        "category": "泥人继电器 Modbus TCP",
+        "protocol": "tcp",
+        "format": "modbus_tcp",
+        "payload_template": "{{unit_id}} 05 00 00 FF 00",
+        "params": [
+          {
+            "id": "unit_id",
+            "label": "站号 Hex",
+            "type": "string",
+            "default": "01"
+          }
+        ],
+        "wait_ms": 700,
+        "enabled": true
+      },
+      {
+        "id": "niren_modbus_tcp_do_off",
+        "name": "DO1 断开 TCP",
+        "category": "泥人继电器 Modbus TCP",
+        "protocol": "tcp",
+        "format": "modbus_tcp",
+        "payload_template": "{{unit_id}} 05 00 00 00 00",
+        "params": [
+          {
+            "id": "unit_id",
+            "label": "站号 Hex",
+            "type": "string",
+            "default": "01"
+          }
+        ],
+        "wait_ms": 700,
+        "enabled": true
+      }
+    ],
+    "devices": [
+      {
+        "id": "niren_poe_kp_i101_192_168_50_35",
+        "name": "泥人继电器 50.35",
+        "host": "192.168.50.35",
+        "port": 502,
+        "mac": "4E:24:04:17:01:42",
+        "protocol": "modbus_rtu_over_tcp",
+        "unit_id": "01",
+        "target_group_id": "niren_poe_kp_i101_192_168_50_35_rtu",
+        "do_channels": 1,
+        "di_channels": 1,
+        "enabled": true
+      },
+      {
+        "id": "niren_poe_kp_i101_192_168_50_52",
+        "name": "泥人继电器 50.52",
+        "host": "192.168.50.52",
+        "port": 22222,
+        "mac": "4E:25:03:05:01:86",
+        "protocol": "modbus_rtu_over_tcp",
+        "unit_id": "01",
+        "target_group_id": "niren_poe_kp_i101_192_168_50_52_rtu",
+        "do_channels": 1,
+        "di_channels": 1,
+        "enabled": true
+      },
+      {
+        "id": "niren_poe_kp_i101_192_168_50_89",
+        "name": "泥人继电器 50.89",
+        "host": "192.168.50.89",
+        "port": 44489,
+        "mac": "4E:24:04:17:01:46",
+        "protocol": "at_over_tcp",
+        "unit_id": "01",
+        "target_group_id": "niren_poe_kp_i101_192_168_50_89_at",
+        "do_channels": 1,
+        "di_channels": 1,
+        "enabled": true
+      },
+      {
+        "id": "niren_poe_kp_i101_192_168_50_107",
+        "name": "泥人继电器 50.107",
+        "host": "192.168.50.107",
+        "port": 502,
+        "mac": "4E:24:04:17:02:58",
+        "protocol": "modbus_rtu_over_tcp",
+        "unit_id": "01",
+        "target_group_id": "niren_poe_kp_i101_192_168_50_107_rtu",
+        "do_channels": 1,
+        "di_channels": 1,
+        "enabled": true
+      },
+      {
+        "id": "niren_poe_kp_i101_192_168_50_108",
+        "name": "泥人继电器 50.108",
+        "host": "192.168.50.108",
+        "port": 502,
+        "mac": "4E:24:04:17:01:31",
+        "protocol": "modbus_rtu_over_tcp",
+        "unit_id": "01",
+        "target_group_id": "niren_poe_kp_i101_192_168_50_108_rtu",
+        "do_channels": 1,
+        "di_channels": 1,
+        "enabled": true
+      }
+    ],
     "panels": [
       {
-        "controls": [],
+        "controls": [
+          {
+            "id": "niren_50_35_read_do",
+            "name": "50.35 读DO",
+            "type": "button",
+            "command_id": "niren_modbus_rtu_read_do",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_35_rtu",
+            "params": {
+              "unit_id": "01"
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 10
+          },
+          {
+            "id": "niren_50_35_read_di",
+            "name": "50.35 读DI",
+            "type": "button",
+            "command_id": "niren_modbus_rtu_read_di",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_35_rtu",
+            "params": {
+              "unit_id": "01"
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 11
+          },
+          {
+            "id": "niren_50_35_do_on",
+            "name": "50.35 DO开",
+            "type": "button",
+            "command_id": "niren_modbus_rtu_do_on",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_35_rtu",
+            "params": {
+              "unit_id": "01"
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 12
+          },
+          {
+            "id": "niren_50_35_do_off",
+            "name": "50.35 DO关",
+            "type": "button",
+            "command_id": "niren_modbus_rtu_do_off",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_35_rtu",
+            "params": {
+              "unit_id": "01"
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 13
+          },
+          {
+            "id": "niren_50_52_read_do",
+            "name": "50.52 读DO",
+            "type": "button",
+            "command_id": "niren_modbus_rtu_read_do",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_52_rtu",
+            "params": {
+              "unit_id": "01"
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 20
+          },
+          {
+            "id": "niren_50_52_read_di",
+            "name": "50.52 读DI",
+            "type": "button",
+            "command_id": "niren_modbus_rtu_read_di",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_52_rtu",
+            "params": {
+              "unit_id": "01"
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 21
+          },
+          {
+            "id": "niren_50_52_do_on",
+            "name": "50.52 DO开",
+            "type": "button",
+            "command_id": "niren_modbus_rtu_do_on",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_52_rtu",
+            "params": {
+              "unit_id": "01"
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 22
+          },
+          {
+            "id": "niren_50_52_do_off",
+            "name": "50.52 DO关",
+            "type": "button",
+            "command_id": "niren_modbus_rtu_do_off",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_52_rtu",
+            "params": {
+              "unit_id": "01"
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 23
+          },
+          {
+            "id": "niren_50_89_info",
+            "name": "50.89 信息",
+            "type": "button",
+            "command_id": "niren_at_device_info",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_89_at",
+            "show_on_home": false,
+            "visible": true,
+            "sort": 30
+          },
+          {
+            "id": "niren_50_89_read_do",
+            "name": "50.89 读DO",
+            "type": "button",
+            "command_id": "niren_at_do_read",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_89_at",
+            "params": {
+              "channel": 1
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 31
+          },
+          {
+            "id": "niren_50_89_read_di",
+            "name": "50.89 读DI",
+            "type": "button",
+            "command_id": "niren_at_di_read",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_89_at",
+            "params": {
+              "channel": 1
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 32
+          },
+          {
+            "id": "niren_50_89_do_on",
+            "name": "50.89 DO开",
+            "type": "button",
+            "command_id": "niren_at_do_on",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_89_at",
+            "params": {
+              "channel": 1
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 33
+          },
+          {
+            "id": "niren_50_89_do_off",
+            "name": "50.89 DO关",
+            "type": "button",
+            "command_id": "niren_at_do_off",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_89_at",
+            "params": {
+              "channel": 1
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 34
+          },
+          {
+            "id": "niren_50_89_do_pulse",
+            "name": "50.89 点动1秒",
+            "type": "button",
+            "command_id": "niren_at_do_pulse",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_89_at",
+            "params": {
+              "channel": 1,
+              "seconds": 1
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 35
+          },
+          {
+            "id": "niren_50_107_read_do",
+            "name": "50.107 读DO",
+            "type": "button",
+            "command_id": "niren_modbus_rtu_read_do",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_107_rtu",
+            "params": {
+              "unit_id": "01"
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 40
+          },
+          {
+            "id": "niren_50_107_read_di",
+            "name": "50.107 读DI",
+            "type": "button",
+            "command_id": "niren_modbus_rtu_read_di",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_107_rtu",
+            "params": {
+              "unit_id": "01"
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 41
+          },
+          {
+            "id": "niren_50_107_do_on",
+            "name": "50.107 DO开",
+            "type": "button",
+            "command_id": "niren_modbus_rtu_do_on",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_107_rtu",
+            "params": {
+              "unit_id": "01"
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 42
+          },
+          {
+            "id": "niren_50_107_do_off",
+            "name": "50.107 DO关",
+            "type": "button",
+            "command_id": "niren_modbus_rtu_do_off",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_107_rtu",
+            "params": {
+              "unit_id": "01"
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 43
+          },
+          {
+            "id": "niren_50_108_read_do",
+            "name": "50.108 读DO",
+            "type": "button",
+            "command_id": "niren_modbus_rtu_read_do",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_108_rtu",
+            "params": {
+              "unit_id": "01"
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 50
+          },
+          {
+            "id": "niren_50_108_read_di",
+            "name": "50.108 读DI",
+            "type": "button",
+            "command_id": "niren_modbus_rtu_read_di",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_108_rtu",
+            "params": {
+              "unit_id": "01"
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 51
+          },
+          {
+            "id": "niren_50_108_do_on",
+            "name": "50.108 DO开",
+            "type": "button",
+            "command_id": "niren_modbus_rtu_do_on",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_108_rtu",
+            "params": {
+              "unit_id": "01"
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 52
+          },
+          {
+            "id": "niren_50_108_do_off",
+            "name": "50.108 DO关",
+            "type": "button",
+            "command_id": "niren_modbus_rtu_do_off",
+            "target_group_id": "niren_poe_kp_i101_192_168_50_108_rtu",
+            "params": {
+              "unit_id": "01"
+            },
+            "show_on_home": false,
+            "visible": true,
+            "sort": 53
+          }
+        ],
         "id": "main",
-        "name": "协议控制面板",
+        "name": "泥人 RJ45/WIFI 继电器",
         "sort": 1,
         "visible": true
       }
