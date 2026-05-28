@@ -34,11 +34,21 @@ try:
         P2ImMessageReceiveV1,
     )
     from lark_oapi.core.enum import LogLevel
+    from lark_oapi.event.callback.model.p2_card_action_trigger import (
+        CallBackCard,
+        CallBackToast,
+        P2CardActionTrigger,
+        P2CardActionTriggerResponse,
+    )
 except Exception as exc:  # pragma: no cover - depends on local install
     lark = None
     CreateMessageRequest = None
     CreateMessageRequestBody = None
     P2ImMessageReceiveV1 = Any
+    P2CardActionTrigger = Any
+    P2CardActionTriggerResponse = Any
+    CallBackToast = Any
+    CallBackCard = Any
     LogLevel = None
     _LARK_IMPORT_ERROR = exc
 else:
@@ -90,7 +100,7 @@ CONTROL_ACTION_WORDS = (
     "制热",
 )
 CONTROL_STATUS_WORDS = ("状态", "日志", "记录", "历史", "有没有", "是否", "查询", "查看", "显示", "汇总", "吗", "么", "是不是")
-CONTROL_CONFIRM_WORDS = ("确认", "确认执行", "执行确认", "是的", "确定", "确认下发")
+CONTROL_CONFIRM_WORDS = ("确认", "确认执行", "执行确认", "执行", "下发", "确认下发", "是的", "确定")
 CONTROL_CANCEL_WORDS = ("取消", "别执行", "不要执行", "撤销")
 HIGH_RISK_CONTROL_TYPES = {"power", "sequencer"}
 PENDING_CONTROL_TTL_SEC = 10 * 60
@@ -2087,6 +2097,7 @@ class FeishuBot:
         handler = (
             lark.EventDispatcherHandler.builder("", "")
             .register_p2_im_message_receive_v1(self.handle_message_event)
+            .register_p2_card_action_trigger(self.handle_card_action)
             .build()
         )
         return lark.ws.Client(
@@ -2144,7 +2155,30 @@ class FeishuBot:
         if not chat_id:
             self.log("[message ignored] missing chat_id")
             return
-        self.send_text(chat_id, self.dispatch_command(text, chat_id=chat_id))
+        result = self.dispatch_command(text, chat_id=chat_id)
+        if isinstance(result, dict) and result.get("send_card"):
+            if not self.send_card(chat_id, result.get("card") or {}):
+                self.send_text(chat_id, str(result.get("fallback_text") or "需要确认，但卡片发送失败。请回复“执行”或“取消”。"))
+            return
+        self.send_text(chat_id, str(result))
+
+    def handle_card_action(self, event: P2CardActionTrigger) -> P2CardActionTriggerResponse:
+        action = getattr(getattr(event, "event", None), "action", None)
+        context = getattr(getattr(event, "event", None), "context", None)
+        value = getattr(action, "value", None) if action else None
+        value = value if isinstance(value, dict) else {}
+        chat_id = str(value.get("chat_id") or getattr(context, "open_chat_id", "") or "").strip()
+        decision = str(value.get("decision") or "").strip().lower()
+        pending_id = str(value.get("pending_id") or "").strip()
+        self.log(f"[card action] chat_id={chat_id} decision={decision} pending_id={pending_id}")
+        if decision in {"confirm", "execute"}:
+            text = self._execute_pending_control(chat_id, expected_pending_id=pending_id)
+            toast_type = "success" if "成功" in text or "已确认" in text else "warning"
+            return self._card_action_response(text, toast_type=toast_type, done_text=text)
+        if decision == "cancel":
+            text = self._cancel_pending_control(chat_id, expected_pending_id=pending_id)
+            return self._card_action_response(text, toast_type="success", done_text=text)
+        return self._card_action_response("无法识别按钮动作，请重新下发。", toast_type="warning")
 
     def _pending_key(self, chat_id: str) -> str:
         return str(chat_id or "_local").strip() or "_local"
@@ -2159,14 +2193,53 @@ class FeishuBot:
             return {"expired": True}
         return pending
 
+    def _pending_control_by_id(self, chat_id: str, expected_pending_id: str = "", *, pop: bool = True) -> dict[str, Any] | None:
+        key = self._pending_key(chat_id)
+        with self._pending_controls_lock:
+            pending = self._pending_controls.get(key)
+            if pending and expected_pending_id and str(pending.get("pending_id") or "") != expected_pending_id:
+                return {"mismatch": True}
+            if pending and pop:
+                self._pending_controls.pop(key, None)
+        if not pending:
+            return None
+        if time.time() > float(pending.get("expires_at", 0.0) or 0.0):
+            return {"expired": True}
+        return pending
+
+    def _execute_pending_control(self, chat_id: str, expected_pending_id: str = "") -> str:
+        pending = self._pending_control_by_id(chat_id, expected_pending_id=expected_pending_id, pop=True)
+        if not pending:
+            return "当前没有待确认控制。"
+        if pending.get("mismatch"):
+            return "这张确认卡片已不是最新请求，请使用最新卡片或重新下发。"
+        if pending.get("expired"):
+            return "待确认控制已过期，请重新下发。"
+        command = pending.get("command")
+        if not isinstance(command, dict):
+            return "待确认控制格式无效，请重新下发。"
+        return self.local_client.execute_control_command(command)
+
+    def _cancel_pending_control(self, chat_id: str, expected_pending_id: str = "") -> str:
+        pending = self._pending_control_by_id(chat_id, expected_pending_id=expected_pending_id, pop=True)
+        if not pending:
+            return "当前没有待确认控制。"
+        if pending.get("mismatch"):
+            return "这张确认卡片已不是最新请求，请使用最新卡片或重新下发。"
+        if pending.get("expired"):
+            return "待确认控制已过期，已自动放弃。"
+        return "已取消待确认控制。"
+
     def _store_pending_control(self, chat_id: str, command: dict[str, Any], source_text: str) -> str:
         key = self._pending_key(chat_id)
         expires_at = time.time() + PENDING_CONTROL_TTL_SEC
+        pending_id = uuid.uuid4().hex
         with self._pending_controls_lock:
             self._pending_controls[key] = {
                 "command": command,
                 "source_text": source_text,
                 "expires_at": expires_at,
+                "pending_id": pending_id,
             }
         label = str(command.get("label") or "设备")
         action = _format_control_action(str(command.get("action") or ""))
@@ -2174,33 +2247,44 @@ class FeishuBot:
         reason = str(command.get("inference_reason") or "").strip()
         if confidence in INFERRED_CONTROL_CONFIDENCE:
             reason_line = f"\n推断理由：{reason}" if reason else ""
-            return (
+            fallback_text = (
                 f"这是我的推断，请你确认后再执行：{label} -> {action}{reason_line}\n"
-                "回复“确认”执行，回复“取消”放弃；如果不对，请补充更完整的设备名称或编号。\n"
+                "点击卡片按钮，或回复“执行/确认”执行，回复“取消”放弃；如果不对，请补充更完整的设备名称或编号。\n"
                 "提示：确认有效期 10 分钟。"
             )
-        return (
+            return self._pending_control_card_payload(
+                chat_id,
+                pending_id,
+                label,
+                action,
+                fallback_text,
+                title="需要确认推断",
+                template="blue",
+                reason=reason,
+                high_risk=False,
+            )
+        fallback_text = (
             f"高风险操作需要二次确认：{label} -> {action}\n"
-            "回复“确认”执行，回复“取消”放弃。\n"
+            "点击卡片按钮，或回复“执行/确认”执行，回复“取消”放弃。\n"
             "提示：确认有效期 10 分钟。"
+        )
+        return self._pending_control_card_payload(
+            chat_id,
+            pending_id,
+            label,
+            action,
+            fallback_text,
+            title="高风险操作确认",
+            template="red",
+            reason="强电柜、时序电源或推断类控制需要人工确认。",
+            high_risk=True,
         )
 
     def _dispatch_control_command(self, normalized: str, chat_id: str = "") -> str | None:
         if _is_cancel_text(normalized):
-            pending = self._pop_pending_control(chat_id)
-            if pending:
-                return "已取消待确认控制。"
-            return "当前没有待确认控制。"
+            return self._cancel_pending_control(chat_id)
         if _is_confirmation_text(normalized):
-            pending = self._pop_pending_control(chat_id)
-            if not pending:
-                return "当前没有待确认控制。"
-            if pending.get("expired"):
-                return "待确认控制已过期，请重新下发。"
-            command = pending.get("command")
-            if not isinstance(command, dict):
-                return "待确认控制格式无效，请重新下发。"
-            return self.local_client.execute_control_command(command)
+            return self._execute_pending_control(chat_id)
         if not _is_control_request(normalized):
             return None
         command = self.local_client.resolve_control_command(normalized)
@@ -2243,6 +2327,80 @@ class FeishuBot:
                     return self.local_client.answer_intent(intent, query)
         return self.local_client.query_text(normalized)
 
+    def _pending_control_card_payload(
+        self,
+        chat_id: str,
+        pending_id: str,
+        label: str,
+        action: str,
+        fallback_text: str,
+        *,
+        title: str,
+        template: str,
+        reason: str = "",
+        high_risk: bool = False,
+    ) -> dict[str, Any]:
+        risk_text = "高风险操作，请确认现场安全后再执行。" if high_risk else "这是系统推断结果，请确认目标无误。"
+        elements: list[dict[str, Any]] = [
+            {
+                "tag": "div",
+                "text": {
+                    "tag": "lark_md",
+                    "content": f"**目标：** {label}\n**动作：** {action}\n**提示：** {risk_text}",
+                },
+            }
+        ]
+        if reason:
+            elements.append({"tag": "hr"})
+            elements.append({"tag": "div", "text": {"tag": "plain_text", "content": f"原因：{reason}"}})
+        elements.extend(
+            [
+                {"tag": "hr"},
+                {
+                    "tag": "action",
+                    "actions": [
+                        {
+                            "tag": "button",
+                            "text": {"tag": "plain_text", "content": "确认执行"},
+                            "type": "primary",
+                            "value": {"decision": "confirm", "pending_id": pending_id, "chat_id": chat_id},
+                        },
+                        {
+                            "tag": "button",
+                            "text": {"tag": "plain_text", "content": "取消"},
+                            "type": "default",
+                            "value": {"decision": "cancel", "pending_id": pending_id, "chat_id": chat_id},
+                        },
+                    ],
+                },
+                {
+                    "tag": "note",
+                    "elements": [
+                        {"tag": "plain_text", "content": "10 分钟内有效；也可以直接回复“执行/确认”或“取消”。"}
+                    ],
+                },
+            ]
+        )
+        card = {
+            "config": {"wide_screen_mode": True},
+            "header": {"template": template, "title": {"tag": "plain_text", "content": title}},
+            "elements": elements,
+        }
+        return {"send_card": True, "card": card, "fallback_text": fallback_text}
+
+    def _done_card(self, text: str, *, template: str = "green") -> dict[str, Any]:
+        return {
+            "config": {"wide_screen_mode": True},
+            "header": {"template": template, "title": {"tag": "plain_text", "content": "处理结果"}},
+            "elements": [{"tag": "div", "text": {"tag": "plain_text", "content": text}}],
+        }
+
+    def _card_action_response(self, text: str, *, toast_type: str = "success", done_text: str = ""):
+        response = P2CardActionTriggerResponse()
+        response.toast = CallBackToast({"type": toast_type, "content": text})
+        response.card = CallBackCard({"type": "raw", "data": self._done_card(done_text or text, template="green" if toast_type == "success" else "yellow")})
+        return response
+
     def send_text(self, chat_id: str, text: str) -> bool:
         body = (
             CreateMessageRequestBody.builder()
@@ -2262,6 +2420,27 @@ class FeishuBot:
         if response.success():
             return True
         self.log(f"[send failed] code={response.code} msg={response.msg} log_id={response.get_log_id()}")
+        return False
+
+    def send_card(self, chat_id: str, card: dict[str, Any]) -> bool:
+        body = (
+            CreateMessageRequestBody.builder()
+            .receive_id(chat_id)
+            .msg_type("interactive")
+            .content(json.dumps(card, ensure_ascii=False))
+            .uuid(str(uuid.uuid4()))
+            .build()
+        )
+        request = (
+            CreateMessageRequest.builder()
+            .receive_id_type("chat_id")
+            .request_body(body)
+            .build()
+        )
+        response = self.api_client.im.v1.message.create(request)
+        if response.success():
+            return True
+        self.log(f"[send card failed] code={response.code} msg={response.msg} log_id={response.get_log_id()}")
         return False
 
 
