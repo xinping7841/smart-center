@@ -1,0 +1,10 @@
+﻿{
+    "task":  "server-monitor-network-font-unify",
+    "module":  "server_monitor",
+    "machine":  "12700k",
+    "kind":  "light",
+    "branch":  "codex/12700k-server-monitor-network-font-unify-20260528",
+    "worktree":  "D:\\SmartCenter\\smart-center-worktrees\\server-monitor-network-font-unify",
+    "started_at":  "2026-05-28 13:47:03",
+    "status":  "in_progress"
+}
