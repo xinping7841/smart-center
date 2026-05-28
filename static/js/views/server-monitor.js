@@ -161,9 +161,53 @@
 
     function memoryChannelText(topology) {
             const mode = String(topology?.channel_mode || '').toLowerCase();
-            if (mode === 'dual') return '双通道推断';
-            if (mode === 'single') return '单通道推断';
+            if (mode === 'dual') return '双通道';
+            if (mode === 'single') return '单通道';
             return '通道未知';
+        }
+
+    function getAdapterIps(adapter) {
+            const rawIps = Array.isArray(adapter?.ipv4)
+                ? adapter.ipv4
+                : [adapter?.adapter_ip, adapter?.ip, adapter?.ipv4].filter(Boolean);
+            return rawIps.map(ip => String(ip || '').trim()).filter(Boolean);
+        }
+
+    function getAdapterMac(adapter) {
+            return normalizeDisplayMac(adapter?.adapter_mac || adapter?.mac || adapter?.physical_mac || adapter?.address);
+        }
+
+    function getAdapterName(adapter, fallback = '网卡') {
+            return compactHardwareName(adapter?.description || adapter?.adapter_description || adapter?.name || adapter?.adapter_name, fallback);
+        }
+
+    function getAdapterSpeedText(adapter) {
+            const speed = Number(adapter?.speed_mbps || adapter?.link_speed_mbps || adapter?.speed);
+            if (!Number.isFinite(speed) || speed <= 0 || speed >= 100000) return '';
+            if (speed >= 1000) return `${(speed / 1000).toFixed(speed % 1000 ? 1 : 0)}Gbps`;
+            return `${speed.toFixed(0)}Mbps`;
+        }
+
+    function renderServerNetworkAdapters(st, context = {}) {
+            const { serverViewMode = 'compact' } = getContext(context);
+            if (serverViewMode !== 'detail') return '';
+            const adapters = Array.isArray(st.network_adapters) ? st.network_adapters : [];
+            const physical = adapters.filter(adapter => !adapter?.is_virtual);
+            const active = physical.filter(adapter => {
+                const state = String(adapter?.state || adapter?.status || '').toLowerCase();
+                return state === 'up' || state === 'connected' || getAdapterIps(adapter).length;
+            });
+            const rows = (active.length ? active : physical).slice(0, 6);
+            if (!rows.length) return '';
+            return `<div class="server-adapter-list">${rows.map((adapter, idx) => {
+                const ips = getAdapterIps(adapter);
+                const mac = getAdapterMac(adapter);
+                const speed = getAdapterSpeedText(adapter);
+                const state = String(adapter?.state || adapter?.status || '').trim();
+                const name = getAdapterName(adapter, `网卡 ${idx + 1}`);
+                const meta = [ips.length ? `IP ${ips.join(' / ')}` : 'IP 未上报', mac ? `MAC ${mac}` : 'MAC 未上报', speed, state].filter(Boolean);
+                return `<div class="server-adapter-row" title="${escapeHtml([name, ...meta].join('\n'))}"><div class="server-adapter-name"><span>${escapeHtml(`网卡 ${idx + 1}`)}</span><strong>${escapeHtml(name)}</strong></div><div class="server-adapter-meta">${meta.map(item => `<em>${escapeHtml(item)}</em>`).join('')}</div></div>`;
+            }).join('')}</div>`;
         }
 
     function renderServerHardwareExtra(st, context = {}) {
@@ -181,23 +225,14 @@
             const nicText = `${network.active_count ?? 0}/${network.physical_count ?? 0}网卡`;
             const wirelessText = wifi.present ? (wifi.connected ? `Wi-Fi ${wifi.ssid || '已连接'}` : 'Wi-Fi未连') : '';
             const bluetoothText = bt.present ? (bt.blocked ? '蓝牙阻塞' : '蓝牙') : '';
-            const adapters = Array.isArray(st.network_adapters) ? st.network_adapters : [];
-            const activeAdapters = adapters.filter(a => !a.is_virtual && (a.state === 'up' || (Array.isArray(a.ipv4) && a.ipv4.length)));
-            const activeNetworkText = activeAdapters.slice(0, 4).map(a => {
-                const ips = Array.isArray(a.ipv4) ? a.ipv4.filter(Boolean).join(',') : '';
-                const name = a.description || a.name || '网卡';
-                const speed = a.speed_mbps && Number(a.speed_mbps) < 100000 ? `${Number(a.speed_mbps).toFixed(0)}M` : '';
-                return [compactHardwareName(name), ips, speed].filter(Boolean).join(' ');
-            }).join(' / ');
             const items = [
                 ['系统', osText],
                 ['内存', memText],
                 ['硬盘', diskCount ? `${diskCount}盘` : ''],
                 ['网络', [nicText, wirelessText, bluetoothText].filter(Boolean).join(' / ')],
-                ['IP', activeNetworkText],
             ].filter(([, value]) => value);
-            if (!items.length) return '';
-            return items.map(([label, value]) => `<div class="hardware-item server-hardware-extra">${escapeHtml(label)}: <span>${escapeHtml(value)}</span></div>`).join('');
+            const itemHtml = items.map(([label, value]) => `<div class="hardware-item server-hardware-extra"><span class="hardware-label">${escapeHtml(label)}</span><span class="hardware-value">${escapeHtml(value)}</span></div>`).join('');
+            return `${itemHtml}${renderServerNetworkAdapters(st, context)}`;
         }
 
     function getStorageVolumeRows(st) {
@@ -373,7 +408,7 @@
                 const memoryHtml = memoryPercent > 0
                     ? `<div class="metric-label server-gpu-memory-label"><span>显存占用</span><span>${escapeHtml(memoryText)} · ${formatServerMetric(memoryPercent)}</span></div><div class="progress-track server-gpu-memory-track"><div class="progress-fill bg-blue" style="width:${memoryPercent}%"></div></div>`
                     : '';
-                return `<div class="metric-row server-gpu-row" title="${escapeHtml(g?.name || 'GPU')}"><div class="metric-label"><span>显卡核心 ${label} ${escapeHtml(compactGpuName(g?.name))}</span><span>${util}<em style="color:${tempColor};"> · ${temp}</em></span></div><div class="progress-track"><div class="progress-fill ${getColor(utilPercent)}" style="width:${utilPercent}%"></div></div>${memoryHtml}</div>`;
+                return `<div class="metric-row server-gpu-row" title="${escapeHtml(g?.name || 'GPU')}"><div class="server-gpu-head"><span class="server-gpu-index">${escapeHtml(label)}</span><strong>${escapeHtml(compactGpuName(g?.name))}</strong><em style="color:${tempColor};">${temp}</em></div><div class="metric-label"><span>核心占用</span><span>${util}</span></div><div class="progress-track"><div class="progress-fill ${getColor(utilPercent)}" style="width:${utilPercent}%"></div></div>${memoryHtml}</div>`;
             }).join('');
             const note = virtualCount > 0 ? `<div class="server-gpu-muted">已隐藏 ${virtualCount} 个远控/虚拟显示适配器</div>` : '';
             return `<div class="gpu-list">${rows}${note}</div>`;
@@ -830,7 +865,7 @@
                 : '';
             const showLastMetrics = !!(m.is_online || hasStoredMetrics || (diagnostic.reportOnline && diagnostic.hasRuntime));
             const metricsHtml = showLastMetrics
-                ? `${statusMetaHtml}${diagnosticHtml}${offlineSnapshotHtml}<div class="hardware-info"><div class="hardware-item" title="${escapeHtml(st.cpu_name||'未获取到CPU')}">CPU: <span>${escapeHtml(st.cpu_name||'加载中...')}</span></div><div class="hardware-item" title="${escapeHtml(st.motherboard||'未获取到主板')}">主板: <span>${escapeHtml(st.motherboard||'加载中...')}</span></div>${st.mem_speed ? `<div class="hardware-item">内存频率: <span>${escapeHtml(st.mem_speed)} MHz</span></div>` : ''}${hardwareExtraHtml}</div><div class="metric-row"><div class="metric-label"><span title="${escapeHtml(st.cpu_name || '')}">CPU ${escapeHtml(cpuLabel)}</span><span>${formatServerMetric(cpuPercent)}</span></div><div class="progress-track"><div class="progress-fill ${getColor(cpuPercent)}" style="width:${Math.max(0, Math.min(100, cpuPercent))}%"></div></div></div><div class="metric-row"><div class="metric-label"><span>内存 (${escapeHtml(st.mem_used||0)}/${escapeHtml(st.mem_total||0)} GB)</span><span>${formatServerMetric(memPercent)}</span></div><div class="progress-track"><div class="progress-fill bg-blue" style="width:${Math.max(0, Math.min(100, memPercent))}%"></div></div></div>${gpuHtml}${storageHtml}<div class="server-network-line" title="${escapeHtml(networkPrimaryLabel)}"><span>网络 上/下</span><strong><span style="color:var(--brand-blue)">↑ ${formatNetworkMbps(netSent)}</span><span style="color:var(--success)">↓ ${formatNetworkMbps(netRecv)} Mbps</span></strong></div>${codeMeterHtml}`
+                ? `${statusMetaHtml}${diagnosticHtml}${offlineSnapshotHtml}<div class="hardware-info"><div class="hardware-item" title="${escapeHtml(st.cpu_name||'未获取到CPU')}"><span class="hardware-label">CPU</span><span class="hardware-value">${escapeHtml(st.cpu_name||'加载中...')}</span></div><div class="hardware-item" title="${escapeHtml(st.motherboard||'未获取到主板')}"><span class="hardware-label">主板</span><span class="hardware-value">${escapeHtml(st.motherboard||'加载中...')}</span></div>${st.mem_speed ? `<div class="hardware-item"><span class="hardware-label">频率</span><span class="hardware-value">${escapeHtml(st.mem_speed)} MHz</span></div>` : ''}${hardwareExtraHtml}</div><div class="metric-row"><div class="metric-label"><span title="${escapeHtml(st.cpu_name || '')}">CPU ${escapeHtml(cpuLabel)}</span><span>${formatServerMetric(cpuPercent)}</span></div><div class="progress-track"><div class="progress-fill ${getColor(cpuPercent)}" style="width:${Math.max(0, Math.min(100, cpuPercent))}%"></div></div></div><div class="metric-row"><div class="metric-label"><span>内存 (${escapeHtml(st.mem_used||0)}/${escapeHtml(st.mem_total||0)} GB)</span><span>${formatServerMetric(memPercent)}</span></div><div class="progress-track"><div class="progress-fill bg-blue" style="width:${Math.max(0, Math.min(100, memPercent))}%"></div></div></div>${gpuHtml}${storageHtml}<div class="server-network-line" title="${escapeHtml(networkPrimaryLabel)}"><span>网络 上/下</span><strong><span style="color:var(--brand-blue)">↑ ${formatNetworkMbps(netSent)}</span><span style="color:var(--success)">↓ ${formatNetworkMbps(netRecv)} Mbps</span></strong></div>${codeMeterHtml}`
                 : `${statusMetaHtml}${diagnosticHtml}<div style="text-align:center; color:var(--text-sub); margin:14px 0;">该节点当前离线，等待自动重连上报。</div>`;
             const groupHtml = m.asset_group ? `<div style="margin-top:8px; font-size:12px; color:var(--brand-blue);">区域/分组: ${escapeHtml(m.asset_group)}</div>` : '';
             let remarkHtml = m.remark ? `<div style="margin-top:12px; font-size:12px; color:var(--text-sub); border-top:1px dashed rgba(255,255,255,0.1); padding-top:8px;">备注: ${escapeHtml(m.remark)}</div>` : '';

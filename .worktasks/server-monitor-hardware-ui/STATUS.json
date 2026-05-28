@@ -1,0 +1,10 @@
+﻿{
+    "task":  "server-monitor-hardware-ui",
+    "module":  "server_monitor",
+    "machine":  "12700k",
+    "kind":  "light",
+    "branch":  "codex/12700k-server-monitor-hardware-ui-20260528",
+    "worktree":  "D:\\SmartCenter\\smart-center-worktrees\\server-monitor-hardware-ui",
+    "started_at":  "2026-05-28 10:46:39",
+    "status":  "in_progress"
+}
