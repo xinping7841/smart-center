@@ -1,0 +1,213 @@
+# AI_MODULE: device_aliases
+# AI_PURPOSE: Build a reusable natural-language alias index from Smart Center config for Feishu and local-model control routing.
+# AI_BOUNDARY: Read-only helper; it only describes devices, channels, aliases, and suggested control metadata.
+# AI_DATA_FLOW: CONFIG -> alias rows -> Feishu parser / local-model training export.
+# AI_RISK: Medium, alias mistakes can route control to the wrong device; keep aliases explainable and conservative.
+
+from __future__ import annotations
+
+import re
+from typing import Any
+
+
+def normalize_alias_text(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    if not text:
+        return ""
+    replacements = {
+        "一号": "1号",
+        "第一": "第1",
+        "二号": "2号",
+        "第二": "第2",
+        "两号": "2号",
+        "第三": "第3",
+        "三号": "3号",
+        "第四": "第4",
+        "四号": "4号",
+        "第五": "第5",
+        "五号": "5号",
+        "第六": "第6",
+        "六号": "6号",
+        "第七": "第7",
+        "七号": "7号",
+        "第八": "第8",
+        "八号": "8号",
+        "第九": "第9",
+        "九号": "9号",
+        "第十": "第10",
+        "十号": "10号",
+        "电源柜": "电柜",
+        "配电柜": "电柜",
+    }
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    return re.sub(r"[\s\-_:：,，.。/\\()（）\[\]【】+]+", "", text)
+
+
+def _add_alias(aliases: set[str], *values: Any) -> None:
+    for value in values:
+        raw = str(value or "").strip()
+        if not raw:
+            continue
+        normalized = normalize_alias_text(raw)
+        if normalized:
+            aliases.add(normalized)
+
+
+def _name_variants(name: Any) -> set[str]:
+    raw = str(name or "").strip()
+    aliases: set[str] = set()
+    if not raw:
+        return aliases
+    _add_alias(aliases, raw)
+    compact = normalize_alias_text(raw)
+    if compact:
+        _add_alias(aliases, compact.replace("电柜", ""), compact.replace("灯", ""))
+    for suffix in ("电柜", "配电柜", "电箱", "电源柜", "柜", "灯", "灯光", "照明"):
+        _add_alias(aliases, f"{raw}{suffix}")
+    return aliases
+
+
+def _channel_aliases(channel: Any, name: Any = "", remark: Any = "") -> set[str]:
+    aliases: set[str] = set()
+    try:
+        ch = int(channel)
+    except Exception:
+        ch = 0
+    if ch > 0:
+        _add_alias(aliases, str(ch), f"{ch}路", f"第{ch}路", f"回路{ch}", f"第{ch}回路", f"{ch}回路", f"{ch}通道", f"第{ch}通道")
+    aliases.update(_name_variants(name))
+    aliases.update(_name_variants(remark))
+    return aliases
+
+
+def _row(module: str, device_type: str, row_id: str, name: str, aliases: set[str], **extra: Any) -> dict[str, Any]:
+    return {
+        "schema": "smart_center.device_alias.v1",
+        "module": module,
+        "device_type": device_type,
+        "device_id": str(row_id),
+        "name": str(name or row_id),
+        "aliases": sorted(alias for alias in aliases if alias),
+        **extra,
+    }
+
+
+def build_device_alias_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+
+    for cab_idx, cab in enumerate(config.get("cabinets") if isinstance(config.get("cabinets"), list) else []):
+        if not isinstance(cab, dict):
+            continue
+        cab_name = str(cab.get("cabinet_name") or cab.get("meter_display_name") or cab.get("name") or f"强电柜{cab_idx + 1}")
+        cab_aliases = set()
+        cab_aliases.update(_name_variants(cab_name))
+        _add_alias(cab_aliases, cab.get("id"), cab.get("name"), cab.get("cabinet_name"), cab.get("meter_display_name"))
+        if cab_idx == 0:
+            _add_alias(cab_aliases, "主电柜", "主柜", "总电柜", "中控主电柜")
+        rows.append(_row("power", "cabinet", str(cab_idx), cab_name, cab_aliases, cab_idx=cab_idx, risk="high"))
+        for ch in cab.get("channels_config") or []:
+            if not isinstance(ch, dict):
+                continue
+            channel = ch.get("channel")
+            channel_name = str(ch.get("remark") or ch.get("name") or f"第{channel}路")
+            aliases = set(cab_aliases)
+            aliases.update(_channel_aliases(channel, ch.get("name"), ch.get("remark")))
+            for cab_alias in list(cab_aliases):
+                for ch_alias in _channel_aliases(channel, ch.get("name"), ch.get("remark")):
+                    _add_alias(aliases, f"{cab_alias}{ch_alias}")
+            rows.append(
+                _row(
+                    "power",
+                    "cabinet_channel",
+                    f"{cab_idx}:{channel}",
+                    f"{cab_name} {channel_name}",
+                    aliases,
+                    cab_idx=cab_idx,
+                    channel=channel,
+                    action_hint="on/off",
+                    risk="high",
+                )
+            )
+
+    for device in config.get("light_devices") if isinstance(config.get("light_devices"), list) else []:
+        if not isinstance(device, dict):
+            continue
+        device_id = str(device.get("id") or "")
+        light_name = str(device.get("name") or device_id or "灯光设备")
+        light_aliases = set()
+        light_aliases.update(_name_variants(light_name))
+        _add_alias(light_aliases, device_id, device.get("ip"))
+        rows.append(_row("light", "light_controller", device_id, light_name, light_aliases, device_id=device_id, risk="normal"))
+        for ch in device.get("channels_config") or []:
+            if not isinstance(ch, dict):
+                continue
+            channel = ch.get("channel")
+            channel_name = str(ch.get("remark") or ch.get("name") or f"第{channel}路")
+            aliases = set(light_aliases)
+            aliases.update(_channel_aliases(channel, ch.get("name"), ch.get("remark")))
+            aliases.update(_name_variants(channel_name))
+            for suffix in ("灯", "灯光", "照明"):
+                _add_alias(aliases, f"{channel_name}{suffix}", f"{light_name}{channel_name}{suffix}")
+            for dev_alias in list(light_aliases):
+                for ch_alias in _channel_aliases(channel, ch.get("name"), ch.get("remark")):
+                    _add_alias(aliases, f"{dev_alias}{ch_alias}", f"{dev_alias}{ch_alias}灯")
+            rows.append(
+                _row(
+                    "light",
+                    "light_channel",
+                    f"{device_id}:{channel}",
+                    f"{light_name} {channel_name}",
+                    aliases,
+                    device_id=device_id,
+                    channel=channel,
+                    action_hint="on/off/toggle",
+                    risk="normal",
+                )
+            )
+
+    for section, module, device_type in (
+        ("hvac_devices", "hvac", "hvac"),
+        ("projectors", "projector", "projector"),
+        ("screens", "screen", "screen"),
+        ("sequencers", "sequencer", "sequencer"),
+        ("custom_devices", "custom", "custom_device"),
+    ):
+        for item in config.get(section) if isinstance(config.get(section), list) else []:
+            if not isinstance(item, dict):
+                continue
+            item_id = str(item.get("id") or item.get("device_id") or item.get("ip") or item.get("name") or "")
+            name = str(item.get("name") or item.get("display_name") or item_id or device_type)
+            aliases = set()
+            aliases.update(_name_variants(name))
+            _add_alias(aliases, item_id, item.get("ip"), item.get("host"), item.get("entity_id"), item.get("node_red_device_id"))
+            rows.append(_row(module, device_type, item_id, name, aliases, risk="high" if module == "sequencer" else "normal"))
+
+    return rows
+
+
+def find_alias_rows(query: str, rows: list[dict[str, Any]], *, module: str = "", device_type: str = "") -> list[dict[str, Any]]:
+    normalized = normalize_alias_text(query)
+    if not normalized:
+        return []
+    matches: list[tuple[int, dict[str, Any]]] = []
+    for row in rows:
+        if module and row.get("module") != module:
+            continue
+        if device_type and row.get("device_type") != device_type:
+            continue
+        best = 0
+        for alias in row.get("aliases") or []:
+            alias_norm = normalize_alias_text(alias)
+            if not alias_norm:
+                continue
+            if alias_norm == normalized:
+                best = max(best, 120)
+            elif alias_norm in normalized:
+                best = max(best, 80 + min(len(alias_norm), 30))
+            elif len(alias_norm) >= 3 and normalized in alias_norm:
+                best = max(best, 50 + min(len(normalized), 25))
+        if best:
+            matches.append((best, row))
+    matches.sort(key=lambda item: (item[0], len(item[1].get("aliases") or [])), reverse=True)
+    return [row for _score, row in matches]

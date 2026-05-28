@@ -28,6 +28,7 @@ from auth.session import get_current_user
 from config import CONFIG, save_config
 from event_logger import query_events
 from paths import AUDIT_LOG_FILE, DATA_DIR, DB_FILE, OPERATION_LOG_FILE, ensure_directory
+from services.device_aliases import build_device_alias_rows
 from services.feishu_bot import HIGH_RISK_CONTROL_TYPES, INFERRED_CONTROL_CONFIDENCE, LocalSmartCenterClient, _control_action_from_text, _format_control_action, _is_control_request
 
 
@@ -960,6 +961,7 @@ def build_training_export():
     device_rows = _extract_device_records(config)
     server_machine_rows = _extract_server_machine_records()
     device_rows.extend(server_machine_rows)
+    device_alias_rows = build_device_alias_rows(config)
     protocol_rows = _extract_protocol_records(config)
     log_rows = _extract_log_records(int(export_cfg.get("recent_log_limit", 500))) if export_cfg.get("include_logs", True) else []
     insight_rows, daily_summary = build_insights(config, device_rows, protocol_rows, log_rows)
@@ -1003,6 +1005,7 @@ def build_training_export():
     ]
     files = {
         "devices": out_dir / f"devices_{stamp}.jsonl",
+        "device_aliases": out_dir / f"device_aliases_{stamp}.jsonl",
         "protocols": out_dir / f"protocols_{stamp}.jsonl",
         "logs": out_dir / f"logs_{stamp}.jsonl",
         "instructions": out_dir / f"instructions_{stamp}.jsonl",
@@ -1012,6 +1015,7 @@ def build_training_export():
         "knowledge": out_dir / f"knowledge_{stamp}.json",
     }
     _jsonl_write(files["devices"], device_rows)
+    _jsonl_write(files["device_aliases"], device_alias_rows)
     _jsonl_write(files["protocols"], protocol_rows)
     _jsonl_write(files["logs"], log_rows)
     _jsonl_write(files["instructions"], instruction_rows)
@@ -1024,6 +1028,7 @@ def build_training_export():
         "model_target": {k: v for k, v in model_cfg.items() if k != "api_key"},
         "counts": {
             "devices": len(device_rows),
+            "device_aliases": len(device_alias_rows),
             "server_machines": len(server_machine_rows),
             "protocol_records": len(protocol_rows),
             "logs": len(log_rows),
@@ -1033,6 +1038,8 @@ def build_training_export():
         },
         "device_sections": DEVICE_SECTIONS,
         "server_machine_groups": _count_by(server_machine_rows, "asset_group"),
+        "alias_modules": _count_by(device_alias_rows, "module"),
+        "alias_device_types": _count_by(device_alias_rows, "device_type"),
         "insight_types": _count_by(insight_rows, "insight_type"),
         "daily_summary": daily_summary,
         "config_snapshot": _redact(config),

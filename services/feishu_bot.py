@@ -24,6 +24,8 @@ from typing import Any, Callable
 
 import requests
 
+from services.device_aliases import build_device_alias_rows, find_alias_rows, normalize_alias_text
+
 try:
     import lark_oapi as lark
     from lark_oapi.api.im.v1 import (
@@ -276,11 +278,34 @@ def _control_action_from_text(text: str) -> str:
 
 
 def _extract_first_int(text: str) -> int | None:
-    match = re.search(r"\d+", str(text or ""))
-    if not match:
-        return None
+    raw = str(text or "")
+    match = re.search(r"\d+", raw)
+    if match:
+        try:
+            return int(match.group(0))
+        except Exception:
+            return None
+    zh_map = {
+        "一": 1,
+        "二": 2,
+        "两": 2,
+        "三": 3,
+        "四": 4,
+        "五": 5,
+        "六": 6,
+        "七": 7,
+        "八": 8,
+        "九": 9,
+        "十": 10,
+    }
+    zh_match = re.search(r"第?\s*([一二两三四五六七八九十])\s*(?:路|回路|通道|号)", raw)
+    if zh_match:
+        return zh_map.get(zh_match.group(1))
+    zh_match = re.search(r"第?\s*十([一二三四五六])\s*(?:路|回路|通道|号)", raw)
+    if zh_match:
+        return 10 + int(zh_map.get(zh_match.group(1), 0))
     try:
-        return int(match.group(0))
+        return zh_map.get(raw.strip())
     except Exception:
         return None
 
@@ -391,24 +416,7 @@ def _device_name(device: dict[str, Any]) -> str:
 
 
 def _normalize_match_text(value: Any) -> str:
-    text = str(value or "").strip().lower()
-    if not text:
-        return ""
-    replacements = {
-        "一号": "1号",
-        "二号": "2号",
-        "三号": "3号",
-        "四号": "4号",
-        "五号": "5号",
-        "六号": "6号",
-        "七号": "7号",
-        "八号": "8号",
-        "九号": "9号",
-        "十号": "10号",
-    }
-    for source, target in replacements.items():
-        text = text.replace(source, target)
-    return re.sub(r"[\s\-_:：,，.。/\\()（）\[\]【】]+", "", text)
+    return normalize_alias_text(value)
 
 
 def _machine_group(machine: dict[str, Any]) -> str:
@@ -644,16 +652,37 @@ class LocalSmartCenterClient:
         except Exception:
             return []
 
+    def _device_alias_rows(self) -> list[dict[str, Any]]:
+        try:
+            from config import CONFIG
+
+            return build_device_alias_rows(CONFIG)
+        except Exception:
+            return []
+
     def _summarize_api_result(self, payload: Any) -> str:
         if not isinstance(payload, dict):
             return str(payload)
         message = payload.get("msg") or payload.get("message") or payload.get("response") or payload.get("log")
         if message:
             return str(message)
+        if payload.get("last_result") and isinstance(payload.get("last_result"), dict):
+            result = payload.get("last_result") or {}
+            status = result.get("status") or payload.get("status") or ""
+            delay = result.get("ack_delay_ms")
+            if status:
+                return f"网关已确认 {status}{f'，延迟 {delay}ms' if delay is not None else ''}"
+        if payload.get("state") and isinstance(payload.get("state"), dict):
+            state = payload.get("state") or {}
+            status = state.get("status") or state.get("last_response") or ""
+            if status:
+                return f"状态 {status}"
         if payload.get("success") is not None:
-            return "成功" if payload.get("success") else "失败"
+            status = str(payload.get("status") or payload.get("state") or "").strip()
+            return f"成功{f'，状态 {status}' if status and len(status) < 32 else ''}" if payload.get("success") else "失败"
         if payload.get("ok") is not None:
-            return "成功" if payload.get("ok") else "失败"
+            status = str(payload.get("status") or payload.get("state") or "").strip()
+            return f"成功{f'，状态 {status}' if status and len(status) < 32 else ''}" if payload.get("ok") else "失败"
         return "已返回结果"
 
     def _finish_control_result(self, ok: bool, payload: Any, label: str, action: str) -> str:
@@ -824,8 +853,23 @@ class LocalSmartCenterClient:
     def _resolve_light_control(self, text: str, action: str) -> dict[str, Any] | None:
         if action not in {"on", "off", "toggle"}:
             return None
+        alias_matches = find_alias_rows(text, self._device_alias_rows(), module="light")
+        channel_alias = next((row for row in alias_matches if row.get("device_type") == "light_channel"), None)
+        controller_alias = next((row for row in alias_matches if row.get("device_type") == "light_controller"), None)
         ok, payload = self.get_json("/api/light/status", timeout_sec=4.0)
         if not ok or not isinstance(payload, dict):
+            if channel_alias:
+                target = action == "on"
+                return {
+                    "type": "light",
+                    "risk": "normal",
+                    "label": str(channel_alias.get("name") or "灯光通道"),
+                    "path": "/api/light/control",
+                    "payload": {"type": "single", "device_id": channel_alias.get("device_id"), "channel": channel_alias.get("channel"), "is_open": target},
+                    "action": "on" if target else "off",
+                    "confidence": "medium",
+                    "inference_reason": f"灯光状态接口暂不可用，已按配置别名匹配到 {channel_alias.get('name')}",
+                }
             return {"type": "error", "message": f"灯光接口暂时不可用：{payload}"}
         extras = payload.get("extras") if isinstance(payload.get("extras"), dict) else {}
         channels = payload.get("channels") if isinstance(payload.get("channels"), dict) else {}
@@ -836,22 +880,31 @@ class LocalSmartCenterClient:
             row["name"] = row.get("name") or device_id
             devices.append(row)
         matches = _match_items_by_query(text, devices, ("name", "id"))
+        if channel_alias:
+            matches = [item for item in devices if str(item.get("id")) == str(channel_alias.get("device_id"))]
+        elif controller_alias and not matches:
+            matches = [item for item in devices if str(item.get("id")) == str(controller_alias.get("device_id"))]
         if len(matches) > 1:
             return {"type": "error", "message": self._ambiguous_control_text("灯光设备", matches)}
         if not matches:
-            return {"type": "error", "message": self._not_found_control_text("灯光设备", "如果是庭院灯，请说：打开庭院灯 / 关闭庭院灯")}
+            hint_rows = [row.get("name") for row in self._device_alias_rows() if row.get("module") == "light" and row.get("device_type") == "light_channel"]
+            hint = "可尝试：" + "、".join(str(x) for x in hint_rows[:8]) if hint_rows else "如果是庭院灯，请说：打开庭院灯 / 关闭庭院灯"
+            return {"type": "error", "message": self._not_found_control_text("灯光设备", hint)}
         item = matches[0]
         states = channels.get(str(item.get("id"))) if isinstance(channels, dict) else None
-        channel = _extract_first_int(text)
+        channel = int(channel_alias.get("channel") or 0) if channel_alias else _extract_first_int(text)
         if channel is None and isinstance(states, list) and len(states) == 1:
             channel = 1
         if channel is None:
-            return {"type": "error", "message": "灯光控制需要指定通道，例如：打开灯光1路。庭院灯可直接说打开庭院灯。"}
+            channel_hints = [row.get("name") for row in self._device_alias_rows() if row.get("module") == "light" and str(row.get("device_id")) == str(item.get("id")) and row.get("device_type") == "light_channel"]
+            suffix = f"可说：{ '、'.join(str(x) for x in channel_hints[:6]) }" if channel_hints else "例如：打开灯光1路。庭院灯可直接说打开庭院灯。"
+            return {"type": "error", "message": f"灯光控制需要指定通道。{suffix}"}
         target = not bool(states[channel - 1]) if action == "toggle" and isinstance(states, list) and 0 < channel <= len(states) else action == "on"
+        label = str(channel_alias.get("name") or f"{_device_name(item)} {channel}路") if channel_alias else f"{_device_name(item)} {channel}路"
         return {
             "type": "light",
             "risk": "normal",
-            "label": f"{_device_name(item)} {channel}路",
+            "label": label,
             "path": "/api/light/control",
             "payload": {"type": "single", "device_id": item.get("id"), "channel": channel, "is_open": target},
             "action": "on" if target else "off",
@@ -953,9 +1006,16 @@ class LocalSmartCenterClient:
         if action not in {"on", "off", "toggle"}:
             return None
         cabinets = self._config_section("cabinets")
+        alias_matches = find_alias_rows(text, self._device_alias_rows(), module="power")
+        channel_alias = next((row for row in alias_matches if row.get("device_type") == "cabinet_channel"), None)
+        cabinet_alias = next((row for row in alias_matches if row.get("device_type") == "cabinet"), None)
         cab_matches = _match_items_by_query(text, cabinets, ("name", "cabinet_name", "meter_display_name", "id"))
         cab_idx = None
-        if cab_matches:
+        if channel_alias and channel_alias.get("cab_idx") is not None:
+            cab_idx = int(channel_alias.get("cab_idx") or 0)
+        elif cabinet_alias and cabinet_alias.get("cab_idx") is not None:
+            cab_idx = int(cabinet_alias.get("cab_idx") or 0)
+        elif cab_matches:
             if len(cab_matches) > 1:
                 return {"type": "error", "message": self._ambiguous_control_text("强电柜", cab_matches)}
             cab_idx = cabinets.index(cab_matches[0])
@@ -964,10 +1024,12 @@ class LocalSmartCenterClient:
         elif allow_single_cabinet_inference and len(cabinets) == 1:
             cab_idx = 0
         if cab_idx is None:
-            return {"type": "error", "message": self._not_found_control_text("强电柜", "例如：关闭中控室电柜第8路")}
+            hint_rows = [row.get("name") for row in self._device_alias_rows() if row.get("module") == "power" and row.get("device_type") == "cabinet_channel"]
+            hint = "可尝试：" + "、".join(str(x) for x in hint_rows[:8]) if hint_rows else "例如：关闭中控室电柜第8路"
+            return {"type": "error", "message": self._not_found_control_text("强电柜", hint)}
         cab = cabinets[cab_idx] if 0 <= cab_idx < len(cabinets) else {}
         cab_label = str(cab.get("cabinet_name") or cab.get("meter_display_name") or cab.get("name") or f"强电柜{cab_idx + 1}")
-        channel = _extract_first_int(text)
+        channel = int(channel_alias.get("channel") or 0) if channel_alias else _extract_first_int(text)
         channels_cfg = [item for item in cab.get("channels_config") or [] if isinstance(item, dict)]
         channel_matches = _match_items_by_query(text, channels_cfg, ("name", "remark", "channel"))
         if channel_matches:
@@ -976,9 +1038,11 @@ class LocalSmartCenterClient:
             if _contains_any(text, ("全部", "一键", "全开", "全关")):
                 path = f"/api/onekey_start?cab={cab_idx}" if action == "on" else f"/api/onekey_stop?cab={cab_idx}"
                 return {"type": "power", "risk": "high", "label": cab_label, "path": path, "payload": {}, "action": action, "method": "GET"}
-            return {"type": "error", "message": "强电柜控制需要指定回路，例如：关闭中控室电柜第8路。"}
+            channel_hints = [row.get("name") for row in self._device_alias_rows() if row.get("module") == "power" and row.get("device_type") == "cabinet_channel" and int(row.get("cab_idx") or -1) == cab_idx]
+            suffix = f"可说：{ '、'.join(str(x) for x in channel_hints[:6]) }" if channel_hints else "例如：关闭中控室电柜第8路。"
+            return {"type": "error", "message": f"强电柜控制需要指定回路。{suffix}"}
         target = action == "on"
-        channel_name = str((channel_matches[0].get("remark") or channel_matches[0].get("name")) if channel_matches else f"第{channel}路")
+        channel_name = str(channel_alias.get("name")).replace(f"{cab_label} ", "", 1) if channel_alias else str((channel_matches[0].get("remark") or channel_matches[0].get("name")) if channel_matches else f"第{channel}路")
         return {
             "type": "power",
             "risk": "high",
