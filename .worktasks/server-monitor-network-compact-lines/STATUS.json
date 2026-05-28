@@ -1,0 +1,10 @@
+﻿{
+    "task":  "server-monitor-network-compact-lines",
+    "module":  "server_monitor",
+    "machine":  "12700k",
+    "kind":  "light",
+    "branch":  "codex/12700k-server-monitor-network-compact-lines-20260528",
+    "worktree":  "D:\\SmartCenter\\smart-center-worktrees\\server-monitor-network-compact-lines",
+    "started_at":  "2026-05-28 13:26:02",
+    "status":  "in_progress"
+}
