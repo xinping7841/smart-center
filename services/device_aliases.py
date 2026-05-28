@@ -54,6 +54,49 @@ def _add_alias(aliases: set[str], *values: Any) -> None:
             aliases.add(normalized)
 
 
+def _iter_list(config: dict[str, Any], key: str) -> list[dict[str, Any]]:
+    rows = config.get(key)
+    if not isinstance(rows, list):
+        return []
+    return [item for item in rows if isinstance(item, dict)]
+
+
+def _item_id(item: dict[str, Any], fallback: str = "") -> str:
+    for key in ("id", "device_id", "entity_id", "host", "ip", "mac", "name"):
+        value = str(item.get(key) or "").strip()
+        if value:
+            return value
+    return fallback
+
+
+def _item_name(item: dict[str, Any], fallback: str = "") -> str:
+    for key in ("name", "display_name", "custom_name", "hostname", "cabinet_name", "meter_display_name", "device_name"):
+        value = str(item.get(key) or "").strip()
+        if value:
+            return value
+    return _item_id(item, fallback)
+
+
+def _network_aliases(item: dict[str, Any]) -> set[str]:
+    aliases: set[str] = set()
+    _add_alias(
+        aliases,
+        item.get("id"),
+        item.get("device_id"),
+        item.get("entity_id"),
+        item.get("host"),
+        item.get("ip"),
+        item.get("mac"),
+        item.get("model"),
+        item.get("brand"),
+        item.get("protocol"),
+        item.get("area_name"),
+        item.get("room_name"),
+        item.get("asset_group"),
+    )
+    return aliases
+
+
 def _name_variants(name: Any) -> set[str]:
     raw = str(name or "").strip()
     aliases: set[str] = set()
@@ -82,6 +125,8 @@ def _channel_aliases(channel: Any, name: Any = "", remark: Any = "") -> set[str]
 
 
 def _row(module: str, device_type: str, row_id: str, name: str, aliases: set[str], **extra: Any) -> dict[str, Any]:
+    control_capability = extra.pop("control_capability", bool(extra.get("action_hint")))
+    query_capability = extra.pop("query_capability", True)
     return {
         "schema": "smart_center.device_alias.v1",
         "module": module,
@@ -89,14 +134,48 @@ def _row(module: str, device_type: str, row_id: str, name: str, aliases: set[str
         "device_id": str(row_id),
         "name": str(name or row_id),
         "aliases": sorted(alias for alias in aliases if alias),
+        "control_capability": bool(control_capability),
+        "query_capability": bool(query_capability),
         **extra,
     }
+
+
+def _generic_device_row(
+    module: str,
+    device_type: str,
+    item: dict[str, Any],
+    *,
+    row_id: str = "",
+    name: str = "",
+    extra_aliases: tuple[Any, ...] = (),
+    control_capability: bool = False,
+    query_capability: bool = True,
+    risk: str = "normal",
+    **extra: Any,
+) -> dict[str, Any]:
+    item_id = row_id or _item_id(item, f"{module}:{device_type}")
+    item_name = name or _item_name(item, item_id)
+    aliases = set()
+    aliases.update(_name_variants(item_name))
+    aliases.update(_network_aliases(item))
+    _add_alias(aliases, *extra_aliases)
+    return _row(
+        module,
+        device_type,
+        item_id,
+        item_name,
+        aliases,
+        control_capability=control_capability,
+        query_capability=query_capability,
+        risk=risk,
+        **extra,
+    )
 
 
 def build_device_alias_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
 
-    for cab_idx, cab in enumerate(config.get("cabinets") if isinstance(config.get("cabinets"), list) else []):
+    for cab_idx, cab in enumerate(_iter_list(config, "cabinets")):
         if not isinstance(cab, dict):
             continue
         cab_name = str(cab.get("cabinet_name") or cab.get("meter_display_name") or cab.get("name") or f"强电柜{cab_idx + 1}")
@@ -105,7 +184,7 @@ def build_device_alias_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
         _add_alias(cab_aliases, cab.get("id"), cab.get("name"), cab.get("cabinet_name"), cab.get("meter_display_name"))
         if cab_idx == 0:
             _add_alias(cab_aliases, "主电柜", "主柜", "总电柜", "中控主电柜")
-        rows.append(_row("power", "cabinet", str(cab_idx), cab_name, cab_aliases, cab_idx=cab_idx, risk="high"))
+        rows.append(_row("power", "cabinet", str(cab_idx), cab_name, cab_aliases, cab_idx=cab_idx, risk="high", control_capability=True))
         for ch in cab.get("channels_config") or []:
             if not isinstance(ch, dict):
                 continue
@@ -127,10 +206,11 @@ def build_device_alias_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
                     channel=channel,
                     action_hint="on/off",
                     risk="high",
+                    control_capability=True,
                 )
             )
 
-    for device in config.get("light_devices") if isinstance(config.get("light_devices"), list) else []:
+    for device in _iter_list(config, "light_devices"):
         if not isinstance(device, dict):
             continue
         device_id = str(device.get("id") or "")
@@ -138,7 +218,7 @@ def build_device_alias_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
         light_aliases = set()
         light_aliases.update(_name_variants(light_name))
         _add_alias(light_aliases, device_id, device.get("ip"))
-        rows.append(_row("light", "light_controller", device_id, light_name, light_aliases, device_id=device_id, risk="normal"))
+        rows.append(_row("light", "light_controller", device_id, light_name, light_aliases, device_id=device_id, risk="normal", control_capability=True))
         for ch in device.get("channels_config") or []:
             if not isinstance(ch, dict):
                 continue
@@ -163,6 +243,7 @@ def build_device_alias_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
                     channel=channel,
                     action_hint="on/off/toggle",
                     risk="normal",
+                    control_capability=True,
                 )
             )
 
@@ -173,7 +254,7 @@ def build_device_alias_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
         ("sequencers", "sequencer", "sequencer"),
         ("custom_devices", "custom", "custom_device"),
     ):
-        for item in config.get(section) if isinstance(config.get(section), list) else []:
+        for item in _iter_list(config, section):
             if not isinstance(item, dict):
                 continue
             item_id = str(item.get("id") or item.get("device_id") or item.get("ip") or item.get("name") or "")
@@ -181,7 +262,123 @@ def build_device_alias_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
             aliases = set()
             aliases.update(_name_variants(name))
             _add_alias(aliases, item_id, item.get("ip"), item.get("host"), item.get("entity_id"), item.get("node_red_device_id"))
-            rows.append(_row(module, device_type, item_id, name, aliases, risk="high" if module == "sequencer" else "normal"))
+            rows.append(
+                _row(
+                    module,
+                    device_type,
+                    item_id,
+                    name,
+                    aliases,
+                    risk="high" if module == "sequencer" else "normal",
+                    control_capability=module in {"hvac", "projector", "screen", "sequencer", "custom"},
+                )
+            )
+
+    for item in _iter_list(config, "meters"):
+        rows.append(
+            _generic_device_row(
+                "meter",
+                "meter",
+                item,
+                extra_aliases=("电表", "电表监测", item.get("meter_kind"), item.get("meter_type")),
+                control_capability=False,
+                query_capability=True,
+                risk="normal",
+            )
+        )
+
+    for item in _iter_list(config, "ups_devices"):
+        rows.append(
+            _generic_device_row(
+                "ups",
+                "ups",
+                item,
+                extra_aliases=("UPS", "ups", "不间断电源", "备用电源"),
+                control_capability=False,
+                query_capability=True,
+                risk="normal",
+            )
+        )
+
+    for item in _iter_list(config, "snmp_devices"):
+        rows.append(
+            _generic_device_row(
+                "snmp",
+                str(item.get("device_type") or "snmp_device"),
+                item,
+                extra_aliases=("SNMP", "snmp", "网络设备", "交换机" if item.get("device_type") == "switch" else "", "网关" if item.get("device_type") == "router" else "", "NAS" if item.get("device_type") == "nas" else ""),
+                control_capability=False,
+                query_capability=True,
+                risk="normal",
+            )
+        )
+
+    for item in _iter_list(config, "env_sensors"):
+        features = item.get("features") if isinstance(item.get("features"), dict) else {}
+        feature_aliases = tuple(key for key, enabled in features.items() if enabled)
+        rows.append(
+            _generic_device_row(
+                "env",
+                "env_sensor",
+                item,
+                extra_aliases=("环境", "温湿度", "传感器", item.get("primary_metric"), *feature_aliases),
+                control_capability=False,
+                query_capability=True,
+                risk="normal",
+            )
+        )
+
+    current_collector = config.get("current_collector") if isinstance(config.get("current_collector"), dict) else {}
+    if current_collector:
+        rows.append(
+            _generic_device_row(
+                "current_collector",
+                "collector",
+                current_collector,
+                row_id=str(current_collector.get("id") or "current_collector"),
+                name=str(current_collector.get("name") or "电流采集器"),
+                extra_aliases=("电流采集", "16路电流", "电流监测"),
+                control_capability=False,
+                query_capability=True,
+                risk="normal",
+            )
+        )
+        for channel in current_collector.get("channels") or []:
+            if not isinstance(channel, dict):
+                continue
+            ch = channel.get("channel")
+            ch_name = str(channel.get("name") or f"第{ch}路")
+            aliases = _channel_aliases(ch, ch_name, channel.get("remark"))
+            _add_alias(aliases, f"电流采集{ch_name}", f"电流{ch}路", f"{ch_name}电流")
+            rows.append(
+                _row(
+                    "current_collector",
+                    "collector_channel",
+                    f"current_collector:{ch}",
+                    ch_name,
+                    aliases,
+                    channel=ch,
+                    control_capability=False,
+                    query_capability=True,
+                    risk="normal",
+                )
+            )
+
+    proxy_monitor = config.get("proxy_monitor") if isinstance(config.get("proxy_monitor"), dict) else {}
+    if proxy_monitor:
+        rows.append(
+            _generic_device_row(
+                "proxy",
+                "proxy_monitor",
+                proxy_monitor,
+                row_id="proxy_monitor",
+                name="代理监控",
+                extra_aliases=("代理", "节点小宝", "异地访问", "代理监控", proxy_monitor.get("host"), proxy_monitor.get("traffic_host")),
+                control_capability=False,
+                query_capability=True,
+                risk="normal",
+            )
+        )
 
     return rows
 
@@ -190,24 +387,32 @@ def find_alias_rows(query: str, rows: list[dict[str, Any]], *, module: str = "",
     normalized = normalize_alias_text(query)
     if not normalized:
         return []
-    matches: list[tuple[int, dict[str, Any]]] = []
+    matches: list[tuple[int, int, dict[str, Any]]] = []
     for row in rows:
         if module and row.get("module") != module:
             continue
         if device_type and row.get("device_type") != device_type:
             continue
         best = 0
+        best_len = 0
         for alias in row.get("aliases") or []:
             alias_norm = normalize_alias_text(alias)
             if not alias_norm:
                 continue
             if alias_norm == normalized:
                 best = max(best, 120)
+                best_len = max(best_len, len(alias_norm))
             elif alias_norm in normalized:
-                best = max(best, 80 + min(len(alias_norm), 30))
+                # Very short aliases such as "1路" are useful only as a tie-breaker
+                # after a specific device name matched; otherwise they can route a
+                # cross-cabinet command to the first cabinet.
+                base = 35 if len(alias_norm) < 3 else 80
+                best = max(best, base + min(len(alias_norm), 30))
+                best_len = max(best_len, len(alias_norm))
             elif len(alias_norm) >= 3 and normalized in alias_norm:
                 best = max(best, 50 + min(len(normalized), 25))
+                best_len = max(best_len, len(alias_norm))
         if best:
-            matches.append((best, row))
-    matches.sort(key=lambda item: (item[0], len(item[1].get("aliases") or [])), reverse=True)
-    return [row for _score, row in matches]
+            matches.append((best, best_len, row))
+    matches.sort(key=lambda item: (item[0], item[1], len(item[2].get("aliases") or [])), reverse=True)
+    return [row for _score, _best_len, row in matches]

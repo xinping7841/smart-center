@@ -27,7 +27,7 @@ from auth.policy import resolve_permission_grant
 from auth.session import get_current_user
 from config import CONFIG, save_config
 from event_logger import query_events
-from paths import AUDIT_LOG_FILE, DATA_DIR, DB_FILE, OPERATION_LOG_FILE, ensure_directory
+from paths import AUDIT_LOG_FILE, CONFIG_FILE, DATA_DIR, DB_FILE, OPERATION_LOG_FILE, ensure_directory
 from services.device_aliases import build_device_alias_rows
 from services.feishu_bot import HIGH_RISK_CONTROL_TYPES, INFERRED_CONTROL_CONFIDENCE, LocalSmartCenterClient, _control_action_from_text, _format_control_action, _is_control_request
 
@@ -1025,6 +1025,7 @@ def build_training_export():
     knowledge = {
         "schema": "smart_center.training.v1",
         "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "config_source": str(CONFIG_FILE),
         "model_target": {k: v for k, v in model_cfg.items() if k != "api_key"},
         "counts": {
             "devices": len(device_rows),
