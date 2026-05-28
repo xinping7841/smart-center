@@ -1622,19 +1622,20 @@
         .hardware-item .hardware-label { color:#64748b; margin-left:0; white-space:nowrap; }
         .hardware-item .hardware-value,
         .hardware-item span:not(.hardware-label) { color:#cbd5e1; margin-left:0; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .server-adapter-list { display:flex; flex-direction:column; gap:3px; margin-top:2px; padding-top:3px; border-top:1px dashed rgba(148,163,184,0.14); }
-        .server-adapter-row { min-height:34px; display:grid; grid-template-columns:48px minmax(0,1fr); align-items:start; gap:6px; min-width:0; color:#cbd5e1; font-size:12px; line-height:1.45; }
-        .server-adapter-index { color:#64748b; font-size:12px; font-weight:400; white-space:nowrap; }
-        .server-adapter-body { min-width:0; display:flex; flex-direction:column; gap:1px; color:#cbd5e1; overflow:hidden; }
-        .server-adapter-body strong { min-width:0; color:#cbd5e1; font-size:12px; font-weight:400; line-height:1.45; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-        .server-adapter-detail { min-width:0; display:flex; flex-wrap:wrap; gap:0 8px; color:#cbd5e1; font-size:12px; line-height:1.45; }
+        .server-adapter-list { display:flex; flex-direction:column; gap:4px; margin-top:0; padding-top:0; border-top:0; }
+        .server-adapter-row { min-height:34px; display:flex; flex-direction:column; gap:0; min-width:0; color:#cbd5e1; font-size:12px; font-weight:400; line-height:1.45; }
+        .server-adapter-head,
+        .server-adapter-detail { min-width:0; display:flex; flex-wrap:wrap; gap:0 8px; color:#cbd5e1; font-size:12px; font-weight:400; line-height:1.45; overflow:hidden; }
+        .server-adapter-index,
+        .server-adapter-head strong,
         .server-adapter-detail em { min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#cbd5e1; font-style:normal; font-size:12px; font-weight:400; line-height:1.45; }
-        #view-server .server-card .server-adapter-row { min-height:34px !important; display:grid !important; grid-template-columns:48px minmax(0,1fr) !important; align-items:start !important; gap:6px !important; padding:0 !important; border:0 !important; border-radius:0 !important; background:transparent !important; min-width:0 !important; color:#cbd5e1 !important; font-size:12px !important; line-height:1.45 !important; white-space:normal !important; overflow:visible !important; }
-        #view-server .server-card .server-adapter-index { color:#64748b !important; font-size:12px !important; font-weight:400 !important; white-space:nowrap !important; margin-left:0 !important; }
-        #view-server .server-card .server-adapter-body { min-width:0 !important; display:flex !important; flex-direction:column !important; gap:1px !important; color:#cbd5e1 !important; overflow:hidden !important; }
-        #view-server .server-card .server-adapter-body strong { min-width:0 !important; color:#cbd5e1 !important; font-size:12px !important; font-weight:400 !important; line-height:1.45 !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; }
-        #view-server .server-card .server-adapter-detail { min-width:0 !important; display:flex !important; flex-wrap:wrap !important; gap:0 8px !important; color:#cbd5e1 !important; font-size:12px !important; line-height:1.45 !important; }
-        #view-server .server-card .server-adapter-detail em { min-width:0 !important; max-width:100% !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; display:inline !important; padding:0 !important; border:0 !important; border-radius:0 !important; background:transparent !important; color:#cbd5e1 !important; font-style:normal !important; font-size:12px !important; font-weight:400 !important; line-height:1.45 !important; }
+        #view-server .server-card .server-adapter-list { display:flex !important; flex-direction:column !important; gap:4px !important; margin-top:0 !important; padding-top:0 !important; border-top:0 !important; }
+        #view-server .server-card .server-adapter-row { min-height:34px !important; display:flex !important; flex-direction:column !important; gap:0 !important; padding:0 !important; border:0 !important; border-radius:0 !important; background:transparent !important; min-width:0 !important; color:#cbd5e1 !important; font-size:12px !important; font-weight:400 !important; line-height:1.45 !important; white-space:normal !important; overflow:visible !important; }
+        #view-server .server-card .server-adapter-head,
+        #view-server .server-card .server-adapter-detail { min-width:0 !important; display:flex !important; flex-wrap:wrap !important; gap:0 8px !important; color:#cbd5e1 !important; font-size:12px !important; font-weight:400 !important; line-height:1.45 !important; overflow:hidden !important; }
+        #view-server .server-card .server-adapter-index,
+        #view-server .server-card .server-adapter-head strong,
+        #view-server .server-card .server-adapter-detail em { min-width:0 !important; max-width:100% !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; display:inline !important; padding:0 !important; border:0 !important; border-radius:0 !important; background:transparent !important; color:#cbd5e1 !important; font-style:normal !important; font-size:12px !important; font-weight:400 !important; line-height:1.45 !important; margin-left:0 !important; }
         .metric-row { min-height:34px; margin-bottom: 8px; } .metric-label { min-height:18px; display: flex; justify-content: space-between; align-items:center; gap:10px; font-size: 12px; color: var(--text-sub); margin-bottom: 3px;}
         .metric-label span:last-child { color:var(--text-main); font-weight:700; }
         .progress-track { background: rgba(255,255,255,0.06); border-radius: 4px; height: 5px; overflow: hidden; width: 100%;}
