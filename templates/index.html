@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="/static/js/core/viewport-layout.js?v=20260522-stage7-viewport"></script>
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
-    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260528-server-network-font2">
+    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260528-server-network-font-unify">
     <link rel="stylesheet" href="/static/css/views/dashboard-inline.css?v=20260522-stage6-inline-css">
     <link rel="stylesheet" href="/static/css/views/local-model.css?v=20260528-integrated-ui">
     <style id="codemeter-four-column-hotfix">
@@ -28,14 +28,14 @@
         .server-codemeter-line .codemeter-license-row.danger span { color:#fecaca !important; }
         .server-codemeter-line .codemeter-license-row.permanent .cm-days { color:#93c5fd !important; }
     </style>
-    <style id="server-adapter-font-hotfix">
-        #view-server .server-card .server-adapter-row { min-height:48px !important; padding:7px 8px !important; border-radius:8px !important; border:1px solid rgba(148,163,184,0.12) !important; background:rgba(15,23,42,0.32) !important; min-width:0 !important; }
-        #view-server .server-card .server-adapter-name { display:grid !important; grid-template-columns:auto minmax(0,1fr) !important; gap:7px !important; align-items:center !important; margin-bottom:6px !important; min-width:0 !important; }
-        #view-server .server-card .server-adapter-name span { display:inline-flex !important; align-items:center !important; justify-content:center !important; min-width:48px !important; min-height:18px !important; padding:0 6px !important; border-radius:999px !important; background:rgba(59,130,246,0.12) !important; border:1px solid rgba(96,165,250,0.22) !important; color:#bfdbfe !important; font-size:10px !important; font-weight:900 !important; line-height:1 !important; white-space:nowrap !important; margin-left:0 !important; }
-        #view-server .server-card .server-adapter-name strong { min-width:0 !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; color:#e2e8f0 !important; font-size:12px !important; font-weight:800 !important; line-height:1.25 !important; }
-        #view-server .server-card .server-adapter-meta { display:grid !important; grid-template-columns:repeat(2, minmax(0,1fr)) !important; gap:4px 6px !important; min-width:0 !important; }
-        #view-server .server-card .server-adapter-meta em { display:block !important; max-width:100% !important; min-height:18px !important; padding:2px 6px !important; border-radius:6px !important; border:1px solid rgba(148,163,184,0.14) !important; background:rgba(2,6,23,0.28) !important; color:#bfdbfe !important; font-style:normal !important; font-size:11px !important; font-weight:750 !important; line-height:1.25 !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; }
-        #view-server .server-card .server-adapter-meta em.wide { grid-column:span 2 !important; }
+    <style id="server-adapter-wrap-hotfix">
+        #view-server .server-card .server-adapter-list { display:flex !important; flex-direction:column !important; gap:3px !important; margin-top:2px !important; padding-top:3px !important; border-top:1px dashed rgba(148,163,184,0.14) !important; }
+        #view-server .server-card .server-adapter-row { min-height:34px !important; display:grid !important; grid-template-columns:48px minmax(0,1fr) !important; align-items:start !important; gap:6px !important; padding:0 !important; border:0 !important; border-radius:0 !important; background:transparent !important; min-width:0 !important; color:#cbd5e1 !important; font-size:12px !important; line-height:1.45 !important; white-space:normal !important; overflow:visible !important; }
+        #view-server .server-card .server-adapter-index { color:#64748b !important; font-size:12px !important; font-weight:400 !important; white-space:nowrap !important; margin-left:0 !important; }
+        #view-server .server-card .server-adapter-body { min-width:0 !important; display:flex !important; flex-direction:column !important; gap:1px !important; color:#cbd5e1 !important; overflow:hidden !important; }
+        #view-server .server-card .server-adapter-body strong { min-width:0 !important; color:#cbd5e1 !important; font-size:12px !important; font-weight:400 !important; line-height:1.45 !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; }
+        #view-server .server-card .server-adapter-detail { min-width:0 !important; display:flex !important; flex-wrap:wrap !important; gap:0 8px !important; color:#cbd5e1 !important; font-size:12px !important; line-height:1.45 !important; }
+        #view-server .server-card .server-adapter-detail em { min-width:0 !important; max-width:100% !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; display:inline !important; padding:0 !important; border:0 !important; border-radius:0 !important; background:transparent !important; color:#cbd5e1 !important; font-style:normal !important; font-size:12px !important; font-weight:400 !important; line-height:1.45 !important; }
     </style>
     <style id="projector-protocol-ui-hotfix">
         #view-projector #projector-page-grid { display:grid !important; grid-template-columns:repeat(auto-fill, minmax(260px, 288px)) !important; gap:12px !important; justify-content:start !important; align-items:start !important; }
@@ -1850,7 +1850,7 @@
     <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
     <script src="/static/js/views/env.js?v=20260522-stage2-env-view"></script>
     <script src="/static/js/views/snmp-summary.js?v=20260528-snmp-summary"></script>
-    <script src="/static/js/views/server-monitor.js?v=20260528-server-network-font2"></script>
+    <script src="/static/js/views/server-monitor.js?v=20260528-server-network-font-unify"></script>
     <script src="/static/js/views/power-meter.js?v=20260522-stage4-power-meter"></script>
     <script src="/static/js/views/automation-view.js?v=20260522-stage4-automation-view"></script>
     <script src="/static/js/views/dashboard-summary.js?v=20260522-stage8-dashboard-summary"></script>
@@ -1865,7 +1865,7 @@
         const lazyViewScripts = {
             apple_audio: '/static/js/views/apple-audio.js?v=20260527-lazy-view',
             local_model: '/static/js/views/local-model.js?v=20260527-lazy-view',
-            server: '/static/js/views/server-monitor.js?v=20260528-server-network-font2',
+            server: '/static/js/views/server-monitor.js?v=20260528-server-network-font-unify',
             snmp: '/static/js/views/snmp.js?v=20260528-lazy-view',
             universal: '/static/js/views/universal.js?v=20260527-lazy-view'
         };
