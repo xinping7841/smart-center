@@ -3692,38 +3692,32 @@
     {
       "actions": [
         {
-          "action_type": "command",
-          "delay_ms": 0,
-          "device_id": "dev_1775230252161",
-          "format": "hex",
-          "payload": "99 03 8D 66 34 58 99",
-          "sub_system": "universal",
-          "wait_ms": 0
+          "sub_system": "node_red",
+          "device_id": "courtyard_light",
+          "action_type": "on",
+          "delay_ms": 0
         }
       ],
       "auto_generated": true,
       "auto_generated_key": "outdoor_light",
       "id": "scene_outdoor_light_on",
-      "name": "户外灯自动开灯",
+      "name": "庭院灯自动开灯",
       "sort": 1,
       "visible": false
     },
     {
       "actions": [
         {
-          "action_type": "command",
-          "delay_ms": 0,
-          "device_id": "dev_1775230252161",
-          "format": "hex",
-          "payload": "99 03 8D 66 32 58 99",
-          "sub_system": "universal",
-          "wait_ms": 0
+          "sub_system": "node_red",
+          "device_id": "courtyard_light",
+          "action_type": "off",
+          "delay_ms": 0
         }
       ],
       "auto_generated": true,
       "auto_generated_key": "outdoor_light",
       "id": "scene_outdoor_light_off",
-      "name": "户外灯自动关灯",
+      "name": "庭院灯自动关灯",
       "sort": 2,
       "visible": false
     },
@@ -4894,7 +4888,7 @@
       "id": "dev_1775230252161",
       "interface": "tcp",
       "ip": "192.168.50.254",
-      "name": "新泛型设备",
+      "name": "庭院灯",
       "port": 1882
     }
   ],
@@ -5156,12 +5150,12 @@
         "device_id": "env_1774425123763",
         "prop": "lux",
         "op": "<",
-        "value": 300,
+        "value": 200,
         "debounce_sec": 120,
         "hysteresis": 60,
         "consecutive_hits": 1,
         "crossing_mode": "cross_down",
-        "rearm_value": 360,
+        "rearm_value": 260,
         "window_bootstrap_sec": 180
       },
       "enabled": true,
@@ -5196,12 +5190,12 @@
       },
       "enabled": true,
       "id": "auto_outdoor_light_20_off",
-      "name": "户外灯晚八点自动关灯",
+      "name": "户外灯晚九点自动关灯",
       "schedule": {
         "day_type": "everyday",
-        "time": "20:00",
-        "time_start": "20:00",
-        "time_end": "20:30"
+        "time": "21:00",
+        "time_start": "21:00",
+        "time_end": "21:30"
       },
       "trigger_type": "schedule",
       "preconditions": [],
@@ -5665,6 +5659,13 @@
       "name": "自动化运行",
       "sort": 10,
       "visible": true
+    },
+    {
+      "id": "logs",
+      "icon": "🧾",
+      "name": "日志中心",
+      "sort": 10.8,
+      "visible": true
     }
   ],
   "screens": [
@@ -6024,7 +6025,11 @@
       "@eaDir",
       ".AppleDouble"
     ],
-    "nas_auto_scan_on_start": true
+    "nas_auto_scan_on_start": true,
+    "jamendo_enabled": false,
+    "jamendo_client_id": "",
+    "jamendo_limit": 20,
+    "jamendo_api_base": "https://api.jamendo.com/v3.0"
   },
   "auth_settings": {
     "auto_login_default_admin": true,
@@ -6088,6 +6093,7 @@
   "current_collector": {
     "enabled": true,
     "name": "16路电流采集器",
+    "source_mode": "poll",
     "transport": "tcp-rtu",
     "host": "192.168.50.109",
     "port": 502,
@@ -6103,87 +6109,115 @@
     "multiplier": 1.0,
     "timeout": 2.0,
     "poll_interval": 5.0,
+    "push_stale_seconds": 15.0,
+    "zero_deadband_a": 0.25,
+    "push_allowed_hosts": [
+      "127.0.0.1",
+      "::1",
+      "192.168.50.121",
+      "100.122.235.56"
+    ],
+    "push_token": "",
+    "reject_sparse_push": false,
+    "min_valid_channels": 0,
     "channels": [
       {
         "channel": 1,
         "name": "第1路",
-        "visible": true
+        "visible": true,
+        "sort": 1
       },
       {
         "channel": 2,
         "name": "第2路",
-        "visible": true
+        "visible": true,
+        "sort": 2
       },
       {
         "channel": 3,
         "name": "第3路",
-        "visible": true
+        "visible": true,
+        "sort": 3
       },
       {
         "channel": 4,
         "name": "第4路",
-        "visible": true
+        "visible": true,
+        "sort": 4
       },
       {
         "channel": 5,
         "name": "第5路",
-        "visible": true
+        "visible": true,
+        "sort": 5
       },
       {
         "channel": 6,
         "name": "第6路",
-        "visible": true
+        "visible": true,
+        "sort": 6
       },
       {
         "channel": 7,
         "name": "第7路",
-        "visible": true
+        "visible": true,
+        "sort": 7
       },
       {
         "channel": 8,
         "name": "第8路",
-        "visible": true
+        "visible": true,
+        "sort": 8
       },
       {
         "channel": 9,
         "name": "第9路",
-        "visible": true
+        "visible": true,
+        "sort": 9
       },
       {
         "channel": 10,
         "name": "第10路",
-        "visible": true
+        "visible": true,
+        "sort": 10
       },
       {
         "channel": 11,
         "name": "第11路",
-        "visible": true
+        "visible": true,
+        "sort": 11
       },
       {
         "channel": 12,
         "name": "第12路",
-        "visible": true
+        "visible": true,
+        "sort": 12
       },
       {
         "channel": 13,
         "name": "第13路",
-        "visible": true
+        "visible": true,
+        "sort": 13
       },
       {
         "channel": 14,
         "name": "第14路",
-        "visible": true
+        "visible": true,
+        "sort": 14
       },
       {
         "channel": 15,
         "name": "第15路",
-        "visible": true
+        "visible": true,
+        "sort": 15
       },
       {
         "channel": 16,
         "name": "第16路",
-        "visible": true
+        "visible": true,
+        "sort": 16
       }
-    ]
+    ],
+    "groups": []
   }
 }
