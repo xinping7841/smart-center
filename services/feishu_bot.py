@@ -59,6 +59,45 @@ MODULE_LABELS = {
 DOOR_WORDS = ("大门", "门磁", "门口", "门状态", "开门", "关门", "门开", "门关")
 SERVER_WORDS = ("服务器", "主机", "机器", "电脑", "节点", "显卡", "内存", "磁盘")
 SERVER_OFFLINE_WORDS = ("离线", "异常", "不在线", "掉线", "故障")
+CONTROL_ACTION_WORDS = (
+    "打开",
+    "关闭",
+    "启动",
+    "停止",
+    "开机",
+    "关机",
+    "开灯",
+    "关灯",
+    "控制",
+    "重启",
+    "执行",
+    "下发",
+    "唤醒",
+    "设置",
+    "修改",
+    "调整",
+    "调温",
+    "制冷",
+    "制热",
+)
+CONTROL_STATUS_WORDS = ("状态", "日志", "记录", "历史", "有没有", "是否", "查询", "查看", "显示", "汇总")
+SOFTWARE_PLAYBACK_WORDS = (
+    "软件播控",
+    "播控",
+    "素材",
+    "播放窗口",
+    "显示管理",
+    "显示端",
+    "传输方式",
+    "传输带宽",
+    "带宽",
+    "缩放",
+    "偏移",
+    "HVC",
+    "H.265",
+    "转码",
+    "日志提取",
+)
 
 
 @dataclass(frozen=True)
@@ -187,6 +226,15 @@ def _aggregate_dashboard_counts(counts: dict[str, Any]) -> dict[str, int]:
 
 def _contains_any(text: str, words: tuple[str, ...]) -> bool:
     return any(word in text for word in words)
+
+
+def _is_control_request(text: str) -> bool:
+    normalized = str(text or "")
+    if not normalized:
+        return False
+    if not _contains_any(normalized, CONTROL_ACTION_WORDS):
+        return False
+    return not _contains_any(normalized, CONTROL_STATUS_WORDS)
 
 
 def _fmt_number(value: Any, digits: int = 2) -> str:
@@ -1237,6 +1285,21 @@ class LocalSmartCenterClient:
             f"vLLM：{cfg.get('vllm_base_url') or '--'}"
         )
 
+    def software_playback_text(self) -> str:
+        return (
+            "软件播控运维要点：\n"
+            "- tab 切换不要自动全选内容数据，避免误操作。\n"
+            "- 素材在播放窗口内缩放，类似素材布局，支持缩放和偏移。\n"
+            "- 素材优化由主备机器调用加快，优先识别 HVC/H.265 以外素材和警告素材。\n"
+            "- 复制节目页不带窗口名称；显示管理新增屏幕时可能卡住，先修改一次后再保存。\n"
+            "- 警告提示需要能定位到素材位置，锁定屏幕会退出转码优化。\n"
+            "- 单独节目传输应避免拖时广播，按选中素材或节目节点右键更新。\n"
+            "- 传输带宽限制要按现场网络实测设置，避免占满链路导致卡顿或通讯异常。\n"
+            "- 无线跑满但有线空闲时，要规划传输优先级、指定传输、暂停传输等策略。\n"
+            "- 日志建议从主控统一提取，记录主控与显示端时间差，显示端运行后尽量无需远程。\n"
+            "- 独立机器状态管理应同时关注带宽机器状态和软件状态。"
+        )
+
     def answer_intent(self, intent: str, query: str = "") -> str:
         intent = _normalize_intent(intent)
         if intent == "overview":
@@ -1282,10 +1345,12 @@ class LocalSmartCenterClient:
         if not keyword:
             return "我在。可以问：现在状态、哪些设备离线、昨日电量、近7天用电、当前电流、服务器状态、最近自动化日志、UPS状态。"
         lowered = keyword.lower()
+        if _is_control_request(keyword):
+            return self.answer_intent("forbidden_control", keyword)
+        if _contains_any(keyword, SOFTWARE_PLAYBACK_WORDS):
+            return self.software_playback_text()
         if _contains_any(keyword, DOOR_WORDS):
             return self.door_status_text(keyword)
-        if _contains_any(keyword, ("开灯", "关灯", "控制", "重启", "关机", "执行", "下发", "唤醒", "设置", "修改", "调温", "制冷", "制热")) and not _contains_any(keyword, ("状态", "日志", "记录", "历史")):
-            return self.answer_intent("forbidden_control", keyword)
         if _contains_any(keyword, ("日志", "记录", "最近发生", "事件")):
             if _contains_any(keyword, ("自动化", "场景", "联动")):
                 return self.answer_intent("automation_logs", keyword)
@@ -1430,6 +1495,8 @@ class FeishuBot:
         normalized = re.sub(r"\s+", " ", str(text or "").strip())
         if not normalized:
             return "我在。可以直接问：哪些设备离线、昨日电量、今日用电、本月用电、当前电流、服务器状态。"
+        if _is_control_request(normalized):
+            return self.local_client.answer_intent("forbidden_control", normalized)
         if normalized in {"状态", "/状态", "status", "/status"}:
             return self.local_client.status_text()
         if normalized in {"日报", "/日报", "daily", "/daily"}:
