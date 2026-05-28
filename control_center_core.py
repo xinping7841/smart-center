@@ -39,7 +39,7 @@ DEFAULT_CONTROL_CENTER = {
 
 
 SUPPORTED_PROTOCOLS = {"tcp", "udp", "com", "osc", "artnet", "midi"}
-SUPPORTED_FORMATS = {"str", "hex", "json"}
+SUPPORTED_FORMATS = {"str", "hex", "json", "modbus_rtu", "modbus_tcp"}
 _SERIAL_LOCKS = {}
 _SERIAL_LOCKS_GUARD = threading.Lock()
 CONTROL_PACKS_DIR = Path(__file__).resolve().parent / "control_packs"
@@ -606,6 +606,19 @@ def payload_to_bytes(command, payload_text):
         if len(cleaned) % 2:
             raise ValueError("Hex 指令长度必须是偶数")
         return bytes.fromhex(cleaned)
+    if fmt == "modbus_rtu":
+        cleaned = re.sub(r"[^0-9a-fA-F]", "", str(payload_text or ""))
+        if len(cleaned) % 2:
+            raise ValueError("Modbus RTU payload length must be even")
+        frame = bytes.fromhex(cleaned)
+        return frame + _modbus_crc16(frame)
+    if fmt == "modbus_tcp":
+        cleaned = re.sub(r"[^0-9a-fA-F]", "", str(payload_text or ""))
+        if len(cleaned) % 2:
+            raise ValueError("Modbus TCP payload length must be even")
+        pdu = bytes.fromhex(cleaned)
+        tx_id = int(time.time() * 1000) & 0xFFFF
+        return tx_id.to_bytes(2, "big") + b"\x00\x00" + len(pdu).to_bytes(2, "big") + pdu
     text = str(payload_text or "")
     text = (
         text.replace("\\r\\n", "\r\n")
@@ -614,6 +627,18 @@ def payload_to_bytes(command, payload_text):
         .replace("\\t", "\t")
     )
     return text.encode("utf-8") + _line_ending_bytes(command.get("line_ending"))
+
+
+def _modbus_crc16(data):
+    crc = 0xFFFF
+    for byte in data:
+        crc ^= byte
+        for _ in range(8):
+            if crc & 1:
+                crc = (crc >> 1) ^ 0xA001
+            else:
+                crc >>= 1
+    return crc.to_bytes(2, "little")
 
 
 def _parse_host_range(host_text):

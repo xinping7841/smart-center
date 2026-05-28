@@ -1,0 +1,10 @@
+﻿{
+    "task":  "niren-relay-integration",
+    "module":  "relay_controller",
+    "machine":  "12700k",
+    "kind":  "light",
+    "branch":  "codex/12700k-niren-relay-integration-20260528",
+    "worktree":  "D:\\SmartCenter\\smart-center-worktrees\\niren-relay-integration",
+    "started_at":  "2026-05-28 13:49:49",
+    "status":  "in_progress"
+}

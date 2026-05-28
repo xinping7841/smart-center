@@ -1,0 +1,135 @@
+{
+  "meta": {
+    "id": "niren_poe_kp_i101_modbus",
+    "name": "Niren POE-KP-I101 Modbus relay",
+    "vendor": "Niren",
+    "description": "Modbus commands for POE-KP-I101 relay controllers. Use modbus_rtu for RTU-over-TCP or modbus_tcp for standard MBAP framing, depending on the device configuration.",
+    "version": "1.0",
+    "tags": ["relay", "tcp", "modbus", "poe-kp-i101"]
+  },
+  "target_groups": [
+    {
+      "id": "niren_poe_kp_i101_192_168_50_52_rtu",
+      "name": "POE-KP-I101 192.168.50.52 RTU-over-TCP",
+      "protocol": "tcp",
+      "mode": "single",
+      "host": "192.168.50.52",
+      "port": 22222,
+      "timeout_ms": 2000,
+      "wait_ms": 700,
+      "send_strategy": "serial",
+      "enabled": true
+    }
+  ],
+  "commands": [
+    {
+      "id": "niren_modbus_rtu_read_do",
+      "name": "Read DO1 RTU-over-TCP",
+      "category": "Niren Modbus RTU-over-TCP",
+      "protocol": "tcp",
+      "format": "modbus_rtu",
+      "payload_template": "{{unit_id}} 01 00 00 00 01",
+      "params": [
+        {"id": "unit_id", "label": "Unit ID hex", "type": "string", "default": "01"}
+      ],
+      "wait_ms": 700,
+      "enabled": true
+    },
+    {
+      "id": "niren_modbus_rtu_read_di",
+      "name": "Read DI1 RTU-over-TCP",
+      "category": "Niren Modbus RTU-over-TCP",
+      "protocol": "tcp",
+      "format": "modbus_rtu",
+      "payload_template": "{{unit_id}} 02 00 00 00 01",
+      "params": [
+        {"id": "unit_id", "label": "Unit ID hex", "type": "string", "default": "01"}
+      ],
+      "wait_ms": 700,
+      "enabled": true
+    },
+    {
+      "id": "niren_modbus_rtu_do_on",
+      "name": "DO1 on RTU-over-TCP",
+      "category": "Niren Modbus RTU-over-TCP",
+      "protocol": "tcp",
+      "format": "modbus_rtu",
+      "payload_template": "{{unit_id}} 05 00 00 FF 00",
+      "params": [
+        {"id": "unit_id", "label": "Unit ID hex", "type": "string", "default": "01"}
+      ],
+      "wait_ms": 700,
+      "enabled": true
+    },
+    {
+      "id": "niren_modbus_rtu_do_off",
+      "name": "DO1 off RTU-over-TCP",
+      "category": "Niren Modbus RTU-over-TCP",
+      "protocol": "tcp",
+      "format": "modbus_rtu",
+      "payload_template": "{{unit_id}} 05 00 00 00 00",
+      "params": [
+        {"id": "unit_id", "label": "Unit ID hex", "type": "string", "default": "01"}
+      ],
+      "wait_ms": 700,
+      "enabled": true
+    },
+    {
+      "id": "niren_modbus_tcp_read_do",
+      "name": "Read DO1 Modbus TCP",
+      "category": "Niren Modbus TCP",
+      "protocol": "tcp",
+      "format": "modbus_tcp",
+      "payload_template": "{{unit_id}} 01 00 00 00 01",
+      "params": [
+        {"id": "unit_id", "label": "Unit ID hex", "type": "string", "default": "01"}
+      ],
+      "wait_ms": 700,
+      "enabled": true
+    },
+    {
+      "id": "niren_modbus_tcp_do_on",
+      "name": "DO1 on Modbus TCP",
+      "category": "Niren Modbus TCP",
+      "protocol": "tcp",
+      "format": "modbus_tcp",
+      "payload_template": "{{unit_id}} 05 00 00 FF 00",
+      "params": [
+        {"id": "unit_id", "label": "Unit ID hex", "type": "string", "default": "01"}
+      ],
+      "wait_ms": 700,
+      "enabled": true
+    },
+    {
+      "id": "niren_modbus_tcp_do_off",
+      "name": "DO1 off Modbus TCP",
+      "category": "Niren Modbus TCP",
+      "protocol": "tcp",
+      "format": "modbus_tcp",
+      "payload_template": "{{unit_id}} 05 00 00 00 00",
+      "params": [
+        {"id": "unit_id", "label": "Unit ID hex", "type": "string", "default": "01"}
+      ],
+      "wait_ms": 700,
+      "enabled": true
+    }
+  ],
+  "panels": [
+    {
+      "id": "niren_poe_kp_i101_modbus_panel",
+      "name": "Niren POE-KP-I101 Modbus",
+      "visible": true,
+      "sort": 1,
+      "controls": [
+        {"id": "niren_modbus_rtu_read_do_btn", "name": "Read DO1 RTU", "type": "button", "command_id": "niren_modbus_rtu_read_do", "target_group_id": "niren_poe_kp_i101_192_168_50_52_rtu", "params": {"unit_id": "01"}, "show_on_home": false, "visible": true, "sort": 1},
+        {"id": "niren_modbus_rtu_do_on_btn", "name": "DO1 on RTU", "type": "button", "command_id": "niren_modbus_rtu_do_on", "target_group_id": "niren_poe_kp_i101_192_168_50_52_rtu", "params": {"unit_id": "01"}, "show_on_home": false, "visible": true, "sort": 2},
+        {"id": "niren_modbus_rtu_do_off_btn", "name": "DO1 off RTU", "type": "button", "command_id": "niren_modbus_rtu_do_off", "target_group_id": "niren_poe_kp_i101_192_168_50_52_rtu", "params": {"unit_id": "01"}, "show_on_home": false, "visible": true, "sort": 3}
+      ]
+    }
+  ],
+  "generator": {
+    "default_panel_name": "Niren POE-KP-I101 Modbus",
+    "default_control_type": "button",
+    "default_show_on_home": false
+  }
+}

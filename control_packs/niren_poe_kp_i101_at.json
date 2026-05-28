@@ -1,0 +1,140 @@
+{
+  "meta": {
+    "id": "niren_poe_kp_i101_at",
+    "name": "Niren POE-KP-I101 AT relay",
+    "vendor": "Niren",
+    "description": "AT-over-TCP commands for POE-KP-I101 RJ45/WIFI relay controllers. Change host, port, channel and timeout per device after import.",
+    "version": "1.0",
+    "tags": ["relay", "tcp", "at", "poe-kp-i101"]
+  },
+  "target_groups": [
+    {
+      "id": "niren_poe_kp_i101_192_168_50_89",
+      "name": "POE-KP-I101 192.168.50.89 AT",
+      "protocol": "tcp",
+      "mode": "single",
+      "host": "192.168.50.89",
+      "port": 44489,
+      "timeout_ms": 2000,
+      "wait_ms": 500,
+      "send_strategy": "serial",
+      "enabled": true
+    }
+  ],
+  "commands": [
+    {
+      "id": "niren_at_ping",
+      "name": "AT ping",
+      "category": "Niren AT",
+      "protocol": "tcp",
+      "format": "str",
+      "line_ending": "crlf",
+      "payload_template": "AT",
+      "wait_ms": 500,
+      "enabled": true
+    },
+    {
+      "id": "niren_at_device_info",
+      "name": "Read device info",
+      "category": "Niren AT",
+      "protocol": "tcp",
+      "format": "str",
+      "line_ending": "crlf",
+      "payload_template": "AT+DEVICEINFO=?",
+      "wait_ms": 700,
+      "enabled": true
+    },
+    {
+      "id": "niren_at_do_read",
+      "name": "Read DO channel",
+      "category": "Niren AT",
+      "protocol": "tcp",
+      "format": "str",
+      "line_ending": "crlf",
+      "payload_template": "AT+STACH{{channel}}=?",
+      "params": [
+        {"id": "channel", "label": "Channel", "type": "int", "default": 1, "min": 1, "max": 64, "step": 1}
+      ],
+      "wait_ms": 700,
+      "enabled": true
+    },
+    {
+      "id": "niren_at_do_on",
+      "name": "DO on",
+      "category": "Niren AT",
+      "protocol": "tcp",
+      "format": "str",
+      "line_ending": "crlf",
+      "payload_template": "AT+STACH{{channel}}=1",
+      "params": [
+        {"id": "channel", "label": "Channel", "type": "int", "default": 1, "min": 1, "max": 64, "step": 1}
+      ],
+      "wait_ms": 700,
+      "enabled": true
+    },
+    {
+      "id": "niren_at_do_off",
+      "name": "DO off",
+      "category": "Niren AT",
+      "protocol": "tcp",
+      "format": "str",
+      "line_ending": "crlf",
+      "payload_template": "AT+STACH{{channel}}=0",
+      "params": [
+        {"id": "channel", "label": "Channel", "type": "int", "default": 1, "min": 1, "max": 64, "step": 1}
+      ],
+      "wait_ms": 700,
+      "enabled": true
+    },
+    {
+      "id": "niren_at_do_pulse",
+      "name": "DO pulse",
+      "category": "Niren AT",
+      "protocol": "tcp",
+      "format": "str",
+      "line_ending": "crlf",
+      "payload_template": "AT+STACH{{channel}}=3,{{seconds}}",
+      "params": [
+        {"id": "channel", "label": "Channel", "type": "int", "default": 1, "min": 1, "max": 64, "step": 1},
+        {"id": "seconds", "label": "Seconds", "type": "int", "default": 1, "min": 1, "max": 100000, "step": 1}
+      ],
+      "wait_ms": 700,
+      "enabled": true
+    },
+    {
+      "id": "niren_at_di_read",
+      "name": "Read DI channel",
+      "category": "Niren AT",
+      "protocol": "tcp",
+      "format": "str",
+      "line_ending": "crlf",
+      "payload_template": "AT+OCCH{{channel}}=?",
+      "params": [
+        {"id": "channel", "label": "Channel", "type": "int", "default": 1, "min": 1, "max": 64, "step": 1}
+      ],
+      "wait_ms": 700,
+      "enabled": true
+    }
+  ],
+  "panels": [
+    {
+      "id": "niren_poe_kp_i101_at_panel",
+      "name": "Niren POE-KP-I101",
+      "visible": true,
+      "sort": 1,
+      "controls": [
+        {"id": "niren_at_ping_btn", "name": "Ping", "type": "button", "command_id": "niren_at_ping", "target_group_id": "niren_poe_kp_i101_192_168_50_89", "show_on_home": false, "visible": true, "sort": 1},
+        {"id": "niren_at_info_btn", "name": "Info", "type": "button", "command_id": "niren_at_device_info", "target_group_id": "niren_poe_kp_i101_192_168_50_89", "show_on_home": false, "visible": true, "sort": 2},
+        {"id": "niren_at_do_on_btn", "name": "DO1 on", "type": "button", "command_id": "niren_at_do_on", "target_group_id": "niren_poe_kp_i101_192_168_50_89", "params": {"channel": 1}, "show_on_home": false, "visible": true, "sort": 3},
+        {"id": "niren_at_do_off_btn", "name": "DO1 off", "type": "button", "command_id": "niren_at_do_off", "target_group_id": "niren_poe_kp_i101_192_168_50_89", "params": {"channel": 1}, "show_on_home": false, "visible": true, "sort": 4},
+        {"id": "niren_at_do_read_btn", "name": "Read DO1", "type": "button", "command_id": "niren_at_do_read", "target_group_id": "niren_poe_kp_i101_192_168_50_89", "params": {"channel": 1}, "show_on_home": false, "visible": true, "sort": 5},
+        {"id": "niren_at_di_read_btn", "name": "Read DI1", "type": "button", "command_id": "niren_at_di_read", "target_group_id": "niren_poe_kp_i101_192_168_50_89", "params": {"channel": 1}, "show_on_home": false, "visible": true, "sort": 6}
+      ]
+    }
+  ],
+  "generator": {
+    "default_panel_name": "Niren POE-KP-I101",
+    "default_control_type": "button",
+    "default_show_on_home": false
+  }
+}

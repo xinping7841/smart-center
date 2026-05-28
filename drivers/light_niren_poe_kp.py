@@ -215,15 +215,28 @@ class NirenPoeKpRelayDriver(BaseDriver):
         response = self._socket_exchange((text + "\r\n").encode("ascii", errors="ignore"))
         return response.decode("utf-8", errors="replace").strip()
 
+    def _at_value(self, raw, prefix):
+        prefix = str(prefix or "").upper()
+        lines = [
+            line.strip()
+            for line in str(raw or "").replace("\r", "\n").split("\n")
+            if line.strip()
+        ]
+        for line in lines:
+            if not line.upper().startswith(prefix):
+                continue
+            value = line.split(":", 1)[-1].split(",", 1)[0].strip()
+            if value in {"0", "1"}:
+                return value == "1"
+            raise RuntimeError(raw or f"invalid {prefix} response")
+        raise RuntimeError(raw or f"missing {prefix} response")
+
     def _read_coils_at(self):
         count = self._channel_count()
         channels = []
         for ch in range(1, count + 1):
             raw = self._send_at(f"AT+STACH{ch}=?")
-            if "+STACH" not in raw:
-                raise RuntimeError(raw or "empty AT response")
-            value = raw.split(":", 1)[-1].split(",", 1)[0].strip()
-            channels.append(value == "1")
+            channels.append(self._at_value(raw, f"+STACH{ch}"))
         return channels
 
     def _read_inputs_at(self):
@@ -231,10 +244,7 @@ class NirenPoeKpRelayDriver(BaseDriver):
         inputs = []
         for ch in range(1, count + 1):
             raw = self._send_at(f"AT+OCCH{ch}=?")
-            if "+OCCH" not in raw:
-                raise RuntimeError(raw or "empty AT response")
-            value = raw.split(":", 1)[-1].split(",", 1)[0].strip()
-            inputs.append(value == "1")
+            inputs.append(self._at_value(raw, f"+OCCH{ch}"))
         return self._normalize_inputs(inputs)
 
     def _input_active_level(self):
@@ -297,6 +307,34 @@ class NirenPoeKpRelayDriver(BaseDriver):
         if "OK" in raw.upper():
             return True
         raise RuntimeError(raw or "empty AT response")
+
+    def pulse_channel(self, channel, seconds=1):
+        with self.dev_lock:
+            try:
+                seconds = max(1, int(float(seconds or 1)))
+                if self._protocol() != "at":
+                    raise RuntimeError("pulse is only implemented for AT protocol")
+                raw = self._send_at(f"AT+STACH{int(channel)}=3,{seconds}")
+                ok = "OK" in raw.upper()
+                self.is_online = bool(ok)
+                return bool(ok)
+            except Exception as exc:
+                self.is_online = False
+                self.last_error = str(exc)
+                return False
+
+    def execute_action(self, action_name):
+        action = str(action_name or "").strip().lower()
+        if action in {"pulse", "pulse1", "jog", "momentary"}:
+            channel = int(self.config.get("pulse_channel", 1) or 1)
+            seconds = self.config.get("pulse_seconds", 1)
+        elif action.startswith("pulse_ch"):
+            channel = int(action.replace("pulse_ch", "", 1) or 1)
+            seconds = self.config.get("pulse_seconds", 1)
+        else:
+            return {"success": False, "msg": f"unsupported action: {action_name}"}
+        ok = self.pulse_channel(channel, seconds)
+        return {"success": ok, "verified": False, "status_text": self.last_protocol or self._protocol()}
 
     def control_channel(self, channel, is_open):
         with self.dev_lock:
