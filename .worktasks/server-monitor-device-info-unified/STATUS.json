@@ -1,0 +1,10 @@
+﻿{
+    "task":  "server-monitor-device-info-unified",
+    "module":  "server_monitor",
+    "machine":  "12700k",
+    "kind":  "light",
+    "branch":  "codex/12700k-server-monitor-device-info-unified-20260528",
+    "worktree":  "D:\\SmartCenter\\smart-center-worktrees\\server-monitor-device-info-unified",
+    "started_at":  "2026-05-28 14:22:56",
+    "status":  "in_progress"
+}
