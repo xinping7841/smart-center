@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="/static/js/core/viewport-layout.js?v=20260522-stage7-viewport"></script>
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
-    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260528-server-final-polish">
+    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260528-server-toolbar-redesign">
     <link rel="stylesheet" href="/static/css/views/dashboard-inline.css?v=20260522-stage6-inline-css">
     <link rel="stylesheet" href="/static/css/views/local-model.css?v=20260528-integrated-ui">
     <style id="codemeter-four-column-hotfix">
@@ -975,14 +975,18 @@
                 <div class="card">
                     <div class="card-title" style="margin-bottom: 20px;">
                         <span>物理服务器与工作站节点大屏</span>
-                        <div class="server-toolbar">
-                            <div class="server-view-toggle" role="group" aria-label="服务器显示模式">
-                                <button class="active" type="button" data-server-view-mode="compact" onclick="setServerViewMode('compact')"><span>简洁</span></button>
-                                <button type="button" data-server-view-mode="detail" onclick="setServerViewMode('detail')"><span>详细</span></button>
+                        <div class="server-toolbar" aria-label="服务器看板工具">
+                            <div class="server-toolbar-group server-mode-control">
+                                <span class="server-mode-current" id="server-mode-current">简洁模式</span>
+                                <div class="server-view-toggle" role="group" aria-label="服务器显示模式">
+                                    <button class="active" type="button" data-server-view-mode="compact" onclick="setServerViewMode('compact')"><span>简洁</span></button>
+                                    <button type="button" data-server-view-mode="detail" onclick="setServerViewMode('detail')"><span>详细</span></button>
+                                </div>
                             </div>
-                            <span class="server-mode-current" id="server-mode-current">简洁模式</span>
-                            <button class="btn-base server-export-btn" type="button" onclick="exportServerDeviceInfoCsv()">导出设备信息</button>
-                            <button class="btn-base server-agent-btn" type="button" onclick="openDeployModal()">Agent 部署命令</button>
+                            <div class="server-toolbar-actions">
+                                <button class="btn-base server-tool-btn server-export-btn" type="button" onclick="exportServerDeviceInfoCsv()">导出设备信息</button>
+                                <button class="btn-base server-tool-btn server-agent-btn" type="button" onclick="openDeployModal()">Agent 部署命令</button>
+                            </div>
                         </div>
                     </div>
                     <div class="server-grid" id="server-grid-container"></div>
@@ -1852,7 +1856,7 @@
     <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
     <script src="/static/js/views/env.js?v=20260522-stage2-env-view"></script>
     <script src="/static/js/views/snmp-summary.js?v=20260528-snmp-summary"></script>
-    <script src="/static/js/views/server-monitor.js?v=20260528-server-final-polish"></script>
+    <script src="/static/js/views/server-monitor.js?v=20260528-server-toolbar-redesign"></script>
     <script src="/static/js/views/power-meter.js?v=20260522-stage4-power-meter"></script>
     <script src="/static/js/views/automation-view.js?v=20260522-stage4-automation-view"></script>
     <script src="/static/js/views/dashboard-summary.js?v=20260522-stage8-dashboard-summary"></script>
@@ -1867,7 +1871,7 @@
         const lazyViewScripts = {
             apple_audio: '/static/js/views/apple-audio.js?v=20260527-lazy-view',
             local_model: '/static/js/views/local-model.js?v=20260527-lazy-view',
-            server: '/static/js/views/server-monitor.js?v=20260528-server-final-polish',
+            server: '/static/js/views/server-monitor.js?v=20260528-server-toolbar-redesign',
             snmp: '/static/js/views/snmp.js?v=20260528-lazy-view',
             universal: '/static/js/views/universal.js?v=20260527-lazy-view'
         };
@@ -7182,6 +7186,30 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 const wifi = st.wireless || {};
                 const bt = st.bluetooth || {};
                 const adapters = Array.isArray(st.network_adapters) ? st.network_adapters.filter(adapter => !adapter?.is_virtual) : [];
+                const codemeter = st.codemeter && typeof st.codemeter === 'object' ? st.codemeter : {};
+                const codemeterSerials = getCodeMeterSerials(codemeter);
+                const codemeterLicenses = normalizeCodeMeterLicenses(codemeter, codemeterSerials);
+                const codemeterValidity = getCodeMeterValidityText(codemeter);
+                const codemeterLabel = getCodeMeterLicenseLabel(codemeter);
+                const codemeterInstalled = codemeter.installed === true ? '已安装' : (codemeter.installed === false ? '未安装' : '');
+                const codemeterRunning = codemeter.running === true ? '运行中' : (codemeter.running === false ? '未运行' : '');
+                const codemeterRows = codemeterLicenses.length
+                    ? codemeterLicenses.map((license, index) => ({
+                        codemeter_license_index: index + 1,
+                        codemeter_serial: license.serial || codemeterSerials.join(' / '),
+                        codemeter_product_code: license.code || '',
+                        codemeter_expiry: license.permanent ? '长期' : (license.expiryText || ''),
+                        codemeter_days_left: license.permanent ? '长期' : (Number.isFinite(license.daysLeft) ? license.daysLeft : ''),
+                        codemeter_license_status: license.expired ? '已过期' : (license.permanent ? '长期' : '有效'),
+                    }))
+                    : [{
+                        codemeter_license_index: '',
+                        codemeter_serial: codemeterSerials.join(' / '),
+                        codemeter_product_code: '',
+                        codemeter_expiry: '',
+                        codemeter_days_left: '',
+                        codemeter_license_status: codemeterValidity,
+                    }];
                 const base = {
                     name: getServerDisplayName(machine),
                     group: machine.asset_group || '',
@@ -7197,28 +7225,36 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                     network_summary: `${network.active_count ?? 0}/${network.physical_count ?? 0}网卡`,
                     wireless: wifi.present ? (wifi.connected ? `Wi-Fi ${wifi.ssid || '已连接'}` : 'Wi-Fi未连') : '',
                     bluetooth: bt.present ? (bt.blocked ? '蓝牙阻塞' : '蓝牙') : '',
+                    codemeter_installed: codemeterInstalled,
+                    codemeter_running: codemeterRunning,
+                    codemeter_validity: codemeterValidity,
+                    codemeter_label: codemeterLabel,
+                    codemeter_all_serials: codemeterSerials.join(' / '),
+                };
+                const pushRows = adapterInfo => {
+                    codemeterRows.forEach(lockInfo => rows.push(Object.assign({}, base, adapterInfo, lockInfo)));
                 };
                 if (adapters.length) {
                     adapters.forEach((adapter, index) => {
                         const ips = Array.isArray(adapter?.ipv4) ? adapter.ipv4 : [adapter?.adapter_ip, adapter?.ip, adapter?.ipv4].filter(Boolean);
-                        rows.push(Object.assign({}, base, {
+                        pushRows({
                             adapter_index: index + 1,
                             adapter_name: adapter?.description || adapter?.adapter_description || adapter?.name || adapter?.adapter_name || '',
                             adapter_ip: ips.join(' / '),
                             adapter_mac: normalizeDisplayMac(adapter?.adapter_mac || adapter?.mac || adapter?.physical_mac || adapter?.address),
                             adapter_speed_mbps: adapter?.speed_mbps || adapter?.link_speed_mbps || adapter?.speed || '',
                             adapter_state: adapter?.state || adapter?.status || '',
-                        }));
+                        });
                     });
                 } else {
-                    rows.push(Object.assign({}, base, {
+                    pushRows({
                         adapter_index: '',
                         adapter_name: '',
                         adapter_ip: '',
                         adapter_mac: '',
                         adapter_speed_mbps: '',
                         adapter_state: '',
-                    }));
+                    });
                 }
             });
             return rows;
@@ -7244,6 +7280,17 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 ['network_summary', '网络汇总'],
                 ['wireless', '无线'],
                 ['bluetooth', '蓝牙'],
+                ['codemeter_installed', '加密锁安装'],
+                ['codemeter_running', '加密锁服务'],
+                ['codemeter_validity', '加密锁状态'],
+                ['codemeter_label', '加密锁授权'],
+                ['codemeter_all_serials', '全部加密锁编号'],
+                ['codemeter_license_index', '授权序号'],
+                ['codemeter_serial', '加密锁编号'],
+                ['codemeter_product_code', '产品码'],
+                ['codemeter_expiry', '到期时间'],
+                ['codemeter_days_left', '剩余天数'],
+                ['codemeter_license_status', '授权状态'],
                 ['adapter_index', '网卡序号'],
                 ['adapter_name', '网卡名称'],
                 ['adapter_ip', '网卡IP'],
@@ -7496,6 +7543,9 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         }
         function getCodeMeterValidityText(codemeter) {
             return SmartCenter.serverMonitor.getCodeMeterValidityText.apply(SmartCenter.serverMonitor, Array.from(arguments));
+        }
+        function normalizeCodeMeterLicenses(codemeter, serials) {
+            return SmartCenter.serverMonitor.normalizeCodeMeterLicenses.apply(SmartCenter.serverMonitor, Array.from(arguments));
         }
         function getCodeMeterExpiryStatusFromLicenses(licenses) {
             return SmartCenter.serverMonitor.getCodeMeterExpiryStatusFromLicenses.apply(SmartCenter.serverMonitor, Array.from(arguments));
