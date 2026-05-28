@@ -7200,6 +7200,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                         codemeter_product_code: license.code || '',
                         codemeter_expiry: license.permanent ? '长期' : (license.expiryText || ''),
                         codemeter_days_left: license.permanent ? '长期' : (Number.isFinite(license.daysLeft) ? license.daysLeft : ''),
+                        codemeter_days_left_formula: license.permanent ? '长期' : (license.expiryText ? `=DATEVALUE("${license.expiryText}")-TODAY()` : ''),
                         codemeter_license_status: license.expired ? '已过期' : (license.permanent ? '长期' : '有效'),
                     }))
                     : [{
@@ -7208,6 +7209,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                         codemeter_product_code: '',
                         codemeter_expiry: '',
                         codemeter_days_left: '',
+                        codemeter_days_left_formula: '',
                         codemeter_license_status: codemeterValidity,
                     }];
                 const base = {
@@ -7290,6 +7292,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 ['codemeter_product_code', '产品码'],
                 ['codemeter_expiry', '到期时间'],
                 ['codemeter_days_left', '剩余天数'],
+                ['codemeter_days_left_formula', '剩余天数公式'],
                 ['codemeter_license_status', '授权状态'],
                 ['adapter_index', '网卡序号'],
                 ['adapter_name', '网卡名称'],
