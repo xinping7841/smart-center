@@ -32,15 +32,18 @@ in_progress
 - Updated NIC metadata markup with wide classes for long IP/MAC chips
 - Normalized NIC row typography, spacing, and chip layout
 - Bumped server monitor CSS/JS asset versions
+- Added a scoped inline hotfix so adapter typography is not lost behind stale/overriding stylesheet rules
 
 ## Verified
 
 - node --check static/js/views/server-monitor.js
 - git diff --check
+- Live preview http://192.168.50.120:6899/?view=server loads server-network-font2 assets
+- Browser verification: 33 adapter rows render; Realtek 5GbE sample has grid metadata, block chips, 48px badge, 11px chip font
 
 ## Not Verified
 
-- Production deploy and live browser verification pending
+- None
 
 ## Risks
 
@@ -52,4 +55,4 @@ in_progress
 
 ## Next
 
-- Commit, merge to production integration branch, deploy overlay release, verify live URL.
+- Release locks and report completion.
