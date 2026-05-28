@@ -768,17 +768,21 @@
     function renderServerCommandPending(pending) {
             if (!pending) return '';
             const seconds = Math.max(0, Math.round((Number(pending.ageMs) || 0) / 1000));
-            const suffix = pending.cmd === 'shutdown' || pending.cmd === 'restart'
-                ? '等待节点执行 / 离线上报'
-                : '等待节点刷新上报';
-            return `<div class="server-pending-command">${escapeHtml(pending.actionName)}已下发 · ${seconds}s · ${suffix}</div>`;
+            const pendingMeta = {
+                shutdown: ['关机指令已下发', '等待节点断开 Agent / 进入离线状态'],
+                restart: ['重启指令已下发', '通常 30-90 秒内离线后恢复上报'],
+                refresh: ['刷新指令已下发', '等待节点重新采集并上报'],
+                wake: ['唤醒包已发送', '等待网卡响应 WOL 并恢复 Agent 上报'],
+            };
+            const meta = pendingMeta[pending.cmd] || [`${pending.actionName || '指令'}已下发`, '等待节点回报执行状态'];
+            return `<div class="server-pending-command" title="${escapeHtml(meta[1])}"><strong>${escapeHtml(meta[0])}</strong><span>${seconds}s</span><em>${escapeHtml(meta[1])}</em></div>`;
         }
 
     function renderServerCommandResult(result) {
             if (!result || typeof result !== 'object' || !result.action) return '';
-            const actionName = { shutdown: '关机', restart: '重启', refresh: '刷新' }[result.action] || result.action;
+            const actionName = { shutdown: '关机', restart: '重启', refresh: '刷新', wake: '唤醒' }[result.action] || result.action;
             const ok = result.ok === true;
-            const statusText = ok ? '已接收' : '失败';
+            const statusText = ok ? (result.action === 'restart' ? '已接收，等待恢复' : (result.action === 'shutdown' ? '已接收，等待离线' : '已接收')) : '失败';
             const method = result.method ? ` · ${result.method}` : '';
             const exitCode = Number.isFinite(Number(result.exit_code)) ? ` · 退出码 ${result.exit_code}` : '';
             const error = result.error ? ` · ${result.error}` : '';
@@ -832,13 +836,20 @@
             let remarkHtml = m.remark ? `<div style="margin-top:12px; font-size:12px; color:var(--text-sub); border-top:1px dashed rgba(255,255,255,0.1); padding-top:8px;">备注: ${escapeHtml(m.remark)}</div>` : '';
             remarkHtml = groupHtml + remarkHtml;
             const cardStateClass = m.is_online ? 'online' : (diagnostic.reportOnline ? 'warning' : 'offline');
-            const wakeButton = `<button class="server-action-btn wake${(typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '')}" ${(typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '')} onclick="wakeServer('${escapeHtml(m.mac)}')">唤醒</button>`;
+            const controlClass = typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '';
+            const controlAttrs = typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '';
+            const wakeButton = `<button class="server-action-btn wake${controlClass}" ${controlAttrs} title="发送 Wake-on-LAN 唤醒包" onclick="wakeServer('${escapeHtml(m.mac)}')">唤醒</button>`;
+            const moveButtons = `<div class="server-action-group order"><button class="server-action-btn icon${controlClass}" ${controlAttrs} title="上移" onclick="moveServer('${escapeHtml(m.mac)}', -1)">↑</button><button class="server-action-btn icon${controlClass}" ${controlAttrs} title="下移" onclick="moveServer('${escapeHtml(m.mac)}', 1)">↓</button></div>`;
+            const redeployButton = diagnostic.needsRedeploy ? `<button class="server-action-btn redeploy" title="复制 Agent 重部署命令" onclick="copyDeployCommand()">重部署</button>` : '';
+            const refreshButton = `<button class="server-action-btn refresh${controlClass}" ${controlAttrs} title="要求节点立即刷新采集" onclick="sendServerCmd('${escapeHtml(m.mac)}', 'refresh')">刷新</button>`;
+            const restartButton = `<button class="server-action-btn restart${controlClass}" ${controlAttrs} title="重启节点，测试机实测约 50 秒恢复 SSH" onclick="sendServerCmd('${escapeHtml(m.mac)}', 'restart')">重启</button>`;
+            const shutdownButton = `<button class="server-action-btn shutdown${controlClass}" ${controlAttrs} title="关闭节点；需要 WOL 或现场电源恢复" onclick="sendServerCmd('${escapeHtml(m.mac)}', 'shutdown')">关机</button>`;
             const offlineCommandHint = cardStateClass === 'offline'
-                ? `<div class="server-command-disabled-note">Agent未上报，关机/重启命令无法实时送达；请先恢复 Agent 或使用现场电源确认。</div>`
+                ? `<div class="server-command-disabled-note">节点离线时只保留唤醒入口；关机/重启需要 Agent 在线后才能确认送达。</div>`
                 : '';
             const actionHtml = cardStateClass === 'offline'
                 ? `${offlineCommandHint}<div class="server-compact-actions offline-only"><span class="spacer"></span>${wakeButton}</div>`
-                : `<div class="server-compact-actions"><button class="server-action-btn${(typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '')}" ${(typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '')} title="上移" onclick="moveServer('${escapeHtml(m.mac)}', -1)">↑</button><button class="server-action-btn${(typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '')}" ${(typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '')} title="下移" onclick="moveServer('${escapeHtml(m.mac)}', 1)">↓</button><span class="spacer"></span>${diagnostic.needsRedeploy ? `<button class="server-action-btn" style="color:var(--warning); border-color:var(--warning);" onclick="copyDeployCommand()">重部署</button>` : ''}<button class="server-action-btn${(typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '')}" ${(typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '')} onclick="sendServerCmd('${escapeHtml(m.mac)}', 'refresh')">刷新</button><button class="server-action-btn${(typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '')}" style="color:var(--warning); border-color:var(--warning);" ${(typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '')} onclick="sendServerCmd('${escapeHtml(m.mac)}', 'restart')">重启</button><button class="server-action-btn${(typeof ctx.getPermissionDisabledClass === 'function' ? ctx.getPermissionDisabledClass('server.control') : '')}" style="color:var(--danger); border-color:var(--danger);" ${(typeof ctx.getPermissionDisabledAttrs === 'function' ? ctx.getPermissionDisabledAttrs('server.control', '当前账号无服务器控制权限') : '')} onclick="sendServerCmd('${escapeHtml(m.mac)}', 'shutdown')">关机</button>${wakeButton}</div>`;
+                : `<div class="server-compact-actions">${moveButtons}<span class="spacer"></span>${redeployButton}<div class="server-action-group power">${refreshButton}${restartButton}${shutdownButton}${wakeButton}</div></div>`;
             return `<div class="server-card ${cardStateClass} size-${escapeHtml(m.card_size || 'normal')}"><div class="server-title"><span>${escapeHtml(getServerDisplayName(m))}</span><span class="tag ${diagnostic.badgeClass}">${escapeHtml(diagnostic.badgeText)}</span></div><div class="server-ip" title="${escapeHtml(identityLine.title)}">${escapeHtml(identityLine.text)}</div>${renderServerCommandPending(pendingCommand)}${commandResultHtml}${metricsHtml}${remarkHtml}${actionHtml}</div>`;
         }
 
