@@ -23,7 +23,7 @@ Polish the server monitor card UI after user review:
 
 ## Current Phase
 
-ready_to_merge
+deployed_verified
 
 ## Change Scope
 
@@ -46,10 +46,19 @@ ready_to_merge
 
 - `node --check static\js\views\server-monitor.js`
 - `git diff --check` (CRLF warnings only)
+- Production branch merged and pushed.
+- Deployed to `/srv/smart-center/releases/smart-center-release-20260528_150832-device-info-export-bind`.
+- Live browser check at `http://192.168.50.120:6899/?view=server`:
+  - Compact mode shows active label and active button.
+  - Compact mode has `hardwareCount=0`, `hardwareVisible=0`.
+  - Compact mode has no visible CodeMeter license table.
+  - Detail mode shows hardware information and network adapter rows.
+  - Adapter row/head/detail left offsets match, font size `12px`, weight `400`, border top `0px`.
+  - Export button click shows `服务器设备信息 CSV 已生成` with no console errors.
 
 ## Not Verified
 
-- Live browser verification pending after merge and deploy.
+- Download file contents were not inspected because the in-app browser does not support download capture.
 
 ## Risks
 
@@ -61,4 +70,4 @@ ready_to_merge
 
 ## Next
 
-- Commit, merge to production branch, deploy, browser verify, release locks.
+- Release locks.
