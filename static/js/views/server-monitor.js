@@ -699,8 +699,9 @@
             };
         }
 
-    function renderServerCodeMeterLine(codemeter) {
+    function renderServerCodeMeterLine(codemeter, context = {}) {
             const info = codemeter && typeof codemeter === 'object' ? codemeter : {};
+            const { serverViewMode = 'compact' } = getContext(context);
             const serials = getCodeMeterSerials(info);
             const installed = !!info.installed;
             const running = !!info.running;
@@ -742,7 +743,9 @@
             if (info.checked_at) titleParts.push(`检测: ${formatServerTime(info.checked_at)}`);
             const upgradeHtml = runtimeOutdated ? `<em class="upgrade">升级8.0+</em>` : '';
             let bodyHtml = '';
-            if (displayRows.length) {
+            if (serverViewMode !== 'detail') {
+                bodyHtml = `<strong><em class="serial">${escapeHtml(serialText)}</em><em class="validity">${escapeHtml(validityText)}</em>${upgradeHtml}</strong>`;
+            } else if (displayRows.length) {
                 const shownSerials = new Set();
                 const rowsHtml = displayRows.map(row => {
                     const daysText = row.permanent ? '长期' : (Number.isFinite(row.daysLeft) ? `${row.daysLeft}天` : '--');
@@ -843,7 +846,7 @@
             const netSent = normalizeServerBytes(st.net_sent_kb_s);
             const netRecv = normalizeServerBytes(st.net_recv_kb_s);
             const networkPrimaryLabel = getNetworkPrimaryLabel(st);
-            const codeMeterHtml = renderServerCodeMeterLine(st.codemeter);
+            const codeMeterHtml = renderServerCodeMeterLine(st.codemeter, ctx);
             const hardwareExtraHtml = renderServerHardwareExtra(st, ctx);
             const storageHtml = renderServerStorageRows(st, ctx);
             const cpuLabel = compactCpuName(st.cpu_name);
@@ -864,8 +867,11 @@
                 ? `<div class="server-offline-snapshot">Agent未上报，以下为最后一次采集快照，不代表当前开关机状态</div>`
                 : '';
             const showLastMetrics = !!(m.is_online || hasStoredMetrics || (diagnostic.reportOnline && diagnostic.hasRuntime));
+            const hardwareInfoHtml = ctx.serverViewMode === 'detail'
+                ? `<div class="hardware-info"><div class="hardware-item" title="${escapeHtml(st.cpu_name||'未获取到CPU')}"><span class="hardware-label">CPU</span><span class="hardware-value">${escapeHtml(st.cpu_name||'加载中...')}</span></div><div class="hardware-item" title="${escapeHtml(st.motherboard||'未获取到主板')}"><span class="hardware-label">主板</span><span class="hardware-value">${escapeHtml(st.motherboard||'加载中...')}</span></div>${st.mem_speed ? `<div class="hardware-item"><span class="hardware-label">频率</span><span class="hardware-value">${escapeHtml(st.mem_speed)} MHz</span></div>` : ''}${hardwareExtraHtml}</div>`
+                : '';
             const metricsHtml = showLastMetrics
-                ? `${statusMetaHtml}${diagnosticHtml}${offlineSnapshotHtml}<div class="hardware-info"><div class="hardware-item" title="${escapeHtml(st.cpu_name||'未获取到CPU')}"><span class="hardware-label">CPU</span><span class="hardware-value">${escapeHtml(st.cpu_name||'加载中...')}</span></div><div class="hardware-item" title="${escapeHtml(st.motherboard||'未获取到主板')}"><span class="hardware-label">主板</span><span class="hardware-value">${escapeHtml(st.motherboard||'加载中...')}</span></div>${st.mem_speed ? `<div class="hardware-item"><span class="hardware-label">频率</span><span class="hardware-value">${escapeHtml(st.mem_speed)} MHz</span></div>` : ''}${hardwareExtraHtml}</div><div class="metric-row"><div class="metric-label"><span title="${escapeHtml(st.cpu_name || '')}">CPU ${escapeHtml(cpuLabel)}</span><span>${formatServerMetric(cpuPercent)}</span></div><div class="progress-track"><div class="progress-fill ${getColor(cpuPercent)}" style="width:${Math.max(0, Math.min(100, cpuPercent))}%"></div></div></div><div class="metric-row"><div class="metric-label"><span>内存 (${escapeHtml(st.mem_used||0)}/${escapeHtml(st.mem_total||0)} GB)</span><span>${formatServerMetric(memPercent)}</span></div><div class="progress-track"><div class="progress-fill bg-blue" style="width:${Math.max(0, Math.min(100, memPercent))}%"></div></div></div>${gpuHtml}${storageHtml}<div class="server-network-line" title="${escapeHtml(networkPrimaryLabel)}"><span>网络 上/下</span><strong><span style="color:var(--brand-blue)">↑ ${formatNetworkMbps(netSent)}</span><span style="color:var(--success)">↓ ${formatNetworkMbps(netRecv)} Mbps</span></strong></div>${codeMeterHtml}`
+                ? `${statusMetaHtml}${diagnosticHtml}${offlineSnapshotHtml}${hardwareInfoHtml}<div class="metric-row"><div class="metric-label"><span title="${escapeHtml(st.cpu_name || '')}">CPU ${escapeHtml(cpuLabel)}</span><span>${formatServerMetric(cpuPercent)}</span></div><div class="progress-track"><div class="progress-fill ${getColor(cpuPercent)}" style="width:${Math.max(0, Math.min(100, cpuPercent))}%"></div></div></div><div class="metric-row"><div class="metric-label"><span>内存 (${escapeHtml(st.mem_used||0)}/${escapeHtml(st.mem_total||0)} GB)</span><span>${formatServerMetric(memPercent)}</span></div><div class="progress-track"><div class="progress-fill bg-blue" style="width:${Math.max(0, Math.min(100, memPercent))}%"></div></div></div>${gpuHtml}${storageHtml}<div class="server-network-line" title="${escapeHtml(networkPrimaryLabel)}"><span>网络 上/下</span><strong><span style="color:var(--brand-blue)">↑ ${formatNetworkMbps(netSent)}</span><span style="color:var(--success)">↓ ${formatNetworkMbps(netRecv)} Mbps</span></strong></div>${codeMeterHtml}`
                 : `${statusMetaHtml}${diagnosticHtml}<div style="text-align:center; color:var(--text-sub); margin:14px 0;">该节点当前离线，等待自动重连上报。</div>`;
             const groupHtml = m.asset_group ? `<div style="margin-top:8px; font-size:12px; color:var(--brand-blue);">区域/分组: ${escapeHtml(m.asset_group)}</div>` : '';
             let remarkHtml = m.remark ? `<div style="margin-top:12px; font-size:12px; color:var(--text-sub); border-top:1px dashed rgba(255,255,255,0.1); padding-top:8px;">备注: ${escapeHtml(m.remark)}</div>` : '';
@@ -958,6 +964,7 @@
         formatCodeMeterExpiry,
         hasCompanyCodeMeterLicense,
         getCodeMeterValidityText,
+        normalizeCodeMeterLicenses,
         getCodeMeterExpiryStatusFromLicenses,
         renderServerCodeMeterLine,
         getServerGroupName,
