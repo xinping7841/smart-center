@@ -68,6 +68,9 @@ CONTROL_ACTION_WORDS = (
     "关机",
     "开灯",
     "关灯",
+    "开了",
+    "关了",
+    "关掉",
     "控制",
     "重启",
     "执行",
@@ -85,6 +88,7 @@ CONTROL_CONFIRM_WORDS = ("确认", "确认执行", "执行确认", "是的", "�
 CONTROL_CANCEL_WORDS = ("取消", "别执行", "不要执行", "撤销")
 HIGH_RISK_CONTROL_TYPES = {"power", "sequencer"}
 PENDING_CONTROL_TTL_SEC = 10 * 60
+INFERRED_CONTROL_CONFIDENCE = {"medium", "low"}
 SOFTWARE_PLAYBACK_WORDS = (
     "软件播控",
     "播控",
@@ -299,32 +303,52 @@ def _format_control_action(action: str) -> str:
     }.get(str(action or ""), str(action or "控制"))
 
 
-def _match_items_by_query(query: str, items: list[dict[str, Any]], fields: tuple[str, ...] = ("name", "id")) -> list[dict[str, Any]]:
+def _score_item_by_query(query: str, item: dict[str, Any], fields: tuple[str, ...] = ("name", "id")) -> tuple[int, list[str]]:
+    normalized_query = _normalize_match_text(query)
+    if not normalized_query or not isinstance(item, dict):
+        return 0, []
+    best = 0
+    reasons: list[str] = []
+    for field in fields:
+        value = item.get(field)
+        if value in (None, ""):
+            continue
+        normalized_value = _normalize_match_text(value)
+        if not normalized_value:
+            continue
+        if normalized_value == normalized_query:
+            best = max(best, 100)
+            reasons.append(f"{field}完全匹配")
+        elif normalized_value in normalized_query:
+            score = 80 + min(len(normalized_value), 19)
+            best = max(best, score)
+            reasons.append(f"包含{field}:{value}")
+        elif len(normalized_query) >= 3 and normalized_query in normalized_value:
+            score = 55 + min(len(normalized_query), 19)
+            best = max(best, score)
+            reasons.append(f"命中{field}:{value}")
+    return best, reasons[:3]
+
+
+def _score_items_by_query(
+    query: str,
+    items: list[dict[str, Any]],
+    fields: tuple[str, ...] = ("name", "id"),
+) -> list[tuple[int, dict[str, Any], list[str]]]:
     normalized_query = _normalize_match_text(query)
     if not normalized_query:
         return []
-    scored: list[tuple[int, dict[str, Any]]] = []
+    scored: list[tuple[int, dict[str, Any], list[str]]] = []
     for item in items:
-        if not isinstance(item, dict):
-            continue
-        best = 0
-        for field in fields:
-            value = item.get(field)
-            if value in (None, ""):
-                continue
-            normalized_value = _normalize_match_text(value)
-            if not normalized_value:
-                continue
-            if normalized_value == normalized_query:
-                best = max(best, 100)
-            elif normalized_value in normalized_query:
-                best = max(best, 80 + min(len(normalized_value), 19))
-            elif len(normalized_query) >= 3 and normalized_query in normalized_value:
-                best = max(best, 55 + min(len(normalized_query), 19))
+        best, reasons = _score_item_by_query(query, item, fields)
         if best:
-            scored.append((best, item))
+            scored.append((best, item, reasons))
     scored.sort(key=lambda row: row[0], reverse=True)
-    return [item for _score, item in scored]
+    return scored
+
+
+def _match_items_by_query(query: str, items: list[dict[str, Any]], fields: tuple[str, ...] = ("name", "id")) -> list[dict[str, Any]]:
+    return [item for _score, item, _reasons in _score_items_by_query(query, items, fields)]
 
 
 def _fmt_number(value: Any, digits: int = 2) -> str:
@@ -647,6 +671,14 @@ class LocalSmartCenterClient:
         suffix = f"\n{hint}" if hint else ""
         return f"没有匹配到要控制的{kind}，请带上完整名称、编号或 IP。{suffix}"
 
+    def _mark_inferred(self, command: dict[str, Any] | None, confidence: str, reason: str) -> dict[str, Any] | None:
+        if not isinstance(command, dict) or command.get("type") == "error":
+            return command
+        command = dict(command)
+        command["confidence"] = confidence
+        command["inference_reason"] = reason
+        return command
+
     def resolve_control_command(self, text: str) -> dict[str, Any] | None:
         action = _control_action_from_text(text)
         if not action:
@@ -675,9 +707,37 @@ class LocalSmartCenterClient:
                 return node_red
             return self._resolve_light_control(text, action)
         if _server_like_query(text, text.lower()) or _contains_any(text, ("服务器", "主机", "机器", "电脑", "节点")):
-            return self._resolve_server_control(text, action)
+            command = self._resolve_server_control(text, action)
+            if command and command.get("type") == "error":
+                inferred = self._resolve_server_control(text, action, allow_loose=True)
+                if inferred and inferred.get("type") != "error":
+                    return self._mark_inferred(inferred, "medium", "服务器名称没有精确命中，我按名称、IP、备注或分组做了近似匹配。")
+            return command
+        inferred = self._infer_control_command(text, action, normalized)
+        if inferred:
+            return inferred
         if normalized in {"开", "关", "打开", "关闭", "开启"}:
             return None
+        return None
+
+    def _infer_control_command(self, text: str, action: str, normalized: str) -> dict[str, Any] | None:
+        if normalized in {"开", "关", "打开", "关闭", "开启"}:
+            return None
+        channel = _extract_first_int(text)
+        if channel and action in {"on", "off", "toggle"}:
+            if re.search(r"(?:第)?\d+\s*(?:路|回路|通道)", text):
+                command = self._resolve_power_control(text, action, allow_single_cabinet_inference=True)
+                if command and command.get("type") != "error":
+                    reason = f"句子包含“第{channel}路/回路”和“{_format_control_action(action)}”，当前可推断为强电柜回路控制。"
+                    return self._mark_inferred(command, "medium", reason)
+        if action in {"on", "off", "toggle"} and _contains_any(text, ("户外", "庭院", "院子", "外墙", "室外")):
+            node_red = self._resolve_node_red_control(text, action, infer_outdoor_light=True)
+            if node_red:
+                return self._mark_inferred(node_red, "medium", "句子包含户外/庭院语义，匹配到 Node-RED 网关里的户外灯光设备。")
+        if action in {"wake", "shutdown", "restart", "refresh"}:
+            server = self._resolve_server_control(text, action, allow_loose=True)
+            if server and server.get("type") != "error":
+                return self._mark_inferred(server, "medium", "句子像是在控制服务器，我按名称、IP、备注或分组做了近似匹配。")
         return None
 
     def execute_control_command(self, command: dict[str, Any]) -> str:
@@ -725,7 +785,7 @@ class LocalSmartCenterClient:
             "action": "on" if api_action == "power_on" else "off",
         }
 
-    def _resolve_node_red_control(self, text: str, action: str) -> dict[str, Any] | None:
+    def _resolve_node_red_control(self, text: str, action: str, infer_outdoor_light: bool = False) -> dict[str, Any] | None:
         ok, payload = self.get_json("/api/node-red/devices?include_unavailable=1&refresh=0", timeout_sec=4.0)
         if not ok or not isinstance(payload, dict):
             return None
@@ -733,6 +793,16 @@ class LocalSmartCenterClient:
         if not devices:
             return None
         matches = _match_items_by_query(text, devices, ("device_name", "device_id", "name", "id"))
+        if not matches and infer_outdoor_light:
+            outdoor_words = ("庭院", "户外", "室外", "院子", "外墙")
+            matches = [
+                item
+                for item in devices
+                if _contains_any(
+                    f"{item.get('device_name', '')}{item.get('name', '')}{item.get('device_id', '')}{item.get('id', '')}",
+                    outdoor_words,
+                )
+            ]
         if len(matches) > 1:
             return {"type": "error", "message": self._ambiguous_control_text("Node-RED设备", matches)}
         if not matches:
@@ -823,7 +893,7 @@ class LocalSmartCenterClient:
                 return {"name": cmd.get("name") or "关机", "payload": cmd.get("payload") or "", "format": cmd.get("format") or "str"}
         return {"name": "开机" if wants_on else "关机", "payload": "power_on" if wants_on else "power_off", "format": "str"}
 
-    def _resolve_server_control(self, text: str, action: str) -> dict[str, Any] | None:
+    def _resolve_server_control(self, text: str, action: str, allow_loose: bool = False) -> dict[str, Any] | None:
         if action not in {"wake", "shutdown", "restart", "refresh"}:
             return None
         ok, payload = self.get_json("/api/machines", timeout_sec=6.0)
@@ -831,6 +901,25 @@ class LocalSmartCenterClient:
         if not machines:
             return {"type": "error", "message": f"服务器接口暂时不可用：{payload}"}
         matches = _match_items_by_query(text, machines, ("custom_name", "hostname", "ip", "mac", "remark", "asset_group"))
+        if not matches and allow_loose:
+            ignored = {"服务器", "主机", "机器", "电脑", "节点", "唤醒", "关机", "重启", "刷新", "打开", "关闭", "开机"}
+            raw_tokens = re.split(r"[\s,，。:：的那台]+", str(text or ""))
+            query_tokens = [
+                _normalize_match_text(token)
+                for token in raw_tokens
+                if len(_normalize_match_text(token)) >= 2 and _normalize_match_text(token) not in ignored
+            ]
+            loose_matches: list[dict[str, Any]] = []
+            for machine in machines:
+                haystack = _normalize_match_text(
+                    " ".join(
+                        str(machine.get(key) or "")
+                        for key in ("custom_name", "hostname", "ip", "mac", "remark", "asset_group")
+                    )
+                )
+                if haystack and any(token in haystack or haystack in token for token in query_tokens):
+                    loose_matches.append(machine)
+            matches = loose_matches
         if len(matches) > 1:
             return {"type": "error", "message": self._ambiguous_control_text("服务器", matches)}
         if not matches:
@@ -858,7 +947,7 @@ class LocalSmartCenterClient:
             "action": action,
         }
 
-    def _resolve_power_control(self, text: str, action: str) -> dict[str, Any] | None:
+    def _resolve_power_control(self, text: str, action: str, allow_single_cabinet_inference: bool = False) -> dict[str, Any] | None:
         if action not in {"on", "off", "toggle"}:
             return None
         cabinets = self._config_section("cabinets")
@@ -869,6 +958,8 @@ class LocalSmartCenterClient:
                 return {"type": "error", "message": self._ambiguous_control_text("强电柜", cab_matches)}
             cab_idx = cabinets.index(cab_matches[0])
         elif len(cabinets) == 1:
+            cab_idx = 0
+        elif allow_single_cabinet_inference and len(cabinets) == 1:
             cab_idx = 0
         if cab_idx is None:
             return {"type": "error", "message": self._not_found_control_text("强电柜", "例如：关闭中控室电柜第8路")}
@@ -1945,6 +2036,15 @@ class FeishuBot:
             }
         label = str(command.get("label") or "设备")
         action = _format_control_action(str(command.get("action") or ""))
+        confidence = str(command.get("confidence") or "high")
+        reason = str(command.get("inference_reason") or "").strip()
+        if confidence in INFERRED_CONTROL_CONFIDENCE:
+            reason_line = f"\n推断理由：{reason}" if reason else ""
+            return (
+                f"这是我的推断，请你确认后再执行：{label} -> {action}{reason_line}\n"
+                "回复“确认”执行，回复“取消”放弃；如果不对，请补充更完整的设备名称或编号。\n"
+                "提示：确认有效期 10 分钟。"
+            )
         return (
             f"高风险操作需要二次确认：{label} -> {action}\n"
             "回复“确认”执行，回复“取消”放弃。\n"
@@ -1974,6 +2074,8 @@ class FeishuBot:
             return "我识别到这是控制请求，但没有明确匹配到可执行设备。请带上设备名称、编号或 IP。"
         if command.get("type") == "error":
             return str(command.get("message") or "控制请求无法执行。")
+        if str(command.get("confidence") or "high") in INFERRED_CONTROL_CONFIDENCE:
+            return self._store_pending_control(chat_id, command, normalized)
         if str(command.get("type") or "") in HIGH_RISK_CONTROL_TYPES or str(command.get("risk") or "") == "high":
             return self._store_pending_control(chat_id, command, normalized)
         return self.local_client.execute_control_command(command)
