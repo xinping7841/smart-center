@@ -132,6 +132,7 @@ class FeishuBotConfig:
     smart_center_base_url: str
     push_times: tuple[str, ...]
     request_timeout_sec: float = 4.0
+    card_callback_enabled: bool = False
     nl_model_enabled: bool = False
     nl_model_url: str = "http://127.0.0.1:11434"
     nl_model_name: str = "qwen3:14b"
@@ -176,6 +177,7 @@ def load_config(env_file: str | Path | None = None) -> FeishuBotConfig:
         smart_center_base_url=str(os.environ.get("SMART_CENTER_BASE_URL", DEFAULT_BASE_URL) or DEFAULT_BASE_URL).strip().rstrip("/"),
         push_times=push_times,
         request_timeout_sec=timeout,
+        card_callback_enabled=str(os.environ.get("FEISHU_CARD_CALLBACK_ENABLED", "") or "").strip().lower() in {"1", "true", "yes", "on"},
         nl_model_enabled=str(os.environ.get("FEISHU_NL_MODEL_ENABLED", "") or "").strip().lower() in {"1", "true", "yes", "on"},
         nl_model_url=str(os.environ.get("FEISHU_NL_MODEL_URL", "http://127.0.0.1:11434") or "http://127.0.0.1:11434").strip().rstrip("/"),
         nl_model_name=str(os.environ.get("FEISHU_NL_MODEL_NAME", "qwen3:14b") or "qwen3:14b").strip(),
@@ -2117,6 +2119,7 @@ class FeishuBot:
             self.log("Default push chat_id is empty. Send a group message and copy chat_id from logs.")
         if self.config.push_times:
             self.log(f"Scheduled push times: {', '.join(self.config.push_times)}")
+        self.log(f"Feishu card callback buttons enabled: {self.config.card_callback_enabled}")
         if self.intent_classifier:
             self.log(f"NL intent model: {self.config.nl_model_name} at {self.config.nl_model_url}")
         self.ws_client.start()
@@ -2341,45 +2344,51 @@ class FeishuBot:
         high_risk: bool = False,
     ) -> dict[str, Any]:
         risk_text = "高风险操作，请确认现场安全后再执行。" if high_risk else "这是系统推断结果，请确认目标无误。"
+        callback_hint = "点击按钮，或回复“执行/确认”执行，回复“取消”放弃。"
+        if not self.config.card_callback_enabled:
+            callback_hint = "当前飞书应用尚未启用卡片回调，请直接回复“执行/确认”执行，回复“取消”放弃。"
         elements: list[dict[str, Any]] = [
             {
                 "tag": "div",
                 "text": {
                     "tag": "lark_md",
-                    "content": f"**目标：** {label}\n**动作：** {action}\n**提示：** {risk_text}",
+                    "content": f"**目标：** {label}\n**动作：** {action}\n**提示：** {risk_text}\n**确认：** {callback_hint}",
                 },
             }
         ]
         if reason:
             elements.append({"tag": "hr"})
             elements.append({"tag": "div", "text": {"tag": "plain_text", "content": f"原因：{reason}"}})
-        elements.extend(
-            [
-                {"tag": "hr"},
-                {
-                    "tag": "action",
-                    "actions": [
-                        {
-                            "tag": "button",
-                            "text": {"tag": "plain_text", "content": "确认执行"},
-                            "type": "primary",
-                            "value": {"decision": "confirm", "pending_id": pending_id, "chat_id": chat_id},
-                        },
-                        {
-                            "tag": "button",
-                            "text": {"tag": "plain_text", "content": "取消"},
-                            "type": "default",
-                            "value": {"decision": "cancel", "pending_id": pending_id, "chat_id": chat_id},
-                        },
-                    ],
-                },
-                {
-                    "tag": "note",
-                    "elements": [
-                        {"tag": "plain_text", "content": "10 分钟内有效；也可以直接回复“执行/确认”或“取消”。"}
-                    ],
-                },
-            ]
+        if self.config.card_callback_enabled:
+            elements.extend(
+                [
+                    {"tag": "hr"},
+                    {
+                        "tag": "action",
+                        "actions": [
+                            {
+                                "tag": "button",
+                                "text": {"tag": "plain_text", "content": "确认执行"},
+                                "type": "primary",
+                                "value": {"decision": "confirm", "pending_id": pending_id, "chat_id": chat_id},
+                            },
+                            {
+                                "tag": "button",
+                                "text": {"tag": "plain_text", "content": "取消"},
+                                "type": "default",
+                                "value": {"decision": "cancel", "pending_id": pending_id, "chat_id": chat_id},
+                            },
+                        ],
+                    },
+                ]
+            )
+        elements.append(
+            {
+                "tag": "note",
+                "elements": [
+                    {"tag": "plain_text", "content": "10 分钟内有效；飞书卡片回调配置完成后可启用按钮确认。"}
+                ],
+            }
         )
         card = {
             "config": {"wide_screen_mode": True},
