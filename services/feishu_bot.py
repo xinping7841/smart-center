@@ -1,9 +1,9 @@
 # AI_MODULE: feishu_bot_service
 # AI_PURPOSE: Connect the smart center to Feishu by long connection, reply to chat commands, and run scheduled pushes.
-# AI_BOUNDARY: This module only reads local HTTP APIs and sends Feishu messages; it must not issue device control commands.
-# AI_DATA_FLOW: Feishu event -> command parser -> local smart-center HTTP APIs -> Feishu message API.
+# AI_BOUNDARY: Feishu can issue controls through existing Smart Center HTTP APIs only; strong-current cabinets and sequencers require a chat confirmation step.
+# AI_DATA_FLOW: Feishu event -> command parser/confirmation -> local smart-center HTTP APIs -> Feishu message API.
 # AI_RUNTIME: Run as a standalone process with run_feishu_bot.py or start_feishu_bot.bat.
-# AI_RISK: Medium, bad credentials or chat_id stop notifications; command scope is intentionally read-only.
+# AI_RISK: High, chat commands can control real devices; keep target matching conservative and never bypass existing API locks/audit.
 # AI_COMPAT: Keep env names FEISHU_APP_ID, FEISHU_APP_SECRET, FEISHU_DEFAULT_CHAT_ID stable.
 # AI_SEARCH_KEYWORDS: feishu, lark-oapi, bot, long connection, scheduled push.
 
@@ -81,6 +81,10 @@ CONTROL_ACTION_WORDS = (
     "制热",
 )
 CONTROL_STATUS_WORDS = ("状态", "日志", "记录", "历史", "有没有", "是否", "查询", "查看", "显示", "汇总")
+CONTROL_CONFIRM_WORDS = ("确认", "确认执行", "执行确认", "是的", "确定", "确认下发")
+CONTROL_CANCEL_WORDS = ("取消", "别执行", "不要执行", "撤销")
+HIGH_RISK_CONTROL_TYPES = {"power", "sequencer"}
+PENDING_CONTROL_TTL_SEC = 10 * 60
 SOFTWARE_PLAYBACK_WORDS = (
     "软件播控",
     "播控",
@@ -235,6 +239,92 @@ def _is_control_request(text: str) -> bool:
     if not _contains_any(normalized, CONTROL_ACTION_WORDS):
         return False
     return not _contains_any(normalized, CONTROL_STATUS_WORDS)
+
+
+def _is_confirmation_text(text: str) -> bool:
+    normalized = re.sub(r"\s+", "", str(text or "").strip())
+    return normalized in CONTROL_CONFIRM_WORDS
+
+
+def _is_cancel_text(text: str) -> bool:
+    normalized = re.sub(r"\s+", "", str(text or "").strip())
+    return normalized in CONTROL_CANCEL_WORDS
+
+
+def _control_action_from_text(text: str) -> str:
+    raw = str(text or "").strip().lower()
+    compact = _normalize_match_text(raw)
+    if any(word in raw for word in ("重启", "restart", "重新启动")):
+        return "restart"
+    if any(word in raw for word in ("唤醒", "wol", "wake", "开机")) and _contains_any(raw, ("服务器", "主机", "机器", "电脑", "节点", "led", "LED")):
+        return "wake"
+    if any(word in raw for word in ("关机", "shutdown")) and _contains_any(raw, ("服务器", "主机", "机器", "电脑", "节点", "led", "LED")):
+        return "shutdown"
+    if any(word in raw for word in ("刷新", "refresh")) and _contains_any(raw, ("服务器", "主机", "机器", "电脑", "节点")):
+        return "refresh"
+    if any(word in raw for word in ("关机", "关闭", "关灯", "停止", "断开", "熄灭", "off")) or "关" in compact:
+        return "off"
+    if any(word in raw for word in ("开机", "打开", "开启", "开灯", "启动", "合闸", "制冷", "制热", "on")) or "开" in compact:
+        return "on"
+    if any(word in raw for word in ("切换", "toggle")):
+        return "toggle"
+    return ""
+
+
+def _extract_first_int(text: str) -> int | None:
+    match = re.search(r"\d+", str(text or ""))
+    if not match:
+        return None
+    try:
+        return int(match.group(0))
+    except Exception:
+        return None
+
+
+def _format_control_action(action: str) -> str:
+    return {
+        "on": "开启",
+        "off": "关闭",
+        "toggle": "切换",
+        "wake": "唤醒",
+        "shutdown": "关机",
+        "restart": "重启",
+        "refresh": "刷新信息",
+        "channel_on": "开启通道",
+        "channel_off": "关闭通道",
+        "sequence_on": "顺序开启",
+        "sequence_off": "顺序关闭",
+        "all_on": "全部开启",
+        "all_off": "全部关闭",
+    }.get(str(action or ""), str(action or "控制"))
+
+
+def _match_items_by_query(query: str, items: list[dict[str, Any]], fields: tuple[str, ...] = ("name", "id")) -> list[dict[str, Any]]:
+    normalized_query = _normalize_match_text(query)
+    if not normalized_query:
+        return []
+    scored: list[tuple[int, dict[str, Any]]] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        best = 0
+        for field in fields:
+            value = item.get(field)
+            if value in (None, ""):
+                continue
+            normalized_value = _normalize_match_text(value)
+            if not normalized_value:
+                continue
+            if normalized_value == normalized_query:
+                best = max(best, 100)
+            elif normalized_value in normalized_query:
+                best = max(best, 80 + min(len(normalized_value), 19))
+            elif len(normalized_query) >= 3 and normalized_query in normalized_value:
+                best = max(best, 55 + min(len(normalized_query), 19))
+        if best:
+            scored.append((best, item))
+    scored.sort(key=lambda row: row[0], reverse=True)
+    return [item for _score, item in scored]
 
 
 def _fmt_number(value: Any, digits: int = 2) -> str:
@@ -500,6 +590,343 @@ class LocalSmartCenterClient:
             return True, response.json()
         except Exception as exc:
             return False, str(exc)
+
+    def post_json(self, path: str, payload: dict[str, Any] | None = None, timeout_sec: float | None = None) -> tuple[bool, Any]:
+        try:
+            response = requests.post(
+                f"{self.base_url}{path}",
+                json=payload or {},
+                timeout=timeout_sec if timeout_sec is not None else self.timeout_sec,
+                headers={"Accept": "application/json"},
+            )
+            try:
+                body = response.json()
+            except Exception:
+                body = response.text
+            if response.status_code >= 400:
+                return False, body
+            return True, body
+        except Exception as exc:
+            return False, str(exc)
+
+    def _config_section(self, key: str) -> list[dict[str, Any]]:
+        try:
+            from config import CONFIG
+
+            rows = CONFIG.get(key, [])
+            return [item for item in rows if isinstance(item, dict)] if isinstance(rows, list) else []
+        except Exception:
+            return []
+
+    def _summarize_api_result(self, payload: Any) -> str:
+        if not isinstance(payload, dict):
+            return str(payload)
+        message = payload.get("msg") or payload.get("message") or payload.get("response") or payload.get("log")
+        if message:
+            return str(message)
+        if payload.get("success") is not None:
+            return "成功" if payload.get("success") else "失败"
+        if payload.get("ok") is not None:
+            return "成功" if payload.get("ok") else "失败"
+        return "已返回结果"
+
+    def _finish_control_result(self, ok: bool, payload: Any, label: str, action: str) -> str:
+        status = "成功" if ok else "失败"
+        detail = self._summarize_api_result(payload)
+        return f"{label} {_format_control_action(action)}{status}：{detail}"
+
+    def _ambiguous_control_text(self, kind: str, matches: list[dict[str, Any]]) -> str:
+        rows = []
+        for item in matches[:8]:
+            name = _device_name(item)
+            item_id = item.get("id") or item.get("mac") or item.get("device_id") or ""
+            rows.append(f"- {name}{f'（{item_id}）' if item_id else ''}")
+        return "\n".join([f"匹配到多个{kind}，请说得更具体一点：", *rows])
+
+    def _not_found_control_text(self, kind: str, hint: str = "") -> str:
+        suffix = f"\n{hint}" if hint else ""
+        return f"没有匹配到要控制的{kind}，请带上完整名称、编号或 IP。{suffix}"
+
+    def resolve_control_command(self, text: str) -> dict[str, Any] | None:
+        action = _control_action_from_text(text)
+        if not action:
+            return None
+        normalized = _normalize_match_text(text)
+        if _contains_any(text, ("时序", "时序电源", "sequencer")):
+            return self._resolve_sequencer_control(text, action)
+        if _contains_any(text, ("强电", "电柜", "电箱", "电源柜", "电柜")):
+            return self._resolve_power_control(text, action)
+        if _contains_any(text, ("空调", "hvac", "HVAC", "制冷", "制热")):
+            return self._resolve_hvac_control(text, action)
+        if _contains_any(text, ("投影", "投影机", "pjlink", "PJLink")):
+            return self._resolve_projector_control(text, action)
+        if _contains_any(text, ("庭院灯", "户外灯")):
+            return {
+                "type": "node_red",
+                "risk": "normal",
+                "label": "庭院灯",
+                "path": "/api/node-red/device/courtyard_light/control",
+                "payload": {"action": "on" if action in {"on", "toggle"} else "off"},
+                "action": "on" if action in {"on", "toggle"} else "off",
+            }
+        if _contains_any(text, ("灯", "灯光", "照明", "继电器")):
+            node_red = self._resolve_node_red_control(text, action)
+            if node_red:
+                return node_red
+            return self._resolve_light_control(text, action)
+        if _server_like_query(text, text.lower()) or _contains_any(text, ("服务器", "主机", "机器", "电脑", "节点")):
+            return self._resolve_server_control(text, action)
+        if normalized in {"开", "关", "打开", "关闭", "开启"}:
+            return None
+        return None
+
+    def execute_control_command(self, command: dict[str, Any]) -> str:
+        if not isinstance(command, dict):
+            return "控制命令格式无效。"
+        path = str(command.get("path") or "")
+        payload = command.get("payload") if isinstance(command.get("payload"), dict) else {}
+        method = str(command.get("method") or "POST").upper()
+        action = str(command.get("action") or "")
+        label = str(command.get("label") or "设备")
+        timeout_sec = float(command.get("timeout_sec") or 8.0)
+        if method == "GET":
+            ok, result = self.get_json(path, timeout_sec=timeout_sec)
+        else:
+            ok, result = self.post_json(path, payload, timeout_sec=timeout_sec)
+        return self._finish_control_result(ok, result, label, action)
+
+    def _resolve_hvac_control(self, text: str, action: str) -> dict[str, Any] | None:
+        if action in {"shutdown", "restart", "wake", "refresh"}:
+            return None
+        ok, payload = self.get_json("/api/hvac/status", timeout_sec=4.0)
+        if not ok or not isinstance(payload, dict):
+            return {"type": "error", "message": f"空调接口暂时不可用：{payload}"}
+        devices = []
+        for device_id, item in payload.items():
+            if isinstance(item, dict):
+                row = dict(item)
+                row.setdefault("id", device_id)
+                devices.append(row)
+        matches = _match_items_by_query(text, devices, ("name", "id"))
+        if not matches and len(devices) == 1:
+            matches = devices
+        if len(matches) > 1:
+            return {"type": "error", "message": self._ambiguous_control_text("空调", matches)}
+        if not matches:
+            return {"type": "error", "message": self._not_found_control_text("空调", "例如：打开机房空调、关闭一号厅空调")}
+        item = matches[0]
+        api_action = "power_on" if action in {"on", "toggle"} else "power_off"
+        return {
+            "type": "hvac",
+            "risk": "normal",
+            "label": _device_name(item),
+            "path": "/api/hvac/control",
+            "payload": {"device_id": item.get("id"), "action": api_action},
+            "action": "on" if api_action == "power_on" else "off",
+        }
+
+    def _resolve_node_red_control(self, text: str, action: str) -> dict[str, Any] | None:
+        ok, payload = self.get_json("/api/node-red/devices?include_unavailable=1&refresh=0", timeout_sec=4.0)
+        if not ok or not isinstance(payload, dict):
+            return None
+        devices = [item for item in payload.get("devices") or [] if isinstance(item, dict)]
+        if not devices:
+            return None
+        matches = _match_items_by_query(text, devices, ("device_name", "device_id", "name", "id"))
+        if len(matches) > 1:
+            return {"type": "error", "message": self._ambiguous_control_text("Node-RED设备", matches)}
+        if not matches:
+            return None
+        item = matches[0]
+        normalized_action = "on" if action in {"on", "toggle"} else "off"
+        device_id = item.get("device_id") or item.get("id")
+        return {
+            "type": "node_red",
+            "risk": "normal",
+            "label": item.get("device_name") or _device_name(item),
+            "path": f"/api/node-red/device/{requests.utils.quote(str(device_id), safe='')}/control",
+            "payload": {"action": normalized_action},
+            "action": normalized_action,
+        }
+
+    def _resolve_light_control(self, text: str, action: str) -> dict[str, Any] | None:
+        if action not in {"on", "off", "toggle"}:
+            return None
+        ok, payload = self.get_json("/api/light/status", timeout_sec=4.0)
+        if not ok or not isinstance(payload, dict):
+            return {"type": "error", "message": f"灯光接口暂时不可用：{payload}"}
+        extras = payload.get("extras") if isinstance(payload.get("extras"), dict) else {}
+        channels = payload.get("channels") if isinstance(payload.get("channels"), dict) else {}
+        devices = []
+        for device_id, extra in extras.items():
+            row = dict(extra if isinstance(extra, dict) else {})
+            row["id"] = device_id
+            row["name"] = row.get("name") or device_id
+            devices.append(row)
+        matches = _match_items_by_query(text, devices, ("name", "id"))
+        if len(matches) > 1:
+            return {"type": "error", "message": self._ambiguous_control_text("灯光设备", matches)}
+        if not matches:
+            return {"type": "error", "message": self._not_found_control_text("灯光设备", "如果是庭院灯，请说：打开庭院灯 / 关闭庭院灯")}
+        item = matches[0]
+        states = channels.get(str(item.get("id"))) if isinstance(channels, dict) else None
+        channel = _extract_first_int(text)
+        if channel is None and isinstance(states, list) and len(states) == 1:
+            channel = 1
+        if channel is None:
+            return {"type": "error", "message": "灯光控制需要指定通道，例如：打开灯光1路。庭院灯可直接说打开庭院灯。"}
+        target = not bool(states[channel - 1]) if action == "toggle" and isinstance(states, list) and 0 < channel <= len(states) else action == "on"
+        return {
+            "type": "light",
+            "risk": "normal",
+            "label": f"{_device_name(item)} {channel}路",
+            "path": "/api/light/control",
+            "payload": {"type": "single", "device_id": item.get("id"), "channel": channel, "is_open": target},
+            "action": "on" if target else "off",
+        }
+
+    def _resolve_projector_control(self, text: str, action: str) -> dict[str, Any] | None:
+        if action not in {"on", "off", "toggle"}:
+            return None
+        projectors = self._config_section("projectors")
+        matches = _match_items_by_query(text, projectors, ("name", "id", "ip"))
+        if not matches and len(projectors) == 1:
+            matches = projectors
+        if len(matches) > 1:
+            return {"type": "error", "message": self._ambiguous_control_text("投影机", matches)}
+        if not matches:
+            return {"type": "error", "message": self._not_found_control_text("投影机")}
+        proj = matches[0]
+        if action == "toggle":
+            action = "on"
+        command = self._find_projector_power_command(proj, action)
+        if not command:
+            return {"type": "error", "message": f"未找到 {_device_name(proj)} 的{_format_control_action(action)}命令。"}
+        return {
+            "type": "projector",
+            "risk": "normal",
+            "label": _device_name(proj),
+            "path": "/api/projector/control",
+            "payload": {"device_id": proj.get("id"), "command": command},
+            "action": action,
+            "timeout_sec": 10.0,
+        }
+
+    def _find_projector_power_command(self, projector: dict[str, Any], action: str) -> dict[str, Any] | None:
+        wants_on = action == "on"
+        commands = [item for item in projector.get("commands") or [] if isinstance(item, dict)]
+        for cmd in commands:
+            haystack = f"{cmd.get('id', '')} {cmd.get('name', '')}".lower()
+            if wants_on and ("power_on" in haystack or "开机" in haystack):
+                return {"name": cmd.get("name") or "开机", "payload": cmd.get("payload") or "", "format": cmd.get("format") or "str"}
+            if not wants_on and ("power_off" in haystack or "关机" in haystack):
+                return {"name": cmd.get("name") or "关机", "payload": cmd.get("payload") or "", "format": cmd.get("format") or "str"}
+        return {"name": "开机" if wants_on else "关机", "payload": "power_on" if wants_on else "power_off", "format": "str"}
+
+    def _resolve_server_control(self, text: str, action: str) -> dict[str, Any] | None:
+        if action not in {"wake", "shutdown", "restart", "refresh"}:
+            return None
+        ok, payload = self.get_json("/api/machines", timeout_sec=6.0)
+        machines = [item for item in payload if isinstance(item, dict)] if ok and isinstance(payload, list) else []
+        if not machines:
+            return {"type": "error", "message": f"服务器接口暂时不可用：{payload}"}
+        matches = _match_items_by_query(text, machines, ("custom_name", "hostname", "ip", "mac", "remark", "asset_group"))
+        if len(matches) > 1:
+            return {"type": "error", "message": self._ambiguous_control_text("服务器", matches)}
+        if not matches:
+            return {"type": "error", "message": self._not_found_control_text("服务器", "例如：唤醒门口LED服务器、关闭192.168.80.60")}
+        item = matches[0]
+        mac = str(item.get("mac") or "").strip()
+        if not mac:
+            return {"type": "error", "message": f"{_device_name(item)} 没有 MAC，无法下发服务器控制。"}
+        if action == "wake":
+            return {
+                "type": "server",
+                "risk": "normal",
+                "label": _device_name(item),
+                "path": f"/api/wake/{requests.utils.quote(mac, safe='')}",
+                "payload": {},
+                "action": "wake",
+                "timeout_sec": 8.0,
+            }
+        return {
+            "type": "server",
+            "risk": "normal",
+            "label": _device_name(item),
+            "path": f"/api/machines/{requests.utils.quote(mac, safe='')}/command",
+            "payload": {"command": action},
+            "action": action,
+        }
+
+    def _resolve_power_control(self, text: str, action: str) -> dict[str, Any] | None:
+        if action not in {"on", "off", "toggle"}:
+            return None
+        cabinets = self._config_section("cabinets")
+        cab_matches = _match_items_by_query(text, cabinets, ("name", "cabinet_name", "meter_display_name", "id"))
+        cab_idx = 0 if len(cabinets) == 1 and not cab_matches else None
+        if cab_matches:
+            if len(cab_matches) > 1:
+                return {"type": "error", "message": self._ambiguous_control_text("强电柜", cab_matches)}
+            cab_idx = cabinets.index(cab_matches[0])
+        if cab_idx is None:
+            return {"type": "error", "message": self._not_found_control_text("强电柜", "例如：关闭中控室电柜第8路")}
+        cab = cabinets[cab_idx] if 0 <= cab_idx < len(cabinets) else {}
+        channel = _extract_first_int(text)
+        channels_cfg = [item for item in cab.get("channels_config") or [] if isinstance(item, dict)]
+        channel_matches = _match_items_by_query(text, channels_cfg, ("name", "remark", "channel"))
+        if channel_matches:
+            channel = int(channel_matches[0].get("channel") or channel or 0)
+        if channel is None or channel <= 0:
+            if _contains_any(text, ("全部", "一键", "全开", "全关")):
+                path = f"/api/onekey_start?cab={cab_idx}" if action == "on" else f"/api/onekey_stop?cab={cab_idx}"
+                return {"type": "power", "risk": "high", "label": _device_name(cab), "path": path, "payload": {}, "action": action, "method": "GET"}
+            return {"type": "error", "message": "强电柜控制需要指定回路，例如：关闭中控室电柜第8路。"}
+        target = action == "on"
+        channel_name = str((channel_matches[0].get("remark") or channel_matches[0].get("name")) if channel_matches else f"第{channel}路")
+        return {
+            "type": "power",
+            "risk": "high",
+            "label": f"{_device_name(cab)} {channel_name}",
+            "path": "/api/set",
+            "payload": {"cab": cab_idx, "ch": channel, "on": target},
+            "action": "on" if target else "off",
+        }
+
+    def _resolve_sequencer_control(self, text: str, action: str) -> dict[str, Any] | None:
+        ok, payload = self.get_json("/api/sequencer/status", timeout_sec=5.0)
+        if not ok or not isinstance(payload, dict):
+            return {"type": "error", "message": f"时序电源接口暂时不可用：{payload}"}
+        devices = [item for item in payload.get("devices") or [] if isinstance(item, dict)]
+        matches = _match_items_by_query(text, devices, ("name", "id", "ip"))
+        if not matches and len(devices) == 1:
+            matches = devices
+        if len(matches) > 1:
+            return {"type": "error", "message": self._ambiguous_control_text("时序电源", matches)}
+        if not matches:
+            return {"type": "error", "message": self._not_found_control_text("时序电源")}
+        device = matches[0]
+        channel = _extract_first_int(text)
+        seq_action = ""
+        if _contains_any(text, ("顺序", "顺开", "顺关")):
+            seq_action = "sequence_on" if action == "on" else "sequence_off"
+        elif _contains_any(text, ("全部", "全开", "全关")):
+            seq_action = "all_on" if action == "on" else "all_off"
+        elif channel:
+            seq_action = "channel_on" if action == "on" else "channel_off"
+        else:
+            seq_action = "sequence_on" if action == "on" else "sequence_off"
+        label = _device_name(device)
+        if channel:
+            label = f"{label} 第{channel}路"
+        return {
+            "type": "sequencer",
+            "risk": "high",
+            "label": label,
+            "path": "/api/sequencer/control",
+            "payload": {"id": device.get("id"), "action": seq_action, "channel": channel},
+            "action": seq_action,
+            "timeout_sec": 12.0,
+        }
 
     def status_text(self) -> str:
         lines = [
@@ -1337,7 +1764,7 @@ class LocalSmartCenterClient:
         if intent == "local_model_status":
             return self.local_model_status_text()
         if intent == "forbidden_control":
-            return "当前只支持查询状态、历史数据和日志，不执行开关、重启、下发控制、配置修改等操作。"
+            return "飞书机器人已支持控制；请说清楚设备和动作，例如：打开庭院灯、关闭机房空调、唤醒门口LED服务器。强电柜和时序电源会要求二次确认。"
         return self.query_text(query)
 
     def query_text(self, keyword: str) -> str:
@@ -1345,8 +1772,6 @@ class LocalSmartCenterClient:
         if not keyword:
             return "我在。可以问：现在状态、哪些设备离线、昨日电量、近7天用电、当前电流、服务器状态、最近自动化日志、UPS状态。"
         lowered = keyword.lower()
-        if _is_control_request(keyword):
-            return self.answer_intent("forbidden_control", keyword)
         if _contains_any(keyword, SOFTWARE_PLAYBACK_WORDS):
             return self.software_playback_text()
         if _contains_any(keyword, DOOR_WORDS):
@@ -1427,6 +1852,8 @@ class FeishuBot:
         self._stop_scheduler = threading.Event()
         self._scheduler_thread: threading.Thread | None = None
         self._sent_push_keys: set[str] = set()
+        self._pending_controls: dict[str, dict[str, Any]] = {}
+        self._pending_controls_lock = threading.Lock()
 
     def _build_ws_client(self):
         handler = (
@@ -1489,14 +1916,72 @@ class FeishuBot:
         if not chat_id:
             self.log("[message ignored] missing chat_id")
             return
-        self.send_text(chat_id, self.dispatch_command(text))
+        self.send_text(chat_id, self.dispatch_command(text, chat_id=chat_id))
 
-    def dispatch_command(self, text: str) -> str:
+    def _pending_key(self, chat_id: str) -> str:
+        return str(chat_id or "_local").strip() or "_local"
+
+    def _pop_pending_control(self, chat_id: str) -> dict[str, Any] | None:
+        key = self._pending_key(chat_id)
+        with self._pending_controls_lock:
+            pending = self._pending_controls.pop(key, None)
+        if not pending:
+            return None
+        if time.time() > float(pending.get("expires_at", 0.0) or 0.0):
+            return {"expired": True}
+        return pending
+
+    def _store_pending_control(self, chat_id: str, command: dict[str, Any], source_text: str) -> str:
+        key = self._pending_key(chat_id)
+        expires_at = time.time() + PENDING_CONTROL_TTL_SEC
+        with self._pending_controls_lock:
+            self._pending_controls[key] = {
+                "command": command,
+                "source_text": source_text,
+                "expires_at": expires_at,
+            }
+        label = str(command.get("label") or "设备")
+        action = _format_control_action(str(command.get("action") or ""))
+        return (
+            f"高风险操作需要二次确认：{label} -> {action}\n"
+            "回复“确认”执行，回复“取消”放弃。\n"
+            "提示：确认有效期 10 分钟。"
+        )
+
+    def _dispatch_control_command(self, normalized: str, chat_id: str = "") -> str | None:
+        if _is_cancel_text(normalized):
+            pending = self._pop_pending_control(chat_id)
+            if pending:
+                return "已取消待确认控制。"
+            return "当前没有待确认控制。"
+        if _is_confirmation_text(normalized):
+            pending = self._pop_pending_control(chat_id)
+            if not pending:
+                return "当前没有待确认控制。"
+            if pending.get("expired"):
+                return "待确认控制已过期，请重新下发。"
+            command = pending.get("command")
+            if not isinstance(command, dict):
+                return "待确认控制格式无效，请重新下发。"
+            return self.local_client.execute_control_command(command)
+        if not _is_control_request(normalized):
+            return None
+        command = self.local_client.resolve_control_command(normalized)
+        if not command:
+            return "我识别到这是控制请求，但没有明确匹配到可执行设备。请带上设备名称、编号或 IP。"
+        if command.get("type") == "error":
+            return str(command.get("message") or "控制请求无法执行。")
+        if str(command.get("type") or "") in HIGH_RISK_CONTROL_TYPES or str(command.get("risk") or "") == "high":
+            return self._store_pending_control(chat_id, command, normalized)
+        return self.local_client.execute_control_command(command)
+
+    def dispatch_command(self, text: str, chat_id: str = "") -> str:
         normalized = re.sub(r"\s+", " ", str(text or "").strip())
         if not normalized:
-            return "我在。可以直接问：哪些设备离线、昨日电量、今日用电、本月用电、当前电流、服务器状态。"
-        if _is_control_request(normalized):
-            return self.local_client.answer_intent("forbidden_control", normalized)
+            return "我在。可以直接问状态，也可以下发控制，例如打开庭院灯、关闭机房空调。强电柜和时序电源会二次确认。"
+        control_reply = self._dispatch_control_command(normalized, chat_id=chat_id)
+        if control_reply is not None:
+            return control_reply
         if normalized in {"状态", "/状态", "status", "/status"}:
             return self.local_client.status_text()
         if normalized in {"日报", "/日报", "daily", "/daily"}:
@@ -1504,7 +1989,11 @@ class FeishuBot:
         if normalized.startswith(("查询 ", "/查询 ")):
             return self.local_client.query_text(normalized.split(" ", 1)[1])
         if normalized in {"帮助", "/帮助", "help", "/help"}:
-            return "可以直接问：哪些设备离线、昨日电量、近7天用电、最近自动化日志、当前电流、服务器状态、UPS状态。当前仅支持只读查询。"
+            return (
+                "可以直接问：哪些设备离线、昨日电量、近7天用电、最近自动化日志、当前电流、服务器状态、UPS状态。\n"
+                "也可以控制：打开庭院灯、关闭机房空调、唤醒门口LED服务器、投影机开机。\n"
+                "强电柜和时序电源属于高风险操作，会先要求回复“确认”。"
+            )
         if self.intent_classifier:
             classified = self.intent_classifier.classify(normalized)
             if classified:
