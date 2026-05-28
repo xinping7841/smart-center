@@ -361,8 +361,41 @@ def build_device_alias_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
                     control_capability=False,
                     query_capability=True,
                     risk="normal",
-                )
             )
+        )
+
+    door_cfg = config.get("door_config") if isinstance(config.get("door_config"), dict) else {}
+    if door_cfg:
+        aliases = set()
+        _add_alias(
+            aliases,
+            "大门",
+            "门禁",
+            "开门",
+            "关门",
+            "门口大门",
+            "展厅大门",
+            "大门门禁",
+            "门禁继电器",
+            door_cfg.get("ip"),
+        )
+        for camera in door_cfg.get("cameras") or []:
+            if not isinstance(camera, dict):
+                continue
+            _add_alias(aliases, camera.get("name"), camera.get("host"), camera.get("key"))
+        rows.append(
+            _row(
+                "door",
+                "door_controller",
+                "door:main",
+                "大门门禁",
+                aliases,
+                action_hint="open/close/stop",
+                control_capability=True,
+                query_capability=True,
+                risk="normal",
+            )
+        )
 
     proxy_monitor = config.get("proxy_monitor") if isinstance(config.get("proxy_monitor"), dict) else {}
     if proxy_monitor:

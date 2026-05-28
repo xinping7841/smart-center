@@ -68,6 +68,8 @@ CONTROL_ACTION_WORDS = (
     "停止",
     "开机",
     "关机",
+    "开门",
+    "关门",
     "开灯",
     "关灯",
     "开了",
@@ -715,6 +717,8 @@ class LocalSmartCenterClient:
         if not action:
             return None
         normalized = _normalize_match_text(text)
+        if _contains_any(text, ("大门", "门禁", "开门", "关门")):
+            return self._resolve_door_control(text, action)
         if _contains_any(text, ("时序", "时序电源", "sequencer")):
             return self._resolve_sequencer_control(text, action)
         if _contains_any(text, ("强电", "电柜", "电箱", "电源柜", "电柜")):
@@ -785,6 +789,30 @@ class LocalSmartCenterClient:
         else:
             ok, result = self.post_json(path, payload, timeout_sec=timeout_sec)
         return self._finish_control_result(ok, result, label, action)
+
+    def _resolve_door_control(self, text: str, action: str) -> dict[str, Any] | None:
+        if not _contains_any(text, ("大门", "门禁", "开门", "关门")):
+            return None
+        raw = str(text or "")
+        door_action = ""
+        if _contains_any(raw, ("停止", "停门", "暂停")):
+            door_action = "stop"
+        elif _contains_any(raw, ("关门", "关闭大门", "关闭门禁")) or action == "off":
+            door_action = "close"
+        elif _contains_any(raw, ("开门", "打开大门", "开启大门", "打开门禁", "开启门禁")) or action == "on":
+            door_action = "open"
+        if not door_action:
+            return {"type": "error", "message": "门禁控制需要说明动作：打开大门、关闭大门或停止大门。"}
+        return {
+            "type": "door",
+            "risk": "normal",
+            "label": "大门门禁",
+            "path": f"/door_control/{door_action}",
+            "payload": {},
+            "action": door_action,
+            "method": "GET",
+            "timeout_sec": 8.0,
+        }
 
     def _resolve_hvac_control(self, text: str, action: str) -> dict[str, Any] | None:
         if action in {"shutdown", "restart", "wake", "refresh"}:

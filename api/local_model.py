@@ -43,6 +43,7 @@ LOCAL_MODEL_CONTROL_PERMISSIONS = {
     "power": "power.control",
     "sequencer": "sequencer.control",
     "server": "server.control",
+    "door": "door.control",
     "ups": "ups.control",
 }
 
