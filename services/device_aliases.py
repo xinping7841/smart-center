@@ -38,6 +38,14 @@ def normalize_alias_text(value: Any) -> str:
         "十号": "10号",
         "电源柜": "电柜",
         "配电柜": "电柜",
+        "前檐墙": "前言墙",
+        "前沿墙": "前言墙",
+        "前颜墙": "前言墙",
+        "前言": "前言墙",
+        "二楼": "2楼",
+        "二层": "2楼",
+        "一楼": "1楼",
+        "一层": "1楼",
     }
     for source, target in replacements.items():
         text = text.replace(source, target)

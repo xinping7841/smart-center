@@ -75,6 +75,8 @@ CONTROL_ACTION_WORDS = (
     "开了",
     "关了",
     "关掉",
+    "开空调",
+    "关空调",
     "控制",
     "重启",
     "执行",
@@ -87,7 +89,7 @@ CONTROL_ACTION_WORDS = (
     "制冷",
     "制热",
 )
-CONTROL_STATUS_WORDS = ("状态", "日志", "记录", "历史", "有没有", "是否", "查询", "查看", "显示", "汇总")
+CONTROL_STATUS_WORDS = ("状态", "日志", "记录", "历史", "有没有", "是否", "查询", "查看", "显示", "汇总", "吗", "么", "是不是")
 CONTROL_CONFIRM_WORDS = ("确认", "确认执行", "执行确认", "是的", "确定", "确认下发")
 CONTROL_CANCEL_WORDS = ("取消", "别执行", "不要执行", "撤销")
 HIGH_RISK_CONTROL_TYPES = {"power", "sequencer"}
@@ -244,9 +246,12 @@ def _is_control_request(text: str) -> bool:
     normalized = str(text or "")
     if not normalized:
         return False
-    if not _contains_any(normalized, CONTROL_ACTION_WORDS):
+    if _contains_any(normalized, CONTROL_STATUS_WORDS):
         return False
-    return not _contains_any(normalized, CONTROL_STATUS_WORDS)
+    if _contains_any(normalized, CONTROL_ACTION_WORDS):
+        return True
+    compact = _normalize_match_text(normalized)
+    return bool(re.match(r"^[开关停].{2,}", compact))
 
 
 def _is_confirmation_text(text: str) -> bool:
@@ -736,6 +741,16 @@ class LocalSmartCenterClient:
                 "payload": {"action": "on" if action in {"on", "toggle"} else "off"},
                 "action": "on" if action in {"on", "toggle"} else "off",
             }
+        alias_modules = self._infer_modules_from_aliases(text)
+        if "light" in alias_modules:
+            node_red = self._resolve_node_red_control(text, action)
+            if node_red:
+                return node_red
+            return self._resolve_light_control(text, action)
+        if "hvac" in alias_modules:
+            return self._resolve_hvac_control(text, action)
+        if "door" in alias_modules:
+            return self._resolve_door_control(text, action)
         if _contains_any(text, ("灯", "灯光", "照明", "继电器")):
             node_red = self._resolve_node_red_control(text, action)
             if node_red:
@@ -754,6 +769,15 @@ class LocalSmartCenterClient:
         if normalized in {"开", "关", "打开", "关闭", "开启"}:
             return None
         return None
+
+    def _infer_modules_from_aliases(self, text: str) -> set[str]:
+        matches = find_alias_rows(text, self._device_alias_rows())
+        modules: set[str] = set()
+        for row in matches[:5]:
+            module = str(row.get("module") or "")
+            if module and row.get("control_capability"):
+                modules.add(module)
+        return modules
 
     def _infer_control_command(self, text: str, action: str, normalized: str) -> dict[str, Any] | None:
         if normalized in {"开", "关", "打开", "关闭", "开启"}:
@@ -817,8 +841,22 @@ class LocalSmartCenterClient:
     def _resolve_hvac_control(self, text: str, action: str) -> dict[str, Any] | None:
         if action in {"shutdown", "restart", "wake", "refresh"}:
             return None
+        alias_matches = find_alias_rows(text, self._device_alias_rows(), module="hvac")
+        hvac_alias = next((row for row in alias_matches if row.get("device_type") == "hvac"), None)
         ok, payload = self.get_json("/api/hvac/status", timeout_sec=4.0)
         if not ok or not isinstance(payload, dict):
+            if hvac_alias:
+                api_action = "power_on" if action in {"on", "toggle"} else "power_off"
+                return {
+                    "type": "hvac",
+                    "risk": "normal",
+                    "label": str(hvac_alias.get("name") or "空调"),
+                    "path": "/api/hvac/control",
+                    "payload": {"device_id": hvac_alias.get("device_id"), "action": api_action},
+                    "action": "on" if api_action == "power_on" else "off",
+                    "confidence": "medium",
+                    "inference_reason": f"空调状态接口暂不可用，已按配置别名匹配到 {hvac_alias.get('name')}",
+                }
             return {"type": "error", "message": f"空调接口暂时不可用：{payload}"}
         devices = []
         for device_id, item in payload.items():
@@ -827,6 +865,8 @@ class LocalSmartCenterClient:
                 row.setdefault("id", device_id)
                 devices.append(row)
         matches = _match_items_by_query(text, devices, ("name", "id"))
+        if hvac_alias:
+            matches = [item for item in devices if str(item.get("id")) == str(hvac_alias.get("device_id"))]
         if not matches and len(devices) == 1:
             matches = devices
         if len(matches) > 1:
