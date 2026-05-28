@@ -964,6 +964,7 @@
         formatCodeMeterExpiry,
         hasCompanyCodeMeterLicense,
         getCodeMeterValidityText,
+        normalizeCodeMeterLicenses,
         getCodeMeterExpiryStatusFromLicenses,
         renderServerCodeMeterLine,
         getServerGroupName,
