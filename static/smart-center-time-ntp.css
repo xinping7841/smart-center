@@ -1611,12 +1611,12 @@
         .server-meta-chip.agent-missing span, .server-meta-chip.agent-missing strong { color:#fecaca; }
         .server-agent-latest { display:inline-block; margin-left:4px; font-size:10px; color:#fcd34d; font-weight:800; vertical-align:1px; }
         .server-alert-note { margin:0 0 8px; padding:7px 9px; border-radius:8px; background:rgba(245,158,11,0.10); border:1px solid rgba(245,158,11,0.22); color:#fde68a; font-size:12px; line-height:1.45; }
-        #view-server .card-title { align-items:center; gap:12px; }
-        #view-server .card-title > span { flex:1 1 auto; min-width:220px; }
-        #view-server .card-title > div { align-items:center; flex-wrap:wrap; justify-content:flex-end; }
-        .server-toolbar { flex:0 1 auto; display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:8px; min-width:0; padding:5px; border-radius:10px; background:rgba(15,23,42,0.72); border:1px solid rgba(51,65,85,0.72); box-shadow:inset 0 1px 0 rgba(255,255,255,0.04); }
+        #view-server .card-title { align-items:center; gap:12px; flex-wrap:nowrap; }
+        #view-server .card-title > span { flex:0 0 auto; min-width:0; }
+        #view-server .card-title > div { align-items:center; flex-wrap:nowrap; justify-content:flex-end; }
+        .server-toolbar { flex:0 0 auto; display:flex; align-items:center; justify-content:flex-end; flex-wrap:nowrap; gap:8px; min-width:0; padding:5px; border-radius:10px; background:rgba(15,23,42,0.72); border:1px solid rgba(51,65,85,0.72); box-shadow:inset 0 1px 0 rgba(255,255,255,0.04); }
         .server-toolbar-group,
-        .server-toolbar-actions { display:inline-flex; align-items:center; gap:6px; min-width:0; }
+        .server-toolbar-actions { display:inline-flex; align-items:center; gap:6px; min-width:0; flex-wrap:nowrap; }
         .server-mode-control { padding:2px 2px 2px 8px; border-radius:8px; background:rgba(2,6,23,0.42); border:1px solid rgba(71,85,105,0.52); }
         .server-mode-current { min-height:24px; display:inline-flex; align-items:center; padding:0 6px 0 0; color:#94a3b8; font-size:11px; font-weight:800; white-space:nowrap; }
         .server-view-toggle { display:inline-flex; align-items:center; gap:2px; min-height:28px; padding:2px; border-radius:7px; background:rgba(15,23,42,0.88); border:1px solid rgba(71,85,105,0.70); }
@@ -1629,6 +1629,8 @@
         #view-server .card-title .server-export-btn { color:#bfdbfe; }
         #view-server .card-title .server-agent-btn { color:#d1d5db; }
         @media (max-width: 980px) {
+            #view-server .card-title { flex-wrap:wrap; }
+            #view-server .card-title > span { flex:1 1 220px; }
             .server-toolbar { width:100%; justify-content:flex-start; }
             .server-toolbar-actions { flex-wrap:wrap; }
         }
