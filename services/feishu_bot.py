@@ -863,14 +863,17 @@ class LocalSmartCenterClient:
             return None
         cabinets = self._config_section("cabinets")
         cab_matches = _match_items_by_query(text, cabinets, ("name", "cabinet_name", "meter_display_name", "id"))
-        cab_idx = 0 if len(cabinets) == 1 and not cab_matches else None
+        cab_idx = None
         if cab_matches:
             if len(cab_matches) > 1:
                 return {"type": "error", "message": self._ambiguous_control_text("强电柜", cab_matches)}
             cab_idx = cabinets.index(cab_matches[0])
+        elif len(cabinets) == 1:
+            cab_idx = 0
         if cab_idx is None:
             return {"type": "error", "message": self._not_found_control_text("强电柜", "例如：关闭中控室电柜第8路")}
         cab = cabinets[cab_idx] if 0 <= cab_idx < len(cabinets) else {}
+        cab_label = str(cab.get("cabinet_name") or cab.get("meter_display_name") or cab.get("name") or f"强电柜{cab_idx + 1}")
         channel = _extract_first_int(text)
         channels_cfg = [item for item in cab.get("channels_config") or [] if isinstance(item, dict)]
         channel_matches = _match_items_by_query(text, channels_cfg, ("name", "remark", "channel"))
@@ -879,14 +882,14 @@ class LocalSmartCenterClient:
         if channel is None or channel <= 0:
             if _contains_any(text, ("全部", "一键", "全开", "全关")):
                 path = f"/api/onekey_start?cab={cab_idx}" if action == "on" else f"/api/onekey_stop?cab={cab_idx}"
-                return {"type": "power", "risk": "high", "label": _device_name(cab), "path": path, "payload": {}, "action": action, "method": "GET"}
+                return {"type": "power", "risk": "high", "label": cab_label, "path": path, "payload": {}, "action": action, "method": "GET"}
             return {"type": "error", "message": "强电柜控制需要指定回路，例如：关闭中控室电柜第8路。"}
         target = action == "on"
         channel_name = str((channel_matches[0].get("remark") or channel_matches[0].get("name")) if channel_matches else f"第{channel}路")
         return {
             "type": "power",
             "risk": "high",
-            "label": f"{_device_name(cab)} {channel_name}",
+            "label": f"{cab_label} {channel_name}",
             "path": "/api/set",
             "payload": {"cab": cab_idx, "ch": channel, "on": target},
             "action": "on" if target else "off",
