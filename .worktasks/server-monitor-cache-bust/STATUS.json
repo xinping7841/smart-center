@@ -1,0 +1,10 @@
+﻿{
+    "task":  "server-monitor-cache-bust",
+    "module":  "templates_index",
+    "machine":  "12700k",
+    "kind":  "light",
+    "branch":  "codex/12700k-server-monitor-cache-bust-20260528",
+    "worktree":  "D:\\SmartCenter\\smart-center-worktrees\\server-monitor-cache-bust",
+    "started_at":  "2026-05-28 11:11:29",
+    "status":  "in_progress"
+}
