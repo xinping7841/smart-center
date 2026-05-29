@@ -16,6 +16,7 @@ from auth.decorators import require_permission
 from config import DEFAULT_AUTOMATION_CONDITION, DEFAULT_AUTOMATION_SCHEDULE
 from config import CONFIG, save_config
 from data_logger import add_log, load_logs
+from event_logger import query_events
 from runtime.automation import execute_scene, get_automation_runtime_snapshot
 
 bp = Blueprint("automation", __name__)
@@ -86,6 +87,31 @@ def _is_automation_log(item):
     if any(marker in operation for marker in markers):
         return True
     return category in {"automation", "scene"}
+
+
+def _event_to_automation_log(item):
+    message = str(item.get("message") or "").strip()
+    action = str(item.get("action") or "").strip()
+    category = str(item.get("category") or "").strip()
+    event_type = str(item.get("event_type") or "").strip()
+    source = str(item.get("source") or "").strip()
+    operation = message or action or f"[automation] {category or event_type or source}".strip()
+    return {
+        "time": item.get("time") or "",
+        "cab_idx": item.get("cab_idx", -1),
+        "operation": operation,
+        "category": "automation" if source == "automation" or event_type == "automation" else (category or "automation"),
+        "status": item.get("result") or "ok",
+        "detail": {
+            "event_id": item.get("id"),
+            "event_type": event_type,
+            "source": source,
+            "source_category": category,
+            "action": action,
+            "device_id": item.get("device_id") or "",
+            "device_name": item.get("device_name") or "",
+        },
+    }
 
 
 def _sanitize_rule_updates(rule, payload):
@@ -276,6 +302,31 @@ def api_automation_logs():
         if rule_name and rule_name not in operation:
             continue
         matched.append(item)
+    try:
+        event_payload = query_events(event_type="automation", limit=limit, offset=0)
+        for event in event_payload.get("items", []):
+            converted = _event_to_automation_log(event)
+            operation = str(converted.get("operation") or "")
+            if rule_name and rule_name not in operation:
+                continue
+            matched.append(converted)
+    except Exception:
+        pass
+
+    seen = set()
+    unique = []
+    for item in matched:
+        key = (
+            str(item.get("time") or ""),
+            str(item.get("operation") or ""),
+            str(item.get("category") or ""),
+            str(item.get("status") or ""),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(item)
+    matched = unique
     matched.sort(key=lambda entry: (_parse_log_time(entry.get("time")), str(entry.get("operation") or "")), reverse=True)
     return jsonify({"ok": True, "items": matched[:limit], "total": len(matched), "limit": limit})
 
