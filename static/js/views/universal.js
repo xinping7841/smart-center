@@ -59,6 +59,33 @@
         }[ch]));
     }
 
+    function installProtocolCardDensityStyle() {
+        if (document.getElementById('protocol-card-density-runtime')) return;
+        const style = document.createElement('style');
+        style.id = 'protocol-card-density-runtime';
+        style.textContent = `
+            #control-center-grid.protocol-device-grid { grid-template-columns:repeat(auto-fill, minmax(220px, 236px)) !important; gap:10px !important; }
+            #control-center-grid .protocol-device-card { min-height:202px !important; padding:10px !important; gap:8px !important; }
+            #control-center-grid .protocol-device-head { gap:8px !important; }
+            #control-center-grid .protocol-device-title { font-size:14px !important; }
+            #control-center-grid .protocol-device-meta { font-size:10px !important; line-height:1.28 !important; }
+            #control-center-grid .protocol-device-badge { min-width:50px !important; min-height:26px !important; padding:3px 7px !important; font-size:10px !important; }
+            #control-center-grid .protocol-status-row { gap:6px !important; }
+            #control-center-grid .protocol-status-pill { min-height:44px !important; padding:6px 7px !important; gap:4px !important; }
+            #control-center-grid .protocol-status-label { font-size:11px !important; gap:5px !important; }
+            #control-center-grid .protocol-status-value { font-size:10px !important; }
+            #control-center-grid .protocol-switch-row { padding:8px 9px !important; gap:8px !important; }
+            #control-center-grid .protocol-switch-title { font-size:13px !important; }
+            #control-center-grid .protocol-switch-sub { font-size:10px !important; }
+            #control-center-grid .protocol-toggle { width:50px !important; height:28px !important; }
+            #control-center-grid .protocol-toggle span::before { width:21px !important; height:21px !important; left:3px !important; top:3px !important; }
+            #control-center-grid .protocol-toggle input:checked + span::before { transform:translateX(21px) !important; }
+            #control-center-grid .protocol-device-actions { gap:6px !important; }
+            #control-center-grid .protocol-action-btn { min-height:30px !important; padding:5px 7px !important; font-size:11px !important; }
+        `;
+        document.head.appendChild(style);
+    }
+
     function fireUniversalCommand(devId, payload, format, waitMs) {
         if (!ensureControlPermission('light.control', '控制协议设备')) return;
         notify('通用指令下发中...', false);
@@ -533,6 +560,7 @@
 
     SmartCenter.universal = Object.assign({}, SmartCenter.universal || {}, api);
     if (typeof SmartCenter.registerModule === 'function') {
+        installProtocolCardDensityStyle();
         const protocolPollRegister = typeof global.registerPollingTask === 'function' ? global.registerPollingTask : (typeof SmartCenter.registerPollingTask === 'function' ? SmartCenter.registerPollingTask.bind(SmartCenter) : null);
         if (protocolPollRegister) {
             protocolPollRegister('protocol_control', 2500, () => updateProtocolDeviceCards(), () => typeof global.getActiveViewId !== 'function' || global.getActiveViewId() === 'universal');
