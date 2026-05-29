@@ -12,6 +12,7 @@ __pycache__/
 venv/
 
 # Runtime data and logs
+.env
 *.log
 *.db
 *.sqlite

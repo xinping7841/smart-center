@@ -197,7 +197,6 @@
         <button class="btn btn-blue" data-tab="meter" onclick="switchTab('meter')">电表中心配置</button>
         <button class="btn btn-blue" data-tab="ups" onclick="switchTab('ups')">UPS配置</button>
         <button class="btn btn-blue" data-tab="snmp" onclick="switchTab('snmp')">SNMP配置</button>
-        <button class="btn btn-blue" data-tab="m32r" onclick="switchTab('m32r')">M32R控台</button>
         <button class="btn btn-blue" data-tab="current_collector" onclick="switchTab('current_collector')">电流采集</button>
         <button class="btn btn-blue" data-tab="sequencer" onclick="switchTab('sequencer')">时序电源</button>
         <button class="btn btn-blue" data-tab="light" onclick="switchTab('light')">灯光配置</button>
@@ -226,7 +225,6 @@
     <div id="tab-ups" class="tab-content"><button class="btn btn-green" style="margin-bottom: 15px;" onclick="addUps()">+ 添加UPS</button><div id="list-ups"></div></div>
     <div id="tab-snmp" class="tab-content"><button class="btn btn-green" style="margin-bottom: 15px;" onclick="addSnmp()">+ 添加SNMP设备</button><div id="list-snmp"></div></div>
     <div id="tab-current_collector" class="tab-content"><div id="list-current-collector"></div></div>
-    <div id="tab-m32r" class="tab-content"><div id="list-m32r"></div></div>
     <div id="tab-sequencer" class="tab-content"><button class="btn btn-green" style="margin-bottom: 15px;" onclick="addSequencer()">+ 添加时序电源</button><div id="list-sequencer"></div></div>
     <div id="tab-light" class="tab-content"><button class="btn btn-green" style="margin-bottom: 15px;" onclick="addLight()">+ 添加灯光模块</button><div id="list-light"></div></div>
     <div id="tab-scene" class="tab-content"><button class="btn btn-green" style="margin-bottom: 15px;" onclick="addScene()">+ 添加场景</button><div id="list-scene"></div></div>
@@ -579,8 +577,7 @@
         if(!conf.automations) conf.automations = [];
         if(!conf.door_config) conf.door_config = { rtsp_url: "", match_threshold: 1500, ip: "192.168.50.51", port: 50000 };
         if(!conf.server_monitor) conf.server_monitor = { agent_host: "", agent_port: 6899, scan_networks: [] };
-        if(!conf.m32r || typeof conf.m32r !== 'object') conf.m32r = { enabled: false, host: '192.168.50.32', port: 10023, name: 'Midas M32R', channel_count: 8, bank_start: 1, poll_interval_ms: 1200, keepalive_sec: 5, auto_connect: false };
-        if(!conf.current_collector || typeof conf.current_collector !== 'object') conf.current_collector = { enabled: true, name: '16路电流采集器', source_mode: 'push', transport: 'tcp-rtu', host: '192.168.50.109', port: 502, serial_port: 'COM7', baudrate: 9600, bytesize: 8, parity: 'N', stopbits: 1, slave: 1, register: 0, count: 16, scale: 100, multiplier: 1, timeout: 2, poll_interval: 5, push_stale_seconds: 15, push_allowed_hosts: ['127.0.0.1', '::1', '192.168.50.121', '100.122.235.56'], push_token: '', reject_sparse_push: false, min_valid_channels: 0, channels: [], groups: [] };
+        if(!conf.current_collector || typeof conf.current_collector !== 'object') conf.current_collector = { enabled: true, name: '16路电流采集器', source_mode: 'push', transport: 'tcp-rtu', host: '192.168.50.109', port: 502, serial_port: 'COM7', baudrate: 9600, bytesize: 8, parity: 'N', stopbits: 1, slave: 1, register: 8192, count: 16, scale: 100, multiplier: 1, timeout: 2, poll_interval: 5, push_stale_seconds: 15, zero_deadband_a: 0.25, push_allowed_hosts: ['127.0.0.1', '::1', '192.168.50.121', '100.122.235.56'], push_token: '', reject_sparse_push: false, min_valid_channels: 0, channels: [], groups: [] };
         if(!Array.isArray(conf.current_collector.channels)) conf.current_collector.channels = [];
         if(!Array.isArray(conf.current_collector.groups)) conf.current_collector.groups = [];
         if(!conf.meter_statistics || typeof conf.meter_statistics !== 'object') conf.meter_statistics = { summary_mode: 'include_flag', display_reset_enabled: false, display_reset_from: '', energy_display_mode: 'display', report_dir: 'reports\\energy', auto_export_enabled: true, history_keep_days: 90, default_trend_mode: 'total', remote_service_enabled: false, remote_service_mode: 'remote_overlay_local', remote_service_url: '', remote_service_timeout_sec: 5, remote_sync_on_save: false, reference_total_meter_source_key: '', cabinet_gateway_enabled: false, cabinet_gateway_url: '', cabinet_gateway_timeout_sec: 5, cabinet_gateway_sync_on_save: false };
@@ -640,7 +637,6 @@
         const defaultNavs = [
             {id: "dashboard", icon: "📊", name: "场馆总览", sort: 1, visible: true},
             {id: "power", icon: "⚡", name: "强电控制", sort: 2, visible: true},
-            {id: "m32r", icon: "🎛", name: "M32R 控台", sort: 3, visible: true},
             {id: "meter", icon: "🔋", name: "电表中心", sort: 3, visible: true},
             {id: "current_collector", icon: "∿", name: "电流采集", sort: 3.4, visible: true},
             {id: "ups", icon: "🔌", name: "UPS监测", sort: 4, visible: true},
@@ -813,6 +809,7 @@
             if(!cc.host) cc.host = '192.168.50.109';
             if(!cc.port) cc.port = 502;
             if(!cc.push_stale_seconds) cc.push_stale_seconds = 15;
+            if(cc.zero_deadband_a === undefined) cc.zero_deadband_a = 0.25;
             if(cc.reject_sparse_push === undefined) cc.reject_sparse_push = false;
             if(cc.min_valid_channels === undefined) cc.min_valid_channels = 0;
             if(typeof cc.push_allowed_hosts === 'string') cc.push_allowed_hosts = cc.push_allowed_hosts.split(/[,;\n]/).map(v => v.trim()).filter(Boolean);
@@ -910,6 +907,7 @@
                     <div class="item"><label>超时秒</label><input type="number" step="0.1" value="${cc.timeout || 2}" onchange="updateCurrentCollectorValue('timeout',this.value,true)"></div>
                     <div class="item"><label>轮询秒</label><input type="number" value="${cc.poll_interval || 5}" onchange="updateCurrentCollectorValue('poll_interval',this.value,true)"></div>
                     <div class="item"><label>推送超时秒</label><input type="number" step="0.1" value="${cc.push_stale_seconds || 15}" onchange="updateCurrentCollectorValue('push_stale_seconds',this.value,true)"></div>
+                    <div class="item"><label>零点死区A</label><input type="number" step="0.01" min="0" value="${cc.zero_deadband_a ?? 0.25}" onchange="updateCurrentCollectorValue('zero_deadband_a',this.value,true)"></div>
                     <div class="item"><label>过滤稀疏帧</label><select onchange="updateCurrentCollectorValue('reject_sparse_push',this.value==='true')"><option value="false" ${cc.reject_sparse_push === false ? 'selected' : ''}>停用</option><option value="true" ${cc.reject_sparse_push === true ? 'selected' : ''}>启用</option></select></div>
                     <div class="item"><label>最少有效路数</label><input type="number" min="0" max="16" value="${cc.min_valid_channels || 0}" onchange="updateCurrentCollectorValue('min_valid_channels',this.value,true)"></div>
                     <div class="item"><label>允许推送主机</label><input value="${escapeHtml((cc.push_allowed_hosts || []).join(','))}" onchange="updateCurrentCollectorValue('push_allowed_hosts',this.value.split(/[,;\\n]/).map(v=>v.trim()).filter(Boolean))"></div>
@@ -4475,27 +4473,6 @@
                 document.getElementById('list-auto').innerHTML = hauto;
                 renderOutdoorAutomationSummaryCard();
                 renderAutomationEventsCard();
-
-                const m32r = conf.m32r || {};
-                let hm32r = `<div class="card">
-                    <h3 style="color:var(--blue)">M32R 局域网虚拟控台配置</h3>
-                    <div class="grid">
-                        <div class="item"><label>启用 M32R 模块</label><select onchange="conf.m32r.enabled=this.value==='true'; renderAll()"><option value="true" ${m32r.enabled ? 'selected' : ''}>启用</option><option value="false" ${!m32r.enabled ? 'selected' : ''}>禁用</option></select></div>
-                        <div class="item"><label>控台名称</label><input value="${m32r.name || 'Midas M32R'}" onchange="conf.m32r.name=this.value; renderAll()"></div>
-                        <div class="item"><label>控台 IP</label><input value="${m32r.host || ''}" onchange="conf.m32r.host=this.value; renderAll()" placeholder="例如 192.168.50.32"></div>
-                        <div class="item"><label>OSC UDP 端口</label><input type="number" value="${m32r.port || 10023}" onchange="conf.m32r.port=parseInt(this.value)||10023; renderAll()"></div>
-                        <div class="item"><label>起始通道</label><input type="number" min="1" max="32" value="${m32r.bank_start || 1}" onchange="conf.m32r.bank_start=Math.max(1, Math.min(parseInt(this.value)||1, 32)); renderAll()"></div>
-                        <div class="item"><label>页面显示通道数</label><input type="number" min="1" max="16" value="${m32r.channel_count || 8}" onchange="conf.m32r.channel_count=Math.max(1, Math.min(parseInt(this.value)||8, 16)); renderAll()"></div>
-                        <div class="item"><label>轮询间隔(ms)</label><input type="number" min="300" max="5000" value="${m32r.poll_interval_ms || 1200}" onchange="conf.m32r.poll_interval_ms=Math.max(300, parseInt(this.value)||1200); renderAll()"></div>
-                        <div class="item"><label>xremote 保活(秒)</label><input type="number" min="2" max="9" value="${m32r.keepalive_sec || 5}" onchange="conf.m32r.keepalive_sec=Math.max(2, Math.min(parseInt(this.value)||5, 9)); renderAll()"></div>
-                        <div class="item"><label>启动自动连接</label><select onchange="conf.m32r.auto_connect=this.value==='true'; renderAll()"><option value="true" ${m32r.auto_connect ? 'selected' : ''}>是</option><option value="false" ${!m32r.auto_connect ? 'selected' : ''}>否</option></select></div>
-                    </div>
-                    <div style="margin-top:10px; color:#64748b; font-size:13px; line-height:1.8;">
-                        说明：当前 MVP 页面地址为 <code>/m32r</code>。今天没有真机也可以先把网络参数和显示通道范围配好，周一上真机后直接联调。
-                        真正的实时电平解析、EQ/Dyn/Sends 细节建议等真机联通后再继续做。
-                    </div>
-                </div>`;
-                if(document.getElementById('list-m32r')) document.getElementById('list-m32r').innerHTML = hm32r;
 
                 let hsb = '';
                 conf.sidebar.sort((a,b) => a.sort - b.sort).forEach((s, i) => {

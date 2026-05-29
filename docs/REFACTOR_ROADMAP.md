@@ -35,7 +35,7 @@ The objective is to make Smart Center modular and local-AI friendly without brea
 ## Stage 4: Performance
 
 - Make dashboard APIs compact by default and detail APIs explicit.
-- Add lazy loading for SNMP details, server hardware details, power charts, NVR preview.
+- Add lazy loading for SNMP details, server hardware details, and power charts.
 - Cache remote meter payloads and projector status more consistently.
 - Prefer background pollers over route-time device access.
 

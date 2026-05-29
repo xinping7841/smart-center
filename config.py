@@ -42,7 +42,6 @@ DEFAULT_UI_TEXT = {
 DEFAULT_SIDEBAR = [
     {"id": "dashboard", "icon": "📊", "name": "场馆总览", "sort": 1, "visible": True},
     {"id": "power", "icon": "⚡", "name": "强电控制", "sort": 2, "visible": True},
-    {"id": "m32r", "icon": "🎛", "name": "M32R 控台", "sort": 3, "visible": True},
     {"id": "meter", "icon": "🔋", "name": "电表中心", "sort": 3, "visible": True},
     {"id": "current_collector", "icon": "∿", "name": "电流采集", "sort": 3.4, "visible": True},
     {"id": "ups", "icon": "🔌", "name": "UPS监测", "sort": 4, "visible": True},
@@ -155,13 +154,14 @@ DEFAULT_CURRENT_COLLECTOR = {
     "parity": "N",
     "stopbits": 1,
     "slave": 1,
-    "register": 0x0000,
+    "register": 0x2000,
     "count": 16,
     "scale": 100.0,
     "multiplier": 1.0,
     "timeout": 2.0,
     "poll_interval": 5.0,
     "push_stale_seconds": 15.0,
+    "zero_deadband_a": 0.25,
     "push_allowed_hosts": ["127.0.0.1", "::1", "192.168.50.121", "100.122.235.56"],
     "push_token": "",
     "reject_sparse_push": False,
@@ -453,7 +453,7 @@ def _normalize_current_collector_config(raw_config):
         "bytesize": (8, 5, 8),
         "stopbits": (1, 1, 2),
         "slave": (1, 1, 247),
-        "register": (0, 0, 65535),
+        "register": (0x2000, 0, 65535),
         "count": (16, 1, 32),
         "min_valid_channels": (0, 0, 32),
     }
@@ -468,6 +468,7 @@ def _normalize_current_collector_config(raw_config):
         ("timeout", 1.0, 0.1, 10.0),
         ("poll_interval", 2.0, 0.5, 300.0),
         ("push_stale_seconds", 15.0, 2.0, 300.0),
+        ("zero_deadband_a", 0.25, 0.0, 100.0),
     ):
         try:
             merged[key] = max(minimum, min(float(merged.get(key, default)), maximum))
@@ -856,21 +857,6 @@ def _is_qnap_snmp_device(snmp):
         or "威联通" in name_text
     )
 
-DEFAULT_M32R = {
-    "enabled": False,
-    "host": "192.168.50.32",
-    "port": 10023,
-    "name": "Midas M32R",
-    "channel_count": 16,
-    "bank_start": 1,
-    "poll_interval_ms": 1200,
-    "keepalive_sec": 5,
-    "auto_connect": False,
-    "auto_sync": False,
-    "sync_direction": "mixer_to_pc",
-    "known_mixers": []
-}
-
 DEFAULT_APPLE_AUDIO = {
     "enabled": True,
     "provider": "nas_music_tag",
@@ -885,13 +871,7 @@ DEFAULT_APPLE_AUDIO = {
     "jamendo_enabled": False,
     "jamendo_client_id": "",
     "jamendo_limit": 20,
-    "jamendo_api_base": "https://api.jamendo.com/v3.0",
-    "m32_channel_mode": "stereo_pair",
-    "m32_channel_left": 17,
-    "m32_channel_right": 18,
-    "m32_label": "Music Player",
-    "m32_prepare_level": 0.68,
-    "m32_prepare_main": False
+    "jamendo_api_base": "https://api.jamendo.com/v3.0"
 }
 
 DEFAULT_SEQUENCER = {
@@ -1853,7 +1833,7 @@ def _maybe_restore_outdoor_light_scenes(loaded_config):
 
 
 def load_config():
-    loaded_config = {"cabinets": [], "meters": [], "ups_devices": [], "snmp_devices": [], "nvr_devices": [], "light_devices": [], "scenes": [], "door_config": DEFAULT_DOOR_CONFIG.copy(), "sequencers": []}
+    loaded_config = {"cabinets": [], "meters": [], "ups_devices": [], "snmp_devices": [], "light_devices": [], "scenes": [], "door_config": DEFAULT_DOOR_CONFIG.copy(), "sequencers": []}
     config_file_exists = os.path.exists(CONFIG_FILE)
     config_needs_persist = False
     if config_file_exists:
@@ -1902,7 +1882,6 @@ def load_config():
     if "hvac_devices" not in loaded_config or not isinstance(loaded_config["hvac_devices"], list): loaded_config["hvac_devices"] = []
     if "env_sensors" not in loaded_config: loaded_config["env_sensors"] = []
     if "snmp_devices" not in loaded_config or not isinstance(loaded_config["snmp_devices"], list): loaded_config["snmp_devices"] = []
-    if "nvr_devices" not in loaded_config or not isinstance(loaded_config["nvr_devices"], list): loaded_config["nvr_devices"] = []
     if "ups_devices" not in loaded_config or not isinstance(loaded_config["ups_devices"], list): loaded_config["ups_devices"] = []
     if "meters" not in loaded_config or not isinstance(loaded_config["meters"], list): loaded_config["meters"] = []
     loaded_config["current_collector"] = _normalize_current_collector_config(loaded_config.get("current_collector"))
@@ -2029,34 +2008,8 @@ def load_config():
         except Exception:
             merged_proxy_monitor["client_monitor_timeout_sec"] = 6.0
         loaded_config["proxy_monitor"] = merged_proxy_monitor
-    if "m32r" not in loaded_config or not isinstance(loaded_config["m32r"], dict):
-        loaded_config["m32r"] = DEFAULT_M32R.copy()
-    else:
-        merged_m32r = DEFAULT_M32R.copy()
-        merged_m32r.update(loaded_config["m32r"])
-        try:
-            merged_m32r["port"] = int(merged_m32r.get("port", 10023) or 10023)
-        except Exception:
-            merged_m32r["port"] = 10023
-        try:
-            merged_m32r["channel_count"] = max(1, min(int(merged_m32r.get("channel_count", 16) or 16), 32))
-        except Exception:
-            merged_m32r["channel_count"] = 16
-        try:
-            merged_m32r["bank_start"] = max(1, min(int(merged_m32r.get("bank_start", 1) or 1), 32))
-        except Exception:
-            merged_m32r["bank_start"] = 1
-        try:
-            merged_m32r["poll_interval_ms"] = max(300, int(merged_m32r.get("poll_interval_ms", 1200) or 1200))
-        except Exception:
-            merged_m32r["poll_interval_ms"] = 1200
-        try:
-            merged_m32r["keepalive_sec"] = max(2, min(int(merged_m32r.get("keepalive_sec", 5) or 5), 9))
-        except Exception:
-            merged_m32r["keepalive_sec"] = 5
-        if not isinstance(merged_m32r.get("known_mixers"), list):
-            merged_m32r["known_mixers"] = []
-        loaded_config["m32r"] = merged_m32r
+    loaded_config.pop("m32r", None)
+    loaded_config.pop("nvr_devices", None)
     if "apple_audio" not in loaded_config or not isinstance(loaded_config["apple_audio"], dict):
         loaded_config["apple_audio"] = deepcopy(DEFAULT_APPLE_AUDIO)
     else:
@@ -2090,7 +2043,7 @@ def load_config():
                 sidebar_changed = True
                 continue
             nav_id = str(nav.get("id") or "").strip()
-            if nav_id in {"automation", "users"}:
+            if nav_id in {"automation", "users", "m32r", "camera_preview"}:
                 sidebar_changed = True
                 continue
             nav["id"] = nav_id
@@ -2099,12 +2052,10 @@ def load_config():
             normalized_sidebar.append(nav)
         loaded_config["sidebar"] = normalized_sidebar
         for nav_id in (
-            "m32r",
             "meter",
             "current_collector",
             "ups",
             "snmp",
-            "camera_preview",
             "proxy",
             "projector",
             "universal",
@@ -2361,52 +2312,6 @@ def load_config():
         except Exception:
             ups["fallback_cache_ttl_sec"] = 600.0
         ups["require_parenthesized_frame"] = bool(ups.get("require_parenthesized_frame", True))
-
-    for nvr in loaded_config["nvr_devices"]:
-        if "id" not in nvr or not str(nvr.get("id", "")).strip():
-            nvr["id"] = f"nvr_{int(datetime.now().timestamp() * 1000)}"
-        if "name" not in nvr: nvr["name"] = "录像机"
-        if "brand" not in nvr: nvr["brand"] = "Hikvision"
-        if "model" not in nvr: nvr["model"] = ""
-        if "protocol" not in nvr: nvr["protocol"] = "Hikvision ISAPI"
-        if "scheme" not in nvr: nvr["scheme"] = "http"
-        if "host" not in nvr: nvr["host"] = nvr.get("ip", "")
-        if "port" not in nvr: nvr["port"] = 80
-        if "username" not in nvr: nvr["username"] = ""
-        if "password" not in nvr: nvr["password"] = ""
-        if "expected_channel_count" not in nvr: nvr["expected_channel_count"] = 0
-        if "camera_inventory_path" not in nvr: nvr["camera_inventory_path"] = ""
-        if "timeout_sec" not in nvr: nvr["timeout_sec"] = 5.0
-        if "snapshot_timeout_sec" not in nvr: nvr["snapshot_timeout_sec"] = 5.0
-        if "snapshot_stream" not in nvr: nvr["snapshot_stream"] = "2"
-        if "snapshot_cache_ttl_sec" not in nvr: nvr["snapshot_cache_ttl_sec"] = 1.5
-        if "poll_interval_ms" not in nvr: nvr["poll_interval_ms"] = 10000
-        if "enabled" not in nvr: nvr["enabled"] = True
-        if "visible" not in nvr: nvr["visible"] = True
-        try:
-            nvr["port"] = max(1, min(int(nvr.get("port", 80) or 80), 65535))
-        except Exception:
-            nvr["port"] = 80
-        try:
-            nvr["expected_channel_count"] = max(0, min(int(nvr.get("expected_channel_count", 0) or 0), 256))
-        except Exception:
-            nvr["expected_channel_count"] = 0
-        try:
-            nvr["timeout_sec"] = max(1.0, min(float(nvr.get("timeout_sec", 5.0) or 5.0), 30.0))
-        except Exception:
-            nvr["timeout_sec"] = 5.0
-        try:
-            nvr["snapshot_timeout_sec"] = max(1.0, min(float(nvr.get("snapshot_timeout_sec", 5.0) or 5.0), 30.0))
-        except Exception:
-            nvr["snapshot_timeout_sec"] = 5.0
-        try:
-            nvr["snapshot_cache_ttl_sec"] = max(0.0, min(float(nvr.get("snapshot_cache_ttl_sec", 1.5) or 1.5), 15.0))
-        except Exception:
-            nvr["snapshot_cache_ttl_sec"] = 1.5
-        try:
-            nvr["poll_interval_ms"] = max(2000, min(int(nvr.get("poll_interval_ms", 10000) or 10000), 300000))
-        except Exception:
-            nvr["poll_interval_ms"] = 10000
 
     if not loaded_config["snmp_devices"]:
         loaded_config["snmp_devices"] = [

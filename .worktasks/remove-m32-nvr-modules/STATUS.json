@@ -1,0 +1,10 @@
+{
+  "task": "remove-m32-nvr-modules",
+  "module": "templates_index",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-remove-m32-nvr-modules-20260527",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/remove-m32-nvr-modules",
+  "started_at": "2026-05-27 17:37:17",
+  "status": "ready_to_commit"
+}

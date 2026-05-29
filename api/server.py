@@ -25,7 +25,7 @@ from paths import DB_FILE as DB_FILE_PATH, ensure_parent_dir
 
 bp = Blueprint('server', __name__)
 DB_FILE = str(DB_FILE_PATH)
-AGENT_VERSION = "2026.05.22.05"
+AGENT_VERSION = "2026.05.27.01"
 REPORT_MAX_BYTES = 8 * 1024 * 1024
 REPORT_MIN_INTERVAL_SEC = 2.0
 REPORT_CACHE = {}
@@ -2380,14 +2380,14 @@ def _build_machine_diagnostic(machine):
         if ping_online is False:
             diagnostic.update(
                 {
-                    "level": "error",
-                    "code": "offline_unreachable",
-                    "summary": "节点离线",
-                    "detail": "节点超过上报窗口，且当前 IP ping 不通，判断为关机、断网或网络不可达。",
+                    "level": "warn",
+                    "code": "agent_offline_network_unreachable",
+                    "summary": "Agent离线 / 网络不可达",
+                    "detail": "节点超过上报窗口，且当前 IP ping 不通。该状态只能说明中控无法触达 Agent 或目标 IP，不能单独判定机器已经关机。",
                     "root_cause": _detect_bootstrap_root_cause(log_tail).get("root_cause", "") if log_tail else "",
-                    "suggestion": "先确认机器电源与网络；如需要远程恢复，可尝试网络唤醒，开机后再观察 Agent 是否恢复上报。",
+                    "suggestion": "先确认目标机器是否能访问 120 中控；如机器实际开着，请优先恢复 SmartCenterAgent 上报或检查 VLAN/防火墙，不要把该状态当作已关机。",
                     "needs_attention": True,
-                    "needs_redeploy": False,
+                    "needs_redeploy": True,
                 }
             )
             return diagnostic
@@ -2992,17 +2992,23 @@ function Invoke-AgentPowerCommand([string]$action) {{
     $args = if ($action -eq 'restart') {{ @('/r','/f','/t','0') }} else {{ @('/s','/f','/t','0') }}
     $startedAt = (Get-Date).ToString('o')
     try {{
-        $proc = Start-Process -FilePath $shutdownExe -ArgumentList $args -WindowStyle Hidden -PassThru -ErrorAction Stop
-        Write-AgentLog ($action + ' shutdown.exe started pid=' + $proc.Id)
-        Write-CommandResult @{{
-            action = $action
-            ok = $true
-            method = 'shutdown.exe'
-            executable = $shutdownExe
-            arguments = ($args -join ' ')
-            pid = $proc.Id
-            started_at = $startedAt
+        $proc = Start-Process -FilePath $shutdownExe -ArgumentList $args -WindowStyle Hidden -PassThru -Wait -ErrorAction Stop
+        $exitCode = $proc.ExitCode
+        Write-AgentLog ($action + ' shutdown.exe exited pid=' + $proc.Id + ' exit=' + $exitCode)
+        if ($exitCode -eq 0) {{
+            Write-CommandResult @{{
+                action = $action
+                ok = $true
+                method = 'shutdown.exe'
+                executable = $shutdownExe
+                arguments = ($args -join ' ')
+                pid = $proc.Id
+                exit_code = $exitCode
+                started_at = $startedAt
+            }}
+            return
         }}
+        throw ('shutdown.exe exit code ' + $exitCode)
     }} catch {{
         $err = Get-ErrorDetails $_
         Write-AgentLog ($action + ' shutdown.exe failed: ' + $err)
@@ -3018,8 +3024,25 @@ function Invoke-AgentPowerCommand([string]$action) {{
         try {{
             if ($action -eq 'restart') {{ Restart-Computer -Force -ErrorAction Stop }} else {{ Stop-Computer -Force -ErrorAction Stop }}
             Write-AgentLog ($action + ' PowerShell fallback invoked')
+            Write-CommandResult @{{
+                action = $action
+                ok = $true
+                method = 'PowerShell'
+                fallback_from = 'shutdown.exe'
+                started_at = $startedAt
+            }}
         }} catch {{
-            Write-AgentLog ($action + ' PowerShell fallback failed: ' + (Get-ErrorDetails $_))
+            $fallbackErr = Get-ErrorDetails $_
+            Write-AgentLog ($action + ' PowerShell fallback failed: ' + $fallbackErr)
+            Write-CommandResult @{{
+                action = $action
+                ok = $false
+                method = 'PowerShell'
+                fallback_from = 'shutdown.exe'
+                started_at = $startedAt
+                error = $fallbackErr
+                remediation = '请用管理员权限重新部署 SmartCenterAgent 计划任务，确认任务用户为 SYSTEM 且允许最高权限运行。'
+            }}
         }}
     }}
 }}
@@ -7408,9 +7431,19 @@ def report_data():
 @require_permission("server.control")
 def sort_machines():
     mac_list = request.json.get("macs", [])
-    conn = sqlite3.connect(DB_FILE); c = conn.cursor()
-    for idx, mac in enumerate(mac_list): c.execute("UPDATE machines SET sort_order=? WHERE mac=?", (idx, mac))
-    conn.commit(); conn.close()
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    for idx, raw_mac in enumerate(mac_list):
+        mac = normalize_machine_mac(raw_mac)
+        if not mac:
+            continue
+        compact_mac = mac.replace("-", "")
+        c.execute(
+            "UPDATE machines SET sort_order=? WHERE mac=? OR REPLACE(mac, '-', '')=?",
+            (idx + 1, mac, compact_mac),
+        )
+    conn.commit()
+    conn.close()
     invalidate_machines_cache()
     log_audit_event("server.sort", target="machines", detail={"count": len(mac_list), "macs": mac_list})
     return jsonify({"status": "ok"})

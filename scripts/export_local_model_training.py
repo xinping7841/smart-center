@@ -13,7 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from api.local_model import build_training_export  # noqa: E402
-from paths import DATA_DIR, ensure_directory  # noqa: E402
+from paths import CONFIG_FILE, DATA_DIR, ensure_directory  # noqa: E402
 
 
 DEFAULT_NAS_DIR = "/mnt/ubuntu01/smart-center-backups/local-model-training"
@@ -135,6 +135,15 @@ def main():
 
     ensure_directory(DATA_DIR / "training" / "local_model")
     export_payload = build_training_export()
+    alias_count = int((export_payload.get("counts") or {}).get("device_aliases") or 0)
+    if alias_count < 20:
+        print(
+            (
+                f"WARNING: device_aliases only {alias_count}; config source may be an empty/default file: "
+                f"{CONFIG_FILE}. Set SMART_CENTER_DATA_DIR or SMART_CENTER_CONFIG_FILE to the production data path."
+            ),
+            file=sys.stderr,
+        )
     result = {"ok": True, "export": export_payload}
     if args.sync_nas:
         result["nas"] = sync_export_to_nas(export_payload, args.nas_dir, args.keep_days)

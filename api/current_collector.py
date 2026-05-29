@@ -21,7 +21,6 @@ from current_collector import (
     CurrentCollector,
     CurrentCollectorError,
     DEFAULT_CHANNEL_COUNT,
-    DEFAULT_REGISTER_BASE_100X,
     DEFAULT_SCALE_100X,
     ModbusTcpTransport,
     RtuSerialTransport,
@@ -46,13 +45,14 @@ DEFAULT_CURRENT_COLLECTOR = {
     "parity": "N",
     "stopbits": 1,
     "slave": 1,
-    "register": DEFAULT_REGISTER_BASE_100X,
+    "register": 0x2000,
     "count": DEFAULT_CHANNEL_COUNT,
     "scale": DEFAULT_SCALE_100X,
     "multiplier": 1.0,
     "timeout": 2.0,
     "poll_interval": 5.0,
     "push_stale_seconds": 15.0,
+    "zero_deadband_a": 0.25,
     "push_allowed_hosts": ["127.0.0.1", "::1", "192.168.50.121", "100.122.235.56"],
     "push_token": "",
     "reject_sparse_push": False,
@@ -128,13 +128,14 @@ def normalize_current_collector_config(raw_config=None):
     parity = str(cfg.get("parity") or "N").strip().upper()
     cfg["parity"] = parity if parity in {"N", "E", "O", "M", "S"} else "N"
     cfg["slave"] = _coerce_int(cfg.get("slave"), 1, 1, 247)
-    cfg["register"] = _coerce_int(cfg.get("register"), DEFAULT_REGISTER_BASE_100X, 0, 0xFFFF)
+    cfg["register"] = _coerce_int(cfg.get("register"), DEFAULT_CURRENT_COLLECTOR["register"], 0, 0xFFFF)
     cfg["count"] = _coerce_int(cfg.get("count"), DEFAULT_CHANNEL_COUNT, 1, 32)
     cfg["scale"] = _coerce_float(cfg.get("scale"), DEFAULT_SCALE_100X, 0.001, 1000000.0)
     cfg["multiplier"] = _coerce_float(cfg.get("multiplier"), 1.0, 0.0, 1000000.0)
     cfg["timeout"] = _coerce_float(cfg.get("timeout"), 1.0, 0.1, 10.0)
     cfg["poll_interval"] = _coerce_float(cfg.get("poll_interval"), 2.0, 0.5, 300.0)
     cfg["push_stale_seconds"] = _coerce_float(cfg.get("push_stale_seconds"), 15.0, 2.0, 300.0)
+    cfg["zero_deadband_a"] = _coerce_float(cfg.get("zero_deadband_a"), DEFAULT_CURRENT_COLLECTOR["zero_deadband_a"], 0.0, 100.0)
     cfg["reject_sparse_push"] = bool(cfg.get("reject_sparse_push", False))
     cfg["min_valid_channels"] = _coerce_int(cfg.get("min_valid_channels"), 0, 0, int(cfg.get("count") or DEFAULT_CHANNEL_COUNT))
     raw_allowed_hosts = cfg.get("push_allowed_hosts")
@@ -327,6 +328,24 @@ def _coerce_number_list(values, count, *, default=None, digits=3):
     return rows
 
 
+def _apply_zero_deadband(value, config):
+    if value is None:
+        return None
+    try:
+        number = float(value)
+    except Exception:
+        return None
+    deadband = _coerce_float(
+        config.get("zero_deadband_a"),
+        DEFAULT_CURRENT_COLLECTOR["zero_deadband_a"],
+        0.0,
+        100.0,
+    )
+    if abs(number) <= deadband:
+        return 0.0
+    return round(number, 3)
+
+
 def normalize_push_snapshot(payload, config):
     payload = payload if isinstance(payload, dict) else {}
     count = int(config.get("count") or DEFAULT_CHANNEL_COUNT)
@@ -346,6 +365,8 @@ def normalize_push_snapshot(payload, config):
         min_valid = int(config.get("min_valid_channels") or 0)
         if valid_count < min_valid:
             raise ValueError(f"sparse current frame rejected: valid_channels={valid_count}, min_valid_channels={min_valid}")
+    measured_currents = list(currents)
+    currents = [_apply_zero_deadband(value, config) for value in measured_currents]
     channel_map = {f"C{index + 1:02d}": value for index, value in enumerate(currents)}
     return {
         "online": True,
@@ -356,6 +377,7 @@ def normalize_push_snapshot(payload, config):
         "multiplier": _coerce_float(payload.get("multiplier"), config.get("multiplier"), 0.0, 1000000.0),
         "channel_count": count,
         "currents": currents,
+        "measured_currents": measured_currents,
         "channels": channel_map,
         "raw_registers": raw_registers,
         "request_hex": str(payload.get("request_hex") or "").strip(),
@@ -368,13 +390,20 @@ def normalize_push_snapshot(payload, config):
 def build_channel_rows(snapshot, config):
     snapshot = snapshot or {}
     currents = list(snapshot.get("currents") or [])
+    measured_currents = list(snapshot.get("measured_currents") or [])
     raw_registers = list(snapshot.get("raw_registers") or [])
     channels = []
     for item in config.get("channels", []):
         index = int(item.get("channel") or 0)
         if index <= 0:
             continue
-        value = currents[index - 1] if index - 1 < len(currents) else None
+        snapshot_value = currents[index - 1] if index - 1 < len(currents) else None
+        measured_value = measured_currents[index - 1] if index - 1 < len(measured_currents) else snapshot_value
+        value = _apply_zero_deadband(measured_value, config)
+        try:
+            is_noise = measured_value is not None and value == 0.0 and abs(float(measured_value)) > 0.0
+        except Exception:
+            is_noise = False
         raw_value = raw_registers[index - 1] if index - 1 < len(raw_registers) else None
         channels.append({
             "channel": index,
@@ -382,6 +411,8 @@ def build_channel_rows(snapshot, config):
             "visible": bool(item.get("visible", True)),
             "sort": int(item.get("sort") or index),
             "current": value,
+            "measured_current": measured_value,
+            "is_noise": is_noise,
             "raw_register": raw_value,
         })
     return channels
@@ -530,6 +561,7 @@ def api_current_collector_config():
         "timeout",
         "poll_interval",
         "push_stale_seconds",
+        "zero_deadband_a",
         "push_allowed_hosts",
         "push_token",
         "reject_sparse_push",

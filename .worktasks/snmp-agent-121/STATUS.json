@@ -1,0 +1,10 @@
+{
+  "task": "snmp-agent-121",
+  "module": "snmp",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-snmp-agent-121-20260528",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/smart-center-worktrees/snmp-agent-121",
+  "started_at": "2026-05-28 02:34:00",
+  "status": "in_progress"
+}

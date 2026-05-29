@@ -1,9 +1,9 @@
 # AI_MODULE: background_pollers
 # AI_PURPOSE: 后台轮询真实设备、刷新 runtime.state 缓存、驱动自动化和周期性状态采集。
 # AI_BOUNDARY: API 路由应读取缓存并返回结果，不应在请求线程里重复做慢速设备轮询。
-# AI_DATA_FLOW: CONFIG -> Modbus/SNMP/HA/NVR/UPS/投影/灯光等设备 -> runtime.state/CONFIG 状态缓存 -> API/前端。
+# AI_DATA_FLOW: CONFIG -> Modbus/SNMP/HA/UPS/投影/灯光等设备 -> runtime.state/CONFIG 状态缓存 -> API/前端。
 # AI_RUNTIME: Flask 启动时通过 runtime.ensure_runtime_started/start_background_services 启动循环线程。
-# AI_RISK: 高，直接接触强电柜、时序电源、UPS、投影、空调、NVR 和自动化联动。
+# AI_RISK: 高，直接接触强电柜、时序电源、UPS、投影、空调和自动化联动。
 # AI_COMPAT: 轮询间隔、并发上限、状态字段命名会影响首页、配置页和外部联动判断。
 # AI_SEARCH_KEYWORDS: poll, background, DEVICE_STATUS, SNMP_STATUS, automation, physical control.
 
@@ -26,13 +26,11 @@ from config import CONFIG, DEVICE_STATUS, METER_STATUS, LIGHT_STATUS, LIGHT_ONLI
 import modbus_core as mc
 from data_logger import add_log, init_daily_record, update_daily_record, get_daily_record, load_energy_log, _get_cab_data, init_generic_daily_record, update_generic_daily_record, get_generic_daily_record, export_meter_statistics_csv, export_meter_snapshot_csv
 from drivers import create_device
-from m32r_core import m32r_service
 from runtime import automation as runtime_automation
 from runtime import state as runtime_state
 from runtime.env_history import record_env_lux_sample
 from runtime.state import (
     LIGHT_DRIVERS,
-    NVR_STATUS,
     PROXY_STATUS,
     PROJECTOR_STATUS,
     SCREEN_STATUS,
@@ -54,8 +52,6 @@ LIGHT_META = {}
 
 SNMP_MAX_WORKERS = int(os.environ.get("SMART_CENTER_SNMP_MAX_WORKERS", "4"))
 SNMP_IDLE_SLEEP_SEC = float(os.environ.get("SMART_CENTER_SNMP_IDLE_SLEEP_SEC", "0.35"))
-NVR_MAX_WORKERS = int(os.environ.get("SMART_CENTER_NVR_MAX_WORKERS", "2"))
-NVR_IDLE_SLEEP_SEC = float(os.environ.get("SMART_CENTER_NVR_IDLE_SLEEP_SEC", "0.5"))
 PROXY_REQUIRED_GOOGLE_URL = "https://www.google.com/generate_204"
 PROXY_DEFAULT_CHECK_URLS = (
     PROXY_REQUIRED_GOOGLE_URL,
@@ -1160,27 +1156,6 @@ def proxy_update_loop():
         time.sleep(poll_interval_sec)
 
 
-def m32r_update_loop():
-    auto_connected = False
-    while True:
-        try:
-            cfg = CONFIG.get("m32r", {}) or {}
-            if cfg.get("auto_connect") and cfg.get("host") and not auto_connected:
-                try:
-                    m32r_service.connect()
-                    auto_connected = True
-                except Exception:
-                    pass
-            if not cfg.get("auto_connect"):
-                auto_connected = False
-            m32r_service.configure(cfg)
-            m32r_service.tick()
-            sleep_ms = max(300, int(cfg.get("poll_interval_ms", 1200) or 1200))
-            time.sleep(sleep_ms / 1000.0)
-        except Exception:
-            time.sleep(1.0)
-
-
 def sequencer_update_loop():
     from api.sequencer import ensure_config_devices, get_or_init_status, poll_sequencer_once
     while True:
@@ -1586,6 +1561,15 @@ def poll_single_snmp(snmp_cfg):
 
 
 def snmp_update_loop():
+    try:
+        from services.snmp_remote import is_remote_snmp_agent_enabled, snmp_remote_agent_loop
+
+        if is_remote_snmp_agent_enabled():
+            snmp_remote_agent_loop()
+            return
+    except Exception as exc:
+        print(f"[snmp] remote agent mode init failed, fallback to local polling: {exc}", file=sys.stderr)
+
     # pysnmp/pyasn1 on the current 32-bit Python 3.14 runtime is unstable and can
     # trigger a sustained exception storm plus high memory pressure. Keep the rest
     # of the control system available by pausing background SNMP polling here.
@@ -1651,110 +1635,6 @@ def snmp_update_loop():
                     except Exception:
                         pass
             time.sleep(SNMP_IDLE_SLEEP_SEC)
-    finally:
-        try:
-            executor.shutdown(wait=False, cancel_futures=True)
-        except Exception:
-            pass
-
-
-def poll_single_nvr(nvr_cfg):
-    device_id = str(nvr_cfg.get("id"))
-    previous_status = dict(NVR_STATUS.get(device_id, {}) or {})
-    interval_sec = _poll_interval_sec(nvr_cfg, 10000)
-    try:
-        from services.hikvision_nvr import poll_hikvision_nvr
-
-        status = dict(poll_hikvision_nvr(nvr_cfg) or {})
-        now_monotonic = time.monotonic()
-        now_iso = datetime.now().isoformat()
-        if bool(status.get("online")):
-            merged = _build_poll_success(previous_status, status, now_iso, now_monotonic)
-            status_level = str(status.get("status_level") or "").strip().lower()
-            if status_level in {"online", "stale", "error", "offline"}:
-                merged["status_level"] = status_level
-                merged = _apply_poll_status_level(merged)
-            NVR_STATUS[device_id] = merged
-        else:
-            NVR_STATUS[device_id] = _build_poll_failure(
-                previous_status,
-                status.get("error") or "NVR poll returned offline",
-                now_iso,
-                now_monotonic,
-                interval_sec,
-                defaults={
-                    "summary": dict(status.get("summary", {}) or previous_status.get("summary", {}) or {}),
-                    "channels": list(status.get("channels", []) or previous_status.get("channels", []) or []),
-                    "hdds": list(status.get("hdds", []) or previous_status.get("hdds", []) or []),
-                },
-            )
-    except Exception as e:
-        now_monotonic = time.monotonic()
-        now_iso = datetime.now().isoformat()
-        NVR_STATUS[device_id] = _build_poll_failure(
-            previous_status,
-            e,
-            now_iso,
-            now_monotonic,
-            interval_sec,
-            defaults={
-                "summary": dict(previous_status.get("summary", {}) or {}),
-                "channels": list(previous_status.get("channels", []) or []),
-                "hdds": list(previous_status.get("hdds", []) or []),
-            },
-        )
-
-
-def nvr_update_loop():
-    executor = ThreadPoolExecutor(max_workers=max(1, NVR_MAX_WORKERS), thread_name_prefix="nvr-poll")
-    in_flight = {}
-    try:
-        while True:
-            devices = list(CONFIG.get("nvr_devices", []))
-            active_ids = {str(item.get("id")) for item in devices}
-            for device_id in list(NVR_STATUS.keys()):
-                if device_id not in active_ids:
-                    NVR_STATUS.pop(device_id, None)
-                    in_flight.pop(device_id, None)
-
-            done_ids = []
-            for device_id, future in list(in_flight.items()):
-                if future.done():
-                    try:
-                        future.result()
-                    except Exception:
-                        pass
-                    done_ids.append(device_id)
-            for device_id in done_ids:
-                in_flight.pop(device_id, None)
-
-            due_devices = []
-            now = time.monotonic()
-            for cfg in devices:
-                if cfg.get("enabled", True) is False or cfg.get("visible", True) is False:
-                    continue
-                device_id = str(cfg.get("id"))
-                if device_id in in_flight:
-                    continue
-                state = NVR_STATUS.get(device_id, {}) or {}
-                interval_ms = max(2000, int(cfg.get("poll_interval_ms", 10000) or 10000))
-                last_polled = float(state.get("last_polled_monotonic", 0.0) or 0.0)
-                if (now - last_polled) * 1000 >= interval_ms:
-                    due_devices.append(cfg)
-            if due_devices:
-                due_devices.sort(
-                    key=lambda item: float(
-                        (NVR_STATUS.get(str(item.get("id")), {}) or {}).get("last_polled_monotonic", 0.0) or 0.0
-                    )
-                )
-                available_slots = max(0, max(1, NVR_MAX_WORKERS) - len(in_flight))
-                for cfg in due_devices[:available_slots]:
-                    device_id = str(cfg.get("id"))
-                    try:
-                        in_flight[device_id] = executor.submit(poll_single_nvr, cfg)
-                    except Exception:
-                        pass
-            time.sleep(NVR_IDLE_SLEEP_SEC)
     finally:
         try:
             executor.shutdown(wait=False, cancel_futures=True)

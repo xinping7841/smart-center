@@ -3540,29 +3540,6 @@
       "storage_aliases": {}
     }
   ],
-  "nvr_devices": [
-    {
-      "brand": "Hikvision",
-      "camera_inventory_path": "/srv/smart-center-data/runtime/camera_inventory_named_from_screenshots.json",
-      "enabled": true,
-      "expected_channel_count": 32,
-      "host": "192.168.40.168",
-      "id": "nvr_hikvision_192_168_40_168",
-      "model": "DS-7932N-R4(C)",
-      "name": "深澜AI NVR",
-      "password": "lanjingkeji798",
-      "poll_interval_ms": 10000,
-      "port": 80,
-      "protocol": "Hikvision ISAPI",
-      "scheme": "http",
-      "snapshot_cache_ttl_sec": 1.5,
-      "snapshot_stream": "2",
-      "snapshot_timeout_sec": 5.0,
-      "timeout_sec": 5.0,
-      "username": "admin",
-      "visible": true
-    }
-  ],
   "light_devices": [
     {
       "brand": "COXE",
@@ -3715,38 +3692,32 @@
     {
       "actions": [
         {
-          "action_type": "command",
-          "delay_ms": 0,
-          "device_id": "dev_1775230252161",
-          "format": "hex",
-          "payload": "99 03 8D 66 34 58 99",
-          "sub_system": "universal",
-          "wait_ms": 0
+          "sub_system": "node_red",
+          "device_id": "courtyard_light",
+          "action_type": "on",
+          "delay_ms": 0
         }
       ],
       "auto_generated": true,
       "auto_generated_key": "outdoor_light",
       "id": "scene_outdoor_light_on",
-      "name": "户外灯自动开灯",
+      "name": "庭院灯自动开灯",
       "sort": 1,
       "visible": false
     },
     {
       "actions": [
         {
-          "action_type": "command",
-          "delay_ms": 0,
-          "device_id": "dev_1775230252161",
-          "format": "hex",
-          "payload": "99 03 8D 66 32 58 99",
-          "sub_system": "universal",
-          "wait_ms": 0
+          "sub_system": "node_red",
+          "device_id": "courtyard_light",
+          "action_type": "off",
+          "delay_ms": 0
         }
       ],
       "auto_generated": true,
       "auto_generated_key": "outdoor_light",
       "id": "scene_outdoor_light_off",
-      "name": "户外灯自动关灯",
+      "name": "庭院灯自动关灯",
       "sort": 2,
       "visible": false
     },
@@ -4917,7 +4888,7 @@
       "id": "dev_1775230252161",
       "interface": "tcp",
       "ip": "192.168.50.254",
-      "name": "新泛型设备",
+      "name": "庭院灯",
       "port": 1882
     }
   ],
@@ -5179,12 +5150,12 @@
         "device_id": "env_1774425123763",
         "prop": "lux",
         "op": "<",
-        "value": 300,
+        "value": 200,
         "debounce_sec": 120,
         "hysteresis": 60,
         "consecutive_hits": 1,
         "crossing_mode": "cross_down",
-        "rearm_value": 360,
+        "rearm_value": 260,
         "window_bootstrap_sec": 180
       },
       "enabled": true,
@@ -5219,12 +5190,12 @@
       },
       "enabled": true,
       "id": "auto_outdoor_light_20_off",
-      "name": "户外灯晚八点自动关灯",
+      "name": "户外灯晚九点自动关灯",
       "schedule": {
         "day_type": "everyday",
-        "time": "20:00",
-        "time_start": "20:00",
-        "time_end": "20:30"
+        "time": "21:00",
+        "time_start": "21:00",
+        "time_end": "21:30"
       },
       "trigger_type": "schedule",
       "preconditions": [],
@@ -5606,13 +5577,6 @@
       "visible": true
     },
     {
-      "icon": "🎛",
-      "id": "m32r",
-      "name": "M32R 控台",
-      "sort": 3,
-      "visible": true
-    },
-    {
       "icon": "🚪",
       "id": "door",
       "name": "门禁与监控",
@@ -5631,13 +5595,6 @@
       "id": "snmp",
       "name": "SNMP监测",
       "sort": 4.2,
-      "visible": true
-    },
-    {
-      "icon": "🎦",
-      "id": "camera_preview",
-      "name": "监控预览",
-      "sort": 4.3,
       "visible": true
     },
     {
@@ -5701,6 +5658,13 @@
       "icon": "🤖",
       "name": "自动化运行",
       "sort": 10,
+      "visible": true
+    },
+    {
+      "id": "logs",
+      "icon": "🧾",
+      "name": "日志中心",
+      "sort": 10.8,
       "visible": true
     }
   ],
@@ -5863,292 +5827,6 @@
       "captured_at": "",
       "meter_values": {}
     }
-  },
-  "m32r": {
-    "enabled": true,
-    "host": "192.168.80.242",
-    "port": 10023,
-    "name": "M32R-OC-FA-99",
-    "channel_count": 8,
-    "bank_start": 17,
-    "poll_interval_ms": 1200,
-    "keepalive_sec": 5,
-    "auto_connect": false,
-    "auto_sync": false,
-    "sync_direction": "mixer_to_pc",
-    "known_mixers": [
-      {
-        "firmware": "M32R",
-        "host": "192.168.80.242",
-        "last_seen_at": "2026-04-05T23:57:00.047803",
-        "model": "M32R-0C-FA-99",
-        "name": "M32R-OC-FA-99"
-      }
-    ],
-    "templates": [
-      {
-        "bank_start": 9,
-        "captured_at": "2026-03-28T01:44:38.800220",
-        "channel_count": 8,
-        "channels": [
-          {
-            "channel": 9,
-            "dyn": {
-              "attack_ms": 20,
-              "enabled": true,
-              "ratio": 3,
-              "release_ms": 120,
-              "threshold_db": -18
-            },
-            "eq": {
-              "enabled": true,
-              "high_gain_db": 1.5,
-              "hpf_hz": 100,
-              "low_gain_db": -2,
-              "mid_freq_hz": 3200,
-              "mid_gain_db": 2
-            },
-            "fader": 0.75,
-            "level_db": 0,
-            "meter_db": -60,
-            "name": "CH 09",
-            "on": true,
-            "pan": 0,
-            "scribble": "",
-            "sends": {
-              "bus_1": 0.55,
-              "bus_2": 0.45,
-              "bus_3": 0.4,
-              "bus_4": 0.35
-            }
-          },
-          {
-            "channel": 10,
-            "dyn": {
-              "attack_ms": 20,
-              "enabled": true,
-              "ratio": 3,
-              "release_ms": 120,
-              "threshold_db": -18
-            },
-            "eq": {
-              "enabled": true,
-              "high_gain_db": 1.5,
-              "hpf_hz": 100,
-              "low_gain_db": -2,
-              "mid_freq_hz": 3200,
-              "mid_gain_db": 2
-            },
-            "fader": 0.75,
-            "level_db": 0,
-            "meter_db": -60,
-            "name": "CH 10",
-            "on": true,
-            "pan": 0,
-            "scribble": "",
-            "sends": {
-              "bus_1": 0.55,
-              "bus_2": 0.45,
-              "bus_3": 0.4,
-              "bus_4": 0.35
-            }
-          },
-          {
-            "channel": 11,
-            "dyn": {
-              "attack_ms": 20,
-              "enabled": true,
-              "ratio": 3,
-              "release_ms": 120,
-              "threshold_db": -18
-            },
-            "eq": {
-              "enabled": true,
-              "high_gain_db": 1.5,
-              "hpf_hz": 100,
-              "low_gain_db": -2,
-              "mid_freq_hz": 3200,
-              "mid_gain_db": 2
-            },
-            "fader": 0.75,
-            "level_db": 0,
-            "meter_db": -60,
-            "name": "CH 11",
-            "on": true,
-            "pan": 0,
-            "scribble": "",
-            "sends": {
-              "bus_1": 0.55,
-              "bus_2": 0.45,
-              "bus_3": 0.4,
-              "bus_4": 0.35
-            }
-          },
-          {
-            "channel": 12,
-            "dyn": {
-              "attack_ms": 20,
-              "enabled": true,
-              "ratio": 3,
-              "release_ms": 120,
-              "threshold_db": -18
-            },
-            "eq": {
-              "enabled": true,
-              "high_gain_db": 1.5,
-              "hpf_hz": 100,
-              "low_gain_db": -2,
-              "mid_freq_hz": 3200,
-              "mid_gain_db": 2
-            },
-            "fader": 0.75,
-            "level_db": 0,
-            "meter_db": -60,
-            "name": "CH 12",
-            "on": true,
-            "pan": 0,
-            "scribble": "",
-            "sends": {
-              "bus_1": 0.55,
-              "bus_2": 0.45,
-              "bus_3": 0.4,
-              "bus_4": 0.35
-            }
-          },
-          {
-            "channel": 13,
-            "dyn": {
-              "attack_ms": 20,
-              "enabled": true,
-              "ratio": 3,
-              "release_ms": 120,
-              "threshold_db": -18
-            },
-            "eq": {
-              "enabled": true,
-              "high_gain_db": 1.5,
-              "hpf_hz": 100,
-              "low_gain_db": -2,
-              "mid_freq_hz": 3200,
-              "mid_gain_db": 2
-            },
-            "fader": 0.75,
-            "level_db": 0,
-            "meter_db": -60,
-            "name": "CH 13",
-            "on": true,
-            "pan": 0,
-            "scribble": "",
-            "sends": {
-              "bus_1": 0.55,
-              "bus_2": 0.45,
-              "bus_3": 0.4,
-              "bus_4": 0.35
-            }
-          },
-          {
-            "channel": 14,
-            "dyn": {
-              "attack_ms": 20,
-              "enabled": true,
-              "ratio": 3,
-              "release_ms": 120,
-              "threshold_db": -18
-            },
-            "eq": {
-              "enabled": true,
-              "high_gain_db": 1.5,
-              "hpf_hz": 100,
-              "low_gain_db": -2,
-              "mid_freq_hz": 3200,
-              "mid_gain_db": 2
-            },
-            "fader": 0.75,
-            "level_db": 0,
-            "meter_db": -60,
-            "name": "CH 14",
-            "on": true,
-            "pan": 0,
-            "scribble": "",
-            "sends": {
-              "bus_1": 0.55,
-              "bus_2": 0.45,
-              "bus_3": 0.4,
-              "bus_4": 0.35
-            }
-          },
-          {
-            "channel": 15,
-            "dyn": {
-              "attack_ms": 20,
-              "enabled": true,
-              "ratio": 3,
-              "release_ms": 120,
-              "threshold_db": -18
-            },
-            "eq": {
-              "enabled": true,
-              "high_gain_db": 1.5,
-              "hpf_hz": 100,
-              "low_gain_db": -2,
-              "mid_freq_hz": 3200,
-              "mid_gain_db": 2
-            },
-            "fader": 0.75,
-            "level_db": 0,
-            "meter_db": -60,
-            "name": "CH 15",
-            "on": true,
-            "pan": 0,
-            "scribble": "",
-            "sends": {
-              "bus_1": 0.55,
-              "bus_2": 0.45,
-              "bus_3": 0.4,
-              "bus_4": 0.35
-            }
-          },
-          {
-            "channel": 16,
-            "dyn": {
-              "attack_ms": 20,
-              "enabled": true,
-              "ratio": 3,
-              "release_ms": 120,
-              "threshold_db": -18
-            },
-            "eq": {
-              "enabled": true,
-              "high_gain_db": 1.5,
-              "hpf_hz": 100,
-              "low_gain_db": -2,
-              "mid_freq_hz": 3200,
-              "mid_gain_db": 2
-            },
-            "fader": 0.75,
-            "level_db": 0,
-            "meter_db": -60,
-            "name": "CH 16",
-            "on": true,
-            "pan": 0,
-            "scribble": "",
-            "sends": {
-              "bus_1": 0.55,
-              "bus_2": 0.45,
-              "bus_3": 0.4,
-              "bus_4": 0.35
-            }
-          }
-        ],
-        "main": {
-          "fader": 0.75,
-          "level_db": 0,
-          "meter_db": -60,
-          "on": true
-        },
-        "name": "demo_bank"
-      }
-    ]
   },
   "hvac_devices": [
     {
@@ -6348,12 +6026,10 @@
       ".AppleDouble"
     ],
     "nas_auto_scan_on_start": true,
-    "m32_channel_mode": "stereo_pair",
-    "m32_channel_left": 17,
-    "m32_channel_right": 18,
-    "m32_label": "Music Player",
-    "m32_prepare_level": 0.68,
-    "m32_prepare_main": false
+    "jamendo_enabled": false,
+    "jamendo_client_id": "",
+    "jamendo_limit": 20,
+    "jamendo_api_base": "https://api.jamendo.com/v3.0"
   },
   "auth_settings": {
     "auto_login_default_admin": true,
@@ -7155,6 +6831,7 @@
   "current_collector": {
     "enabled": true,
     "name": "16路电流采集器",
+    "source_mode": "poll",
     "transport": "tcp-rtu",
     "host": "192.168.50.109",
     "port": 502,
@@ -7170,87 +6847,115 @@
     "multiplier": 1.0,
     "timeout": 2.0,
     "poll_interval": 5.0,
+    "push_stale_seconds": 15.0,
+    "zero_deadband_a": 0.25,
+    "push_allowed_hosts": [
+      "127.0.0.1",
+      "::1",
+      "192.168.50.121",
+      "100.122.235.56"
+    ],
+    "push_token": "",
+    "reject_sparse_push": false,
+    "min_valid_channels": 0,
     "channels": [
       {
         "channel": 1,
         "name": "第1路",
-        "visible": true
+        "visible": true,
+        "sort": 1
       },
       {
         "channel": 2,
         "name": "第2路",
-        "visible": true
+        "visible": true,
+        "sort": 2
       },
       {
         "channel": 3,
         "name": "第3路",
-        "visible": true
+        "visible": true,
+        "sort": 3
       },
       {
         "channel": 4,
         "name": "第4路",
-        "visible": true
+        "visible": true,
+        "sort": 4
       },
       {
         "channel": 5,
         "name": "第5路",
-        "visible": true
+        "visible": true,
+        "sort": 5
       },
       {
         "channel": 6,
         "name": "第6路",
-        "visible": true
+        "visible": true,
+        "sort": 6
       },
       {
         "channel": 7,
         "name": "第7路",
-        "visible": true
+        "visible": true,
+        "sort": 7
       },
       {
         "channel": 8,
         "name": "第8路",
-        "visible": true
+        "visible": true,
+        "sort": 8
       },
       {
         "channel": 9,
         "name": "第9路",
-        "visible": true
+        "visible": true,
+        "sort": 9
       },
       {
         "channel": 10,
         "name": "第10路",
-        "visible": true
+        "visible": true,
+        "sort": 10
       },
       {
         "channel": 11,
         "name": "第11路",
-        "visible": true
+        "visible": true,
+        "sort": 11
       },
       {
         "channel": 12,
         "name": "第12路",
-        "visible": true
+        "visible": true,
+        "sort": 12
       },
       {
         "channel": 13,
         "name": "第13路",
-        "visible": true
+        "visible": true,
+        "sort": 13
       },
       {
         "channel": 14,
         "name": "第14路",
-        "visible": true
+        "visible": true,
+        "sort": 14
       },
       {
         "channel": 15,
         "name": "第15路",
-        "visible": true
+        "visible": true,
+        "sort": 15
       },
       {
         "channel": 16,
         "name": "第16路",
-        "visible": true
+        "visible": true,
+        "sort": 16
       }
-    ]
+    ],
+    "groups": []
   }
 }

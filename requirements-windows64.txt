@@ -28,6 +28,7 @@ python-dateutil==2.9.0.post0
 pytz==2026.1.post1
 PyYAML==6.0.3
 requests==2.33.1
+lark-oapi==1.6.5
 six==1.17.0
 tqdm==4.67.3
 tzdata==2025.3

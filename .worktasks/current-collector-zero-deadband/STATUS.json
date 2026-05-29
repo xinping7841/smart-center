@@ -1,0 +1,10 @@
+﻿{
+    "task":  "current-collector-zero-deadband",
+    "module":  "current_collector",
+    "machine":  "12700k",
+    "kind":  "light",
+    "branch":  "codex/12700k-current-collector-zero-deadband-20260526",
+    "worktree":  "D:\\SmartCenter\\smart-center-worktrees\\current-collector-zero-deadband",
+    "started_at":  "2026-05-26 15:43:00",
+    "status":  "ready_to_commit"
+}

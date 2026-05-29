@@ -30,14 +30,12 @@ from api.hy_edge import bp as hy_edge_bp
 from api.light import bp as light_bp
 from api.logs import bp as logs_bp
 from api.local_model import bp as local_model_bp
-from api.m32r import bp as m32r_bp
 from api.power import bp as power_bp
 from api.proxy import bp as proxy_bp
 from api.projector import bp as projector_bp
 from api.screen import bp as screen_bp
 from api.sequencer import bp as sequencer_bp
 from api.snmp import bp as snmp_bp
-from api.nvr import bp as nvr_bp
 from api.node_red import bp as node_red_bp
 from api.server import bp as server_bp
 from api.ups import bp as ups_bp
@@ -190,13 +188,11 @@ app.register_blueprint(universal_bp)
 app.register_blueprint(env_bp)
 app.register_blueprint(hy_edge_bp)
 app.register_blueprint(snmp_bp)
-app.register_blueprint(nvr_bp)
 app.register_blueprint(node_red_bp)
 app.register_blueprint(automation_bp)
 app.register_blueprint(hvac_bp)
 app.register_blueprint(sequencer_bp)
 app.register_blueprint(ups_bp)
-app.register_blueprint(m32r_bp)
 
 
 # Static assets are large today, so serving precompressed files here avoids

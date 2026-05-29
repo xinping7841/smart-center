@@ -25,6 +25,32 @@
     const num = Number(value);
     return Number.isFinite(num) && Math.abs(num) > 0.001;
   }
+  function getZeroDeadband(cfg) {
+    const value = Number(cfg?.zero_deadband_a);
+    return Number.isFinite(value) && value >= 0 ? value : 0.25;
+  }
+  function applyZeroDeadband(value, cfg) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return null;
+    return Math.abs(num) <= getZeroDeadband(cfg) ? 0 : num;
+  }
+  function getRawChannelRows(snapshot, cfg) {
+    const count = Math.max(1, Math.min(Number(snapshot.channel_count || cfg.count || 16) || 16, 32));
+    const currents = Array.isArray(snapshot.currents) ? snapshot.currents : [];
+    const measuredCurrents = Array.isArray(snapshot.measured_currents) ? snapshot.measured_currents : currents;
+    const rawRegisters = Array.isArray(snapshot.raw_registers) ? snapshot.raw_registers : [];
+    return Array.from({ length: count }, (_, idx) => {
+      const measured = idx < measuredCurrents.length ? measuredCurrents[idx] : (idx < currents.length ? currents[idx] : null);
+      const current = applyZeroDeadband(measured, cfg);
+      return {
+        channel: idx + 1,
+        current,
+        measured_current: measured,
+        is_noise: current === 0 && Math.abs(Number(measured)) > 0,
+        raw_register: idx < rawRegisters.length ? rawRegisters[idx] : null,
+      };
+    });
+  }
   function setStatus(online, text) {
     const el = $('status');
     el.className = `status ${online ? 'online' : 'offline'}`;
@@ -48,7 +74,6 @@
     lastPayload = payload || {};
     const cfg = lastPayload.config || {};
     const snap = lastPayload.snapshot || {};
-    const channels = Array.isArray(lastPayload.channels) ? lastPayload.channels : [];
     const groups = Array.isArray(lastPayload.groups) ? lastPayload.groups : [];
     const enabled = lastPayload.enabled !== false;
     const online = !!lastPayload.online;
@@ -80,18 +105,19 @@
         <div class="group-meta">${escapeHtml(channelText)} · 有效数据 ${item.valid_count ?? 0} 路</div>
       </section>
     `}).join('');
-    const visibleChannels = channels
-      .filter(item => item.visible !== false)
-      .sort((a, b) => Number(a.sort ?? a.channel ?? 9999) - Number(b.sort ?? b.channel ?? 9999) || Number(a.channel || 0) - Number(b.channel || 0));
-    $('rawEmpty').style.display = visibleChannels.length ? 'none' : 'block';
-    $('grid').innerHTML = visibleChannels.map(item => {
+    const rawChannels = getRawChannelRows(snap, cfg);
+    $('rawEmpty').style.display = rawChannels.length ? 'none' : 'block';
+    $('grid').innerHTML = rawChannels.map(item => {
       const live = hasLiveCurrent(item.current);
       const channelNo = Number(item.channel) || 0;
+      const rawText = item.is_noise
+        ? `raw ${item.raw_register ?? '--'} / ${formatA(item.measured_current)}`
+        : `raw ${item.raw_register ?? '--'}`;
       return `
       <section class="card raw-card ${live ? 'live' : ''}">
         <div class="card-head">
           <div class="channel-name" title="第${channelNo}路">第${channelNo}路</div>
-          <div class="raw">raw ${item.raw_register ?? '--'}</div>
+          <div class="raw">${escapeHtml(rawText)}</div>
         </div>
         <div class="metric"><span>原始电流</span><strong>${formatA(item.current)}</strong></div>
       </section>

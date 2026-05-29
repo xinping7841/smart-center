@@ -12,6 +12,7 @@ from copy import deepcopy
 from datetime import datetime
 import json
 import os
+import threading
 import time
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -31,6 +32,7 @@ NODE_RED_BASE_URL = os.environ.get("SMART_CENTER_NODE_RED_URL", "http://192.168.
 HTTP_TIMEOUT_SEC = float(os.environ.get("SMART_CENTER_NODE_RED_TIMEOUT_SEC", "5"))
 PUSH_TOKEN = os.environ.get("SMART_CENTER_NODE_RED_PUSH_TOKEN", "").strip()
 CONTROL_COOLDOWN_SEC = float(os.environ.get("SMART_CENTER_NODE_RED_CONTROL_COOLDOWN_SEC", "0"))
+CONTROL_INFLIGHT_TTL_SEC = max(HTTP_TIMEOUT_SEC * 2 + 3.0, 5.0)
 
 DEVICE_REGISTRY = {
     "courtyard_light": {
@@ -42,7 +44,7 @@ DEVICE_REGISTRY = {
         "capabilities": ["on", "off", "status", "push_state", "health.serial"],
         "sort": 10,
         "single_toggle": True,
-        "control_cooldown_sec": 8,
+        "control_cooldown_sec": 0,
     },
     "hall1_projector": {
         "device_id": "hall1_projector",
@@ -88,6 +90,8 @@ DEVICE_REGISTRY = {
 
 STATE_CACHE = {}
 CONTROL_COOLDOWNS = {}
+CONTROL_IN_PROGRESS = {}
+CONTROL_IN_PROGRESS_LOCK = threading.Lock()
 
 STATUS_TEXT = {
     "on": "\u4eae",
@@ -163,6 +167,42 @@ def _mark_control_cooldown(device_id, now_ts=None):
     CONTROL_COOLDOWNS[_cooldown_key(device_id)] = float(now_ts or time.monotonic())
 
 
+def _control_inflight_remaining(device_id, now_ts=None):
+    key = _cooldown_key(device_id)
+    now_ts = float(now_ts or time.monotonic())
+    with CONTROL_IN_PROGRESS_LOCK:
+        current = CONTROL_IN_PROGRESS.get(key) or {}
+        expires_at = float(current.get("expires_at", 0.0) or 0.0)
+        if expires_at <= now_ts:
+            CONTROL_IN_PROGRESS.pop(key, None)
+            return 0.0
+        return max(expires_at - now_ts, 0.0)
+
+
+def _begin_control_inflight(device_id, owner="", action=""):
+    key = _cooldown_key(device_id)
+    now_ts = time.monotonic()
+    with CONTROL_IN_PROGRESS_LOCK:
+        current = CONTROL_IN_PROGRESS.get(key) or {}
+        expires_at = float(current.get("expires_at", 0.0) or 0.0)
+        if expires_at > now_ts:
+            current = deepcopy(current)
+            current["remaining_sec"] = round(expires_at - now_ts, 1)
+            return False, current
+        CONTROL_IN_PROGRESS[key] = {
+            "owner": str(owner or ""),
+            "action": str(action or ""),
+            "started_at": now_ts,
+            "expires_at": now_ts + CONTROL_INFLIGHT_TTL_SEC,
+        }
+        return True, deepcopy(CONTROL_IN_PROGRESS[key])
+
+
+def _finish_control_inflight(device_id):
+    with CONTROL_IN_PROGRESS_LOCK:
+        CONTROL_IN_PROGRESS.pop(_cooldown_key(device_id), None)
+
+
 def _extract_status(payload, state):
     status = payload.get("status") or state.get("status")
     power = payload.get("power")
@@ -171,7 +211,7 @@ def _extract_status(payload, state):
     return str(status or "unknown").strip().lower() or "unknown"
 
 
-def _normalize_device_payload(device_id, payload, meta=None, transport_error=""):
+def _normalize_device_payload(device_id, payload, meta=None, transport_error="", include_control_pending=True):
     meta = meta or _device_meta(device_id)
     payload = payload if isinstance(payload, dict) else {}
     health = payload.get("health") if isinstance(payload.get("health"), dict) else {}
@@ -211,12 +251,15 @@ def _normalize_device_payload(device_id, payload, meta=None, transport_error="")
     }
     normalized["control_cooldown_sec"] = _cooldown_seconds(meta)
     normalized["cooldown_remaining_sec"] = round(_cooldown_remaining(device_id, meta=meta), 1)
+    pending_remaining = _control_inflight_remaining(device_id) if include_control_pending else 0.0
+    normalized["control_pending"] = pending_remaining > 0
+    normalized["control_pending_remaining_sec"] = round(pending_remaining, 1)
     if isinstance(payload.get("power"), dict):
         normalized["power"] = payload.get("power")
     return normalized
 
 
-def get_node_red_device_status(device_id):
+def get_node_red_device_status(device_id, include_control_pending=True):
     meta = _device_meta(device_id)
     if not meta:
         raise KeyError(device_id)
@@ -224,10 +267,16 @@ def get_node_red_device_status(device_id):
         code, payload = _node_red_request(meta["status_path"], "GET")
         if code >= 400:
             raise RuntimeError(f"HTTP {code}: {payload}")
-        normalized = _normalize_device_payload(device_id, payload, meta=meta)
+        normalized = _normalize_device_payload(device_id, payload, meta=meta, include_control_pending=include_control_pending)
     except Exception as exc:
         cached = deepcopy(STATE_CACHE.get(device_id) or {})
-        normalized = _normalize_device_payload(device_id, cached, meta=meta, transport_error=f"Node-RED status endpoint not ready: {exc}")
+        normalized = _normalize_device_payload(
+            device_id,
+            cached,
+            meta=meta,
+            transport_error=f"Node-RED status endpoint not ready: {exc}",
+            include_control_pending=include_control_pending,
+        )
     STATE_CACHE[device_id] = normalized
     return normalized
 
@@ -246,16 +295,38 @@ def control_node_red_device(device_id, action, source="central_control"):
         normalized_action = "off" if str(current.get("status") or "").lower() == "on" else "on"
     remaining = _cooldown_remaining(device_id, meta=meta)
     if remaining > 0:
-        raise RuntimeError(f"开关保护冷却中，请 {max(1, int(round(remaining)))} 秒后再试")
-    code, result = _node_red_request(meta["control_path"], "POST", {"action": normalized_action, "source": source})
-    if code >= 400:
-        raise RuntimeError(f"HTTP {code}: {result}")
-    success = bool(result.get("success", True)) if isinstance(result, dict) else True
-    if success:
-        _mark_control_cooldown(device_id)
-    normalized = _normalize_device_payload(device_id, result if isinstance(result, dict) else {}, meta=meta)
-    STATE_CACHE[device_id] = normalized
-    return success, normalized, "node_red"
+        raise RuntimeError(f"\u5f00\u5173\u4fdd\u62a4\u51b7\u5374\u4e2d\uff0c\u8bf7 {max(1, int(round(remaining)))} \u79d2\u540e\u518d\u8bd5")
+    inflight_started, inflight_info = _begin_control_inflight(device_id, owner=source, action=normalized_action)
+    if not inflight_started:
+        retry_sec = max(1, int(round(float(inflight_info.get("remaining_sec", 1) or 1))))
+        raise RuntimeError(f"\u8bbe\u5907\u6307\u4ee4\u6267\u884c\u4e2d\uff0c\u7b49\u5f85\u72b6\u6001\u56de\u8bfb\u5b8c\u6210\uff0c\u8bf7 {retry_sec} \u79d2\u540e\u518d\u8bd5")
+    finish_inflight = False
+    try:
+        code, result = _node_red_request(meta["control_path"], "POST", {"action": normalized_action, "source": source})
+        if code >= 400:
+            raise RuntimeError(f"HTTP {code}: {result}")
+        success = bool(result.get("success", True)) if isinstance(result, dict) else True
+        if success and _cooldown_seconds(meta) > 0:
+            _mark_control_cooldown(device_id)
+        if success:
+            status_code, status_payload = _node_red_request(meta["status_path"], "GET")
+            if status_code >= 400:
+                raise RuntimeError(f"status readback HTTP {status_code}: {status_payload}")
+            normalized = _normalize_device_payload(device_id, status_payload, meta=meta, include_control_pending=False)
+            finish_inflight = True
+        else:
+            normalized = _normalize_device_payload(
+                device_id,
+                result if isinstance(result, dict) else {},
+                meta=meta,
+                include_control_pending=False,
+            )
+            finish_inflight = True
+        STATE_CACHE[device_id] = normalized
+        return success, normalized, "node_red"
+    finally:
+        if finish_inflight:
+            _finish_control_inflight(device_id)
 
 
 def _validate_push_token():
@@ -322,17 +393,46 @@ def api_node_red_device_control(device_id):
                 "ok": 0,
                 "success": False,
                 "error": "cooldown",
-                "msg": f"开关保护冷却中，请 {seconds} 秒后再试",
+                "msg": f"\u5f00\u5173\u4fdd\u62a4\u51b7\u5374\u4e2d\uff0c\u8bf7 {seconds} \u79d2\u540e\u518d\u8bd5",
                 "retry_after_sec": seconds,
                 "device": _normalize_device_payload(device_id, deepcopy(STATE_CACHE.get(device_id) or {}), meta=meta),
             }), 429
-        code, result = _node_red_request(meta["control_path"], "POST", {"action": action, "source": "central_control"})
-        if code >= 400:
-            raise RuntimeError(f"HTTP {code}: {result}")
-        success = bool(result.get("success", True)) if isinstance(result, dict) else True
-        if success:
-            _mark_control_cooldown(device_id)
-        normalized = _normalize_device_payload(device_id, result if isinstance(result, dict) else {}, meta=meta)
+        inflight_started, inflight_info = _begin_control_inflight(device_id, owner=current_user.username, action=action)
+        if not inflight_started:
+            retry_sec = max(1, int(round(float(inflight_info.get("remaining_sec", 1) or 1))))
+            return jsonify({
+                "ok": 0,
+                "success": False,
+                "error": "device_busy",
+                "msg": "\u8bbe\u5907\u6307\u4ee4\u6267\u884c\u4e2d\uff0c\u7b49\u5f85\u72b6\u6001\u56de\u8bfb\u5b8c\u6210",
+                "retry_after_sec": retry_sec,
+                "device": _normalize_device_payload(device_id, deepcopy(STATE_CACHE.get(device_id) or {}), meta=meta),
+            }), 409
+        finish_inflight = False
+        try:
+            code, result = _node_red_request(meta["control_path"], "POST", {"action": action, "source": "central_control"})
+            if code >= 400:
+                raise RuntimeError(f"HTTP {code}: {result}")
+            success = bool(result.get("success", True)) if isinstance(result, dict) else True
+            if success and _cooldown_seconds(meta) > 0:
+                _mark_control_cooldown(device_id)
+            if success:
+                status_code, status_payload = _node_red_request(meta["status_path"], "GET")
+                if status_code >= 400:
+                    raise RuntimeError(f"status readback HTTP {status_code}: {status_payload}")
+                normalized = _normalize_device_payload(device_id, status_payload, meta=meta, include_control_pending=False)
+                finish_inflight = True
+            else:
+                normalized = _normalize_device_payload(
+                    device_id,
+                    result if isinstance(result, dict) else {},
+                    meta=meta,
+                    include_control_pending=False,
+                )
+                finish_inflight = True
+        finally:
+            if finish_inflight:
+                _finish_control_inflight(device_id)
         STATE_CACHE[device_id] = normalized
         add_log(-1, f"[Node-RED] {meta.get('device_name')} -> {action} {'ok' if success else 'failed'}")
         record_event(

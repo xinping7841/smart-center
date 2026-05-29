@@ -1,0 +1,10 @@
+﻿{
+    "task":  "current-collector-raw-node-red-view",
+    "module":  "current_collector",
+    "machine":  "12700k",
+    "kind":  "light",
+    "branch":  "codex/12700k-current-collector-raw-node-red-view-20260526",
+    "worktree":  "D:\\SmartCenter\\smart-center-worktrees\\current-collector-raw-node-red-view",
+    "started_at":  "2026-05-26 14:15:47",
+    "status":  "ready_for_review"
+}

@@ -1,0 +1,10 @@
+{
+  "task": "integrate-12700k-fixes",
+  "module": "integration",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-integrate-12700k-fixes-20260528",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/smart-center-worktrees/smart-center-worktrees/integrate-12700k-fixes",
+  "started_at": "2026-05-28 03:50:36",
+  "status": "in_progress"
+}

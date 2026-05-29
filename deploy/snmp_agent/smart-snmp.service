@@ -1,0 +1,24 @@
+[Unit]
+Description=Smart Center SNMP Agent Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/srv/smart-center/current
+EnvironmentFile=-/etc/smart-snmp-agent.env
+Environment=SMART_SNMP_AGENT_HOST=0.0.0.0
+Environment=SMART_SNMP_AGENT_PORT=6916
+Environment=SMART_SNMP_AGENT_CONFIG=/srv/smart-center-data/config.json
+ExecStart=/srv/smart-center/.venv/bin/python -m uvicorn services.snmp_agent.app:app --host ${SMART_SNMP_AGENT_HOST} --port ${SMART_SNMP_AGENT_PORT} --proxy-headers
+Restart=always
+RestartSec=5
+TimeoutStartSec=60
+User=root
+Group=root
+StandardOutput=append:/srv/smart-center-data/runtime/smart-snmp-agent_stdout.log
+StandardError=append:/srv/smart-center-data/runtime/smart-snmp-agent_stderr.log
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
