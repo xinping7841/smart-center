@@ -1231,7 +1231,7 @@
                                 {% set device_cfg = (config.control_center.devices|default([])|selectattr('target_group_id', 'equalto', target.id)|list|first) %}
                                 {% set display_name = (device_cfg.name|default(target.name|default('协议设备')) if device_cfg else target.name|default('协议设备')) %}
                                 {% set display_name = display_name.replace('泥人继电器 ', '泥人 ') %}
-                                <div class="protocol-device-card" data-protocol-card="1" data-target-id="{{ target.id }}" data-read-do="{{ target_controls.read_do }}" data-read-di="{{ target_controls.read_di }}" data-do-on="{{ target_controls.do_on }}" data-do-off="{{ target_controls.do_off }}" data-info="{{ target_controls.info }}" data-pulse="{{ target_controls.pulse }}">
+                                <div class="protocol-device-card" data-protocol-card="1" data-target-id="{{ target.id }}" data-read-do="{{ target_controls.read_do }}" data-read-di="{{ target_controls.read_di }}" data-do-on="{{ target_controls.do_on }}" data-do-off="{{ target_controls.do_off }}" data-info="{{ target_controls.info }}" data-pulse="{{ target_controls.pulse }}" data-info-title="{{ display_name }}" data-info-endpoint="{{ target.host|default('') }}{% if target.port %}:{{ target.port }}{% endif %}" data-info-protocol="{{ target.data_protocol|default(target.protocol|default('')) }}" data-info-model="{{ target.model|default('') }}" data-info-mac="{{ target.mac|default('') }}" data-info-unit="{{ target.unit_id|default('01') }}" data-info-do="{{ target.do_channels|default(device_cfg.do_channels|default('')) if device_cfg else target.do_channels|default('') }}" data-info-di="{{ target.di_channels|default(device_cfg.di_channels|default('')) if device_cfg else target.di_channels|default('') }}">
                                     <div class="protocol-device-head">
                                         <div>
                                             <div class="protocol-device-title">{{ display_name }}</div>
@@ -1250,7 +1250,7 @@
                                     </div>
                                     {% if target_controls.info or target_controls.pulse or (target_controls.do_on and target_controls.do_off) or target_controls.items %}
                                     <div class="protocol-device-actions">
-                                        {% if target_controls.info %}<button class="protocol-action-btn read" onclick="fireControlCenterControl('{{target_controls.info}}', { showInfo: true, title: '{{ display_name }} 设备信息' })">信息</button>{% endif %}
+                                        <button class="protocol-action-btn read" onclick="openProtocolDeviceInfo(this.closest('[data-protocol-card=\'1\']'), '{{target_controls.info}}')">信息</button>
                                         {% if target_controls.pulse or (target_controls.do_on and target_controls.do_off) %}<button class="protocol-action-btn pulse" onclick="pulseProtocolDevice(this.closest('[data-protocol-card=\'1\']'))">点动1秒</button>{% endif %}
                                         {% for ctrl in target_controls.items %}<button class="protocol-action-btn" onclick="fireControlCenterControl('{{ctrl.id}}')">{{ ctrl.name|default('执行') }}</button>{% endfor %}
                                     </div>
@@ -1755,7 +1755,7 @@
     <script src="/static/js/views/ups.js?v=20260522-stage2-ups-view"></script>
     <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
     <script src="/static/js/views/apple-audio.js?v=20260522-stage2-apple-audio-view"></script>
-    <script src="/static/js/views/universal.js?v=20260529-protocol-device-info-modal"></script>
+    <script src="/static/js/views/universal.js?v=20260529-protocol-all-card-info"></script>
     <script src="/static/js/views/env.js?v=20260522-stage2-env-view"></script>
     <script src="/static/js/views/snmp.js?v=20260522-stage3-snmp-render"></script>
     <script src="/static/js/views/server-monitor.js?v=20260522-codemeter-days-visible"></script>

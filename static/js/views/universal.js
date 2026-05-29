@@ -136,16 +136,17 @@
         return info;
     }
 
-    function showProtocolInfoDialog(title, result) {
+    function showProtocolInfoDialog(title, result, fallbackRows = []) {
         const response = firstProtocolResponse(result);
         const info = parseDeviceInfoResponse(response);
-        const rows = [
+        const parsedRows = [
             ['型号', info.UT || '未返回'],
             ['固件', info.FV || '未返回'],
             ['网络类型', info.NT || '未返回'],
             ['输出通道', info.DO || '未返回'],
             ['输入通道', info.DI || '未返回'],
         ];
+        const rows = response ? parsedRows : fallbackRows;
         const old = document.getElementById('protocol-info-dialog');
         if (old) old.remove();
         const overlay = document.createElement('div');
@@ -160,14 +161,45 @@
                 <div style="display:grid;grid-template-columns:92px minmax(0,1fr);gap:8px 12px;font-size:13px;">
                     ${rows.map(([k, v]) => `<div style="color:#93a4bd;font-weight:800;">${escapeHtml(k)}</div><div style="font-weight:900;word-break:break-word;">${escapeHtml(v)}</div>`).join('')}
                 </div>
-                <div style="margin-top:14px;color:#93a4bd;font-size:12px;font-weight:800;">原始返回</div>
-                <pre style="margin:8px 0 0;max-height:180px;overflow:auto;white-space:pre-wrap;word-break:break-word;border:1px solid rgba(148,163,184,.18);border-radius:8px;background:rgba(2,6,23,.55);padding:10px;color:#bfdbfe;font-size:12px;line-height:1.45;">${escapeHtml(response || '没有返回内容')}</pre>
+                <div style="margin-top:14px;color:#93a4bd;font-size:12px;font-weight:800;">${response ? '原始返回' : '说明'}</div>
+                <pre style="margin:8px 0 0;max-height:180px;overflow:auto;white-space:pre-wrap;word-break:break-word;border:1px solid rgba(148,163,184,.18);border-radius:8px;background:rgba(2,6,23,.55);padding:10px;color:#bfdbfe;font-size:12px;line-height:1.45;">${escapeHtml(response || '这台设备没有配置厂家设备信息查询命令，显示的是中控系统当前配置和轮询状态。')}</pre>
             </div>
         </div>`;
         overlay.addEventListener('click', event => {
             if (event.target === overlay || event.target?.dataset?.close) overlay.remove();
         });
         document.body.appendChild(overlay);
+    }
+
+    function showProtocolCardInfo(card) {
+        if (!card) return;
+        const title = card.dataset.infoTitle || card.querySelector('.protocol-device-title')?.textContent?.trim() || '设备信息';
+        const rows = [
+            ['名称', title],
+            ['地址', card.dataset.infoEndpoint || '未配置'],
+            ['协议', card.dataset.infoProtocol || '未配置'],
+            ['型号', card.dataset.infoModel || '未配置'],
+            ['MAC', card.dataset.infoMac || '未配置'],
+            ['站号', card.dataset.infoUnit || '未配置'],
+            ['输出通道', card.dataset.infoDo || '未配置'],
+            ['输入通道', card.dataset.infoDi || '未配置'],
+            ['设备状态', card.querySelector('[data-text="health"]')?.textContent?.trim() || '未读取'],
+            ['输出状态', card.querySelector('[data-text="do"]')?.textContent?.trim() || '未读取'],
+            ['输入状态', card.querySelector('[data-text="di"]')?.textContent?.trim() || '未读取'],
+        ];
+        showProtocolInfoDialog(`${title} 设备信息`, null, rows);
+    }
+
+    function openProtocolDeviceInfo(card, controlId = '') {
+        if (!card) return;
+        if (controlId) {
+            fireControlCenterControl(controlId, {
+                showInfo: true,
+                title: `${card.dataset.infoTitle || '协议设备'} 设备信息`,
+            });
+            return;
+        }
+        showProtocolCardInfo(card);
     }
 
     function parseProtocolBit(result, kind) {
@@ -494,6 +526,7 @@
         updateProtocolDeviceCards,
         toggleProtocolDeviceOutput,
         pulseProtocolDevice,
+        openProtocolDeviceInfo,
         updateNodeRedDevices,
         controlNodeRedDevice,
     };
