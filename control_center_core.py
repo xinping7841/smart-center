@@ -706,6 +706,12 @@ def _bytes_preview(value):
     return str(value or "")
 
 
+def _bytes_hex(value):
+    if isinstance(value, bytes):
+        return value.hex(" ")
+    return ""
+
+
 def _send_tcp(host, target, payload, wait_ms):
     port = _safe_int(target.get("port"), 50001, 1, 65535)
     timeout = _safe_int(target.get("timeout_ms"), 2000, 100, 60000) / 1000.0
@@ -866,7 +872,12 @@ def _send_one_target(host, target, command, payload, payload_text, params, wait_
         response = _send_midi(target, payload, wait_ms)
     else:
         raise RuntimeError(f"不支持的协议类型: {protocol}")
-    return {"host": host or target.get("com_port") or protocol, "ok": 1, "response": _bytes_preview(response)}
+    return {
+        "host": host or target.get("com_port") or protocol,
+        "ok": 1,
+        "response": _bytes_preview(response),
+        "response_hex": _bytes_hex(response),
+    }
 
 
 def execute_control_center_command(config, command_id, target_group_id, params=None, value=None, control=None):
