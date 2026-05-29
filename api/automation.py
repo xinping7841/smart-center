@@ -316,11 +316,10 @@ def api_automation_logs():
     seen = set()
     unique = []
     for item in matched:
+        parsed_time = _parse_log_time(item.get("time"))
         key = (
-            str(item.get("time") or ""),
+            str(int(parsed_time)) if parsed_time else str(item.get("time") or ""),
             str(item.get("operation") or ""),
-            str(item.get("category") or ""),
-            str(item.get("status") or ""),
         )
         if key in seen:
             continue
