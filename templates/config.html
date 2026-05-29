@@ -298,7 +298,7 @@
             <button class="btn btn-blue" onclick="importJsonControlPack()">导入 JSON 指令包</button>
             <button class="btn btn-blue" onclick="importHirenderCommands()">导入 Hirender S3 指令表</button>
             <button class="btn btn-green" onclick="generateControlCenterPanel()">按分类生成面板</button>
-            <button class="btn btn-orange" onclick="addUniv()">+ 添加旧通用设备</button>
+            <button class="btn btn-orange" onclick="addUniv()">+ 添加历史协议设备</button>
         </div>
         <div id="list-univ"></div>
     </div>
@@ -650,7 +650,7 @@
             {id: "scene", icon: "🎬", name: "场景联动", sort: 5, visible: true},
             {id: "server", icon: "🖥️", name: "服务器看板", sort: 6, visible: true},
             {id: "projector", icon: "🎥", name: "投影机集群", sort: 7, visible: true},
-            {id: "universal", icon: "🎛️", name: "泛型控制", sort: 8, visible: true},
+            {id: "universal", icon: "🎛️", name: "协议控制", sort: 8, visible: true},
             {id: "env", icon: "🌡️", name: "环境监测", sort: 9, visible: true},
             {id: "auto", icon: "🤖", name: "自动化运行", sort: 10, visible: true}
         ];
@@ -1446,7 +1446,7 @@
                 { value: 'control_center.control', label: '协议控制操作', kind: '操作' },
                 { value: 'control_center.config', label: '协议控制配置', kind: '操作' },
                 { value: 'light.view', label: '灯光模块', kind: '查看' },
-                { value: 'light.control', label: '灯光控制/泛型设备', kind: '操作' },
+                { value: 'light.control', label: '灯光控制/协议设备', kind: '操作' },
                 { value: 'sequencer.view', label: '时序电源', kind: '查看' },
                 { value: 'sequencer.control', label: '时序电源控制', kind: '操作' },
                 { value: 'ups.view', label: 'UPS 模块', kind: '查看' },
@@ -2078,7 +2078,7 @@
             else if(subSystem === 'projector') conf.projectors.forEach(p => opts += `<option value="${p.id}" ${String(selectedValue)===String(p.id)?'selected':''}>${p.name} (投影机)</option>`);
             else if(subSystem === 'screen') conf.screens.forEach(s => opts += `<option value="${s.id}" ${String(selectedValue)===String(s.id)?'selected':''}>${s.name} (幕布)</option>`);
             else if(subSystem === 'control_center') getSceneCcControls().forEach(({ panel, control }) => opts += `<option value="${control.id}" ${String(selectedValue)===String(control.id)?'selected':''}>${panel?.name || panel?.id || '未命名面板'} / ${control?.name || control?.id || '未命名控件'} (协议控制)</option>`);
-            else if(subSystem === 'universal') conf.custom_devices.forEach(u => opts += `<option value="${u.id}" ${String(selectedValue)===String(u.id)?'selected':''}>${u.name} (泛型)</option>`);
+            else if(subSystem === 'universal') conf.custom_devices.forEach(u => opts += `<option value="${u.id}" ${String(selectedValue)===String(u.id)?'selected':''}>${u.name} (历史协议)</option>`);
             else if(subSystem === 'wait') opts = `<option value="${selectedValue || ''}" selected>${selectedValue || '由等待条件决定'}</option>`;
             return opts || '<option value="">暂无可选设备</option>';
         }
@@ -4238,7 +4238,7 @@
                 controlCenterHtml = `<div class="card" style="background:#fffaf0; border-color:#fdba74;">
                     <h3 style="color:#c2410c; margin-bottom:10px;">协议控制中心</h3>
                     <div style="color:#7c2d12; font-size:13px; line-height:1.8; margin-bottom:12px;">
-                        新结构支持多协议、多目标组、多控件和指令库，适合矩阵、播控、灯控、串口服务器、同型号多设备批量控制。后续新增品牌时，优先建议走“指令包 / 样板包”路线。下方旧“通用设备”继续保留，用于兼容现有按钮与场景。
+                        新结构支持多协议、多目标组、多控件和指令库，适合矩阵、播控、灯控、串口服务器、同型号多设备批量控制。后续新增品牌时，优先建议走“指令包 / 样板包”路线。下方历史协议设备继续保留，用于兼容现有按钮与场景。
                     </div>
                     <div class="grid">
                         <div class="item"><label>启用协议控制中心</label><select onchange="conf.control_center.enabled=this.value==='true'; renderAll()"><option value="true" ${cc.enabled!==false?'selected':''}>启用</option><option value="false" ${cc.enabled===false?'selected':''}>停用</option></select></div>
@@ -4285,8 +4285,8 @@
                             <button class="btn btn-red" style="margin-bottom:4px;" onclick="conf.custom_devices[${i}].commands.splice(${cIdx},1);renderAll()">删除</button>
                         </div>`;
                     });
-                    huniv += `<div class="card"><button class="btn btn-red" style="position:absolute;right:20px;top:20px" onclick="if(confirm('确认删除这个泛型设备吗？')){conf.custom_devices.splice(${i},1);renderAll()}">删除</button>
-                        <h3 style="color:#f59e0b">旧通用设备兼容: ${u.name || u.id}</h3>
+                    huniv += `<div class="card"><button class="btn btn-red" style="position:absolute;right:20px;top:20px" onclick="if(confirm('确认删除这个历史协议设备吗？')){conf.custom_devices.splice(${i},1);renderAll()}">删除</button>
+                        <h3 style="color:#f59e0b">历史协议设备兼容: ${u.name || u.id}</h3>
                         <div class="grid">
                             <div class="item"><label>设备 ID</label><input value="${u.id}" onchange="upd('custom_devices',${i},'id',this.value)"></div>
                             <div class="item"><label>名称</label><input value="${u.name}" onchange="upd('custom_devices',${i},'name',this.value)"></div>
@@ -4351,7 +4351,7 @@
 
                         acts += `<div class="action-row">
                             <div class="item"><label>目标系统</label><select onchange="changeSubSystem(${i},${j},this.value)">
-                                    <option value="light" ${a.sub_system==='light'?'selected':''}>灯光</option><option value="power" ${a.sub_system==='power'?'selected':''}>强电</option><option value="server" ${a.sub_system==='server'?'selected':''}>服务器</option><option value="projector" ${a.sub_system==='projector'?'selected':''}>投影机</option><option value="screen" ${a.sub_system==='screen'?'selected':''}>幕布</option><option value="control_center" ${a.sub_system==='control_center'?'selected':''}>协议控制</option><option value="wait" ${a.sub_system==='wait'?'selected':''}>等待条件</option><option value="universal" ${a.sub_system==='universal'?'selected':''}>旧通用设备</option>
+                                    <option value="light" ${a.sub_system==='light'?'selected':''}>灯光</option><option value="power" ${a.sub_system==='power'?'selected':''}>强电</option><option value="server" ${a.sub_system==='server'?'selected':''}>服务器</option><option value="projector" ${a.sub_system==='projector'?'selected':''}>投影机</option><option value="screen" ${a.sub_system==='screen'?'selected':''}>幕布</option><option value="control_center" ${a.sub_system==='control_center'?'selected':''}>协议控制</option><option value="wait" ${a.sub_system==='wait'?'selected':''}>等待条件</option><option value="universal" ${a.sub_system==='universal'?'selected':''}>历史协议设备</option>
                             </select></div>
                             <div class="item"><label>${a.sub_system==='wait' ? '步骤摘要' : (a.sub_system==='control_center' ? '协议摘要' : '目标设备')}</label>${a.sub_system==='wait' ? `<div style="padding:10px 12px; border-radius:8px; background:#f8fafc; color:#334155; line-height:1.6; font-size:12px;">${escapeHtml(getSceneWaitSummary(a))}</div>` : (a.sub_system==='control_center' ? `<div style="padding:10px 12px; border-radius:8px; background:#f8fafc; color:#334155; line-height:1.6; font-size:12px;">${escapeHtml(getSceneCcSummary(a))}</div>` : `<select onchange="uA(${i},${j},'device_id',this.value,${isNumDevice})">${opts}</select>`)}</div>
                             ${actsDropdown}
@@ -5683,8 +5683,8 @@
             document.body.insertAdjacentHTML('beforeend', modalHtml);
             renderXiaomiTokenResults();
         }
-        function addUniv() { if (!guardConfigMutation('meter.config', '新增通用设备')) return; conf.custom_devices.push({id: "dev_" + Date.now(), name:"新泛型设备", interface: "tcp", ip: "192.168.1.100", port: 8080, commands: []}); renderAll(); }
-        function addUnivCmd(uIdx) { if (!guardConfigMutation('meter.config', '新增通用设备命令')) return; conf.custom_devices[uIdx].commands.push({name: "指令", type: "click", payload: "play1", format: "str", wait_ms: 0, show_on_home: true}); renderAll(); }
+        function addUniv() { if (!guardConfigMutation('meter.config', '新增历史协议设备')) return; conf.custom_devices.push({id: "dev_" + Date.now(), name:"新协议设备", interface: "tcp", ip: "192.168.1.100", port: 8080, commands: []}); renderAll(); }
+        function addUnivCmd(uIdx) { if (!guardConfigMutation('meter.config', '新增历史协议设备命令')) return; conf.custom_devices[uIdx].commands.push({name: "指令", type: "click", payload: "play1", format: "str", wait_ms: 0, show_on_home: true}); renderAll(); }
         function addEnv() { if (!guardConfigMutation('meter.config', '新增环境传感器')) return; conf.env_sensors.push({id: "env_" + Date.now(), name:"光照温湿度变送器", ip: "192.168.1.100", port: 4001, station_id: 1, register_start: 500, register_count: 8, primary_metric: 'auto', features: Object.assign({}, ENV_FEATURE_DEFAULTS)}); renderAll(); }
         function addAuto() {
             if (!guardConfigMutation('meter.config', '新增自动化规则')) return;

@@ -1,8 +1,8 @@
 // AI_MODULE: universal_control_view
-// AI_PURPOSE: 泛型控制/协议控制中心前端按钮和旧设备控制 UI。
+// AI_PURPOSE: 协议控制中心前端按钮和历史设备控制 UI。
 // AI_BOUNDARY: 不直接发 TCP/UDP/串口；控制走 /api/control_center/execute 或 /api/universal/control。
 // AI_DATA_FLOW: CONFIG custom/control devices -> 按钮 DOM -> 控制 API。
-// AI_RUNTIME: 首页/泛型控制页面加载。
+// AI_RUNTIME: 首页/协议控制页面加载。
 // AI_RISK: 高，按钮可能向真实设备发送控制命令。
 // AI_SEARCH_KEYWORDS: universal, protocol control, tcp, udp, serial.
 
@@ -50,7 +50,7 @@
     }
 
     function fireUniversalCommand(devId, payload, format, waitMs) {
-        if (!ensureControlPermission('light.control', '控制泛型设备')) return;
+        if (!ensureControlPermission('light.control', '控制协议设备')) return;
         notify('通用指令下发中...', false);
         postJson('/api/universal/control', {
             device_id: devId,
@@ -78,7 +78,7 @@
     function fireControlCenterControl(controlId, options = {}) {
         if (!ensureControlPermission('control_center.control', '控制协议设备')) return;
         notify('协议指令下发中...', false);
-        postJson('/api/control_center/execute', {
+        return postJson('/api/control_center/execute', {
             control_id: controlId,
             params: options.params || {},
             value: options.value,
@@ -87,11 +87,139 @@
                 if (data.ok) {
                     notify(data.msg || '执行成功', false);
                     if (Array.isArray(data.results)) console.log('协议控制结果:', data.results);
+                    setTimeout(() => updateProtocolDeviceCards(true), 220);
                     return;
                 }
                 notify('执行失败: ' + (data.msg || '未知错误'), true);
             })
             .catch(() => notify('网络请求错误', true));
+    }
+
+    function executeProtocolControl(controlId) {
+        const id = String(controlId || '').trim();
+        if (!id) return Promise.resolve(null);
+        return postJson('/api/control_center/execute', {
+            control_id: id,
+            params: {},
+        }, '协议状态读取失败');
+    }
+
+    function parseProtocolBit(result, kind) {
+        if (!result || !result.ok) return null;
+        const parts = [];
+        if (result.response) parts.push(String(result.response));
+        if (result.response_hex) parts.push(String(result.response_hex));
+        if (Array.isArray(result.results)) {
+            result.results.forEach(item => {
+                if (item && item.response) parts.push(String(item.response));
+                if (item && item.response_hex) parts.push(String(item.response_hex));
+            });
+        }
+        const payload = parts.join('\n');
+        const atName = kind === 'do' ? 'STACH' : 'OCCH';
+        const atMatch = payload.match(new RegExp(`\\+${atName}\\d*\\s*:\\s*([01])`, 'i'));
+        if (atMatch) return atMatch[1] === '1';
+        const hex = (payload.match(/[0-9A-Fa-f]{2}/g) || []).map(x => parseInt(x, 16));
+        const fn = kind === 'do' ? 0x01 : 0x02;
+        for (let i = 0; i + 3 < hex.length; i += 1) {
+            if (hex[i + 1] === fn && hex[i + 2] >= 1) return (hex[i + 3] & 0x01) === 1;
+        }
+        return null;
+    }
+
+    function setProtocolLamp(card, key, state, text) {
+        const led = card.querySelector(`[data-led="${key}"]`);
+        const label = card.querySelector(`[data-text="${key}"]`);
+        if (led) {
+            led.classList.remove('on', 'off', 'warn');
+            if (state === true) led.classList.add('on');
+            else if (state === false) led.classList.add('off');
+            else led.classList.add('warn');
+        }
+        if (label) label.textContent = text || (state === true ? '正常' : (state === false ? '断开' : '异常'));
+    }
+
+    function applyProtocolOutput(card, value) {
+        const toggle = card.querySelector('[data-role="do-toggle"]');
+        const switchText = card.querySelector('[data-text="switch"]');
+        if (toggle) {
+            toggle.checked = value === true;
+            toggle.disabled = value === null;
+        }
+        if (switchText) switchText.textContent = value === true ? '当前输出：开' : (value === false ? '当前输出：关' : '状态读取失败');
+    }
+
+    function updateProtocolDeviceCard(card) {
+        if (!card || card.dataset.polling === '1') return Promise.resolve();
+        card.dataset.polling = '1';
+        const readDo = card.dataset.readDo || '';
+        const readDi = card.dataset.readDi || '';
+        return Promise.all([executeProtocolControl(readDo), executeProtocolControl(readDi)])
+            .then(([doResult, diResult]) => {
+                const doValue = doResult ? parseProtocolBit(doResult, 'do') : null;
+                const diValue = diResult ? parseProtocolBit(diResult, 'di') : null;
+                const healthy = Boolean((doResult && doResult.ok && doValue !== null) || (diResult && diResult.ok && diValue !== null));
+                setProtocolLamp(card, 'health', healthy, healthy ? '正常' : '异常');
+                setProtocolLamp(card, 'di', diValue, diValue === true ? '有输入' : (diValue === false ? '无输入' : '读取失败'));
+                setProtocolLamp(card, 'do', doValue, doValue === true ? '输出开' : (doValue === false ? '输出关' : '读取失败'));
+                applyProtocolOutput(card, doValue);
+            })
+            .catch(() => {
+                setProtocolLamp(card, 'health', false, '异常');
+                setProtocolLamp(card, 'di', null, '读取失败');
+                setProtocolLamp(card, 'do', null, '读取失败');
+                applyProtocolOutput(card, null);
+            })
+            .finally(() => { card.dataset.polling = '0'; });
+    }
+
+    function updateProtocolDeviceCards(force = false) {
+        if (!force && typeof global.getActiveViewId === 'function' && global.getActiveViewId() !== 'universal') return;
+        document.querySelectorAll('[data-protocol-card="1"]').forEach(card => updateProtocolDeviceCard(card));
+    }
+
+    function pulseProtocolDevice(card) {
+        if (!card) return;
+        if (!ensureControlPermission('control_center.control', '点动协议设备输出')) return;
+        const pulseId = card.dataset.pulse || '';
+        const onId = card.dataset.doOn || '';
+        const offId = card.dataset.doOff || '';
+        const run = pulseId
+            ? executeProtocolControl(pulseId)
+            : executeProtocolControl(onId).then(() => new Promise(resolve => setTimeout(resolve, 1000))).then(() => executeProtocolControl(offId));
+        notify('点动执行中...', false);
+        run.then(result => {
+            if (result && result.ok === 0) throw new Error(result.msg || '点动失败');
+            notify('点动完成', false);
+            setTimeout(() => updateProtocolDeviceCard(card), 260);
+        }).catch(err => notify(err.message || '点动失败', true));
+    }
+
+    function toggleProtocolDeviceOutput(input) {
+        const card = input.closest('[data-protocol-card="1"]');
+        if (!card) return;
+        if (!ensureControlPermission('control_center.control', '控制协议设备输出')) {
+            input.checked = !input.checked;
+            return;
+        }
+        const controlId = input.checked ? card.dataset.doOn : card.dataset.doOff;
+        if (!controlId) {
+            notify('这个设备缺少输出控制指令', true);
+            input.checked = !input.checked;
+            return;
+        }
+        input.disabled = true;
+        postJson('/api/control_center/execute', { control_id: controlId, params: {} }, '协议输出控制失败')
+            .then(data => {
+                if (!data.ok) throw new Error(data.msg || '输出控制失败');
+                notify(data.msg || '输出已切换', false);
+                setTimeout(() => updateProtocolDeviceCard(card), 260);
+            })
+            .catch(err => {
+                notify(err.message || '输出控制失败', true);
+                input.checked = !input.checked;
+            })
+            .finally(() => { setTimeout(() => { input.disabled = false; }, 360); });
     }
 
 
@@ -264,12 +392,22 @@
         handleLongPressStart,
         handleLongPressEnd,
         fireControlCenterControl,
+        updateProtocolDeviceCards,
+        toggleProtocolDeviceOutput,
+        pulseProtocolDevice,
         updateNodeRedDevices,
         controlNodeRedDevice,
     };
 
     SmartCenter.universal = Object.assign({}, SmartCenter.universal || {}, api);
     if (typeof SmartCenter.registerModule === 'function') {
+        const protocolPollRegister = typeof global.registerPollingTask === 'function' ? global.registerPollingTask : (typeof SmartCenter.registerPollingTask === 'function' ? SmartCenter.registerPollingTask.bind(SmartCenter) : null);
+        if (protocolPollRegister) {
+            protocolPollRegister('protocol_control', 2500, () => updateProtocolDeviceCards(), () => typeof global.getActiveViewId !== 'function' || global.getActiveViewId() === 'universal');
+        }
+        setTimeout(() => updateProtocolDeviceCards(true), 120);
+        setTimeout(() => updateProtocolDeviceCards(true), 1100);
+
         SmartCenter.registerModule('universal', {
             kind: 'view',
             view: 'universal',

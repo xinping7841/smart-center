@@ -1648,7 +1648,7 @@ def _normalize_outdoor_universal_device(device):
     if not _find_universal_device_command(device, "on") or not _find_universal_device_command(device, "off"):
         return False
     changed = False
-    if str(device.get("name") or "").strip() in {"", "新泛型设备"}:
+    if str(device.get("name") or "").strip() in {"", "新泛型设备", "新协议设备"}:
         device["name"] = "庭院灯"
         changed = True
     return changed

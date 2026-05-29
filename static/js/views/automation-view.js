@@ -177,7 +177,7 @@
             if (sub === 'hvac') return `空调 ${actionText}`;
             if (sub === 'light') return `灯光 ${actionText}`;
             if (sub === 'power') return `强电 ${actionText}`;
-            if (sub === 'universal') return `泛型 ${actionText}`;
+            if (sub === 'universal') return `协议 ${actionText}`;
             if (sub === 'wait') return '等待';
             return `${sub} ${actionText}`;
         }
