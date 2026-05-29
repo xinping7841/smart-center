@@ -25,6 +25,9 @@ from typing import Any, Callable
 
 import requests
 
+from services.control_intent_router import ControlIntentRouter
+from services.control_learning import ControlLearningStore
+from services.control_model_translator import LocalModelControlTranslator
 from services.device_aliases import build_device_alias_rows, find_alias_rows, normalize_alias_text
 
 try:
@@ -59,6 +62,7 @@ else:
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 RUNTIME_ROOT = Path(os.environ.get("SMART_CENTER_RUNTIME_DIR", "/srv/smart-center-data/runtime"))
 PENDING_CONTROL_STORE = RUNTIME_ROOT / "feishu_pending_controls.json"
+CONTROL_FEEDBACK_STORE = RUNTIME_ROOT / "control_feedback.jsonl"
 DEFAULT_BASE_URL = "http://127.0.0.1:5000"
 BOT_NAME_HINTS = ("深澜中控AI运维", "中控AI运维", "中控")
 MODULE_LABELS = {
@@ -88,6 +92,11 @@ CONTROL_ACTION_WORDS = (
     "开了",
     "关了",
     "关掉",
+    "开启",
+    "启用",
+    "停用",
+    "开一下",
+    "关一下",
     "开空调",
     "关空调",
     "控制",
@@ -170,9 +179,19 @@ def load_config(env_file: str | Path | None = None) -> FeishuBotConfig:
     except Exception:
         timeout = 4.0
     try:
-        model_timeout = max(1.0, min(float(os.environ.get("FEISHU_NL_MODEL_TIMEOUT_SEC", "8") or 8), 60.0))
+        model_timeout_raw = os.environ.get("FEISHU_NL_MODEL_TIMEOUT_SEC") or os.environ.get("FEISHU_LOCAL_MODEL_TIMEOUT_SEC") or "8"
+        model_timeout = max(1.0, min(float(model_timeout_raw or 8), 60.0))
     except Exception:
         model_timeout = 8.0
+    nl_model_enabled_raw = os.environ.get("FEISHU_NL_MODEL_ENABLED")
+    if nl_model_enabled_raw is None:
+        nl_model_enabled_raw = os.environ.get("FEISHU_USE_LOCAL_MODEL", "")
+    nl_model_url = (
+        os.environ.get("FEISHU_NL_MODEL_URL")
+        or os.environ.get("FEISHU_LOCAL_MODEL_BASE_URL")
+        or "http://127.0.0.1:11434"
+    )
+    nl_model_name = os.environ.get("FEISHU_NL_MODEL_NAME") or os.environ.get("FEISHU_LOCAL_MODEL_NAME") or "qwen3:14b"
     return FeishuBotConfig(
         app_id=str(os.environ.get("FEISHU_APP_ID", "") or "").strip(),
         app_secret=str(os.environ.get("FEISHU_APP_SECRET", "") or "").strip(),
@@ -181,9 +200,9 @@ def load_config(env_file: str | Path | None = None) -> FeishuBotConfig:
         push_times=push_times,
         request_timeout_sec=timeout,
         card_callback_enabled=str(os.environ.get("FEISHU_CARD_CALLBACK_ENABLED", "") or "").strip().lower() in {"1", "true", "yes", "on"},
-        nl_model_enabled=str(os.environ.get("FEISHU_NL_MODEL_ENABLED", "") or "").strip().lower() in {"1", "true", "yes", "on"},
-        nl_model_url=str(os.environ.get("FEISHU_NL_MODEL_URL", "http://127.0.0.1:11434") or "http://127.0.0.1:11434").strip().rstrip("/"),
-        nl_model_name=str(os.environ.get("FEISHU_NL_MODEL_NAME", "qwen3:14b") or "qwen3:14b").strip(),
+        nl_model_enabled=str(nl_model_enabled_raw or "").strip().lower() in {"1", "true", "yes", "on"},
+        nl_model_url=str(nl_model_url or "http://127.0.0.1:11434").strip().rstrip("/"),
+        nl_model_name=str(nl_model_name or "qwen3:14b").strip(),
         nl_model_timeout_sec=model_timeout,
     )
 
@@ -757,54 +776,60 @@ class LocalSmartCenterClient:
         return command
 
     def resolve_control_command(self, text: str) -> dict[str, Any] | None:
+        return self.resolve_control_command_with_translator(text, translator=None)
+
+    def resolve_control_command_with_translator(self, text: str, translator: LocalModelControlTranslator | None = None) -> dict[str, Any] | None:
         action = _control_action_from_text(text)
         if not action:
             return None
+        learning = ControlLearningStore(CONTROL_FEEDBACK_STORE)
+        learned = None if learning.rejected_recently(text) else learning.suggest(text)
+        if learned:
+            return learned
+        router = ControlIntentRouter(self._device_alias_rows())
+        routed = router.route(
+            text,
+            action,
+            door=self._resolve_door_control,
+            sequencer=self._resolve_sequencer_control,
+            power=self._resolve_power_control,
+            hvac=self._resolve_hvac_control,
+            projector=self._resolve_projector_control,
+            node_red=self._resolve_node_red_control,
+            light=self._resolve_light_control,
+            server=self._resolve_server_control,
+            infer=self._infer_control_command,
+        )
+        if routed.command is not None or routed.stop:
+            return routed.command
+        if translator:
+            translated = translator.translate(text, self._device_alias_rows())
+            if translated and translated.rewritten_text and normalize_alias_text(translated.rewritten_text) != normalize_alias_text(text):
+                translated_action = _control_action_from_text(translated.rewritten_text)
+                if translated_action:
+                    translated_route = router.route(
+                        translated.rewritten_text,
+                        translated_action,
+                        door=self._resolve_door_control,
+                        sequencer=self._resolve_sequencer_control,
+                        power=self._resolve_power_control,
+                        hvac=self._resolve_hvac_control,
+                        projector=self._resolve_projector_control,
+                        node_red=self._resolve_node_red_control,
+                        light=self._resolve_light_control,
+                        server=self._resolve_server_control,
+                        infer=self._infer_control_command,
+                    )
+                    if translated_route.command and translated_route.command.get("type") != "error":
+                        command = self._mark_inferred(
+                            translated_route.command,
+                            "medium" if translated.confidence < 0.86 else "high",
+                            f"本地模型将“{text}”转译为“{translated.rewritten_text}”。{translated.reason}",
+                        )
+                        if command:
+                            command["model_rewritten_text"] = translated.rewritten_text
+                        return command
         normalized = _normalize_match_text(text)
-        if _contains_any(text, ("大门", "门禁", "开门", "关门")):
-            return self._resolve_door_control(text, action)
-        if _contains_any(text, ("时序", "时序电源", "sequencer")):
-            return self._resolve_sequencer_control(text, action)
-        if _contains_any(text, ("强电", "电柜", "电箱", "电源柜", "电柜")):
-            return self._resolve_power_control(text, action)
-        if _contains_any(text, ("空调", "hvac", "HVAC", "制冷", "制热")):
-            return self._resolve_hvac_control(text, action)
-        if _contains_any(text, ("投影", "投影机", "pjlink", "PJLink")):
-            return self._resolve_projector_control(text, action)
-        if _contains_any(text, ("庭院灯", "户外灯")):
-            return {
-                "type": "node_red",
-                "risk": "normal",
-                "label": "庭院灯",
-                "path": "/api/node-red/device/courtyard_light/control",
-                "payload": {"action": "on" if action in {"on", "toggle"} else "off"},
-                "action": "on" if action in {"on", "toggle"} else "off",
-            }
-        alias_modules = self._infer_modules_from_aliases(text)
-        if "light" in alias_modules:
-            node_red = self._resolve_node_red_control(text, action)
-            if node_red:
-                return node_red
-            return self._resolve_light_control(text, action)
-        if "hvac" in alias_modules:
-            return self._resolve_hvac_control(text, action)
-        if "door" in alias_modules:
-            return self._resolve_door_control(text, action)
-        if _contains_any(text, ("灯", "灯光", "照明", "继电器")):
-            node_red = self._resolve_node_red_control(text, action)
-            if node_red:
-                return node_red
-            return self._resolve_light_control(text, action)
-        if _server_like_query(text, text.lower()) or _contains_any(text, ("服务器", "主机", "机器", "电脑", "节点")):
-            command = self._resolve_server_control(text, action)
-            if command and command.get("type") == "error":
-                inferred = self._resolve_server_control(text, action, allow_loose=True)
-                if inferred and inferred.get("type") != "error":
-                    return self._mark_inferred(inferred, "medium", "服务器名称没有精确命中，我按名称、IP、备注或分组做了近似匹配。")
-            return command
-        inferred = self._infer_control_command(text, action, normalized)
-        if inferred:
-            return inferred
         if normalized in {"开", "关", "打开", "关闭", "开启"}:
             return None
         return None
@@ -2109,6 +2134,11 @@ class FeishuBot:
             if config.nl_model_enabled
             else None
         )
+        self.control_translator = (
+            LocalModelControlTranslator(config.nl_model_url, config.nl_model_name, config.nl_model_timeout_sec)
+            if config.nl_model_enabled
+            else None
+        )
         self.log = log or (lambda text: print(text, flush=True))
         self.api_client = (
             lark.Client.builder()
@@ -2290,7 +2320,14 @@ class FeishuBot:
         command = pending.get("command")
         if not isinstance(command, dict):
             return "未执行：待确认控制格式无效，请重新下发。"
-        return self.local_client.execute_control_command(command)
+        result = self.local_client.execute_control_command(command)
+        ControlLearningStore(CONTROL_FEEDBACK_STORE).append(
+            str(pending.get("source_text") or ""),
+            command,
+            "confirmed",
+            reason="Feishu confirmation executed",
+        )
+        return result
 
     def _cancel_pending_control(self, chat_id: str, expected_pending_id: str = "") -> str:
         pending = self._pending_control_by_id(chat_id, expected_pending_id=expected_pending_id, pop=True)
@@ -2300,6 +2337,12 @@ class FeishuBot:
             return "这张确认卡片已不是最新请求，请使用最新卡片或重新下发。"
         if pending.get("expired"):
             return "待确认控制已过期，已自动放弃。"
+        ControlLearningStore(CONTROL_FEEDBACK_STORE).append(
+            str(pending.get("source_text") or ""),
+            pending.get("command") if isinstance(pending.get("command"), dict) else None,
+            "cancelled",
+            reason="Feishu user cancelled pending control",
+        )
         return "已取消待确认控制。"
 
     def _store_pending_control(self, chat_id: str, command: dict[str, Any], source_text: str) -> str:
@@ -2360,7 +2403,7 @@ class FeishuBot:
             return self._execute_pending_control(chat_id)
         if not _is_control_request(normalized):
             return None
-        command = self.local_client.resolve_control_command(normalized)
+        command = self.local_client.resolve_control_command_with_translator(normalized, translator=self.control_translator)
         if not command:
             return "我识别到这是控制请求，但没有明确匹配到可执行设备。请带上设备名称、编号或 IP。"
         if command.get("type") == "error":
@@ -2369,7 +2412,14 @@ class FeishuBot:
             return self._store_pending_control(chat_id, command, normalized)
         if str(command.get("type") or "") in HIGH_RISK_CONTROL_TYPES or str(command.get("risk") or "") == "high":
             return self._store_pending_control(chat_id, command, normalized)
-        return self.local_client.execute_control_command(command)
+        result = self.local_client.execute_control_command(command)
+        ControlLearningStore(CONTROL_FEEDBACK_STORE).append(
+            normalized,
+            command,
+            "direct_executed",
+            reason="Feishu low-risk direct execution",
+        )
+        return result
 
     def dispatch_command(self, text: str, chat_id: str = "") -> str:
         normalized = re.sub(r"\s+", " ", str(text or "").strip())

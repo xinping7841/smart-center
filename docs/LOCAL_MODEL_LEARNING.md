@@ -44,3 +44,14 @@ Natural language should query all server groups by default. Specific group queri
 The model may classify intent, retrieve evidence, summarize, and act as a natural-language control entry from Feishu or the Smart Center local-model page.
 
 Real device actions must still go through the existing Smart Center control chain: API permission, audit log, target matching, risk classification, and confirmation policy. Strong-current cabinets, sequencers, server shutdown/restart, and unclear inferred targets must require confirmation before execution. The model must never invent a separate direct-control route that bypasses this chain.
+
+## Natural-Language Control Router
+
+Smart Center uses a layered route for Feishu and local-model control:
+
+1. Feedback memory checks previously confirmed or cancelled phrases in `SMART_CENTER_RUNTIME_DIR/control_feedback.jsonl`.
+2. The deterministic safety router selects the safest module and blocks ambiguous phrases such as "把第8路关了".
+3. If enabled, the local model may rewrite fuzzy text into a standard Chinese control phrase. The model output is untrusted and must be validated again by the deterministic router.
+4. Smart Center executes only after the normal permission, risk, and confirmation policy. Strong-current cabinets and sequencers always require confirmation.
+
+This makes the assistant improve from real usage while preventing the model from directly producing executable HTTP calls.

@@ -26,9 +26,11 @@ from services.feishu_bot import (  # noqa: E402
     HIGH_RISK_CONTROL_TYPES,
     INFERRED_CONTROL_CONFIDENCE,
     LocalSmartCenterClient,
+    load_config,
     _control_action_from_text,
     _is_control_request,
 )
+from services.control_model_translator import LocalModelControlTranslator  # noqa: E402
 
 
 DEFAULT_CASES = [
@@ -44,12 +46,16 @@ DEFAULT_CASES = [
     "关闭庭院灯",
     "把户外灯打开",
     "院子里的灯关掉",
+    "室外灯开启",
+    "外墙灯关掉",
     "打开大门",
     "开门",
     "关闭大门",
     "停止大门",
     "打开一号厅A区灯光",
     "打开前言墙灯",
+    "前言墙开一下",
+    "1号厅前言墙打开",
     "打开一号厅前檐墙",
     "关闭一号厅前言墙",
     "打开1号厅前沿墙灯",
@@ -94,21 +100,23 @@ def _safe_payload(command: dict[str, Any] | None) -> dict[str, Any]:
         "payload": command.get("payload"),
         "confidence": command.get("confidence") or "high",
         "inference_reason": command.get("inference_reason") or "",
+        "model_rewritten_text": command.get("model_rewritten_text") or "",
         "message": command.get("message") or "",
     }
 
 
-def _dry_run_case(client: LocalSmartCenterClient, text: str) -> dict[str, Any]:
+def _dry_run_case(client: LocalSmartCenterClient, text: str, translator: LocalModelControlTranslator | None = None) -> dict[str, Any]:
     normalized = " ".join(str(text or "").split())
     action = _control_action_from_text(normalized)
     is_control = _is_control_request(normalized)
-    command = client.resolve_control_command(normalized) if is_control else None
+    command = client.resolve_control_command_with_translator(normalized, translator=translator) if is_control else None
     safe = _safe_payload(command)
     command_type = str(safe.get("type") or "")
     confidence = str(safe.get("confidence") or "high")
     high_risk = command_type in HIGH_RISK_CONTROL_TYPES or str(safe.get("risk") or "") == "high"
     inferred = confidence in INFERRED_CONTROL_CONFIDENCE
     executable = bool(command and command_type != "error" and not high_risk and not inferred)
+    model_rewritten_text = str(safe.get("model_rewritten_text") or "")
     return {
         "schema": "smart_center.feishu_control_dryrun.v1",
         "text": normalized,
@@ -118,6 +126,7 @@ def _dry_run_case(client: LocalSmartCenterClient, text: str) -> dict[str, Any]:
         "requires_confirmation": bool(command and command_type != "error" and (high_risk or inferred)),
         "would_execute_without_confirmation": executable,
         "dry_run": True,
+        "model_rewritten_text": model_rewritten_text,
         "note": "未调用真实控制接口；would_execute_without_confirmation 仅表示生产聊天中该命令当前会直接执行。",
     }
 
@@ -127,11 +136,16 @@ def main() -> int:
     parser.add_argument("--base-url", default=os.environ.get("SMART_CENTER_BASE_URL", "http://127.0.0.1:6899"))
     parser.add_argument("--cases", help="UTF-8 text file, one test sentence per line")
     parser.add_argument("--output", help="Write JSONL result to this path")
+    parser.add_argument("--use-model", action="store_true", help="Use local model translator after deterministic routing misses.")
     parser.add_argument("--fail-on-unsafe", action="store_true", help="Exit non-zero if a high-risk/inferred command would execute directly")
     args = parser.parse_args()
 
     client = LocalSmartCenterClient(str(args.base_url).rstrip("/"))
-    rows = [_dry_run_case(client, text) for text in _load_cases(args.cases)]
+    translator = None
+    if args.use_model:
+        cfg = load_config(None)
+        translator = LocalModelControlTranslator(cfg.nl_model_url, cfg.nl_model_name, cfg.nl_model_timeout_sec)
+    rows = [_dry_run_case(client, text, translator=translator) for text in _load_cases(args.cases)]
     result = {
         "schema": "smart_center.feishu_control_dryrun_summary.v1",
         "generated_at": datetime.now().isoformat(timespec="seconds"),

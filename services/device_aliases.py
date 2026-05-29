@@ -41,7 +41,6 @@ def normalize_alias_text(value: Any) -> str:
         "前檐墙": "前言墙",
         "前沿墙": "前言墙",
         "前颜墙": "前言墙",
-        "前言": "前言墙",
         "二楼": "2楼",
         "二层": "2楼",
         "一楼": "1楼",
@@ -49,6 +48,7 @@ def normalize_alias_text(value: Any) -> str:
     }
     for source, target in replacements.items():
         text = text.replace(source, target)
+    text = re.sub(r"(前言墙)+", "前言墙", text)
     return re.sub(r"[\s\-_:：,，.。/\\()（）\[\]【】+]+", "", text)
 
 

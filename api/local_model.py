@@ -30,6 +30,7 @@ from event_logger import query_events
 from paths import AUDIT_LOG_FILE, CONFIG_FILE, DATA_DIR, DB_FILE, OPERATION_LOG_FILE, ensure_directory
 from services.device_aliases import build_device_alias_rows
 from services.feishu_bot import HIGH_RISK_CONTROL_TYPES, INFERRED_CONTROL_CONFIDENCE, LocalSmartCenterClient, _control_action_from_text, _format_control_action, _is_control_request
+from services.control_model_translator import LocalModelControlTranslator
 
 
 bp = Blueprint("local_model", __name__)
@@ -1190,7 +1191,9 @@ def api_local_model_control_dry_run():
             "msg": "这句话不像明确控制请求，可以继续补充设备和动作。",
         })
     client = LocalSmartCenterClient(_smart_center_self_base_url())
-    command = client.resolve_control_command(text)
+    cfg = normalize_local_model_config(CONFIG.get("local_model"))
+    translator = LocalModelControlTranslator(cfg["base_url"], cfg["model"], cfg["timeout_sec"]) if cfg.get("enabled") else None
+    command = client.resolve_control_command_with_translator(text, translator=translator)
     if not command:
         return jsonify({
             "ok": True,
