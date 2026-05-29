@@ -1,0 +1,10 @@
+{
+  "task": "door-state-feishu-followup",
+  "module": "door",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-door-state-feishu-followup-20260530",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/door-state-feishu-followup",
+  "started_at": "2026-05-30 01:52:27",
+  "status": "in_progress"
+}

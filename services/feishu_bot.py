@@ -2101,8 +2101,54 @@ class LocalSmartCenterClient:
         return "\n".join(["环境状态：", *[f"- {row}" for row in rows[:10]], *(["... 还有更多传感器未显示"] if len(rows) > 10 else [])])
 
     def door_status_text(self, query: str = "") -> str:
+        rows: list[str] = []
+        vision_ok, vision_payload = self.get_json("/api/door/vision_status", timeout_sec=4.0)
+        if vision_ok and isinstance(vision_payload, dict):
+            status = str(vision_payload.get("door_status") or "unknown")
+            status_text = str(vision_payload.get("door_status_text") or "").strip()
+            if not status_text:
+                status_text = {
+                    "open": "门已完全开启",
+                    "closed": "门已完全关闭",
+                    "opening": "正在开门中",
+                    "closing": "正在关门中",
+                    "stopped_midway": "门体静止中",
+                    "unknown_calibration": "状态未判定",
+                    "unknown": "状态未知",
+                }.get(status, "状态未知")
+            confidence = vision_payload.get("confidence")
+            updated = vision_payload.get("updated_at") or "--"
+            rows.append(f"视觉大门：{status_text}，置信度 {_fmt_number(confidence, 2)}，更新 {updated}")
+
+            diagnosis = vision_payload.get("diagnosis") if isinstance(vision_payload.get("diagnosis"), dict) else {}
+            if diagnosis and not diagnosis.get("ready"):
+                reason = str(diagnosis.get("reason_text") or "").strip()
+                if reason:
+                    rows.append(f"识别提示：{reason}")
+                next_steps = [str(item).strip() for item in diagnosis.get("next_steps") or [] if str(item).strip()]
+                if next_steps:
+                    rows.append("建议：" + "；".join(next_steps[:2]))
+            votes = vision_payload.get("camera_votes") if isinstance(vision_payload.get("camera_votes"), dict) else {}
+            if votes:
+                brief_votes = []
+                for camera_key, vote in list(votes.items())[:2]:
+                    if not isinstance(vote, dict):
+                        continue
+                    brief_votes.append(
+                        f"{camera_key}={vote.get('status') or '--'} "
+                        f"差异关{_fmt_number(vote.get('diff_c'), 0)}/开{_fmt_number(vote.get('diff_o'), 0)} "
+                        f"阈值{_fmt_number(vote.get('threshold'), 0)}"
+                    )
+                if brief_votes:
+                    rows.append("视觉投票：" + "；".join(brief_votes))
+        else:
+            rows.append(f"视觉大门接口暂时不可用：{vision_payload}")
+
         ok, payload = self.get_json("/api/env/status", timeout_sec=4.0)
         if not ok or not isinstance(payload, dict):
+            if rows:
+                rows.append(f"门磁接口暂时不可用：{payload}")
+                return "\n".join(["大门状态：", *[f"- {row}" for row in rows]])
             return f"门磁接口暂时不可用：{payload}"
         summary_ok, summary = self.get_json("/api/dashboard/summary", timeout_sec=3.0)
         name_map: dict[str, str] = {}
@@ -2112,7 +2158,7 @@ class LocalSmartCenterClient:
             for device in env_module.get("devices") or []:
                 if isinstance(device, dict) and device.get("id"):
                     name_map[str(device.get("id"))] = _device_name(device)
-        rows = []
+        contact_rows = []
         compact_query = query.replace("状态", "").replace("开关", "").replace("门磁", "").replace("门", "").strip()
         for sensor_id, item in payload.items():
             if not isinstance(item, dict):
@@ -2133,10 +2179,14 @@ class LocalSmartCenterClient:
                 state = "--"
             online = "在线" if item.get("online", True) else "离线"
             updated = item.get("contact_updated_at") or item.get("updated_at") or "--"
-            rows.append(f"- {name}：{state}，{online}，更新 {updated}")
-        if not rows:
+            contact_rows.append(f"{name}：{state}，{online}，更新 {updated}")
+        if contact_rows:
+            rows.extend(contact_rows[:8])
+            if len(contact_rows) > 8:
+                rows.append("... 还有更多门磁未显示")
+        elif not rows:
             return "没有匹配到门磁/大门状态。"
-        return "\n".join(["门磁状态：", *rows[:8], *(["... 还有更多门磁未显示"] if len(rows) > 8 else [])])
+        return "\n".join(["大门状态：", *[f"- {row}" for row in rows]])
 
     def hvac_status_text(self, query: str = "") -> str:
         ok, payload = self.get_json("/api/hvac/status", timeout_sec=4.0)

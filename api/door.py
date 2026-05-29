@@ -64,6 +64,16 @@ DOOR_CAMERA_ERROR_TEXT = {
     "config_changed": "配置已变更，等待重连",
 }
 
+DOOR_STATUS_TEXT = {
+    "opening": "正在开门中",
+    "closing": "正在关门中",
+    "stopped_midway": "门体静止中",
+    "closed": "门已完全关闭",
+    "open": "门已完全开启",
+    "unknown": "状态未知",
+    "unknown_calibration": "状态未判定",
+}
+
 door_status_info = {
     "current_status": "unknown_calibration",
     "transition_status": None,
@@ -2303,6 +2313,117 @@ def _calibration_status_payload():
     return payload
 
 
+def _door_status_diagnosis(current_snapshot=None, *, calibration=None, cameras=None, runtime=None, health=None):
+    """Explain why the door state is or is not reliable for UI, Feishu and AI tools."""
+    current_snapshot = current_snapshot if isinstance(current_snapshot, dict) else {}
+    calibration = calibration if isinstance(calibration, dict) else _calibration_status_payload()
+    cameras = cameras if isinstance(cameras, list) else [_camera_payload(item["key"]) for item in _get_camera_configs()]
+    runtime = runtime if isinstance(runtime, dict) else _vision_runtime_payload()
+    health = health if isinstance(health, dict) else {}
+    camera_votes = current_snapshot.get("camera_votes", {}) if isinstance(current_snapshot.get("camera_votes"), dict) else {}
+    current_state = str(current_snapshot.get("transition_status") or current_snapshot.get("current_status") or "unknown")
+    stable_state = str(current_snapshot.get("current_status") or runtime.get("stable_state") or "unknown")
+    confidence = float(current_snapshot.get("confidence", 0.0) or 0.0)
+
+    camera_ready = []
+    missing_refs = []
+    for key, info in (calibration.get("cameras", {}) or {}).items():
+        ready = bool((info or {}).get("ready"))
+        camera_ready.append(ready)
+        if not ready:
+            missing = []
+            if not (((info or {}).get("closed") or {}).get("exists")):
+                missing.append("关门参考图")
+            if not (((info or {}).get("open") or {}).get("exists")):
+                missing.append("开门参考图")
+            missing_refs.append(f"{key}:{'、'.join(missing) or '参考图不完整'}")
+
+    offline_cameras = [
+        str(item.get("name") or item.get("key"))
+        for item in cameras
+        if item.get("enabled") and item.get("configured") and not item.get("online")
+    ]
+    unconfigured_cameras = [
+        str(item.get("name") or item.get("key"))
+        for item in cameras
+        if item.get("enabled") and not item.get("configured")
+    ]
+
+    reason_code = "ok"
+    reason_text = "大门状态识别正常。"
+    next_steps = []
+    severity = "ok"
+
+    if unconfigured_cameras:
+        reason_code = "camera_unconfigured"
+        reason_text = f"摄像头未配置 RTSP：{'、'.join(unconfigured_cameras)}。"
+        next_steps = ["在门禁配置里补齐摄像头 RTSP 地址。"]
+        severity = "warning"
+    elif offline_cameras:
+        reason_code = "camera_offline"
+        reason_text = f"摄像头离线或取流失败：{'、'.join(offline_cameras)}。"
+        next_steps = ["检查摄像头网络、账号密码、RTSP 地址和取流协议。"]
+        severity = "warning"
+    elif camera_ready and not all(camera_ready):
+        reason_code = "missing_reference"
+        reason_text = f"开/关门参考图不完整：{'；'.join(missing_refs)}。"
+        next_steps = ["在门禁页面重新采集关门参考图和开门参考图。"]
+        severity = "warning"
+    elif stable_state in {"unknown", "unknown_calibration"}:
+        low_vote_lines = []
+        both_far = False
+        for camera_key, vote in camera_votes.items():
+            if not isinstance(vote, dict):
+                continue
+            threshold = float(vote.get("threshold", 0.0) or 0.0)
+            diff_c = float(vote.get("diff_c", 0.0) or 0.0)
+            diff_o = float(vote.get("diff_o", 0.0) or 0.0)
+            vote_conf = float(vote.get("confidence", 0.0) or 0.0)
+            low_vote_lines.append(
+                f"{camera_key}:关门差异{diff_c:.0f}/开门差异{diff_o:.0f}/阈值{threshold:.0f}/置信度{vote_conf:.2f}"
+            )
+            if threshold > 0 and diff_c > threshold and diff_o > threshold:
+                both_far = True
+        if both_far:
+            reason_code = "reference_mismatch"
+            reason_text = "当前画面和开门/关门参考图差异都过大，无法可靠判定。"
+            next_steps = ["现场确认大门当前姿态后，在门禁页面重采参考图。", "检查检测区域是否框住门体关键变化区域。"]
+        elif camera_votes:
+            reason_code = "low_confidence"
+            reason_text = "视觉投票置信度过低，暂不更新大门状态。"
+            next_steps = ["检查光线、摄像头角度和检测区域；必要时重新采集参考图。"]
+        elif health and not health.get("reachable", True):
+            reason_code = "vision_service_unreachable"
+            reason_text = f"视觉识别服务不可达：{health.get('error') or 'unknown'}。"
+            next_steps = ["检查 vision-door 服务状态并重启。"]
+        else:
+            reason_code = "waiting_for_detection"
+            reason_text = "暂未收到有效视觉识别结果。"
+            next_steps = ["等待 3-5 秒刷新；如果持续无结果，检查摄像头取流和视觉服务。"]
+        severity = "warning"
+    elif confidence and confidence < 0.35:
+        reason_code = "weak_confidence"
+        reason_text = f"大门状态已有结果，但置信度偏低（{confidence:.2f}）。"
+        next_steps = ["建议在空闲时重新采集参考图，提高后续判断稳定性。"]
+        severity = "notice"
+
+    return {
+        "ready": reason_code == "ok",
+        "severity": severity,
+        "reason_code": reason_code,
+        "reason_text": reason_text,
+        "next_steps": next_steps,
+        "camera_summary": {
+            "total": len(cameras),
+            "online": sum(1 for item in cameras if item.get("online")),
+            "configured": sum(1 for item in cameras if item.get("configured")),
+            "reference_ready": sum(1 for ready in camera_ready if ready),
+        },
+        "vote_summary": list(camera_votes.values())[:4] if isinstance(camera_votes, dict) else [],
+        "runtime": runtime,
+    }
+
+
 @bp.route("/video_feed")
 @require_permission("door.view")
 def video_feed():
@@ -2321,6 +2442,7 @@ def video_feed_by_key(camera_key):
 def api_door_cameras():
     _sync_camera_state_defaults()
     keys = [item["key"] for item in _get_camera_configs()]
+    runtime = _vision_runtime_payload()
     return jsonify(
         {
             "status": "success",
@@ -2329,7 +2451,7 @@ def api_door_cameras():
             "regions": {key: _get_region_pct(key) for key in keys},
             "cameras": [_camera_payload(key) for key in keys],
             "vision_config": _get_vision_config(),
-            "vision_runtime": _vision_runtime_payload(),
+            "vision_runtime": runtime,
         }
     )
 
@@ -2340,10 +2462,23 @@ def api_door_vision_status():
     detection_camera = _preferred_detection_camera()
     with status_lock:
         current_snapshot = dict(door_status_info)
+    vision_runtime = _vision_runtime_payload()
+    vision_health = _vision_service_health()
+    calibration = _calibration_status_payload()
+    diagnosis = _door_status_diagnosis(
+        current_snapshot,
+        calibration=calibration,
+        runtime=vision_runtime,
+        health=vision_health,
+    )
     return jsonify(
         {
             "status": "success",
             "door_status": current_snapshot.get("transition_status") or current_snapshot.get("current_status"),
+            "door_status_text": DOOR_STATUS_TEXT.get(
+                str(current_snapshot.get("transition_status") or current_snapshot.get("current_status") or ""),
+                "状态未知",
+            ),
             "detection_camera": current_snapshot.get("detection_camera") or detection_camera,
             "engine": current_snapshot.get("engine") or "legacy",
             "confidence": current_snapshot.get("confidence", 0.0),
@@ -2354,9 +2489,10 @@ def api_door_vision_status():
             "zone_counts": current_snapshot.get("zone_counts", {}),
             "updated_at": current_snapshot.get("updated_at"),
             "vision_config": _get_vision_config(),
-            "vision_runtime": _vision_runtime_payload(),
-            "vision_service_health": _vision_service_health(),
-            "calibration": _calibration_status_payload(),
+            "vision_runtime": vision_runtime,
+            "vision_service_health": vision_health,
+            "calibration": calibration,
+            "diagnosis": diagnosis,
             "automation_fields": current_snapshot.get("automation_fields", {}),
             "model": {
                 "door_model_path": _door_model_path(),
@@ -2618,13 +2754,16 @@ def get_door_status():
     detection_camera = _preferred_detection_camera()
     with status_lock:
         current_snapshot = dict(door_status_info)
+    vision_runtime = _vision_runtime_payload()
+    calibration = _calibration_status_payload()
+    diagnosis = _door_status_diagnosis(current_snapshot, calibration=calibration, runtime=vision_runtime)
     if current_snapshot["current_status"] == "unknown_calibration":
         return jsonify(
             {
                 "status": "success",
                 "door_status": "unknown",
-                "msg": "等待完成标定向导",
-                "diff": "请先完成下方标定向导",
+                "msg": diagnosis.get("reason_text") or "等待完成标定向导",
+                "diff": "；".join(diagnosis.get("next_steps") or []) or "请先完成下方标定向导",
                 "detection_camera": detection_camera,
                 "view_slots": _get_view_slots(),
                 "regions": {item["key"]: _get_region_pct(item["key"]) for item in _get_camera_configs()},
@@ -2635,25 +2774,19 @@ def get_door_status():
                 "camera_votes": current_snapshot.get("camera_votes", {}),
                 "people_count": current_snapshot.get("people_count", 0),
                 "zone_counts": current_snapshot.get("zone_counts", {}),
-                "vision_runtime": _vision_runtime_payload(),
-                "calibration": _calibration_status_payload(),
+                "vision_runtime": vision_runtime,
+                "calibration": calibration,
+                "diagnosis": diagnosis,
                 "automation_fields": current_snapshot.get("automation_fields", {}),
             }
         )
 
     show = current_snapshot["transition_status"] or current_snapshot["current_status"]
-    text_map = {
-        "opening": "正在开门中",
-        "closing": "正在关门中",
-        "stopped_midway": "门体静止中",
-        "closed": "门已完全关闭",
-        "open": "门已完全开启",
-    }
     return jsonify(
         {
             "status": "success",
             "door_status": show,
-            "msg": text_map.get(show, "状态未知"),
+            "msg": DOOR_STATUS_TEXT.get(show, "状态未知"),
             "diff": f"关门差异:{current_snapshot['diff_c']} | 开门差异:{current_snapshot['diff_o']}",
             "detection_camera": current_snapshot.get("detection_camera") or detection_camera,
             "view_slots": _get_view_slots(),
@@ -2665,8 +2798,9 @@ def get_door_status():
             "camera_votes": current_snapshot.get("camera_votes", {}),
             "people_count": current_snapshot.get("people_count", 0),
             "zone_counts": current_snapshot.get("zone_counts", {}),
-            "vision_runtime": _vision_runtime_payload(),
-            "calibration": _calibration_status_payload(),
+            "vision_runtime": vision_runtime,
+            "calibration": calibration,
+            "diagnosis": diagnosis,
             "automation_fields": current_snapshot.get("automation_fields", {}),
         }
     )
