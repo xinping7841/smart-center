@@ -150,7 +150,7 @@
     }
 
     function updateProtocolDeviceCard(card) {
-        if (!card || card.dataset.polling === '1') return Promise.resolve();
+        if (!card || card.dataset.polling === '1' || card.dataset.pulsing === '1') return Promise.resolve();
         card.dataset.polling = '1';
         const readDo = card.dataset.readDo || '';
         const readDi = card.dataset.readDi || '';
@@ -181,9 +181,12 @@
     function pulseProtocolDevice(card) {
         if (!card) return;
         if (!ensureControlPermission('control_center.control', '点动协议设备输出')) return;
+        if (card.dataset.pulsing === '1') return;
         const pulseId = card.dataset.pulse || '';
         const onId = card.dataset.doOn || '';
         const offId = card.dataset.doOff || '';
+        const pulseButton = card.querySelector('.protocol-action-btn.pulse');
+        const toggle = card.querySelector('[data-role="do-toggle"]');
         const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
         const assertOk = (result, message) => {
             if (result && result.ok === 0) throw new Error(result.msg || message);
@@ -196,11 +199,33 @@
                 .then(() => executeProtocolControl(offId))
                 .then(result => assertOk(result, '点动关断失败'))
             : executeProtocolControl(pulseId).then(result => assertOk(result, '点动失败'));
+        card.dataset.pulsing = '1';
+        if (pulseButton) {
+            pulseButton.disabled = true;
+            pulseButton.textContent = '点动中...';
+        }
+        if (toggle) toggle.disabled = true;
+        setProtocolLamp(card, 'do', null, '点动中');
+        const switchText = card.querySelector('[data-text="switch"]');
+        if (switchText) switchText.textContent = '点动中，1秒后自动关闭';
         notify('点动执行中...', false);
         run.then(result => {
             notify('点动完成', false);
-            setTimeout(() => updateProtocolDeviceCard(card), 260);
-        }).catch(err => notify(err.message || '点动失败', true));
+            setProtocolLamp(card, 'do', false, '输出关');
+            applyProtocolOutput(card, false);
+            setTimeout(() => updateProtocolDeviceCard(card), 180);
+            setTimeout(() => updateProtocolDeviceCard(card), 900);
+        }).catch(err => {
+            notify(err.message || '点动失败', true);
+            setTimeout(() => updateProtocolDeviceCard(card), 180);
+        }).finally(() => {
+            card.dataset.pulsing = '0';
+            if (pulseButton) {
+                pulseButton.disabled = false;
+                pulseButton.textContent = '点动1秒';
+            }
+            if (toggle) toggle.disabled = false;
+        });
     }
 
     function toggleProtocolDeviceOutput(input) {
