@@ -7031,9 +7031,9 @@
             .proxy-hero-metrics { grid-template-columns:1fr; }
             .proxy-client-table { min-width:620px; }
         }
-        /* Codex 2026-05-02: fixed monitoring-wall canvas.
-           Desktop dashboard always lays out on the same 1920x1080 canvas; different
-           browser resolutions only scale that canvas instead of reflowing cards. */
+        /* Codex 2026-05-29: dashboard wall layout without fixed 16:9 scaling.
+           Keep the carefully tuned grid placement, but size the canvas to the
+           current viewport instead of forcing a 1920x1080 base. */
         html.dashboard-fixed-canvas {
             width:100%;
             height:100%;
@@ -7051,10 +7051,10 @@
             position:absolute;
             left:0;
             top:0;
-            width:var(--dashboard-fit-base-width, 1920px);
-            min-width:var(--dashboard-fit-base-width, 1920px);
-            height:var(--dashboard-fit-base-height, 1080px);
-            min-height:var(--dashboard-fit-base-height, 1080px);
+            width:var(--dashboard-fit-base-width, 100vw);
+            min-width:var(--dashboard-fit-base-width, 100vw);
+            height:var(--dashboard-fit-base-height, 100dvh);
+            min-height:var(--dashboard-fit-base-height, 100dvh);
             overflow:hidden;
             transform:translate(var(--dashboard-fit-offset-x, 0px), var(--dashboard-fit-offset-y, 0px)) scale(var(--dashboard-fit-scale, 1));
             transform-origin:left top;

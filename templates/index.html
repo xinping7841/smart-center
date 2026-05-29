@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="/static/js/core/viewport-layout.js?v=20260522-stage7-viewport"></script>
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
-    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260522-mini-projector-switch">
+    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260529-dashboard-fluid-wall">
     <link rel="stylesheet" href="/static/css/views/dashboard-inline.css?v=20260522-stage6-inline-css">
     <link rel="stylesheet" href="/static/css/views/local-model.css?v=20260522-local-model-main">
     <style id="codemeter-four-column-hotfix">
@@ -4652,12 +4652,39 @@
         }
         function applyDashboardBrowserFit(info = {}) {
             const root = document.documentElement;
-            root.classList.remove('dashboard-browser-fit', 'dashboard-fixed-canvas', 'dashboard-fixed-canvas-locked');
-            root.style.removeProperty('--dashboard-fit-scale');
-            root.style.removeProperty('--dashboard-fit-base-width');
-            root.style.removeProperty('--dashboard-fit-base-height');
-            root.style.removeProperty('--dashboard-fit-offset-x');
-            root.style.removeProperty('--dashboard-fit-offset-y');
+            const clearFit = () => {
+                root.classList.remove('dashboard-browser-fit', 'dashboard-fixed-canvas', 'dashboard-fixed-canvas-locked');
+                root.style.removeProperty('--dashboard-fit-scale');
+                root.style.removeProperty('--dashboard-fit-base-width');
+                root.style.removeProperty('--dashboard-fit-base-height');
+                root.style.removeProperty('--dashboard-fit-offset-x');
+                root.style.removeProperty('--dashboard-fit-offset-y');
+            };
+            const params = new URLSearchParams(window.location.search);
+            const disabled = ['0', 'false', 'off', 'none'].includes(String(params.get('fit_dashboard') || '').toLowerCase());
+            const activeView = getActiveViewId();
+            const mobileMode = typeof info.isMobile === 'boolean' ? info.isMobile : document.body.classList.contains('mobile-layout');
+            const tabletMode = typeof info.isTablet === 'boolean' ? info.isTablet : document.body.classList.contains('tablet-layout');
+            const touchWideMode = typeof info.isTouchWide === 'boolean' ? info.isTouchWide : document.body.classList.contains('touch-wide-layout');
+            const touchPortraitMode = typeof info.isTouchPortrait === 'boolean' ? info.isTouchPortrait : document.body.classList.contains('touch-portrait-layout');
+            const desktopDashboard = activeView === 'dashboard' && !mobileMode && !tabletMode && !touchWideMode && !touchPortraitMode;
+            if (disabled || !desktopDashboard) {
+                clearFit();
+                return;
+            }
+            const width = Number(info.width || window.innerWidth || document.documentElement.clientWidth || 0);
+            const height = Number(info.height || window.innerHeight || document.documentElement.clientHeight || 0);
+            const visualW = Number(info.visualW || window.visualViewport?.width || width || 0);
+            const visualH = Number(info.visualH || window.visualViewport?.height || height || 0);
+            const fitW = Math.max(1, Math.min(width || visualW, visualW || width));
+            const fitH = Math.max(1, Math.min(height || visualH, visualH || height));
+            root.classList.remove('dashboard-browser-fit');
+            root.classList.add('dashboard-fixed-canvas', 'dashboard-fixed-canvas-locked');
+            root.style.setProperty('--dashboard-fit-scale', '1');
+            root.style.setProperty('--dashboard-fit-base-width', `${fitW}px`);
+            root.style.setProperty('--dashboard-fit-base-height', `${fitH}px`);
+            root.style.setProperty('--dashboard-fit-offset-x', '0px');
+            root.style.setProperty('--dashboard-fit-offset-y', '0px');
         }
         function syncDashboardCompactMode(viewId = getActiveViewId()) {
             document.body.classList.toggle('dashboard-compact-mode', viewId === 'dashboard');
