@@ -1169,6 +1169,9 @@ class LocalSmartCenterClient:
 
     def _build_light_batch_command(self, device_id: str, device_name: str, channel_count: int, target: bool) -> dict[str, Any]:
         channel_count = max(1, min(int(channel_count or 0), 32))
+        cfg = next((item for item in self._config_section("light_devices") if str(item.get("id")) == str(device_id)), None)
+        if cfg and str(cfg.get("name") or "").strip():
+            device_name = str(cfg.get("name") or "").strip()
         return {
             "type": "light_batch",
             "risk": "normal",
