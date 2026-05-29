@@ -184,12 +184,20 @@
         const pulseId = card.dataset.pulse || '';
         const onId = card.dataset.doOn || '';
         const offId = card.dataset.doOff || '';
-        const run = pulseId
-            ? executeProtocolControl(pulseId)
-            : executeProtocolControl(onId).then(() => new Promise(resolve => setTimeout(resolve, 1000))).then(() => executeProtocolControl(offId));
+        const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+        const assertOk = (result, message) => {
+            if (result && result.ok === 0) throw new Error(result.msg || message);
+            return result;
+        };
+        const run = onId && offId
+            ? executeProtocolControl(onId)
+                .then(result => assertOk(result, '点动开启失败'))
+                .then(() => delay(1000))
+                .then(() => executeProtocolControl(offId))
+                .then(result => assertOk(result, '点动关断失败'))
+            : executeProtocolControl(pulseId).then(result => assertOk(result, '点动失败'));
         notify('点动执行中...', false);
         run.then(result => {
-            if (result && result.ok === 0) throw new Error(result.msg || '点动失败');
             notify('点动完成', false);
             setTimeout(() => updateProtocolDeviceCard(card), 260);
         }).catch(err => notify(err.message || '点动失败', true));
