@@ -49,6 +49,16 @@
         }).then(response => response.json().catch(() => ({})));
     }
 
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, ch => ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;',
+        }[ch]));
+    }
+
     function fireUniversalCommand(devId, payload, format, waitMs) {
         if (!ensureControlPermission('light.control', '控制协议设备')) return;
         notify('通用指令下发中...', false);
@@ -77,6 +87,8 @@
 
     function fireControlCenterControl(controlId, options = {}) {
         if (!ensureControlPermission('control_center.control', '控制协议设备')) return;
+        const title = options.title || '';
+        const showInfo = options.showInfo === true;
         notify('协议指令下发中...', false);
         return postJson('/api/control_center/execute', {
             control_id: controlId,
@@ -87,6 +99,7 @@
                 if (data.ok) {
                     notify(data.msg || '执行成功', false);
                     if (Array.isArray(data.results)) console.log('协议控制结果:', data.results);
+                    if (showInfo) showProtocolInfoDialog(title || data.target_group_name || '设备信息', data);
                     setTimeout(() => updateProtocolDeviceCards(true), 220);
                     return;
                 }
@@ -102,6 +115,59 @@
             control_id: id,
             params: {},
         }, '协议状态读取失败');
+    }
+
+    function firstProtocolResponse(result) {
+        if (!result) return '';
+        const direct = String(result.response || '').trim();
+        if (direct) return direct;
+        const row = Array.isArray(result.results) ? result.results.find(item => String(item?.response || '').trim()) : null;
+        return row ? String(row.response || '').trim() : '';
+    }
+
+    function parseDeviceInfoResponse(response) {
+        const info = {};
+        const match = String(response || '').match(/\+DEVICEINFO:([^\r\n]+)/i);
+        const body = match ? match[1] : '';
+        body.split(',').forEach(part => {
+            const idx = part.indexOf(':');
+            if (idx > 0) info[part.slice(0, idx).trim().toUpperCase()] = part.slice(idx + 1).trim();
+        });
+        return info;
+    }
+
+    function showProtocolInfoDialog(title, result) {
+        const response = firstProtocolResponse(result);
+        const info = parseDeviceInfoResponse(response);
+        const rows = [
+            ['型号', info.UT || '未返回'],
+            ['固件', info.FV || '未返回'],
+            ['网络类型', info.NT || '未返回'],
+            ['输出通道', info.DO || '未返回'],
+            ['输入通道', info.DI || '未返回'],
+        ];
+        const old = document.getElementById('protocol-info-dialog');
+        if (old) old.remove();
+        const overlay = document.createElement('div');
+        overlay.id = 'protocol-info-dialog';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:10080;background:rgba(2,6,23,.72);display:flex;align-items:center;justify-content:center;padding:18px;';
+        overlay.innerHTML = `<div style="width:min(520px,100%);border:1px solid rgba(148,163,184,.28);border-radius:12px;background:#0f172a;color:#e5eefb;box-shadow:0 24px 70px rgba(0,0,0,.48);overflow:hidden;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-bottom:1px solid rgba(148,163,184,.18);">
+                <div style="font-size:16px;font-weight:950;">${escapeHtml(title || '设备信息')}</div>
+                <button type="button" data-close="1" style="width:32px;height:32px;border:1px solid rgba(148,163,184,.24);border-radius:8px;background:rgba(15,23,42,.78);color:#e5eefb;font-size:20px;line-height:1;cursor:pointer;">×</button>
+            </div>
+            <div style="padding:14px 16px;">
+                <div style="display:grid;grid-template-columns:92px minmax(0,1fr);gap:8px 12px;font-size:13px;">
+                    ${rows.map(([k, v]) => `<div style="color:#93a4bd;font-weight:800;">${escapeHtml(k)}</div><div style="font-weight:900;word-break:break-word;">${escapeHtml(v)}</div>`).join('')}
+                </div>
+                <div style="margin-top:14px;color:#93a4bd;font-size:12px;font-weight:800;">原始返回</div>
+                <pre style="margin:8px 0 0;max-height:180px;overflow:auto;white-space:pre-wrap;word-break:break-word;border:1px solid rgba(148,163,184,.18);border-radius:8px;background:rgba(2,6,23,.55);padding:10px;color:#bfdbfe;font-size:12px;line-height:1.45;">${escapeHtml(response || '没有返回内容')}</pre>
+            </div>
+        </div>`;
+        overlay.addEventListener('click', event => {
+            if (event.target === overlay || event.target?.dataset?.close) overlay.remove();
+        });
+        document.body.appendChild(overlay);
     }
 
     function parseProtocolBit(result, kind) {
