@@ -17,6 +17,7 @@ import sys
 import threading
 import time
 import uuid
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -56,6 +57,8 @@ else:
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+RUNTIME_ROOT = Path(os.environ.get("SMART_CENTER_RUNTIME_DIR", "/srv/smart-center-data/runtime"))
+PENDING_CONTROL_STORE = RUNTIME_ROOT / "feishu_pending_controls.json"
 DEFAULT_BASE_URL = "http://127.0.0.1:5000"
 BOT_NAME_HINTS = ("深澜中控AI运维", "中控AI运维", "中控")
 MODULE_LABELS = {
@@ -709,6 +712,30 @@ class LocalSmartCenterClient:
         detail = self._summarize_api_result(payload)
         return f"{label} {_format_control_action(action)}{status}：{detail}"
 
+    def control_state_text(self, command: dict[str, Any] | None) -> str:
+        if not isinstance(command, dict):
+            return ""
+        if command.get("type") == "power":
+            payload = command.get("payload") if isinstance(command.get("payload"), dict) else {}
+            cab = payload.get("cab")
+            ch = payload.get("ch")
+            if cab is None or ch is None:
+                return ""
+            ok, status = self.get_json("/api/status", timeout_sec=4.0)
+            if not ok or not isinstance(status, dict):
+                return f"当前状态读取失败：{status}"
+            if int(status.get("cab_idx") or status.get("cabinet_idx") or 0) != int(cab):
+                return "当前状态读取成功，但返回的不是目标电柜。"
+            channels = status.get("channels_1_4") or status.get("channels") or []
+            state = "--"
+            try:
+                state = "开启" if bool(channels[int(ch) - 1]) else "关闭"
+            except Exception:
+                state = "--"
+            updated = status.get("_last_success_at") or status.get("updated_at") or "--"
+            return f"当前状态：第{int(ch)}路 {state}，更新时间 {updated}。"
+        return ""
+
     def _ambiguous_control_text(self, kind: str, matches: list[dict[str, Any]]) -> str:
         rows = []
         for item in matches[:8]:
@@ -824,7 +851,9 @@ class LocalSmartCenterClient:
             ok, result = self.get_json(path, timeout_sec=timeout_sec)
         else:
             ok, result = self.post_json(path, payload, timeout_sec=timeout_sec)
-        return self._finish_control_result(ok, result, label, action)
+        state_text = self.control_state_text(command)
+        suffix = f"\n{state_text}" if state_text else ""
+        return self._finish_control_result(ok, result, label, action) + suffix
 
     def _resolve_door_control(self, text: str, action: str) -> dict[str, Any] | None:
         if not _contains_any(text, ("大门", "门禁", "开门", "关门")):
@@ -2094,6 +2123,7 @@ class FeishuBot:
         self._sent_push_keys: set[str] = set()
         self._pending_controls: dict[str, dict[str, Any]] = {}
         self._pending_controls_lock = threading.Lock()
+        self._load_pending_controls()
 
     def _build_ws_client(self):
         handler = (
@@ -2186,6 +2216,35 @@ class FeishuBot:
     def _pending_key(self, chat_id: str) -> str:
         return str(chat_id or "_local").strip() or "_local"
 
+    def _load_pending_controls(self) -> None:
+        try:
+            payload = json.loads(PENDING_CONTROL_STORE.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return
+        except Exception as exc:
+            self.log(f"[pending load failed] {exc}")
+            return
+        if not isinstance(payload, dict):
+            return
+        now = time.time()
+        loaded: dict[str, dict[str, Any]] = {}
+        for key, pending in payload.items():
+            if not isinstance(pending, dict):
+                continue
+            if now > float(pending.get("expires_at", 0.0) or 0.0):
+                continue
+            loaded[str(key)] = pending
+        self._pending_controls.update(loaded)
+
+    def _save_pending_controls_locked(self) -> None:
+        try:
+            RUNTIME_ROOT.mkdir(parents=True, exist_ok=True)
+            tmp = PENDING_CONTROL_STORE.with_suffix(".tmp")
+            tmp.write_text(json.dumps(self._pending_controls, ensure_ascii=False, indent=2), encoding="utf-8")
+            tmp.replace(PENDING_CONTROL_STORE)
+        except Exception as exc:
+            self.log(f"[pending save failed] {exc}")
+
     def _pop_pending_control(self, chat_id: str) -> dict[str, Any] | None:
         key = self._pending_key(chat_id)
         with self._pending_controls_lock:
@@ -2199,11 +2258,19 @@ class FeishuBot:
     def _pending_control_by_id(self, chat_id: str, expected_pending_id: str = "", *, pop: bool = True) -> dict[str, Any] | None:
         key = self._pending_key(chat_id)
         with self._pending_controls_lock:
+            self._load_pending_controls()
             pending = self._pending_controls.get(key)
+            if not pending and expected_pending_id:
+                for item_key, item in self._pending_controls.items():
+                    if isinstance(item, dict) and str(item.get("pending_id") or "") == expected_pending_id:
+                        key = item_key
+                        pending = item
+                        break
             if pending and expected_pending_id and str(pending.get("pending_id") or "") != expected_pending_id:
                 return {"mismatch": True}
             if pending and pop:
                 self._pending_controls.pop(key, None)
+                self._save_pending_controls_locked()
         if not pending:
             return None
         if time.time() > float(pending.get("expires_at", 0.0) or 0.0):
@@ -2213,14 +2280,16 @@ class FeishuBot:
     def _execute_pending_control(self, chat_id: str, expected_pending_id: str = "") -> str:
         pending = self._pending_control_by_id(chat_id, expected_pending_id=expected_pending_id, pop=True)
         if not pending:
-            return "当前没有待确认控制。"
+            return "未执行：当前没有待确认控制。可能是旧卡片、服务重启前卡片，或测试卡片没有生成真实待确认任务。请重新下发控制命令。"
         if pending.get("mismatch"):
-            return "这张确认卡片已不是最新请求，请使用最新卡片或重新下发。"
+            return "未执行：这张确认卡片已不是最新请求，请使用最新卡片或重新下发。"
         if pending.get("expired"):
-            return "待确认控制已过期，请重新下发。"
+            command = pending.get("command") if isinstance(pending.get("command"), dict) else None
+            state_text = self.local_client.control_state_text(command)
+            return f"未执行：待确认控制已过期，请重新下发。{chr(10) + state_text if state_text else ''}"
         command = pending.get("command")
         if not isinstance(command, dict):
-            return "待确认控制格式无效，请重新下发。"
+            return "未执行：待确认控制格式无效，请重新下发。"
         return self.local_client.execute_control_command(command)
 
     def _cancel_pending_control(self, chat_id: str, expected_pending_id: str = "") -> str:
@@ -2239,11 +2308,12 @@ class FeishuBot:
         pending_id = uuid.uuid4().hex
         with self._pending_controls_lock:
             self._pending_controls[key] = {
-                "command": command,
+                "command": deepcopy(command),
                 "source_text": source_text,
                 "expires_at": expires_at,
                 "pending_id": pending_id,
             }
+            self._save_pending_controls_locked()
         label = str(command.get("label") or "设备")
         action = _format_control_action(str(command.get("action") or ""))
         confidence = str(command.get("confidence") or "high")
