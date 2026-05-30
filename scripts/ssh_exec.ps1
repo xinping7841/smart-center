@@ -19,6 +19,19 @@ function Quote-Bash {
   return "'" + $escaped + "'"
 }
 
+function Run-Native {
+  Param(
+    [Parameter(Mandatory = $true)]
+    [string]$Exe,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$Args
+  )
+  & $Exe @Args
+  if ($LASTEXITCODE -ne 0) {
+    throw "$Exe failed with exit code $LASTEXITCODE"
+  }
+}
+
 if (-not (Test-Path -LiteralPath $ScriptPath)) {
   throw "Script not found: $ScriptPath"
 }
@@ -26,40 +39,61 @@ if (-not (Test-Path -LiteralPath $ScriptPath)) {
 $absScript = (Resolve-Path -LiteralPath $ScriptPath).Path
 $scriptName = [System.IO.Path]::GetFileName($absScript)
 $remoteTmp = "/tmp/codex_exec_$([System.Guid]::NewGuid().ToString('N'))"
-$remoteScript = "$remoteTmp/$scriptName"
+$remoteRunner = "bash"
+if ($scriptName.ToLowerInvariant().EndsWith(".py")) {
+  $remoteScript = "$remoteTmp/payload.py"
+  $remoteRunner = "python3"
+} else {
+  $remoteScript = "$remoteTmp/payload.sh"
+}
+$remoteWrapper = "$remoteTmp/run.sh"
+$localWrapper = Join-Path ([System.IO.Path]::GetTempPath()) ("codex_ssh_wrapper_" + [System.Guid]::NewGuid().ToString("N") + ".sh")
 
 Write-Host "[ssh_exec] upload: $absScript -> ${HostName}:$remoteScript"
 
-& ssh $HostName "mkdir -p $(Quote-Bash $remoteTmp)" | Out-Null
-if ($LASTEXITCODE -ne 0) {
-  throw "Failed to create remote temp dir: $remoteTmp"
-}
+Run-Native ssh $HostName "mkdir -p $(Quote-Bash $remoteTmp)"
 
-& scp -q $absScript "${HostName}:$remoteScript"
-if ($LASTEXITCODE -ne 0) {
-  throw "Failed to upload script: $absScript"
-}
-
-$remoteParts = @(
+$wrapperLines = @(
+  "#!/usr/bin/env bash",
   "set -euo pipefail",
-  "chmod +x $(Quote-Bash $remoteScript)"
+  "REMOTE_SCRIPT=$(Quote-Bash $remoteScript)",
+  "REMOTE_WORKDIR=$(Quote-Bash $RemoteWorkDir)",
+  "REMOTE_RUNNER=$(Quote-Bash $remoteRunner)",
+  "",
+  'chmod +x "$REMOTE_SCRIPT"',
+  'if [[ -n "$REMOTE_WORKDIR" ]]; then',
+  '  cd "$REMOTE_WORKDIR"',
+  'fi',
+  "",
+  'case "$REMOTE_RUNNER" in',
+  '  python3)',
+  '    exec python3 "$REMOTE_SCRIPT"',
+  '    ;;',
+  '  bash)',
+  '    exec bash "$REMOTE_SCRIPT"',
+  '    ;;',
+  '  *)',
+  '    echo "unsupported remote runner: $REMOTE_RUNNER" >&2',
+  '    exit 2',
+  '    ;;',
+  'esac'
 )
 
-if ($RemoteWorkDir -ne "") {
-  $remoteParts += "cd $(Quote-Bash $RemoteWorkDir)"
-}
+$wrapperLines | Set-Content -LiteralPath $localWrapper -Encoding ascii
 
-$remoteParts += "bash $(Quote-Bash $remoteScript)"
-$remoteCmd = ($remoteParts -join "; ")
+Run-Native scp "-q" $absScript "${HostName}:$remoteScript"
+Write-Host "[ssh_exec] upload wrapper -> ${HostName}:$remoteWrapper"
+Run-Native scp "-q" $localWrapper "${HostName}:$remoteWrapper"
 
 Write-Host "[ssh_exec] run on $HostName"
 $runExit = 0
 try {
-  & ssh $HostName "bash -lc $(Quote-Bash $remoteCmd)"
+  & ssh $HostName bash $remoteWrapper
   $runExit = $LASTEXITCODE
 }
 finally {
-  & ssh $HostName "rm -rf $(Quote-Bash $remoteTmp)" | Out-Null
+  Remove-Item -LiteralPath $localWrapper -Force -ErrorAction SilentlyContinue
+  & ssh $HostName rm -rf $remoteTmp | Out-Null
 }
 
 if ($runExit -ne 0) {

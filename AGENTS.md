@@ -36,6 +36,7 @@ app.py
 - 不得使用 `git clean -fd` 删除未知文件。
 - 不得使用 `rsync --delete` 覆盖 Git 工作区。
 - 夜间无人任务不得触发强电、时序电源、投影、空调、UPS、服务器关机重启、WOL 等真实控制动作。
+- 不得把复杂远程逻辑直接塞进 `ssh "..."`。只允许简单单条命令；凡是包含管道、awk、JSON、here-doc、PowerShell script block、花括号、嵌套引号或多语句的远程操作，都必须先写成脚本文件，再用 `scripts/ssh_exec.sh`、`scripts/ssh_exec_windows.sh` 或对应 PowerShell runner 上传执行。
 
 ## 推荐脚本
 
@@ -63,7 +64,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/collab/start-work.ps
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/collab/finish-work.ps1 -Message "refactor: split server monitor module" -ReleaseLock server_monitor
 ```
 
+远程机器执行复杂操作时使用：
+
+```bash
+bash scripts/ssh_exec.sh --host node-120-ts --script scripts/remote/check_status.sh
+bash scripts/ssh_exec_windows.sh --host 12700k-ts --script scripts/remote/check_windows_smart_center.ps1
+```
+
+详细规则见 `docs/REMOTE_EXECUTION_GUIDE.md`。
+
 ## 工作方式
 
 代码隔离依靠 Git worktree；模块占用依靠 worklock；任务记忆依靠 TASK.md；长期共识依靠 shared-decisions.md；最终可追溯依靠 Git commit。
-

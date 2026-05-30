@@ -1,0 +1,10 @@
+{
+  "task": "remote-script-runner",
+  "module": "collab_tools",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-remote-script-runner-20260530",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/remote-script-runner",
+  "started_at": "2026-05-30 20:38:05",
+  "status": "in_progress"
+}

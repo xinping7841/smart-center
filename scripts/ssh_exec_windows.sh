@@ -61,6 +61,12 @@ ps_quote() {
   printf "'%s'" "$value"
 }
 
+ps_literal() {
+  local value="${1:-}"
+  value="${value//\'/\'\'}"
+  printf "'%s'" "$value"
+}
+
 ABS_SCRIPT="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)/$(basename "$SCRIPT_PATH")"
 SCRIPT_NAME="$(basename "$ABS_SCRIPT")"
 TMP_NAME="codex_exec_$(python3 - <<'PY'
@@ -70,25 +76,45 @@ PY
 )"
 REMOTE_TMP_WIN="${REMOTE_TEMP_ROOT_WIN}\\${TMP_NAME}"
 REMOTE_TMP_SCP="${REMOTE_TEMP_ROOT_SCP}/${TMP_NAME}"
-REMOTE_SCRIPT_WIN="${REMOTE_TMP_WIN}\\${SCRIPT_NAME}"
-REMOTE_SCRIPT_SCP="${REMOTE_TMP_SCP}/${SCRIPT_NAME}"
+REMOTE_SCRIPT_WIN="${REMOTE_TMP_WIN}\\payload.ps1"
+REMOTE_SCRIPT_SCP="${REMOTE_TMP_SCP}/payload.ps1"
+REMOTE_WRAPPER_WIN="${REMOTE_TMP_WIN}\\run.ps1"
+REMOTE_WRAPPER_SCP="${REMOTE_TMP_SCP}/run.ps1"
+LOCAL_WRAPPER="$(mktemp "${TMPDIR:-/tmp}/codex-ssh-win-wrapper.XXXXXX.ps1")"
+
+write_wrapper() {
+  {
+    printf '$ErrorActionPreference = "Stop"\n'
+    printf '$RemoteScript = %s\n' "$(ps_literal "$REMOTE_SCRIPT_WIN")"
+    printf '$RemoteWorkDir = %s\n' "$(ps_literal "$REMOTE_WORKDIR")"
+    cat <<'EOF'
+
+if ($RemoteWorkDir -ne "") {
+  Set-Location -LiteralPath $RemoteWorkDir
+}
+
+& powershell -NoProfile -ExecutionPolicy Bypass -File $RemoteScript
+exit $LASTEXITCODE
+EOF
+  } >"$LOCAL_WRAPPER"
+}
 
 echo "[ssh_exec_windows] create temp: ${HOST_NAME}:${REMOTE_TMP_WIN}"
 ssh "$HOST_NAME" "powershell -NoProfile -Command \"New-Item -ItemType Directory -Force -Path $(ps_quote "$REMOTE_TMP_WIN") | Out-Null\""
 
 cleanup() {
   echo "[ssh_exec_windows] cleanup: ${HOST_NAME}:${REMOTE_TMP_WIN}" >&2
+  rm -f "$LOCAL_WRAPPER" >/dev/null 2>&1 || true
   ssh "$HOST_NAME" "powershell -NoProfile -Command \"Remove-Item -LiteralPath $(ps_quote "$REMOTE_TMP_WIN") -Recurse -Force -ErrorAction SilentlyContinue\"" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
+write_wrapper
+
 echo "[ssh_exec_windows] upload: ${ABS_SCRIPT} -> ${HOST_NAME}:${REMOTE_SCRIPT_WIN}"
 scp -q "$ABS_SCRIPT" "${HOST_NAME}:${REMOTE_SCRIPT_SCP}"
+echo "[ssh_exec_windows] upload wrapper -> ${HOST_NAME}:${REMOTE_WRAPPER_WIN}"
+scp -q "$LOCAL_WRAPPER" "${HOST_NAME}:${REMOTE_WRAPPER_SCP}"
 
 echo "[ssh_exec_windows] run on $HOST_NAME"
-if [[ -n "$REMOTE_WORKDIR" ]]; then
-  REMOTE_COMMAND="Set-Location -Path $(ps_quote "$REMOTE_WORKDIR"); & $(ps_quote "$REMOTE_SCRIPT_WIN")"
-  ssh "$HOST_NAME" "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$REMOTE_COMMAND\""
-else
-  ssh "$HOST_NAME" "powershell -NoProfile -ExecutionPolicy Bypass -File $REMOTE_SCRIPT_WIN"
-fi
+ssh "$HOST_NAME" "powershell -NoProfile -ExecutionPolicy Bypass -File $REMOTE_WRAPPER_WIN"
