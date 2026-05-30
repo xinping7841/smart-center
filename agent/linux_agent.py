@@ -18,6 +18,7 @@ from pathlib import Path
 AGENT_VERSION = "__AGENT_VERSION__"
 DEFAULT_REPORT_URL = "http://__SERVER_HOST__:__SERVER_PORT__/report"
 REPORT_URL = os.environ.get("SMART_CENTER_REPORT_URL", DEFAULT_REPORT_URL)
+HEARTBEAT_URL = os.environ.get("SMART_CENTER_HEARTBEAT_URL", REPORT_URL.rsplit("/", 1)[0] + "/agent/heartbeat")
 REPORT_INTERVAL_SEC = float(os.environ.get("SMART_CENTER_REPORT_INTERVAL", "5"))
 SERVICE_NAME = os.environ.get("SMART_CENTER_SERVICE_NAME", "smart-center-agent.service")
 AGENT_PATH = Path(os.environ.get("SMART_CENTER_AGENT_PATH", __file__)).resolve()
@@ -1201,9 +1202,43 @@ def build_report_payload(status=None, extra=None):
 
 
 def post_report_payload(payload):
+    sent_at = now_iso()
+    if isinstance(payload, dict):
+        payload["client_sent_at"] = sent_at
+        status = payload.get("status")
+        if isinstance(status, dict):
+            status["client_sent_at"] = sent_at
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(REPORT_URL, data=body, headers={"Content-Type": "application/json", "User-Agent": f"smart-center-linux-agent/{AGENT_VERSION}"}, method="POST")
     with urllib.request.urlopen(req, timeout=8) as resp:
+        raw = resp.read(1024 * 1024)
+        parsed = json.loads(raw.decode("utf-8", errors="ignore")) if raw else {}
+        return resp.status, parsed if isinstance(parsed, dict) else {}
+
+
+def post_heartbeat_payload():
+    sent_at = now_iso()
+    payload = {
+        "mac": machine_mac(),
+        "hostname": socket.gethostname() or "linux-node",
+        "ip": primary_ip(),
+        "timestamp": sent_at,
+        "client_sent_at": sent_at,
+        "status": {
+            "client_sent_at": sent_at,
+            "agent": {
+                "version": AGENT_VERSION,
+                "current_server_url": report_base_url(),
+                "service": SERVICE_NAME,
+                "report_interval_sec": REPORT_INTERVAL_SEC,
+                "updated_at": sent_at,
+                "heartbeat": True,
+            },
+        },
+    }
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(HEARTBEAT_URL, data=body, headers={"Content-Type": "application/json", "User-Agent": f"smart-center-linux-agent/{AGENT_VERSION}"}, method="POST")
+    with urllib.request.urlopen(req, timeout=5) as resp:
         raw = resp.read(1024 * 1024)
         parsed = json.loads(raw.decode("utf-8", errors="ignore")) if raw else {}
         return resp.status, parsed if isinstance(parsed, dict) else {}
@@ -1247,6 +1282,10 @@ def handle_command(command):
 
 def report_once():
     _, response = post_report_payload(build_report_payload())
+    try:
+        post_heartbeat_payload()
+    except Exception as exc:
+        log(f"heartbeat failed: {exc}")
     if isinstance(response, dict):
         handle_command(response.get("command"))
         agent_config = response.get("agent_config")

@@ -885,11 +885,8 @@
             const refreshButton = `<button class="server-action-btn refresh${controlClass}" ${controlAttrs} title="要求节点立即刷新采集" onclick="sendServerCmd('${escapeHtml(m.mac)}', 'refresh')">刷新</button>`;
             const restartButton = `<button class="server-action-btn restart${controlClass}" ${controlAttrs} title="重启节点，测试机实测约 50 秒恢复 SSH" onclick="sendServerCmd('${escapeHtml(m.mac)}', 'restart')">重启</button>`;
             const shutdownButton = `<button class="server-action-btn shutdown${controlClass}" ${controlAttrs} title="关闭节点；需要 WOL 或现场电源恢复" onclick="sendServerCmd('${escapeHtml(m.mac)}', 'shutdown')">关机</button>`;
-            const offlineCommandHint = cardStateClass === 'offline'
-                ? `<div class="server-command-disabled-note">节点离线时只保留唤醒入口；关机/重启需要 Agent 在线后才能确认送达。</div>`
-                : '';
             const actionHtml = cardStateClass === 'offline'
-                ? `${offlineCommandHint}<div class="server-compact-actions offline-only"><span class="spacer"></span>${wakeButton}</div>`
+                ? `<div class="server-compact-actions offline-only"><span class="spacer"></span>${wakeButton}</div>`
                 : `<div class="server-compact-actions">${moveButtons}<span class="spacer"></span>${redeployButton}<div class="server-action-group power">${refreshButton}${restartButton}${shutdownButton}${wakeButton}</div></div>`;
             return `<div class="server-card ${cardStateClass} size-${escapeHtml(m.card_size || 'normal')}"><div class="server-title"><span>${escapeHtml(getServerDisplayName(m))}</span><span class="tag ${diagnostic.badgeClass}">${escapeHtml(diagnostic.badgeText)}</span></div><div class="server-ip" title="${escapeHtml(identityLine.title)}">${escapeHtml(identityLine.text)}</div>${renderServerCommandPending(pendingCommand)}${commandResultHtml}${metricsHtml}${remarkHtml}${actionHtml}</div>`;
         }

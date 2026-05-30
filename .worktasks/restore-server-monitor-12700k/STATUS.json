@@ -1,0 +1,10 @@
+{
+  "task": "restore-server-monitor-12700k",
+  "module": "server_monitor",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-restore-server-monitor-12700k-20260530",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/restore-server-monitor-12700k",
+  "started_at": "2026-05-30 17:50:32",
+  "status": "ready_to_commit"
+}
