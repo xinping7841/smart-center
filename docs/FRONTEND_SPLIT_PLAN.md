@@ -1,6 +1,6 @@
 # Frontend Split Plan
 
-Last updated: 2026-05-22
+Last updated: 2026-05-30
 
 The dashboard currently works, so frontend splitting must be done as behavior-preserving moves. Do not rewrite view logic while moving it.
 
@@ -9,7 +9,7 @@ The dashboard currently works, so frontend splitting must be done as behavior-pr
 - `templates/index.html` is the main shell and contains large inline CSS/JS.
 - Static CSS files are large and mostly shared; the first dashboard-specific leftovers are now in `static/css/views/dashboard-inline.css`.
 - Most buttons still call global functions from inline `onclick` attributes.
-- The following behavior-preserving modules have been extracted to `static/js/views/`: `logs.js`, `proxy.js`, `ups.js`, `hy-edge.js`, `apple-audio.js`, `universal.js`, `env.js`, `snmp.js`, `server-monitor.js`, `power-meter.js`, `automation-view.js`, `dashboard-summary.js`, `hvac-view.js`, `current-collector.js`, `driver-hub.js`, `local-model.js`, `login.js`, and `lighting.js`.
+- The following behavior-preserving modules have been extracted to `static/js/views/`: `logs.js`, `proxy.js`, `ups.js`, `hy-edge.js`, `apple-audio.js`, `universal.js`, `env.js`, `snmp.js`, `server-monitor.js`, `power-meter.js`, `automation-view.js`, `dashboard-summary.js`, `hvac-view.js`, `projector.js`, `current-collector.js`, `driver-hub.js`, `local-model.js`, `login.js`, and `lighting.js`.
 
 ## Stage 2A: Bootstrap And Boundaries
 
@@ -20,6 +20,8 @@ Completed by adding `static/js/core/bootstrap.js` and this plan. This creates `w
 In progress. `static/js/core/utils.js` now provides shared API helpers, time/number formatting, permission helpers, toast display, frontend error reporting, and guarded execution helpers. The dashboard keeps legacy global function names but now delegates several wrappers to `SmartCenter.utils`; the config center now reuses shared API, escape, and time helpers while keeping its stricter local permission checks.
 
 Completed companion move: `static/js/core/viewport-layout.js` now owns the early viewport/layout preset detection for mobile, tablet/foldable, and desktop-site modes.
+
+2026-05-30 companion move: `static/js/core/viewport-layout.js` also owns the runtime dashboard browser-fit and layout-debug panel helpers. `templates/index.html` now keeps only compatibility constants for the old global helper names.
 
 Candidate utilities to move first:
 
@@ -67,6 +69,8 @@ Recommended order after utilities are stable:
    - Completed: `static/js/views/hvac-view.js` now holds status/mode/fan/power display helpers, room grouping/sorting, room environment chips, dashboard overview HTML, and HVAC card/group rendering. `templates/index.html` still keeps polling, status cache, temperature/mode popover state, and `/api/hvac/control` actions.
 6. Dashboard summary display.
    - Completed: `static/js/views/dashboard-summary.js` now holds top counter, proxy/env summary bridge, and footer health summary render helpers. `templates/index.html` still keeps summary polling, cached payload state, and compatibility wrappers.
+7. Projector view helpers.
+   - Completed: `static/js/views/projector.js` now holds projector command fallback names, garbled-text cleanup, PJLink/RS232 formatting, inferred-current evidence helpers, dashboard/page card rendering, and remote-panel rendering. `templates/index.html` still keeps projector status cache, polling, `/api/projector/control` dispatch, permission gate entrypoint, and delayed status refresh after control.
 
 ## Stage 2E: Extract View CSS
 

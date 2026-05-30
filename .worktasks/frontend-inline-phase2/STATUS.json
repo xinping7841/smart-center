@@ -1,0 +1,10 @@
+{
+  "task": "frontend-inline-phase2",
+  "module": "template",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-frontend-inline-phase2-20260530",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-inline-phase2",
+  "started_at": "2026-05-30 16:39:21",
+  "status": "ready_to_commit"
+}
