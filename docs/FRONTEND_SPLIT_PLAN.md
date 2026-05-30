@@ -73,6 +73,15 @@ Recommended order after utilities are stable:
 1. Dashboard inline CSS.
    - Completed: `static/css/views/dashboard-inline.css` now holds the automation node canvas modal and event-log table styles. `templates/index.html` keeps the stylesheet link only.
 
+## Stage 2F: Lazy-Load Heavy Views
+
+First baseline completed on 2026-05-30:
+
+- `static/js/core/bootstrap.js` now owns a small lazy module registry: `registerLazyModule`, `registerViewModules`, `ensureModules`, and `ensureViewModules`.
+- The dashboard loads `static/js/views/snmp-summary.js` for the home SNMP card and loads full `static/js/views/snmp.js` only when the SNMP detail page or camera preview needs it.
+- `proxy.js`, `universal.js`, `apple-audio.js`, `local-model.js`, `local-model.css`, and `echarts.min.js` are no longer part of the synchronous first-paint chain.
+- Legacy global function names remain as lazy compatibility shims so inline `onclick` handlers continue to work while the template is gradually cleaned up.
+
 ## Stage 2 Safety Notes
 
 - Do not combine view extraction with behavior changes. If a bug is found during extraction, either fix it in a separate commit or explicitly call out the coupled change.

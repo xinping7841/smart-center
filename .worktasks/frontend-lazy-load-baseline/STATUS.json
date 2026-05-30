@@ -1,0 +1,10 @@
+{
+  "task": "frontend-lazy-load-baseline",
+  "module": "template",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-frontend-lazy-load-baseline-20260530",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-lazy-load-baseline",
+  "started_at": "2026-05-30 11:38:46",
+  "status": "in_progress"
+}

@@ -7,7 +7,6 @@
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
     <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260529-dashboard-fluid-wall">
     <link rel="stylesheet" href="/static/css/views/dashboard-inline.css?v=20260522-stage6-inline-css">
-    <link rel="stylesheet" href="/static/css/views/local-model.css?v=20260528-integrated-ui">
     <style id="codemeter-four-column-hotfix">
         .server-codemeter-line { display:block !important; margin:8px 0 0 !important; padding:6px 8px !important; border-radius:8px !important; background:rgba(2,6,23,0.24) !important; border:1px solid rgba(148,163,184,0.10) !important; overflow:hidden !important; min-width:0 !important; }
         .server-codemeter-line .codemeter-license-table { display:grid !important; gap:2px !important; width:100% !important; min-width:0 !important; }
@@ -1747,24 +1746,18 @@
         </div>
     </div>
 
-    <script src="/static/vendor/echarts.min.js?v=6.0.0"></script>
-    <script src="/static/js/core/bootstrap.js?v=20260522-stage2"></script>
+    <script src="/static/js/core/bootstrap.js?v=20260530-lazy-modules"></script>
     <script src="/static/js/core/utils.js?v=20260522-stage2-shared-utils"></script>
     <script src="/static/js/views/logs.js?v=20260522-stage2-logs-view"></script>
-    <script src="/static/js/views/proxy.js?v=20260522-stage2-proxy-view"></script>
     <script src="/static/js/views/ups.js?v=20260522-stage2-ups-view"></script>
     <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
-    <script src="/static/js/views/apple-audio.js?v=20260522-stage2-apple-audio-view"></script>
-    <script src="/static/js/views/universal.js?v=20260529-protocol-ultra-compact"></script>
     <script src="/static/js/views/env.js?v=20260522-stage2-env-view"></script>
-    <script src="/static/js/views/snmp.js?v=20260522-stage3-snmp-render"></script>
+    <script src="/static/js/views/snmp-summary.js?v=20260530-dashboard-snmp-summary"></script>
     <script src="/static/js/views/server-monitor.js?v=20260522-codemeter-days-visible"></script>
     <script src="/static/js/views/power-meter.js?v=20260522-stage4-power-meter"></script>
     <script src="/static/js/views/automation-view.js?v=20260522-stage4-automation-view"></script>
     <script src="/static/js/views/dashboard-summary.js?v=20260522-stage8-dashboard-summary"></script>
     <script src="/static/js/views/hvac-view.js?v=20260522-stage5-hvac-view"></script>
-    <script src="/static/js/views/nvr-view.js?v=20260522-stage5-nvr-view"></script>
-    <script src="/static/js/views/local-model.js?v=20260522-local-model-main"></script>
 
     <script>
         // AI map: dashboard.inline_runtime. This large script is being split
@@ -1772,6 +1765,150 @@
         const configData = {{ config | tojson | safe }};
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
+        const lazyModuleVersion = '20260530-lazy-baseline';
+        SmartCenter.registerLazyModule('snmp-full', {
+            scripts: [`/static/js/views/snmp.js?v=${lazyModuleVersion}`],
+        });
+        SmartCenter.registerLazyModule('proxy-view', {
+            scripts: [`/static/js/views/proxy.js?v=${lazyModuleVersion}`],
+        });
+        SmartCenter.registerLazyModule('universal-view', {
+            scripts: [`/static/js/views/universal.js?v=${lazyModuleVersion}`],
+        });
+        SmartCenter.registerLazyModule('apple-audio-view', {
+            scripts: [`/static/js/views/apple-audio.js?v=${lazyModuleVersion}`],
+        });
+        SmartCenter.registerLazyModule('local-model-view', {
+            styles: [`/static/css/views/local-model.css?v=${lazyModuleVersion}`],
+            scripts: [`/static/js/views/local-model.js?v=${lazyModuleVersion}`],
+        });
+        SmartCenter.registerViewModules('snmp', ['snmp-full']);
+        SmartCenter.registerViewModules('camera_preview', ['snmp-full']);
+        SmartCenter.registerViewModules('proxy', ['proxy-view']);
+        SmartCenter.registerViewModules('universal', ['universal-view']);
+        SmartCenter.registerViewModules('apple_audio', ['apple-audio-view']);
+        SmartCenter.registerViewModules('local_model', ['local-model-view']);
+        function ensureModulesReady(moduleNames, contextLabel = '功能模块') {
+            if (!window.SmartCenter || typeof SmartCenter.ensureModules !== 'function') return Promise.resolve([]);
+            return SmartCenter.ensureModules(moduleNames).catch(err => {
+                console.error(`${contextLabel}加载失败`, err);
+                if (typeof showToast === 'function') showToast(`${contextLabel}加载失败，请刷新后重试`, true);
+                throw err;
+            });
+        }
+        function ensureViewReady(viewId) {
+            if (!window.SmartCenter || typeof SmartCenter.ensureViewModules !== 'function') return Promise.resolve([]);
+            return SmartCenter.ensureViewModules(viewId).catch(err => {
+                console.error(`视图 ${viewId} 模块加载失败`, err);
+                if (typeof showToast === 'function') showToast('页面模块加载失败，请刷新后重试', true);
+                throw err;
+            });
+        }
+        function callLazyGlobal(moduleNames, functionName, args = [], fallbackValue = undefined) {
+            if (typeof window[functionName] === 'function' && !window[functionName].__smartLazyShim) {
+                return window[functionName].apply(window, args);
+            }
+            return ensureModulesReady(moduleNames, functionName)
+                .then(() => {
+                    const fn = window[functionName];
+                    if (typeof fn !== 'function' || fn.__smartLazyShim) throw new Error(`lazy_function_missing:${functionName}`);
+                    return fn.apply(window, args);
+                })
+                .catch(err => {
+                    console.error(`延迟函数调用失败: ${functionName}`, err);
+                    return fallbackValue;
+                });
+        }
+        function installLazyGlobal(functionName, moduleNames, fallbackValue = undefined) {
+            const shim = function smartLazyGlobalShim(...args) {
+                return callLazyGlobal(moduleNames, functionName, args, fallbackValue);
+            };
+            shim.__smartLazyShim = true;
+            window[functionName] = shim;
+        }
+        ['renderProxyDetail', 'updateProxyStatus'].forEach(name => installLazyGlobal(name, ['proxy-view']));
+        [
+            'fireUniversalCommand',
+            'handleLongPressStart',
+            'handleLongPressEnd',
+            'fireControlCenterControl',
+            'updateProtocolDeviceCards',
+            'toggleProtocolDeviceOutput',
+            'pulseProtocolDevice',
+            'openProtocolDeviceInfo',
+            'updateNodeRedDevices',
+            'controlNodeRedDevice',
+        ].forEach(name => installLazyGlobal(name, ['universal-view']));
+        [
+            'appleTransport',
+            'clearAppleQueue',
+            'initAppleAudioDemo',
+            'loadAppleAudioStatus',
+            'openAppleAudioConfig',
+            'playAppleTrackNow',
+            'promoteAppleTrack',
+            'queueAppleTrack',
+            'searchAppleSources',
+            'setAppleCategoryFilter',
+        ].forEach(name => installLazyGlobal(name, ['apple-audio-view']));
+        [
+            'checkHealth',
+            'clearChat',
+            'exportTraining',
+            'loadConfig',
+            'saveConfig',
+            'sendChat',
+        ].forEach(name => installLazyGlobal(name, ['local-model-view']));
+        function prepareAppleAudioForM32() {
+            showToast('可在配置页将音乐播放器输出路由到 M32 输入；当前页面会按需加载播放器控制模块。');
+            return callLazyGlobal(['apple-audio-view'], 'openAppleAudioConfig', [], null);
+        }
+        function getProxyFlowSummaryLite(payload = {}) {
+            const traffic = payload.traffic || {};
+            const clients = payload.clients || {};
+            const trafficAvailable = !!traffic.available;
+            const formatRate = value => {
+                const bps = Number(value || 0);
+                if (!Number.isFinite(bps) || bps <= 0) return '0 bps';
+                if (bps >= 1024 * 1024) return `${(bps / 1024 / 1024).toFixed(1)} Mbps`;
+                if (bps >= 1024) return `${(bps / 1024).toFixed(1)} Kbps`;
+                return `${bps.toFixed(0)} bps`;
+            };
+            const rxBps = trafficAvailable ? Number(traffic.rx_bps || 0) : Number(clients.download_bps || 0);
+            const txBps = trafficAvailable ? Number(traffic.tx_bps || 0) : Number(clients.upload_bps || 0);
+            return {
+                rxText: trafficAvailable ? (traffic.rx_text || formatRate(rxBps)) : (clients.download_text || formatRate(rxBps)),
+                txText: trafficAvailable ? (traffic.tx_text || formatRate(txBps)) : (clients.upload_text || formatRate(txBps)),
+            };
+        }
+        function renderDashboardProxySummary(payload = {}) {
+            const statusEl = document.getElementById('dash-proxy-status');
+            const metaEl = document.getElementById('dash-proxy-meta');
+            const statusMeta = typeof getDeviceStatusMeta === 'function'
+                ? getDeviceStatusMeta(payload, { staleText: '陈旧', errorText: '异常' })
+                : { text: payload.online ? '在线' : '离线', level: payload.online ? 'online' : 'error' };
+            if (statusEl) {
+                statusEl.textContent = statusMeta.text;
+                statusEl.className = `value ${statusMeta.level === 'online' ? 'green' : (statusMeta.level === 'stale' || statusMeta.level === 'error' ? 'danger' : 'blue')}`;
+            }
+            if (metaEl) {
+                const endpoint = String(payload.endpoint || payload.base_url || payload.host || '121 代理').trim();
+                const healthy = Number(payload.healthy_target_count || 0);
+                const total = Number(payload.check_count || 0);
+                const requiredCheck = payload.required_check || payload.google_check || null;
+                const googleOk = requiredCheck ? !!requiredCheck.healthy : !!payload.google_ok;
+                const googleLatency = Number(requiredCheck?.latency_ms ?? payload.google_latency_ms);
+                const googleCode = Number(requiredCheck?.status_code ?? payload.google_status_code);
+                const clients = payload.clients || {};
+                const flow = getProxyFlowSummaryLite(payload);
+                const checkedAt = formatTimeShort(payload.last_checked_at || payload.updated_at || '');
+                const lastErr = String(payload.last_error || payload.error || '').trim();
+                const googleHint = `${googleOk ? 'Google正常' : 'Google异常'}${Number.isFinite(googleLatency) && googleLatency > 0 ? ` ${googleLatency}ms` : ''}${Number.isFinite(googleCode) && googleCode > 0 ? `/${googleCode}` : ''}`;
+                const checkHint = total > 0 ? `${healthy}/${total} 探活` : '无探活数据';
+                const clientHint = `IP ${Number(clients.active_client_count || 0)} / 连接 ${Number(clients.total_active_connections || 0)}`;
+                metaEl.innerHTML = `${escapeHtml(endpoint)} · ${escapeHtml(googleHint)} · ${escapeHtml(checkHint)} · ${escapeHtml(clientHint)} · ${escapeHtml(`↓${flow.rxText} ↑${flow.txText}`)} · ${escapeHtml(checkedAt || '--')}${lastErr ? ` <br><strong>${escapeHtml(lastErr)}</strong>` : ''}`;
+            }
+        }
         function ensureInitialVisibleView() {
             const activeView = document.querySelector('.view-section.active');
             if (!activeView) {
@@ -2081,7 +2218,7 @@
             return !style || (style.display !== 'none' && style.visibility !== 'hidden');
         }
         function registerPollingTask(name, intervalMs, run, shouldRun) {
-            pollingTasks.push({
+            const task = {
                 name,
                 intervalMs: Math.max(300, Number(intervalMs) || 1000),
                 baseIntervalMs: Math.max(300, Number(intervalMs) || 1000),
@@ -2089,7 +2226,12 @@
                 shouldRun: typeof shouldRun === 'function' ? shouldRun : (() => true),
                 timer: null,
                 running: false,
-            });
+            };
+            pollingTasks.push(task);
+            if (appPollingStarted && isPageVisible()) {
+                schedulePollingTask(task, getPollingInitialDelay(task, pollingTasks.length - 1));
+            }
+            return task;
         }
         function setTextIfExists(id, text) {
             const el = document.getElementById(id);
@@ -3367,10 +3509,34 @@
                 automationStatusLoading = false;
             }
         }
+        let echartsRuntimeLoading = null;
+        function isChartElementRenderable(dom) {
+            if (!dom || !dom.isConnected) return false;
+            const rect = typeof dom.getBoundingClientRect === 'function' ? dom.getBoundingClientRect() : null;
+            if (rect && (rect.width <= 0 || rect.height <= 0)) return false;
+            if (dom.clientWidth <= 0 || dom.clientHeight <= 0) return false;
+            const style = window.getComputedStyle ? window.getComputedStyle(dom) : null;
+            return !style || (style.display !== 'none' && style.visibility !== 'hidden');
+        }
+        function ensureEChartsRuntime(contextLabel = '图表') {
+            if (window.echarts) return Promise.resolve(window.echarts);
+            if (!echartsRuntimeLoading) {
+                echartsRuntimeLoading = SmartCenter.utils.ensureEChartsLoaded()
+                    .catch(err => {
+                        console.error(`${contextLabel}运行库加载失败`, err);
+                        showToast(`${contextLabel}运行库加载失败，请刷新后重试`, true);
+                        throw err;
+                    })
+                    .finally(() => {
+                        echartsRuntimeLoading = null;
+                    });
+            }
+            return echartsRuntimeLoading;
+        }
         function ensurePowerChart(cabId) {
             if (typeof echarts === 'undefined') return null;
             const chartEl = document.getElementById(`energyChart_${cabId}`);
-            if (!chartEl || chartEl.clientWidth <= 0 || chartEl.clientHeight <= 0) return null;
+            if (!isChartElementRenderable(chartEl)) return null;
             if (myCharts[cabId]) return myCharts[cabId];
             try {
                 myCharts[cabId] = echarts.init(chartEl);
@@ -3381,6 +3547,7 @@
             }
         }
         function resizePowerCharts() {
+            if (typeof echarts === 'undefined') return;
             configData.cabinets.forEach((_, cabId) => {
                 const chart = ensurePowerChart(cabId);
                 if (!chart) return;
@@ -3388,6 +3555,12 @@
             });
         }
         function renderPowerEnergyChart(cabId, rawData) {
+            const chartEl = document.getElementById(`energyChart_${cabId}`);
+            if (!isChartElementRenderable(chartEl)) return;
+            if (typeof echarts === 'undefined') {
+                ensureEChartsRuntime('强电图表').then(() => renderPowerEnergyChart(cabId, rawData)).catch(() => {});
+                return;
+            }
             const chart = ensurePowerChart(cabId);
             if (!chart) return;
             const data = Array.isArray(rawData) ? rawData : [];
@@ -3631,7 +3804,12 @@
         }
         function renderMeterTrendChart(rows) {
             const dom = document.getElementById('meterTrendChart');
-            if (!dom || typeof echarts === 'undefined') return;
+            if (!dom) return;
+            if (!isChartElementRenderable(dom)) return;
+            if (typeof echarts === 'undefined') {
+                ensureEChartsRuntime('电表趋势图').then(() => renderMeterTrendChart(rows)).catch(() => {});
+                return;
+            }
             if (!myCharts.meterTrend) {
                 myCharts.meterTrend = echarts.init(dom);
             }
@@ -3749,9 +3927,8 @@
         }
         function renderDashboardEnergyTrend(rows, summary = {}) {
             const dom = document.getElementById('dashboardEnergyTrendChart');
-            if (!dom || typeof echarts === 'undefined') return;
+            if (!dom) return;
             const safeRows = Array.isArray(rows) ? rows : [];
-            const labels = safeRows.map(item => String(item.period || item.date || '').slice(-5)).filter(Boolean);
             const values = safeRows.map(item => Number(item.consume || 0));
             const total = Number(summary.total_daily_energy ?? (meterCenterCache.dashboard_summary || {}).daily_energy ?? 0);
             const last = values.length ? values[values.length - 1] : total;
@@ -3759,6 +3936,12 @@
             const compare = prev > 0 ? `${(((last - prev) / prev) * 100).toFixed(1)}%` : '--%';
             setTextIfExists('dashboard-energy-total', `${total.toFixed(1)} kWh`);
             setTextIfExists('dashboard-energy-compare', compare);
+            if (!isChartElementRenderable(dom)) return;
+            if (typeof echarts === 'undefined') {
+                ensureEChartsRuntime('首页能耗趋势图').then(() => renderDashboardEnergyTrend(rows, summary)).catch(() => {});
+                return;
+            }
+            const labels = safeRows.map(item => String(item.period || item.date || '').slice(-5)).filter(Boolean);
             if (!myCharts.dashboardEnergyTrend) {
                 myCharts.dashboardEnergyTrend = echarts.init(dom);
             }
@@ -3949,12 +4132,12 @@
             if (!safeDeviceId) return;
             snmpSelectedDeviceId = safeDeviceId;
             syncSnmpSelectedDeviceToUrl(safeDeviceId);
-            renderSnmpCards({ mode: 'full', renderDetailPage: true });
+            ensureViewReady('snmp').then(() => renderSnmpCards({ mode: 'full', renderDetailPage: true })).catch(() => {});
         }
         function closeSnmpDeviceDetail() {
             snmpSelectedDeviceId = '';
             syncSnmpSelectedDeviceToUrl('');
-            renderSnmpCards({ mode: 'full', renderDetailPage: true });
+            ensureViewReady('snmp').then(() => renderSnmpCards({ mode: 'full', renderDetailPage: true })).catch(() => {});
         }
         function bindSnmpOverviewCardActions(scopeEl) {
             const root = scopeEl || document;
@@ -4165,7 +4348,31 @@
             scheduleNvrWallSnapshotRefresh();
         }
         function normalizeNvrStatusForSnmp(cfg, status) {
-            return SmartCenter.snmp.normalizeNvrStatusForSnmp.apply(SmartCenter.snmp, arguments);
+            const source = status && typeof status === 'object' ? status : {};
+            if (SmartCenter.snmp && typeof SmartCenter.snmp.normalizeNvrStatusForSnmp === 'function') {
+                return SmartCenter.snmp.normalizeNvrStatusForSnmp.apply(SmartCenter.snmp, arguments);
+            }
+            const channels = Array.isArray(source.channels) ? source.channels : [];
+            const onlineChannels = channels.filter(item => item && item.online !== false).length;
+            const expectedCount = Number(cfg?.expected_channel_count || cfg?.channel_count || channels.length || 0);
+            const online = source.online !== undefined ? !!source.online : !source.error;
+            return Object.assign({}, source, {
+                id: source.id || cfg?.id,
+                host: source.host || cfg?.host,
+                online,
+                summary: Object.assign({
+                    device_type: 'nvr',
+                    risk_level: online ? 'normal' : 'warning',
+                    health_score: online ? 92 : 0,
+                    channel_online: onlineChannels,
+                    channel_total: expectedCount || channels.length,
+                    alert_counts: {
+                        critical: online ? 0 : 1,
+                        warning: online && expectedCount && onlineChannels < expectedCount ? 1 : 0,
+                        info: 0,
+                    },
+                }, source.summary || {}),
+            });
         }
         function getSnmpStorageRows(summary) {
             return SmartCenter.snmp.getSnmpStorageRows.apply(SmartCenter.snmp, arguments);
@@ -4298,6 +4505,10 @@
             const renderDetailPage = options.renderDetailPage !== undefined
                 ? !!options.renderDetailPage
                 : renderMode === 'full';
+            if (renderDetailPage && !(SmartCenter.snmp && typeof SmartCenter.snmp.renderSnmpCompactCard === 'function')) {
+                ensureViewReady('snmp').then(() => renderSnmpCards(options)).catch(() => {});
+                return;
+            }
             const dashboardGrid = document.getElementById('dashboard-snmp-grid');
             const pageGrid = document.getElementById('snmp-page-grid');
             const statusCache = getNetworkStatusCache();
@@ -4381,6 +4592,9 @@
         function updateSnmpStatus(options = {}) {
             const forceFull = !!options.full || getActiveViewId() === 'snmp';
             const mode = forceFull ? 'full' : 'compact';
+            if (mode === 'full' && !(SmartCenter.snmp && typeof SmartCenter.snmp.renderSnmpCompactCard === 'function')) {
+                return ensureViewReady('snmp').then(() => updateSnmpStatus(options));
+            }
             if (snmpFetchInFlight) {
                 if (snmpFetchMode === mode || (mode === 'compact' && snmpFetchMode === 'full')) return snmpFetchInFlight;
                 if (mode === 'full') return snmpFetchInFlight.then(() => updateSnmpStatus({ full: true }));
@@ -4732,24 +4946,30 @@
             syncCurrentViewToUrl(viewId);
             if (window.innerWidth <= 760) closeSidebar();
             if (viewId !== 'door') stopDoorVideoStream();
-            if (viewId === 'power') setTimeout(() => { resizePowerCharts(); updatePowerData(); }, 120);
+            if (viewId === 'power') setTimeout(() => {
+                Object.entries(powerHistoryCache || {}).forEach(([cabId, rows]) => renderPowerEnergyChart(cabId, rows));
+                resizePowerCharts();
+                updatePowerData();
+            }, 120);
             if (viewId === 'meter') setTimeout(() => { updateMeterCenter(); }, 80);
             if (viewId === 'ups') setTimeout(() => { updateUpsStatus(); }, 80);
-            if (viewId === 'snmp') setTimeout(() => { updateSnmpStatus({ full: true }); }, 80);
-            if (viewId === 'proxy') setTimeout(() => { updateProxyStatus(); }, 80);
+            if (viewId === 'snmp') setTimeout(() => { ensureViewReady('snmp').then(() => updateSnmpStatus({ full: true })).catch(() => {}); }, 80);
+            if (viewId === 'proxy') setTimeout(() => { ensureViewReady('proxy').then(() => updateProxyStatus()).catch(() => {}); }, 80);
             if (viewId === 'auto') setTimeout(() => { loadAutomationStatus(true); loadAutomationLogs(); }, 80);
             if (viewId === 'camera_preview') {
                 setTimeout(() => {
                     applyNvrPreviewUrlParams();
-                    updateSnmpStatus({ full: true }).finally(() => renderNvrPreviewPanel({ refresh: true }));
+                    ensureViewReady('camera_preview')
+                        .then(() => updateSnmpStatus({ full: true }))
+                        .finally(() => renderNvrPreviewPanel({ refresh: true }));
                 }, 80);
             }
             if (viewId === 'hvac') setTimeout(() => { updateHvacStatus(true); updateEnvData(); }, 80);
             if (viewId === 'door') setTimeout(() => { initCanvas(); updateDoorStatus(true).finally(() => startDoorVideoStream()); }, 100);
             if (viewId === 'sequencer') setTimeout(() => { updateSequencerStatus(); }, 80);
-            if (viewId === 'universal') setTimeout(() => { updateNodeRedDevices(true); }, 80);
-            if (viewId === 'apple_audio') setTimeout(() => { initAppleAudioDemo(); }, 60);
-            if (viewId === 'local_model' && window.SmartCenter?.localModel) setTimeout(() => { window.SmartCenter.localModel.init(); }, 60);
+            if (viewId === 'universal') setTimeout(() => { ensureViewReady('universal').then(() => updateNodeRedDevices(true)).catch(() => {}); }, 80);
+            if (viewId === 'apple_audio') setTimeout(() => { ensureViewReady('apple_audio').then(() => initAppleAudioDemo()).catch(() => {}); }, 60);
+            if (viewId === 'local_model') setTimeout(() => { ensureViewReady('local_model').then(() => window.SmartCenter?.localModel?.init?.()).catch(() => {}); }, 60);
             refreshPollingVisibility();
         }
         function formatGlobalTime(now = new Date()) {
@@ -6390,7 +6610,6 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             guardFrontendStep('bootstrap.dashboard_masonry', () => scheduleDashboardMasonry(160));
             guardFrontendStep('bootstrap.global_clock', () => updateGlobalClock());
             guardFrontendStep('bootstrap.agent_version', () => refreshLatestAgentVersion());
-            guardFrontendStep('bootstrap.apple_audio', () => initAppleAudioDemo());
             guardFrontendStep('bootstrap.server_compact', () => refreshDashboardServerCompactFallback());
             const userBadge = document.getElementById('top-user-badge');
             if (userBadge) {
@@ -6475,11 +6694,11 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         registerPollingTask('ups', 4500, () => updateUpsStatus(), () => ['dashboard', 'ups'].includes(getActiveViewId()) || isDashboardSectionVisible('ups_compact') || isDashboardSectionVisible('ups'));
         registerPollingTask('hy_edge', 6000, () => updateHyEdgeStatus(), () => ['dashboard'].includes(getActiveViewId()) || isDashboardSectionVisible('hy_edge'));
         registerPollingTask('dashboard_summary', 5000, () => updateDashboardSummary(), () => getActiveViewId() === 'dashboard' || isDashboardSectionVisible('stats'));
-        registerPollingTask('proxy', 5000, () => updateProxyStatus(), () => getActiveViewId() === 'proxy');
+        registerPollingTask('proxy', 5000, () => ensureViewReady('proxy').then(() => updateProxyStatus()), () => getActiveViewId() === 'proxy');
         registerPollingTask('snmp', 9000, () => updateSnmpStatus(), () => ['dashboard', 'snmp', 'camera_preview'].includes(getActiveViewId()) || isDashboardSectionVisible('snmp'));
         registerPollingTask('hvac', 5000, () => updateHvacStatus(), () => ['dashboard', 'hvac'].includes(getActiveViewId()) || isDashboardSectionVisible('hvac'));
         registerPollingTask('light', 2200, () => updateLightData(), () => ['dashboard', 'light'].includes(getActiveViewId()) || isDashboardSectionVisible('light_compact') || isDashboardSectionVisible('light'));
-        registerPollingTask('node_red', 5000, () => updateNodeRedDevices(), () => getActiveViewId() === 'universal');
+        registerPollingTask('node_red', 5000, () => ensureViewReady('universal').then(() => updateNodeRedDevices()), () => getActiveViewId() === 'universal');
         registerPollingTask('server', 5000, () => updateServerData(), () => getActiveViewId() === 'server');
         registerPollingTask('door', 1200, () => updateDoorStatus(), () => ['dashboard', 'door'].includes(getActiveViewId()) || isDashboardSectionVisible('door'));
         registerPollingTask('env', 3500, () => updateEnvData(), () => ['dashboard', 'env', 'hvac'].includes(getActiveViewId()) || isDashboardSectionVisible('env') || isDashboardSectionVisible('hvac'));
@@ -6490,7 +6709,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         registerPollingTask('projector', 6000, () => updateProjectorStatus(), () => ['dashboard', 'projector'].includes(getActiveViewId()) || isDashboardSectionVisible('projector'));
         registerPollingTask('sequencer', 4500, () => updateSequencerStatus(), () => ['dashboard', 'sequencer'].includes(getActiveViewId()) || isDashboardSectionVisible('sequencer'));
         registerPollingTask('screen', 4500, () => updateScreenStatus(), () => ['dashboard', 'screen'].includes(getActiveViewId()) || isDashboardSectionVisible('screen'));
-        registerPollingTask('apple_audio', 3200, () => loadAppleAudioStatus(), () => ['apple_audio'].includes(getActiveViewId()));
+        registerPollingTask('apple_audio', 3200, () => ensureViewReady('apple_audio').then(() => loadAppleAudioStatus()), () => ['apple_audio'].includes(getActiveViewId()));
         registerPollingTask('logs', 5000, () => updateDashboardLogs(), () => getActiveViewId() === 'dashboard');
         registerPollingTask('event_logs', 5000, () => refreshEventLogs(false), () => getActiveViewId() === 'logs');
 
