@@ -1,0 +1,10 @@
+{
+  "task": "frontend-firstpaint-slim",
+  "module": "frontend-performance",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-frontend-firstpaint-slim-20260530",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-firstpaint-slim",
+  "started_at": "2026-05-30 23:30:29",
+  "status": "validated_pending_publish"
+}
