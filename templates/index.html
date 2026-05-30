@@ -1787,12 +1787,9 @@
     <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
     <script src="/static/js/views/env.js?v=20260522-stage2-env-view"></script>
     <script src="/static/js/views/snmp-summary.js?v=20260530-dashboard-snmp-summary"></script>
-    <script src="/static/js/views/server-monitor.js?v=20260530-restore-server-monitor"></script>
-    <script src="/static/js/views/power-meter.js?v=20260522-stage4-power-meter"></script>
-    <script src="/static/js/views/automation-view.js?v=20260522-stage4-automation-view"></script>
+    <script src="/static/js/views/power-meter.js?v=20260530-firstpaint-slim"></script>
+    <script src="/static/js/views/automation-view.js?v=20260530-firstpaint-slim"></script>
     <script src="/static/js/views/dashboard-summary.js?v=20260522-stage8-dashboard-summary"></script>
-    <script src="/static/js/views/hvac-view.js?v=20260522-stage5-hvac-view"></script>
-    <script src="/static/js/views/projector.js?v=20260530-inline-phase2"></script>
 
     <script>
         // AI map: dashboard.inline_runtime. This large script is being split
@@ -1800,7 +1797,16 @@
         const configData = {{ config | tojson | safe }};
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
-        const lazyModuleVersion = '20260530-lazy-baseline';
+        const lazyModuleVersion = '20260530-firstpaint-slim';
+        SmartCenter.registerLazyModule('server-monitor-view', {
+            scripts: [`/static/js/views/server-monitor.js?v=${lazyModuleVersion}`],
+        });
+        SmartCenter.registerLazyModule('hvac-view', {
+            scripts: [`/static/js/views/hvac-view.js?v=${lazyModuleVersion}`],
+        });
+        SmartCenter.registerLazyModule('projector-view', {
+            scripts: [`/static/js/views/projector.js?v=${lazyModuleVersion}`],
+        });
         SmartCenter.registerLazyModule('snmp-full', {
             scripts: [`/static/js/views/snmp.js?v=${lazyModuleVersion}`],
         });
@@ -1817,6 +1823,9 @@
             styles: [`/static/css/views/local-model.css?v=${lazyModuleVersion}`],
             scripts: [`/static/js/views/local-model.js?v=${lazyModuleVersion}`],
         });
+        SmartCenter.registerViewModules('server', ['server-monitor-view']);
+        SmartCenter.registerViewModules('hvac', ['hvac-view']);
+        SmartCenter.registerViewModules('projector', ['projector-view']);
         SmartCenter.registerViewModules('snmp', ['snmp-full']);
         SmartCenter.registerViewModules('camera_preview', ['snmp-full']);
         SmartCenter.registerViewModules('proxy', ['proxy-view']);
@@ -1837,6 +1846,26 @@
                 console.error(`视图 ${viewId} 模块加载失败`, err);
                 if (typeof showToast === 'function') showToast('页面模块加载失败，请刷新后重试', true);
                 throw err;
+            });
+        }
+        function scheduleIdleTask(callback, timeout = 1800) {
+            if (typeof callback !== 'function') return;
+            if (typeof window.requestIdleCallback === 'function') {
+                window.requestIdleCallback(callback, { timeout });
+                return;
+            }
+            window.setTimeout(callback, Math.min(Math.max(Number(timeout) || 300, 120), 1200));
+        }
+        function preloadDashboardSupportModules() {
+            if (preloadDashboardSupportModules.started) return;
+            preloadDashboardSupportModules.started = true;
+            const queue = [
+                ['server-monitor-view'],
+                ['hvac-view'],
+                ['projector-view'],
+            ];
+            queue.forEach((moduleNames, index) => {
+                scheduleIdleTask(() => ensureModulesReady(moduleNames, '首页辅助模块预热').catch(() => {}), 900 + index * 700);
             });
         }
         function callLazyGlobal(moduleNames, functionName, args = [], fallbackValue = undefined) {
@@ -2306,7 +2335,7 @@
                     const serverMachines = dashboardSummaryCache.modules?.server?.machines;
                     if (Array.isArray(serverMachines)) {
                         dashboardServerCompactList = serverMachines;
-                        renderDashboardServerCompact(dashboardServerCompactList);
+                        renderDashboardServerCompactWhenReady(dashboardServerCompactList);
                     }
                     if (getActiveViewId() === 'proxy' && dashboardSummaryCache.modules?.proxy) {
                         renderProxyDetail(dashboardSummaryCache.modules.proxy);
@@ -2567,7 +2596,7 @@
                         updateDeployModalInfo();
                         if (Array.isArray(globalServerList) && globalServerList.length) {
                         renderServerGridDeferred(globalServerList, { force: true });
-                        renderDashboardServerCompact(globalServerList);
+                        renderDashboardServerCompactWhenReady(globalServerList);
                     }
                 }
                 return version;
@@ -4774,12 +4803,14 @@
                         .finally(() => renderNvrPreviewPanel({ refresh: true }));
                 }, 80);
             }
-            if (viewId === 'hvac') setTimeout(() => { updateHvacStatus(true); updateEnvData(); }, 80);
+            if (viewId === 'hvac') setTimeout(() => { ensureViewReady('hvac').then(() => { updateHvacStatus(true); updateEnvData(); }).catch(() => {}); }, 80);
             if (viewId === 'door') setTimeout(() => { initCanvas(); updateDoorStatus(true).finally(() => startDoorVideoStream()); }, 100);
             if (viewId === 'sequencer') setTimeout(() => { updateSequencerStatus(); }, 80);
             if (viewId === 'universal') setTimeout(() => { ensureViewReady('universal').then(() => updateNodeRedDevices(true)).catch(() => {}); }, 80);
             if (viewId === 'apple_audio') setTimeout(() => { ensureViewReady('apple_audio').then(() => initAppleAudioDemo()).catch(() => {}); }, 60);
             if (viewId === 'local_model') setTimeout(() => { ensureViewReady('local_model').then(() => window.SmartCenter?.localModel?.init?.()).catch(() => {}); }, 60);
+            if (viewId === 'projector') setTimeout(() => { ensureViewReady('projector').then(() => updateProjectorStatus()).catch(() => {}); }, 80);
+            if (viewId === 'dashboard') preloadDashboardSupportModules();
             refreshPollingVisibility();
         }
         function formatGlobalTime(now = new Date()) {
@@ -5872,17 +5903,17 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         registerPollingTask('dashboard_summary', 5000, () => updateDashboardSummary(), () => getActiveViewId() === 'dashboard' || isDashboardSectionVisible('stats'));
         registerPollingTask('proxy', 5000, () => ensureViewReady('proxy').then(() => updateProxyStatus()), () => getActiveViewId() === 'proxy');
         registerPollingTask('snmp', 9000, () => updateSnmpStatus(), () => ['dashboard', 'snmp', 'camera_preview'].includes(getActiveViewId()) || isDashboardSectionVisible('snmp'));
-        registerPollingTask('hvac', 5000, () => updateHvacStatus(), () => ['dashboard', 'hvac'].includes(getActiveViewId()) || isDashboardSectionVisible('hvac'));
+        registerPollingTask('hvac', 5000, () => ensureModulesReady(['hvac-view'], '空调模块').then(() => updateHvacStatus()), () => ['dashboard', 'hvac'].includes(getActiveViewId()) || isDashboardSectionVisible('hvac'));
         registerPollingTask('light', 2200, () => updateLightData(), () => ['dashboard', 'light'].includes(getActiveViewId()) || isDashboardSectionVisible('light_compact') || isDashboardSectionVisible('light'));
         registerPollingTask('node_red', 5000, () => ensureViewReady('universal').then(() => updateNodeRedDevices()), () => getActiveViewId() === 'universal');
-        registerPollingTask('server', 5000, () => updateServerData(), () => getActiveViewId() === 'server');
+        registerPollingTask('server', 5000, () => ensureViewReady('server').then(() => updateServerData()), () => getActiveViewId() === 'server');
         registerPollingTask('door', 1200, () => updateDoorStatus(), () => ['dashboard', 'door'].includes(getActiveViewId()) || isDashboardSectionVisible('door'));
         registerPollingTask('env', 3500, () => updateEnvData(), () => ['dashboard', 'env', 'hvac'].includes(getActiveViewId()) || isDashboardSectionVisible('env') || isDashboardSectionVisible('hvac'));
         registerPollingTask('automation', 4000, () => {
             loadAutomationStatus();
             if (getActiveViewId() === 'auto') loadAutomationLogs();
         }, () => ['dashboard', 'auto'].includes(getActiveViewId()));
-        registerPollingTask('projector', 6000, () => updateProjectorStatus(), () => ['dashboard', 'projector'].includes(getActiveViewId()) || isDashboardSectionVisible('projector'));
+        registerPollingTask('projector', 6000, () => ensureModulesReady(['projector-view'], '投影模块').then(() => updateProjectorStatus()), () => ['dashboard', 'projector'].includes(getActiveViewId()) || isDashboardSectionVisible('projector'));
         registerPollingTask('sequencer', 4500, () => updateSequencerStatus(), () => ['dashboard', 'sequencer'].includes(getActiveViewId()) || isDashboardSectionVisible('sequencer'));
         registerPollingTask('screen', 4500, () => updateScreenStatus(), () => ['dashboard', 'screen'].includes(getActiveViewId()) || isDashboardSectionVisible('screen'));
         registerPollingTask('apple_audio', 3200, () => ensureViewReady('apple_audio').then(() => loadAppleAudioStatus()), () => ['apple_audio'].includes(getActiveViewId()));
@@ -6499,7 +6530,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             globalServerList[newIdx] = temp;
             globalServerList.forEach((m, i) => { m.sort_order = i + 1; });
             renderServerGridDeferred(globalServerList, { force: true });
-            renderDashboardServerCompact(globalServerList);
+            renderDashboardServerCompactWhenReady(globalServerList);
             postJsonLoose('/api/machines/sort', { macs: globalServerList.map(m => m.mac) }, '服务器排序保存失败')
                 .then(() => updateServerData())
                 .catch(err => {
@@ -6851,13 +6882,32 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 </section>`;
             }).join('');
         }
+        function renderDashboardServerCompactWhenReady(data = []) {
+            const container = document.getElementById('dashboard-server-compact-grid');
+            if (!container) return Promise.resolve(false);
+            if (window.SmartCenter?.serverMonitor) {
+                renderDashboardServerCompact(data);
+                return Promise.resolve(true);
+            }
+            dashboardServerCompactList = Array.isArray(data) ? data : dashboardServerCompactList;
+            if (!String(container.innerHTML || '').trim()) {
+                container.classList.add('home-status-list');
+                container.innerHTML = '<div style="color:var(--text-sub); grid-column:1/-1; text-align:center; padding:10px;">服务器摘要加载中...</div>';
+            }
+            return ensureModulesReady(['server-monitor-view'], '服务器摘要模块')
+                .then(() => {
+                    renderDashboardServerCompact(dashboardServerCompactList);
+                    return true;
+                })
+                .catch(() => false);
+        }
         function refreshDashboardServerCompactFallback() {
             const container = document.getElementById('dashboard-server-compact-grid');
             if (!container) return;
             if (Array.isArray(dashboardServerCompactList) && dashboardServerCompactList.length) {
-                renderDashboardServerCompact(dashboardServerCompactList);
+                renderDashboardServerCompactWhenReady(dashboardServerCompactList);
             } else if (Array.isArray(globalServerList) && globalServerList.length) {
-                renderDashboardServerCompact(globalServerList);
+                renderDashboardServerCompactWhenReady(globalServerList);
             }
         }
         function renderServerMetaStrip(m, st, agent, diagnostic) {
@@ -6984,7 +7034,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                     const sOnline = document.getElementById('dash-server-online');
                     if (sOnline) sOnline.innerText = onlineCount;
                     renderServerGridDeferred(data);
-                    renderDashboardServerCompact(data);
+                    renderDashboardServerCompactWhenReady(data);
                     return data;
                 })
                 .catch(err => console.error('服务器数据更新失败', err))
