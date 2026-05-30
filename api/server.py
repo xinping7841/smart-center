@@ -25,7 +25,7 @@ from paths import DB_FILE as DB_FILE_PATH, ensure_parent_dir
 
 bp = Blueprint('server', __name__)
 DB_FILE = str(DB_FILE_PATH)
-AGENT_VERSION = "2026.05.27.01"
+AGENT_VERSION = "2026.05.30.01"
 REPORT_MAX_BYTES = 8 * 1024 * 1024
 REPORT_MIN_INTERVAL_SEC = 2.0
 REPORT_CACHE = {}
@@ -502,13 +502,22 @@ def _annotate_report_timing(status_payload, client_reported_at, server_received_
         or payload.get("client_reported_at")
         or client_reported_at
     )
+    client_sent_iso = _format_machine_timestamp(
+        payload.get("client_sent_at")
+        or payload.get("report_sent_at")
+    )
     payload["server_received_at"] = server_iso
     if client_iso:
         payload["client_reported_at"] = client_iso
-    client_dt = _parse_machine_timestamp(client_iso)
+    if client_sent_iso:
+        payload["client_sent_at"] = client_sent_iso
+    offset_source_iso = client_sent_iso or client_iso
+    offset_source = "client_sent_at" if client_sent_iso else "client_reported_at"
+    client_dt = _parse_machine_timestamp(offset_source_iso)
     server_dt = _parse_machine_timestamp(server_iso)
     if client_dt and server_dt:
         payload["clock_offset_sec"] = round((client_dt - server_dt).total_seconds(), 1)
+        payload["clock_offset_source"] = offset_source
     return payload
 
 
@@ -1073,6 +1082,7 @@ def build_agent_runtime_config(server_host=None):
         "worker_path": "/agent/worker.json",
         "launcher_path": "/agent/launcher.json",
         "linux_worker_path": "/agent/linux.py",
+        "heartbeat_path": "/agent/heartbeat",
         "linux_service_name": "smart-center-agent.service",
         "report_interval_sec": 60,
         "sync_interval_sec": 60,
@@ -2530,6 +2540,18 @@ def _merge_machine_payload(existing_payload, incoming_payload):
             merged["last_wake_proxy_report_at"] = incoming_server_at
         elif report_kind == "command_result":
             merged["last_command_report_at"] = incoming_server_at
+    if report_kind in downgrade_only_kinds:
+        for timing_key in (
+            "server_received_at",
+            "client_reported_at",
+            "client_sent_at",
+            "clock_offset_sec",
+            "clock_offset_source",
+            "clock_heartbeat_at",
+        ):
+            value = incoming_payload.get(timing_key)
+            if value not in (None, "", [], {}):
+                merged[timing_key] = value
     runtime_keys = {
         "cpu_name",
         "cpu_percent",
@@ -2551,7 +2573,10 @@ def _merge_machine_payload(existing_payload, incoming_payload):
         "hardware_refreshed_at",
         "report_generated_at",
         "client_reported_at",
+        "client_sent_at",
         "clock_offset_sec",
+        "clock_offset_source",
+        "clock_heartbeat_at",
         "last_report_kind",
         "last_full_report_at",
         "last_runtime_report_at",
@@ -2570,6 +2595,18 @@ def _merge_machine_payload(existing_payload, incoming_payload):
     if report_kind in downgrade_only_kinds and existing_has_runtime:
         _mark_payload_as_full_report(merged, prefer_server=False)
     return merged
+
+
+def _store_machine_heartbeat(mac, hostname, ip, timestamp, heartbeat_payload):
+    mac = normalize_machine_mac(mac)
+    if not mac:
+        return False
+    heartbeat_payload = heartbeat_payload if isinstance(heartbeat_payload, dict) else {}
+    heartbeat_payload["clock_heartbeat_at"] = heartbeat_payload.get("server_received_at") or timestamp
+    heartbeat_payload["last_agent_heartbeat_at"] = heartbeat_payload.get("server_received_at") or timestamp
+    heartbeat_payload["last_report_kind"] = "agent_heartbeat"
+    _store_machine_status(mac, hostname, ip, timestamp, heartbeat_payload)
+    return True
 
 
 def _find_machine_alias_row(cursor, mac, hostname, ip):
@@ -3296,12 +3333,15 @@ function Send-AgentHeartbeat([hashtable]$cfg) {{
         if ($heartbeatMac) {{ $cfg['machine_mac'] = $heartbeatMac }}
         if ($heartbeatIp) {{ $cfg['machine_ip'] = $heartbeatIp }}
         $taskInfo = Get-AgentTaskInfo
+        $clientSentAt = (Get-Date).ToString('o')
         $heartbeatPayload = @{{
             mac = $heartbeatMac
             hostname = $env:COMPUTERNAME
             ip = $heartbeatIp
-            timestamp = (Get-Date).ToString('o')
+            timestamp = $clientSentAt
+            client_sent_at = $clientSentAt
             status = @{{
+                client_sent_at = $clientSentAt
                 agent = @{{
                     version = $AgentVersion
                     machine_mac = $heartbeatMac
@@ -3334,7 +3374,8 @@ function Send-AgentHeartbeat([hashtable]$cfg) {{
             }}
         }}
         $heartbeatPayload = ConvertTo-AgentJson $heartbeatPayload 8
-        $heartbeatUrl = $cfg['current_server_url'].TrimEnd('/') + $cfg['report_path']
+        $heartbeatPath = if ($cfg.ContainsKey('heartbeat_path') -and $cfg['heartbeat_path']) {{ [string]$cfg['heartbeat_path'] }} else {{ '/agent/heartbeat' }}
+        $heartbeatUrl = $cfg['current_server_url'].TrimEnd('/') + $heartbeatPath
         Invoke-AgentJsonRequest -Uri $heartbeatUrl -Method Post -ContentType 'application/json' -Body $heartbeatPayload -TimeoutSec 5 | Out-Null
         Write-AgentLog ('heartbeat ok -> ' + $heartbeatUrl)
     }} catch {{
@@ -3592,6 +3633,7 @@ function New-AgentConfigObject([hashtable]$raw) {{
     if (-not $cfg.ContainsKey('config_path') -or -not $cfg['config_path']) {{ $cfg['config_path'] = '/agent/config' }}
     if (-not $cfg.ContainsKey('worker_path') -or -not $cfg['worker_path']) {{ $cfg['worker_path'] = '/agent/worker.json' }}
     if (-not $cfg.ContainsKey('launcher_path') -or -not $cfg['launcher_path']) {{ $cfg['launcher_path'] = '/agent/launcher.json' }}
+    if (-not $cfg.ContainsKey('heartbeat_path') -or -not $cfg['heartbeat_path']) {{ $cfg['heartbeat_path'] = '/agent/heartbeat' }}
     if (-not $cfg.ContainsKey('report_interval_sec') -or -not $cfg['report_interval_sec']) {{ $cfg['report_interval_sec'] = 60 }}
     if (-not $cfg.ContainsKey('sync_interval_sec') -or -not $cfg['sync_interval_sec']) {{ $cfg['sync_interval_sec'] = 60 }}
     if (-not $cfg.ContainsKey('discovery_retry_sec') -or -not $cfg['discovery_retry_sec']) {{ $cfg['discovery_retry_sec'] = 120 }}
@@ -3635,6 +3677,7 @@ function Load-AgentConfig() {{
                 config_path = Get-ConfigTextValue $storedJson.config_path ''
                 worker_path = Get-ConfigTextValue $storedJson.worker_path ''
                 launcher_path = Get-ConfigTextValue $storedJson.launcher_path ''
+                heartbeat_path = Get-ConfigTextValue $storedJson.heartbeat_path ''
                 report_interval_sec = Get-ConfigIntValue $storedJson.report_interval_sec 0
                 sync_interval_sec = Get-ConfigIntValue $storedJson.sync_interval_sec 0
                 discovery_retry_sec = Get-ConfigIntValue $storedJson.discovery_retry_sec 0
@@ -3787,7 +3830,7 @@ function Compare-VersionText([string]$left, [string]$right) {{
 
 function Merge-AgentConfig([hashtable]$cfg, [hashtable]$incoming) {{
     if (-not $incoming) {{ return $cfg }}
-    foreach ($key in @('service','version','server_host','server_port','report_path','config_path','worker_path','launcher_path','report_interval_sec','sync_interval_sec','discovery_retry_sec','ntp_enabled','ntp_primary','ntp_fallback','ntp_check_interval_sec')) {{
+    foreach ($key in @('service','version','server_host','server_port','report_path','config_path','worker_path','launcher_path','heartbeat_path','report_interval_sec','sync_interval_sec','discovery_retry_sec','ntp_enabled','ntp_primary','ntp_fallback','ntp_check_interval_sec')) {{
         if ($incoming.ContainsKey($key) -and $null -ne $incoming[$key] -and [string]$incoming[$key] -ne '') {{
             $cfg[$key] = $incoming[$key]
         }}
@@ -6183,12 +6226,18 @@ try {{
         $config = Find-AvailableServer $config
     }}
 
-    $payload = ConvertTo-AgentJson (Get-StatusPayload $config) 8
+    $payloadObject = Get-StatusPayload $config
+    $clientSentAt = (Get-Date).ToString('o')
+    $payloadObject['client_sent_at'] = $clientSentAt
+    if ($payloadObject.ContainsKey('status') -and $payloadObject['status'] -is [hashtable]) {{
+        $payloadObject['status']['client_sent_at'] = $clientSentAt
+    }}
+    $payload = ConvertTo-AgentJson $payloadObject 8
     $payloadBytes = [System.Text.Encoding]::UTF8.GetByteCount($payload)
     Write-AgentLog ('payload bytes=' + [string]$payloadBytes)
     try {{
         $payloadProbe = $payload | ConvertFrom-Json
-        Write-AgentLog ('payload timestamp=' + [string]$payloadProbe.timestamp + ' status_generated=' + [string]$payloadProbe.status.report_generated_at)
+        Write-AgentLog ('payload timestamp=' + [string]$payloadProbe.timestamp + ' sent=' + [string]$payloadProbe.client_sent_at + ' status_generated=' + [string]$payloadProbe.status.report_generated_at)
     }} catch {{}}
     $reportUrl = $config['current_server_url'].TrimEnd('/') + $config['report_path']
     if ($script:CommandResult) {{
@@ -6200,6 +6249,7 @@ try {{
     }} else {{
         Write-AgentLog ('report ok -> ' + $reportUrl)
     }}
+    Send-AgentHeartbeat $config
     if ($response -and $response.agent_config) {{
         $incomingConfig = Convert-ToHashtable $response.agent_config
         if (Invoke-AgentSelfUpdate $config $incomingConfig) {{
@@ -7426,6 +7476,88 @@ def report_data():
         "command": _pop_machine_command(mac, agent_version),
         "agent_config": build_agent_runtime_config(get_server_host_from_request())
     })
+
+
+@bp.route('/agent/heartbeat', methods=['POST'])
+def agent_heartbeat():
+    content_length = int(request.content_length or 0)
+    if content_length and content_length > 64 * 1024:
+        add_log(-1, f"[服务器] 忽略过大Agent心跳 remote={request.remote_addr} bytes={content_length}")
+        return jsonify({
+            "status": "ignored",
+            "reason": "payload_too_large",
+            "agent_config": build_agent_runtime_config(get_server_host_from_request())
+        }), 202
+
+    data, parse_error = _load_report_json_payload()
+    if not isinstance(data, dict):
+        data = {}
+    status_payload = data.get("status") if isinstance(data.get("status"), dict) else {}
+    if not isinstance(status_payload, dict):
+        status_payload = {}
+    agent_payload = status_payload.get("agent") if isinstance(status_payload.get("agent"), dict) else {}
+    mac = normalize_machine_mac(
+        data.get("mac")
+        or status_payload.get("mac")
+        or agent_payload.get("machine_mac")
+        or agent_payload.get("mac")
+    )
+    report_ip = str(
+        data.get("ip")
+        or status_payload.get("ip")
+        or agent_payload.get("machine_ip")
+        or agent_payload.get("ip")
+        or ""
+    ).strip()
+    hostname = str(
+        data.get("hostname")
+        or status_payload.get("hostname")
+        or agent_payload.get("hostname")
+        or "未知主机"
+    )
+    if not mac:
+        mac = _get_machine_mac_by_ip(report_ip)
+    if not mac:
+        mac = _get_recent_machine_mac_by_remote_addr(request.remote_addr)
+    if not mac:
+        mac = _get_machine_mac_by_hostname_or_name(hostname)
+    if not mac:
+        mac = _get_machine_mac_by_legacy_report(report_ip, request.remote_addr, hostname, data.get("mac") or status_payload.get("mac") or "")
+    if not mac:
+        add_log(-1, f"[服务器] Agent心跳无法匹配机器 remote={request.remote_addr} ip={report_ip or '-'} parse_error={parse_error or '-'}")
+        return jsonify({
+            "status": "ignored",
+            "reason": "missing mac",
+            "agent_config": build_agent_runtime_config(get_server_host_from_request())
+        }), 202
+
+    if _is_test_machine_report(mac, hostname, report_ip or request.remote_addr, status_payload):
+        return jsonify({
+            "status": "ignored",
+            "reason": "test_machine_report",
+            "agent_config": build_agent_runtime_config(get_server_host_from_request())
+        }), 202
+
+    server_received_at = datetime.now().isoformat()
+    heartbeat_payload = {
+        "agent": dict(agent_payload) if isinstance(agent_payload, dict) else {},
+    }
+    for key in ("mac", "hostname", "ip", "client_sent_at"):
+        value = data.get(key) or status_payload.get(key)
+        if value not in (None, "", [], {}):
+            heartbeat_payload[key] = value
+    heartbeat_payload["agent"]["heartbeat"] = True
+    heartbeat_payload = _annotate_report_timing(
+        heartbeat_payload,
+        str(data.get("timestamp") or status_payload.get("client_sent_at") or ""),
+        server_received_at,
+    )
+    _store_machine_heartbeat(mac, hostname, report_ip or request.remote_addr or "", server_received_at, heartbeat_payload)
+    return jsonify({
+        "status": "ok",
+        "agent_config": build_agent_runtime_config(get_server_host_from_request())
+    })
+
 
 @bp.route('/api/machines/sort', methods=['POST'])
 @require_permission("server.control")
