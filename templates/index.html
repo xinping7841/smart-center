@@ -27,6 +27,34 @@
         .server-codemeter-line .codemeter-license-row.danger span { color:#fecaca !important; }
         .server-codemeter-line .codemeter-license-row.permanent .cm-days { color:#93c5fd !important; }
     </style>
+    <style id="server-adapter-device-info-hotfix">
+        #view-server .server-card .server-adapter-list { display:flex !important; flex-direction:column !important; gap:4px !important; margin-top:0 !important; padding-top:0 !important; border-top:0 !important; }
+        #view-server .server-card .server-adapter-row { min-height:34px !important; display:flex !important; flex-direction:column !important; gap:0 !important; padding:0 !important; border:0 !important; border-radius:0 !important; background:transparent !important; min-width:0 !important; color:#cbd5e1 !important; font-size:12px !important; font-weight:400 !important; line-height:1.45 !important; white-space:normal !important; overflow:visible !important; }
+        #view-server .server-card .server-adapter-head,
+        #view-server .server-card .server-adapter-detail { min-width:0 !important; display:flex !important; flex-wrap:wrap !important; gap:0 8px !important; color:#cbd5e1 !important; font-size:12px !important; font-weight:400 !important; line-height:1.45 !important; overflow:hidden !important; }
+        #view-server .server-card .server-adapter-index,
+        #view-server .server-card .server-adapter-head strong,
+        #view-server .server-card .server-adapter-detail em { min-width:0 !important; max-width:100% !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; display:inline !important; padding:0 !important; border:0 !important; border-radius:0 !important; background:transparent !important; color:#cbd5e1 !important; font-style:normal !important; font-size:12px !important; font-weight:400 !important; line-height:1.45 !important; margin-left:0 !important; }
+    </style>
+    <style id="server-toolbar-redesign-hotfix">
+        #view-server .card-title { flex-wrap:nowrap !important; align-items:center !important; gap:12px !important; }
+        #view-server .card-title > span { flex:0 0 auto !important; width:auto !important; min-width:0 !important; }
+        #view-server .server-toolbar { display:flex !important; flex:0 0 auto !important; flex-direction:row !important; flex-wrap:nowrap !important; align-items:center !important; justify-content:flex-end !important; gap:8px !important; width:auto !important; min-width:0 !important; padding:5px !important; border-radius:10px !important; background:rgba(15,23,42,0.72) !important; border:1px solid rgba(51,65,85,0.72) !important; box-shadow:inset 0 1px 0 rgba(255,255,255,0.04) !important; }
+        #view-server .server-toolbar-group,
+        #view-server .server-toolbar-actions,
+        #view-server .server-mode-control,
+        #view-server .server-view-toggle { display:inline-flex !important; flex-direction:row !important; flex-wrap:nowrap !important; align-items:center !important; width:auto !important; min-width:0 !important; }
+        #view-server .server-toolbar-actions { justify-content:flex-end !important; gap:6px !important; }
+        #view-server .server-mode-control { gap:6px !important; padding:2px 2px 2px 8px !important; border-radius:8px !important; background:rgba(2,6,23,0.42) !important; border:1px solid rgba(71,85,105,0.52) !important; }
+        #view-server .server-mode-current { min-height:24px !important; display:inline-flex !important; align-items:center !important; padding:0 6px 0 0 !important; color:#94a3b8 !important; font-size:11px !important; font-weight:800 !important; white-space:nowrap !important; }
+        #view-server .server-view-toggle { min-height:28px !important; gap:2px !important; padding:2px !important; border-radius:7px !important; background:rgba(15,23,42,0.88) !important; border:1px solid rgba(71,85,105,0.70) !important; }
+        #view-server .server-tool-btn { min-height:32px !important; height:32px !important; border-radius:8px !important; padding:0 11px !important; border:1px solid rgba(71,85,105,0.72) !important; background:rgba(15,23,42,0.76) !important; color:#cbd5e1 !important; box-shadow:inset 0 1px 0 rgba(255,255,255,0.04) !important; font-size:12px !important; font-weight:800 !important; white-space:nowrap !important; }
+        @media screen and (max-width:980px) {
+            #view-server .card-title { flex-wrap:wrap !important; }
+            #view-server .server-toolbar { width:100% !important; justify-content:flex-start !important; flex-wrap:wrap !important; }
+            #view-server .server-toolbar-actions { flex-wrap:wrap !important; justify-content:flex-start !important; }
+        }
+    </style>
     <style id="projector-protocol-ui-hotfix">
         #view-projector #projector-page-grid { display:grid !important; grid-template-columns:repeat(auto-fill, minmax(260px, 288px)) !important; gap:12px !important; justify-content:start !important; align-items:start !important; }
         #view-projector .projector-mini-card { width:100% !important; min-height:226px !important; padding:14px !important; border-radius:10px !important; border:1px solid rgba(71,85,105,.55) !important; border-top:4px solid #10b981 !important; background:linear-gradient(180deg, rgba(15,23,42,.96), rgba(8,15,28,.96)) !important; box-shadow:0 12px 28px rgba(0,0,0,.22) !important; color:#e5eefb !important; display:flex !important; flex-direction:column !important; gap:10px !important; }
