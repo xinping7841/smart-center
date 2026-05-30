@@ -1,0 +1,10 @@
+{
+  "task": "codex-branch-legacy-cleanup",
+  "module": "collab_tools",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-codex-branch-legacy-cleanup-20260530",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/codex-branch-legacy-cleanup",
+  "started_at": "2026-05-30 21:46:03",
+  "status": "in_progress"
+}
