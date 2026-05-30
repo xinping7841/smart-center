@@ -51,6 +51,15 @@ Measured from node-120 loopback. These numbers are a baseline, not a pass/fail t
 
 Primary optimization direction: keep current routes but add compact/default payloads, lazy-load detail views, and move expensive collection to background caches.
 
+## Performance Refactor Baseline From 2026-05-30
+
+The first safe phase focuses on frontend first-paint cost, not business behavior.
+
+- Use `scripts/perf_baseline.py` to capture file sizes and optional read-only endpoint timings into `.baseline_reports/`.
+- Keep dashboard-critical modules synchronous, but lazy-load full SNMP details, protocol control, Apple Audio, Local Model, and ECharts.
+- Keep API routes stable. Do not move physical-control behavior during this phase.
+- See `docs/PERFORMANCE_REFACTOR_PLAN.md` for the exact lazy module map and validation checklist.
+
 ## Refactor Rules
 
 - Preserve existing route paths and response fields during module extraction.
