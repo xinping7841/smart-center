@@ -36,6 +36,7 @@
             configData: global.configData || {},
             fetchJson: utils.fetchJson || global.fetchJson,
             postJsonLoose: utils.postJsonLoose || global.postJsonLoose,
+            getActiveViewId: global.getActiveViewId || (() => ''),
             ensurePermission: utils.ensurePermission || global.ensurePermission || (() => false),
             showToast: utils.showToast || global.showToast || (() => {}),
             translateApiError: utils.translateApiError || global.translateApiError || ((message, fallback) => String(message || fallback || '请求失败')),
@@ -529,6 +530,8 @@
                 console.error('灯光状态更新失败', err);
                 return false;
             });
+        const shouldLoadLogs = typeof ctx.getActiveViewId === 'function' && ctx.getActiveViewId() === 'light';
+        if (!shouldLoadLogs) return statusPromise;
         return Promise.all([statusPromise, updateLightLogs(ctx)]).then(([status]) => status);
     }
 
