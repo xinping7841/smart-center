@@ -1,0 +1,13 @@
+{
+  "task": "frontend-projector-runtime-split",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-frontend-projector-runtime-split-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-projector-runtime-split",
+  "started_at": "2026-05-31 12:34:08",
+  "status": "validated_local",
+  "phase": "ready_for_commit_deploy",
+  "updated_at": "2026-05-31 12:48:00",
+  "summary": "projector runtime/control glue split from app-runtime.js into static/js/views/projector-runtime.js"
+}
