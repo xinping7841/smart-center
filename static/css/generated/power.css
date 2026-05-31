@@ -1,0 +1,121 @@
+/* AI_MODULE: css_power_theme
+   AI_PURPOSE: power view styling extracted from smart-center-time-ntp.css for lazy loading. */
+.power-mini-channel { min-height:52px; border:none; border-radius:12px; padding:6px 8px; color:#fff; cursor:pointer; transition:transform .18s ease, filter .18s ease; display:flex; flex-direction:column; justify-content:center; align-items:flex-start; gap:4px; text-align:left; }
+
+.power-mini-channel:hover { transform:translateY(-1px); filter:brightness(1.04); }
+
+.power-mini-channel .name { font-size:12px; font-weight:800; line-height:1.35; word-break:break-word; }
+
+.power-mini-channel .remark { font-size:10px; opacity:0.82; line-height:1.2; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.power-mini-channel .state { font-size:10px; opacity:0.92; line-height:1.2; }
+
+.power-mini-channel.ch-off { background:#1e293b; border:1px solid #334155; color:#cbd5e1; }
+
+.power-mini-channel.ch-on { background:linear-gradient(135deg, #10b981 0%, #059669 100%); border:1px solid #34d399; box-shadow:0 6px 14px rgba(16,185,129,0.20); }
+
+.power-mini-channel.ch-err { background:#475569; opacity:0.6; cursor:not-allowed; }
+
+.ch-btn { height: 82px; border: none; border-radius: 10px; color: white; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; position: relative; overflow: hidden; gap: 6px; padding: 12px 16px; text-align: left;}
+
+.ch-btn:active { transform: scale(0.95); }
+
+.ch-btn .name { max-width: calc(100% - 48px); font-size: 15px; font-weight: 900; line-height: 1.1; z-index: 2;}
+
+.ch-btn .remark { max-width: 100%; color: #9fb3cf; font-size: 12px; font-weight: 650; line-height: 1.25; letter-spacing: .1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; z-index: 2;}
+
+.ch-btn .remark::before { content: '用途 '; color: rgba(148,163,184,0.62); font-weight: 750; margin-right: 2px; }
+
+.ch-btn .state { position: absolute; top: 10px; right: 10px; min-width: 38px; padding: 3px 8px; border-radius: 999px; background: rgba(15,23,42,0.26); border: 1px solid rgba(255,255,255,0.12); color: rgba(248,250,252,0.9); font-size: 11px; font-weight: 850; line-height: 1; z-index: 2; text-align: center;}
+
+.ch-btn.power-channel-btn {
+            min-height: 78px;
+            height: 78px;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 4px;
+            padding: 10px 12px 9px;
+            border-radius: 14px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+
+.ch-btn.power-channel-btn::after {
+            content: "";
+            position: absolute;
+            left: 12px;
+            right: 12px;
+            bottom: 7px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(148,163,184,0.28), transparent);
+            opacity: .65;
+        }
+
+.ch-btn.power-channel-btn.ch-on::after { background: linear-gradient(90deg, transparent, rgba(209,250,229,0.38), transparent); }
+
+.ch-btn.power-channel-btn .name {
+            max-width: 100%;
+            color: #f8fafc;
+            font-size: 16px;
+            font-weight: 900;
+            line-height: 1.08;
+            letter-spacing: .2px;
+        }
+
+.ch-btn.power-channel-btn .remark {
+            max-width: 100%;
+            color: #a8b8d0;
+            font-size: 12.5px;
+            font-weight: 720;
+            line-height: 1.15;
+            letter-spacing: .1px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+.ch-btn.power-channel-btn .remark::before { content: none; }
+
+.ch-btn.power-channel-btn .state {
+            position: static;
+            min-width: 0;
+            margin-top: 2px;
+            padding: 0;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            color: #7f8da3;
+            font-size: 11px;
+            font-weight: 850;
+            letter-spacing: .8px;
+            line-height: 1;
+            text-align: center;
+        }
+
+.ch-btn.power-channel-btn.ch-off {
+            background: linear-gradient(180deg, rgba(30,41,59,0.98), rgba(15,23,42,0.96));
+            border-color: rgba(71,85,105,0.82);
+        }
+
+.ch-btn.power-channel-btn.ch-off:hover { background: linear-gradient(180deg, rgba(51,65,85,0.94), rgba(30,41,59,0.98)); }
+
+.ch-btn.power-channel-btn.ch-off .name { color: #e2e8f0; }
+
+.ch-btn.power-channel-btn.ch-off .remark { color: #94a3b8; }
+
+.ch-btn.power-channel-btn.ch-off .state { color: #7c8798; }
+
+.ch-btn.power-channel-btn.ch-on {
+            background: linear-gradient(145deg, #13b981 0%, #07966b 54%, #047857 100%);
+            border-color: rgba(110,231,183,0.62);
+            box-shadow: 0 8px 18px rgba(16,185,129,0.18), inset 0 1px 0 rgba(255,255,255,0.16);
+        }
+
+.ch-btn.power-channel-btn.ch-on .remark { color: rgba(236,253,245,0.82); }
+
+.ch-btn.power-channel-btn.ch-on .state { color: rgba(236,253,245,0.84); }
+
+.ch-btn.power-channel-btn.ch-err {
+            background: linear-gradient(180deg, rgba(71,85,105,0.72), rgba(51,65,85,0.68));
+            border-color: rgba(100,116,139,0.42);
+        }

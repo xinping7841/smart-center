@@ -1,0 +1,171 @@
+/* AI_MODULE: css_ups_theme
+   AI_PURPOSE: ups view styling extracted from smart-center-time-ntp.css for lazy loading. */
+.hy-edge-summary .ups-chip strong { color:#f8fafc; font-weight:800; }
+
+.ups-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:16px; }
+
+.ups-card { position:relative; overflow:hidden; background:linear-gradient(180deg, rgba(19,27,43,0.98), rgba(13,19,32,0.98)); border:1px solid rgba(71,85,105,0.5); border-radius:18px; padding:16px; box-shadow:0 12px 28px rgba(0,0,0,0.24); }
+
+.ups-card.warning { border-color:rgba(245,158,11,0.34); box-shadow:0 12px 24px rgba(245,158,11,0.10); }
+
+.ups-card.warning::before { background:linear-gradient(90deg, rgba(245,158,11,0.86), rgba(249,115,22,0.36), rgba(0,0,0,0)); }
+
+.ups-card.offline { border-color:rgba(100,116,139,0.46); opacity:0.88; }
+
+.ups-chip { padding:5px 10px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid rgba(148,163,184,0.16); background:rgba(15,23,42,0.55); color:#e2e8f0; }
+
+.ups-chip.online { background:rgba(16,185,129,0.16); color:#86efac; border-color:rgba(16,185,129,0.35); }
+
+.ups-chip.warning { background:rgba(245,158,11,0.16); color:#fcd34d; border-color:rgba(245,158,11,0.35); }
+
+.ups-chip.error { background:rgba(239,68,68,0.14); color:#fecaca; border-color:rgba(239,68,68,0.3); }
+
+.ups-meta-item .label { font-size:11px; color:var(--text-sub); margin-bottom:5px; }
+
+.ups-meta-item .value { font-size:13px; font-weight:700; color:var(--text-main); line-height:1.45; word-break:break-word; }
+
+.ups-alert-list { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+
+.ups-alert-chip { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:5px 10px; font-size:12px; font-weight:700; }
+
+.ups-alert-chip.warning { color:#fef3c7; background:rgba(245,158,11,0.16); border:1px solid rgba(245,158,11,0.34); }
+
+.ups-alert-chip.error { color:#fee2e2; background:rgba(239,68,68,0.16); border:1px solid rgba(239,68,68,0.34); }
+
+@media screen and (max-width: 1200px) { .ups-meta-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+
+@media screen and (max-width: 760px) { .ups-meta-grid { grid-template-columns:1fr; } }
+
+/* Codex 2026-05-10: compact UPS monitor page, keep all metrics visible with less vertical waste. */
+        #view-ups .card {
+            padding:14px 16px;
+        }
+
+#view-ups .card-title {
+            margin-bottom:10px;
+            padding-bottom:8px;
+        }
+
+#view-ups .ups-grid {
+            grid-template-columns:1fr;
+            gap:10px;
+        }
+
+#view-ups .ups-card {
+            display:grid;
+            grid-template-columns:repeat(4, minmax(0, 1fr));
+            gap:8px;
+            padding:12px;
+            border-radius:14px;
+        }
+
+#view-ups .ups-head {
+            grid-column:1 / -1;
+            align-items:center;
+            margin-bottom:0;
+            padding-bottom:8px;
+            border-bottom:1px solid rgba(148,163,184,0.10);
+        }
+
+#view-ups .card-head-kicker {
+            font-size:10px;
+            letter-spacing:.9px;
+        }
+
+#view-ups .ups-title {
+            font-size:16px;
+            line-height:1.15;
+        }
+
+#view-ups .ups-subtitle {
+            margin-top:3px;
+            font-size:11px;
+            line-height:1.25;
+        }
+
+#view-ups .status-chip-stack,
+        #view-ups .ups-chip-row {
+            display:flex;
+            gap:6px;
+            flex-wrap:wrap;
+            justify-content:flex-end;
+        }
+
+#view-ups .ups-chip,
+        #view-ups .ups-alert-chip {
+            padding:3px 8px;
+            font-size:11px;
+            line-height:1.2;
+        }
+
+#view-ups .ups-meta-grid {
+            display:contents;
+        }
+
+#view-ups .ups-meta-item {
+            min-height:50px;
+            padding:7px 9px;
+            border-radius:10px;
+        }
+
+#view-ups .ups-meta-item .label {
+            margin-bottom:3px;
+            font-size:10px;
+            line-height:1.15;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+        }
+
+#view-ups .ups-meta-item .value {
+            font-size:12px;
+            line-height:1.25;
+            word-break:break-word;
+        }
+
+#view-ups .ups-alert-list,
+        #view-ups .ups-action-row,
+        #view-ups .card-inline-note {
+            grid-column:1 / -1;
+            margin-top:0;
+        }
+
+#view-ups .ups-alert-list {
+            gap:5px;
+            padding-top:2px;
+        }
+
+#view-ups .ups-action-row {
+            gap:6px;
+        }
+
+#view-ups .ups-action-row .btn-base {
+            min-height:30px;
+            padding:0 12px;
+            font-size:12px;
+        }
+
+#view-ups .card-inline-note {
+            padding:7px 9px;
+            border-radius:10px;
+            font-size:11px;
+            line-height:1.45;
+            max-height:92px;
+            overflow:auto;
+        }
+
+@media screen and (max-width: 1280px) {
+            #view-ups .ups-card { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+        }
+
+@media screen and (max-width: 900px) {
+            #view-ups .ups-card { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+            #view-ups .ups-head { align-items:flex-start; flex-direction:column; }
+            #view-ups .status-chip-stack { justify-content:flex-start; }
+        }
+
+@media screen and (max-width: 560px) {
+            #view-ups .ups-card { grid-template-columns:1fr; }
+        }
+
+#view-ups .ups-grid > * { flex:0 0 360px !important; }

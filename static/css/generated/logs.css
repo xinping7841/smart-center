@@ -1,0 +1,17 @@
+/* AI_MODULE: css_logs_theme
+   AI_PURPOSE: logs view styling extracted from smart-center-time-ntp.css for lazy loading. */
+.log-list { height: 350px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; font-family: Consolas, monospace; font-size: 12px;}
+
+.log-item { padding: 6px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; gap: 10px;}
+
+.log-item .time { color: var(--brand-blue); flex-shrink: 0;}
+
+.log-item .msg { color: var(--text-sub); }
+
+.log-item .source-tag { display:inline-flex; align-items:center; justify-content:center; padding:1px 7px; border-radius:999px; font-size:10px; font-weight:800; letter-spacing:.2px; border:1px solid rgba(148,163,184,0.22); background:rgba(15,23,42,0.52); color:#cbd5e1; flex-shrink:0; }
+
+.log-item .source-tag.local { color:#bfdbfe; border-color:rgba(59,130,246,0.34); background:rgba(30,64,175,0.22); }
+
+.log-item .source-tag.remote { color:#bbf7d0; border-color:rgba(16,185,129,0.34); background:rgba(6,95,70,0.22); }
+
+.log-item .source-tag.auto { color:#fef3c7; border-color:rgba(245,158,11,0.34); background:rgba(120,53,15,0.22); }

@@ -1,0 +1,1023 @@
+/* AI_MODULE: css_hvac_theme
+   AI_PURPOSE: hvac view styling extracted from smart-center-time-ntp.css for lazy loading. */
+.hvac-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:14px; align-items:stretch; }
+
+.hvac-dashboard-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 380px)); gap:12px; justify-content:flex-start; }
+
+.hvac-group-section {
+            grid-column:1/-1;
+            min-width:0;
+            position:relative;
+            overflow:hidden;
+            padding:12px;
+            border-radius:18px;
+            border:1px solid rgba(96,165,250,0.16);
+            background:
+                linear-gradient(135deg, rgba(15,23,42,0.94), rgba(15,36,58,0.72)),
+                radial-gradient(circle at 8% 0%, rgba(56,189,248,0.12), transparent 36%);
+            box-shadow:0 14px 32px rgba(2,6,23,0.18), inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+
+.hvac-group-section::before {
+            content:'';
+            position:absolute;
+            inset:0 auto 0 0;
+            width:4px;
+            background:linear-gradient(180deg, rgba(56,189,248,0.92), rgba(59,130,246,0.24));
+            opacity:.9;
+            pointer-events:none;
+        }
+
+.hvac-group-section::after {
+            content:'';
+            position:absolute;
+            inset:-90px -120px auto auto;
+            width:220px;
+            height:220px;
+            border-radius:999px;
+            background:radial-gradient(circle, rgba(56,189,248,0.10), transparent 68%);
+            pointer-events:none;
+        }
+
+.hvac-group-machine { border-color:rgba(34,197,94,0.20); background:linear-gradient(135deg, rgba(9,30,32,0.94), rgba(13,30,42,0.78)); }
+
+.hvac-group-machine::before { background:linear-gradient(180deg, rgba(34,197,94,0.92), rgba(20,184,166,0.28)); }
+
+.hvac-group-hall1 { border-color:rgba(56,189,248,0.22); background:linear-gradient(135deg, rgba(8,30,55,0.94), rgba(15,23,42,0.80)); }
+
+.hvac-group-hall1::before { background:linear-gradient(180deg, rgba(56,189,248,0.95), rgba(37,99,235,0.28)); }
+
+.hvac-group-hall2 { border-color:rgba(129,140,248,0.24); background:linear-gradient(135deg, rgba(25,27,57,0.92), rgba(15,23,42,0.80)); }
+
+.hvac-group-hall2::before { background:linear-gradient(180deg, rgba(129,140,248,0.95), rgba(59,130,246,0.26)); }
+
+.hvac-group-cafe { border-color:rgba(251,146,60,0.22); background:linear-gradient(135deg, rgba(51,31,16,0.92), rgba(24,28,40,0.82)); }
+
+.hvac-group-cafe::before { background:linear-gradient(180deg, rgba(251,146,60,0.95), rgba(245,158,11,0.28)); }
+
+.hvac-group-office { border-color:rgba(14,165,233,0.22); background:linear-gradient(135deg, rgba(11,36,49,0.92), rgba(15,23,42,0.80)); }
+
+.hvac-group-office::before { background:linear-gradient(180deg, rgba(14,165,233,0.90), rgba(6,182,212,0.26)); }
+
+.hvac-group-meeting { border-color:rgba(168,85,247,0.24); background:linear-gradient(135deg, rgba(38,24,58,0.92), rgba(15,23,42,0.80)); }
+
+.hvac-group-meeting::before { background:linear-gradient(180deg, rgba(168,85,247,0.92), rgba(99,102,241,0.26)); }
+
+.hvac-group-head,
+        .hvac-group-grid { position:relative; z-index:1; }
+
+.hvac-group-head { display:flex; justify-content:space-between; align-items:flex-end; gap:8px; margin:1px 0 7px; padding:0 2px; }
+
+.hvac-group-title-wrap { min-width:0; }
+
+.hvac-group-title-row { display:flex; align-items:center; gap:7px; flex-wrap:wrap; min-width:0; }
+
+.hvac-group-title { font-size:14px; font-weight:950; color:#f8fafc; letter-spacing:.2px; line-height:1.18; }
+
+.hvac-group-subtitle { margin-top:2px; font-size:10px; color:#94a3b8; line-height:1.28; }
+
+.hvac-room-env-slot { display:inline-flex; min-width:0; }
+
+.hvac-room-env-slot.is-empty { display:none; }
+
+.hvac-room-env-chip { display:inline-flex; align-items:center; gap:5px; max-width:100%; border-radius:999px; padding:4px 8px; background:rgba(14,165,233,0.13); border:1px solid rgba(56,189,248,0.24); color:#bae6fd; font-size:10px; font-weight:850; line-height:1; white-space:nowrap; box-shadow:inset 0 1px 0 rgba(255,255,255,0.07); }
+
+.hvac-room-env-chip .label { color:#93c5fd; font-weight:850; }
+
+.hvac-room-env-chip strong { color:#f8fafc; font-size:11px; font-weight:950; }
+
+.hvac-room-env-chip em { color:#fbbf24; font-size:9px; font-style:normal; font-weight:900; }
+
+.hvac-room-env-chip.offline { color:#cbd5e1; background:rgba(71,85,105,0.22); border-color:rgba(148,163,184,0.18); }
+
+.hvac-room-env-chip.stale { color:#fde68a; background:rgba(113,63,18,0.20); border-color:rgba(245,158,11,0.28); }
+
+.hvac-group-stats { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; flex-shrink:0; }
+
+.hvac-group-stat { border-radius:999px; padding:4px 7px; background:rgba(15,23,42,0.58); border:1px solid rgba(148,163,184,0.14); color:#cbd5e1; font-size:9px; font-weight:850; line-height:1; }
+
+.hvac-group-stat.running { color:#fef3c7; border-color:rgba(245,158,11,0.28); background:rgba(120,53,15,0.20); }
+
+.hvac-group-stat.online { color:#bbf7d0; border-color:rgba(34,197,94,0.26); background:rgba(20,83,45,0.18); }
+
+.hvac-group-stat.power { color:#fde68a; border-color:rgba(250,204,21,0.22); background:rgba(113,63,18,0.18); font-family:Consolas, monospace; }
+
+.hvac-group-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:10px; align-items:stretch; }
+
+#view-hvac .hvac-grid { grid-template-columns:repeat(3, minmax(0, 1fr)); align-items:start; }
+
+#view-hvac .hvac-group-section { grid-column:span 3; }
+
+#view-hvac .hvac-group-count-1 { grid-column:span 1; }
+
+#view-hvac .hvac-group-count-2 { grid-column:span 2; }
+
+#view-hvac .hvac-group-count-3 { grid-column:span 3; }
+
+#view-hvac .hvac-group-count-1 .hvac-group-grid { grid-template-columns:1fr; }
+
+#view-hvac .hvac-group-count-2 .hvac-group-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+
+#view-hvac .hvac-group-count-3 .hvac-group-grid { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+
+.hvac-dashboard-grid .hvac-group-grid { grid-template-columns:repeat(auto-fit, minmax(300px, 380px)); gap:12px; justify-content:flex-start; }
+
+.hvac-card { position:relative; overflow:hidden; min-height:0; border-radius:14px; padding:11px; background:linear-gradient(145deg, rgba(11,31,51,0.96), rgba(16,24,39,0.98) 56%, rgba(7,17,31,0.98)); border:1px solid rgba(96,165,250,0.20); box-shadow:0 12px 26px rgba(2,6,23,0.18); }
+
+.hvac-card::before { content:''; position:absolute; inset:-72px -82px auto auto; width:190px; height:190px; border-radius:999px; background:radial-gradient(circle, rgba(34,211,238,0.20), rgba(59,130,246,0.05) 58%, transparent 70%); pointer-events:none; }
+
+.hvac-card::after { content:''; position:absolute; left:0; right:0; bottom:0; height:3px; background:linear-gradient(90deg, rgba(34,211,238,0.92), rgba(59,130,246,0.88)); opacity:.94; }
+
+.hvac-card::selection { background:rgba(34,211,238,0.18); }
+
+.hvac-card.running { background:linear-gradient(145deg, rgba(8,40,67,0.98), rgba(10,24,43,0.98) 54%, rgba(7,17,31,0.98)); border-color:rgba(56,189,248,0.32); box-shadow:0 18px 42px rgba(8,145,178,0.14); }
+
+.hvac-card.running::before { background:radial-gradient(circle, rgba(34,211,238,0.30), rgba(59,130,246,0.10) 56%, transparent 72%); }
+
+.hvac-card.running::after { background:linear-gradient(90deg, rgba(34,211,238,0.98), rgba(14,165,233,0.95)); height:4px; }
+
+.hvac-card.running.mode-cool { background:linear-gradient(145deg, rgba(8,35,61,0.98), rgba(11,24,43,0.98) 56%, rgba(7,17,31,0.98)); border-color:rgba(96,165,250,0.30); box-shadow:0 18px 42px rgba(37,99,235,0.10); }
+
+.hvac-card.running.mode-cool::before { background:radial-gradient(circle, rgba(125,211,252,0.22), rgba(59,130,246,0.08) 56%, transparent 72%); }
+
+.hvac-card.running.mode-cool::after { background:linear-gradient(90deg, rgba(125,211,252,0.92), rgba(37,99,235,0.84)); }
+
+.hvac-card.running.mode-heat { background:linear-gradient(145deg, rgba(54,30,14,0.98), rgba(36,24,16,0.98) 56%, rgba(18,15,12,0.98)); border-color:rgba(251,146,60,0.28); box-shadow:0 18px 42px rgba(234,88,12,0.10); }
+
+.hvac-card.running.mode-heat::before { background:radial-gradient(circle, rgba(251,191,36,0.22), rgba(234,88,12,0.08) 56%, transparent 72%); }
+
+.hvac-card.running.mode-heat::after { background:linear-gradient(90deg, rgba(251,191,36,0.92), rgba(234,88,12,0.84)); }
+
+.hvac-card.standby { background:linear-gradient(145deg, rgba(24,30,45,0.96), rgba(15,23,42,0.96) 58%, rgba(9,13,24,0.98)); border-color:rgba(148,163,184,0.18); }
+
+.hvac-card.standby::before { background:radial-gradient(circle, rgba(148,163,184,0.14), rgba(71,85,105,0.05) 56%, transparent 72%); }
+
+.hvac-card.standby::after { background:linear-gradient(90deg, rgba(148,163,184,0.78), rgba(100,116,139,0.70)); }
+
+.hvac-card.offline { border-color:rgba(100,116,139,0.44); opacity:.88; }
+
+.hvac-card.offline::after { background:linear-gradient(90deg, rgba(100,116,139,0.82), rgba(71,85,105,0.76)); }
+
+.hvac-card-head { position:relative; display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:8px; }
+
+.hvac-title { font-size:15px; font-weight:900; color:#f8fafc; line-height:1.18; word-break:break-word; }
+
+.hvac-subtitle { margin-top:3px; color:#94a3b8; font-size:10px; line-height:1.3; word-break:break-word; }
+
+.hvac-top-actions { display:flex; align-items:flex-start; gap:7px; flex-shrink:0; }
+
+.hvac-chip-row { display:flex; justify-content:flex-end; gap:5px; flex-wrap:wrap; flex-shrink:0; }
+
+.hvac-state-badge { display:inline-flex; align-items:center; gap:5px; min-height:22px; padding:0 8px; border-radius:999px; border:1px solid rgba(148,163,184,0.16); background:rgba(15,23,42,0.64); color:#e2e8f0; font-size:9px; font-weight:900; line-height:1; letter-spacing:.2px; }
+
+.hvac-state-badge::before { content:''; width:7px; height:7px; border-radius:999px; background:#64748b; box-shadow:0 0 0 2px rgba(100,116,139,0.14); }
+
+.hvac-state-badge.online::before { background:#22c55e; box-shadow:0 0 0 3px rgba(34,197,94,0.18); }
+
+.hvac-state-badge.running { color:#fef3c7; border-color:rgba(250,204,21,0.24); background:rgba(120,53,15,0.22); }
+
+.hvac-state-badge.running::before { background:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,0.18); }
+
+.hvac-state-badge.standby { color:#cbd5e1; border-color:rgba(148,163,184,0.18); background:rgba(51,65,85,0.22); }
+
+.hvac-state-badge.standby::before { background:#94a3b8; box-shadow:0 0 0 3px rgba(148,163,184,0.15); }
+
+.hvac-state-badge.offline { color:#e2e8f0; border-color:rgba(100,116,139,0.22); background:rgba(30,41,59,0.30); }
+
+.hvac-state-badge.offline::before { background:#64748b; }
+
+.hvac-body { position:relative; display:grid; grid-template-columns:minmax(106px, .72fr) minmax(0, 1fr); gap:8px; align-items:stretch; }
+
+.hvac-temp-panel { position:relative; display:flex; flex-direction:column; justify-content:center; border-radius:12px; padding:9px; padding-right:38px; background:linear-gradient(180deg, rgba(8,47,73,0.46), rgba(2,6,23,0.38)); border:1px solid rgba(125,211,252,0.14); min-height:104px; cursor:pointer; transition:border-color .18s ease, background .18s ease, transform .18s ease; }
+
+.hvac-temp-panel:hover { transform:translateY(-1px); border-color:rgba(125,211,252,0.24); }
+
+.hvac-card.running .hvac-temp-panel { background:linear-gradient(180deg, rgba(12,74,110,0.54), rgba(7,20,35,0.40)); border-color:rgba(34,211,238,0.20); }
+
+.hvac-card.running.mode-heat .hvac-temp-panel { background:linear-gradient(180deg, rgba(92,45,18,0.48), rgba(30,18,12,0.42)); border-color:rgba(251,146,60,0.20); }
+
+.hvac-card.standby .hvac-temp-panel { background:linear-gradient(180deg, rgba(30,41,59,0.46), rgba(15,23,42,0.36)); border-color:rgba(148,163,184,0.12); }
+
+.hvac-temp-label { color:#93c5fd; font-size:9px; font-weight:800; letter-spacing:.35px; text-transform:uppercase; }
+
+.hvac-temp-value { margin-top:3px; font-size:32px; line-height:1; font-weight:950; color:#f8fafc; font-family:Consolas, monospace; letter-spacing:-1.2px; }
+
+.hvac-temp-value small { font-size:13px; color:#bae6fd; margin-left:1px; }
+
+.hvac-temp-target { margin-top:5px; display:flex; align-items:flex-end; justify-content:space-between; gap:8px; color:#cbd5e1; font-size:10px; line-height:1.25; }
+
+.hvac-temp-target span { display:block; color:#94a3b8; }
+
+.hvac-temp-target strong { color:#fef3c7; font-size:14px; font-family:Consolas, monospace; }
+
+.hvac-temp-hint { font-size:9px; color:#7dd3fc; opacity:.82; white-space:nowrap; }
+
+.hvac-temp-panel .hvac-temp-target.compact { margin-top:5px; justify-content:flex-start; }
+
+.hvac-temp-stepper { position:absolute; right:8px; top:50%; transform:translateY(-50%) translateX(0); display:flex; flex-direction:column; gap:6px; opacity:.72; pointer-events:auto; transition:opacity .18s ease, transform .18s ease; }
+
+.hvac-temp-panel:hover .hvac-temp-stepper,
+        .hvac-temp-panel.open .hvac-temp-stepper { opacity:1; pointer-events:auto; transform:translateY(-50%) translateX(0); }
+
+.hvac-temp-step-btn { width:26px; height:26px; border-radius:999px; border:1px solid rgba(148,163,184,0.18); background:rgba(2,6,23,0.72); color:#f8fafc; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:15px; font-weight:900; line-height:1; box-shadow:0 8px 16px rgba(2,6,23,0.22); transition:transform .16s ease, border-color .16s ease, background .16s ease; }
+
+.hvac-temp-step-btn:hover { transform:translateY(-1px); border-color:rgba(125,211,252,0.35); background:rgba(15,23,42,0.90); }
+
+.hvac-temp-step-btn:disabled { opacity:.42; cursor:not-allowed; transform:none; }
+
+.hvac-thermal-pill { display:inline-flex; align-items:center; gap:5px; align-self:flex-start; min-height:22px; margin:6px 0 0; padding:0 7px; border-radius:999px; font-size:10px; font-weight:900; border:1px solid rgba(148,163,184,0.14); background:rgba(15,23,42,0.42); color:#e2e8f0; }
+
+.hvac-thermal-pill svg { width:13px; height:13px; display:block; }
+
+.hvac-thermal-pill.cool { color:#dbeafe; border-color:rgba(125,211,252,0.26); background:rgba(37,99,235,0.18); }
+
+.hvac-thermal-pill.heat { color:#ffedd5; border-color:rgba(251,146,60,0.26); background:rgba(234,88,12,0.18); }
+
+.hvac-thermal-pill.off { color:#cbd5e1; background:rgba(51,65,85,0.22); }
+
+.hvac-side-panel { position:relative; display:flex; flex-direction:column; gap:7px; }
+
+.hvac-mode-block { position:relative; overflow:visible; }
+
+.hvac-mode-trigger { width:100%; min-height:40px; padding:8px 10px; border-radius:11px; border:1px solid rgba(148,163,184,0.12); background:rgba(15,23,42,0.52); color:#f8fafc; display:flex; align-items:center; justify-content:space-between; gap:8px; text-align:left; cursor:pointer; transition:transform .16s ease, border-color .16s ease, background .16s ease, filter .16s ease; }
+
+.hvac-mode-trigger:hover { transform:translateY(-1px); filter:brightness(1.06); border-color:rgba(148,163,184,0.24); }
+
+.hvac-mode-trigger.cool { background:rgba(37,99,235,0.18); border-color:rgba(96,165,250,0.24); color:#dbeafe; }
+
+.hvac-mode-trigger.heat { background:rgba(234,88,12,0.18); border-color:rgba(251,146,60,0.26); color:#ffedd5; }
+
+.hvac-mode-trigger.dry { background:rgba(217,119,6,0.16); border-color:rgba(251,191,36,0.22); color:#fef3c7; }
+
+.hvac-mode-trigger.fan { background:rgba(8,145,178,0.16); border-color:rgba(34,211,238,0.22); color:#cffafe; }
+
+.hvac-mode-trigger.auto { background:rgba(22,163,74,0.16); border-color:rgba(74,222,128,0.22); color:#dcfce7; }
+
+.hvac-mode-trigger.off { background:rgba(51,65,85,0.26); border-color:rgba(148,163,184,0.16); color:#cbd5e1; }
+
+.hvac-mode-main { display:flex; align-items:center; gap:7px; min-width:0; }
+
+.hvac-mode-copy { display:flex; flex-direction:column; gap:2px; min-width:0; }
+
+.hvac-mode-caption { font-size:9px; color:#94a3b8; line-height:1; letter-spacing:.25px; }
+
+.hvac-mode-name { font-size:12px; font-weight:900; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.hvac-mode-side { font-size:9px; color:#94a3b8; line-height:1; white-space:nowrap; }
+
+.hvac-mode-icon { display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px; margin-right:4px; }
+
+.hvac-mode-icon svg { width:15px; height:15px; display:block; }
+
+.hvac-mode-popover { position:absolute; z-index:32; left:6px; right:6px; top:43px; display:none; gap:5px; flex-wrap:wrap; padding:6px; border-radius:10px; border:1px solid rgba(148,163,184,0.18); background:rgba(8,13,24,0.96); box-shadow:0 18px 34px rgba(2,6,23,0.42); backdrop-filter:blur(10px); }
+
+.hvac-mode-block.open .hvac-mode-popover { display:flex; }
+
+.hvac-mode-option { flex:1 1 58px; min-height:28px; border-radius:9px; border:1px solid rgba(148,163,184,0.12); background:rgba(15,23,42,0.72); color:#e2e8f0; display:flex; align-items:center; justify-content:center; gap:5px; cursor:pointer; font-size:10px; font-weight:900; transition:transform .16s ease, border-color .16s ease, background .16s ease; }
+
+.hvac-mode-option:hover { transform:translateY(-1px); border-color:rgba(148,163,184,0.30); background:rgba(30,41,59,0.86); }
+
+.hvac-mode-option.active { border-color:rgba(125,211,252,0.32); background:rgba(37,99,235,0.22); color:#dbeafe; }
+
+.hvac-mode-option.heat.active { border-color:rgba(251,146,60,0.34); background:rgba(234,88,12,0.22); color:#ffedd5; }
+
+.hvac-mode-option svg { width:15px; height:15px; display:block; }
+
+.hvac-action-strip { min-height:32px; border-radius:10px; padding:0 9px; display:flex; align-items:center; gap:6px; background:rgba(15,23,42,0.42); border:1px solid rgba(148,163,184,0.10); color:#e2e8f0; }
+
+.hvac-action-strip.running { color:#fef3c7; background:rgba(120,53,15,0.18); border-color:rgba(245,158,11,0.16); }
+
+.hvac-action-strip.idle { color:#cbd5e1; background:rgba(51,65,85,0.22); border-color:rgba(148,163,184,0.12); }
+
+.hvac-action-strip.cooling { color:#dbeafe; background:rgba(37,99,235,0.16); border-color:rgba(96,165,250,0.16); }
+
+.hvac-action-strip.heating { color:#ffedd5; background:rgba(234,88,12,0.16); border-color:rgba(251,146,60,0.16); }
+
+.hvac-action-copy { display:flex; flex-direction:column; gap:2px; min-width:0; }
+
+.hvac-action-caption { font-size:9px; color:#94a3b8; line-height:1; letter-spacing:.25px; }
+
+.hvac-action-text { font-size:11px; font-weight:900; line-height:1.15; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.hvac-info-stack { display:flex; flex-direction:column; gap:6px; }
+
+.hvac-info-row { min-height:34px; border-radius:10px; padding:0 9px; background:rgba(15,23,42,0.42); border:1px solid rgba(148,163,184,0.10); display:flex; align-items:center; justify-content:space-between; gap:8px; }
+
+.hvac-info-row .label { font-size:9px; color:#94a3b8; line-height:1; white-space:nowrap; }
+
+.hvac-info-row .value { min-width:0; font-size:11px; font-weight:850; color:#f8fafc; line-height:1.2; text-align:right; }
+
+.hvac-info-row.power .value { color:#fcd34d; font-family:Consolas, monospace; }
+
+.hvac-info-row .value.fan { flex:1; display:flex; justify-content:flex-end; }
+
+.hvac-info-row.env.is-empty,
+        .hvac-compact-row.env.is-empty { display:none !important; }
+
+.hvac-info-row.env .value.env { display:flex; justify-content:flex-end; min-width:0; }
+
+.hvac-info-row.env .hvac-room-env-chip,
+        .hvac-compact-row.env .hvac-room-env-chip { padding:2px 6px; gap:4px; font-size:9px; max-width:100%; }
+
+.hvac-info-row.env .hvac-room-env-chip strong,
+        .hvac-compact-row.env .hvac-room-env-chip strong { font-size:10px; }
+
+.hvac-compact-row.env strong { display:flex; justify-content:flex-end; min-width:0; overflow:visible; }
+
+.hvac-dashboard-compact-info { display:flex; flex-direction:column; gap:5px; min-width:0; }
+
+.hvac-compact-row { min-height:27px; padding:4px 7px; border-radius:9px; background:rgba(15,23,42,0.44); border:1px solid rgba(148,163,184,0.10); display:flex; align-items:center; justify-content:space-between; gap:7px; min-width:0; }
+
+.hvac-compact-row.mode.cool { color:#dbeafe; background:rgba(37,99,235,0.16); border-color:rgba(96,165,250,0.20); }
+
+.hvac-compact-row.mode.heat { color:#ffedd5; background:rgba(234,88,12,0.16); border-color:rgba(251,146,60,0.22); }
+
+.hvac-compact-row.mode.off { color:#cbd5e1; background:rgba(51,65,85,0.24); border-color:rgba(148,163,184,0.13); }
+
+.hvac-compact-label { flex:0 0 auto; color:#93c5fd; font-size:9px; font-weight:850; line-height:1; white-space:nowrap; }
+
+.hvac-compact-row strong { min-width:0; color:#f8fafc; font-size:11px; font-weight:900; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.hvac-compact-row.fan strong { display:flex; justify-content:flex-end; overflow:visible; }
+
+.hvac-fan-wrap { display:flex; flex-direction:column; gap:7px; }
+
+.hvac-fan-label { font-size:13px; font-weight:900; color:#e0f2fe; }
+
+.hvac-fan-bars { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:4px; align-items:end; min-height:20px; }
+
+.hvac-fan-bar { height:7px; border-radius:999px; background:rgba(71,85,105,0.58); border:1px solid rgba(148,163,184,0.08); transition:all .2s ease; }
+
+.hvac-fan-bar.active { background:linear-gradient(180deg, rgba(34,211,238,0.96), rgba(14,165,233,0.88)); box-shadow:0 0 12px rgba(34,211,238,0.18); border-color:rgba(103,232,249,0.24); }
+
+.hvac-fan-bar:nth-child(1) { height:6px; }
+
+.hvac-fan-bar:nth-child(2) { height:9px; }
+
+.hvac-fan-bar:nth-child(3) { height:12px; }
+
+.hvac-fan-bar:nth-child(4) { height:16px; }
+
+.hvac-fan-inline { display:inline-flex; align-items:flex-end; gap:5px; min-width:0; }
+
+.hvac-fan-inline-label { font-size:10px; font-weight:850; color:#e0f2fe; white-space:nowrap; }
+
+.hvac-fan-inline-bars { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:2px; min-width:38px; align-items:end; }
+
+.hvac-fan-inline-bars .hvac-fan-bar { height:5px; }
+
+.hvac-fan-inline-bars .hvac-fan-bar:nth-child(2) { height:7px; }
+
+.hvac-fan-inline-bars .hvac-fan-bar:nth-child(3) { height:9px; }
+
+.hvac-fan-inline-bars .hvac-fan-bar:nth-child(4) { height:11px; }
+
+.hvac-actions { position:relative; display:flex; justify-content:flex-end; gap:6px; flex-wrap:wrap; margin-top:7px; }
+
+.hvac-control-btn { display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:32px; padding:0 11px; border-radius:10px; border:1px solid rgba(148,163,184,0.14); background:rgba(15,23,42,0.44); color:#e2e8f0; font-size:11px; font-weight:900; cursor:pointer; transition:transform .18s ease, border-color .18s ease, background .18s ease; }
+
+.hvac-control-btn:hover { transform:translateY(-1px); border-color:rgba(148,163,184,0.28); background:rgba(30,41,59,0.60); }
+
+.hvac-control-btn svg { width:15px; height:15px; display:block; }
+
+.hvac-control-btn.cool { color:#dbeafe; border-color:rgba(96,165,250,0.24); background:rgba(37,99,235,0.16); }
+
+.hvac-control-btn.heat { color:#ffedd5; border-color:rgba(251,146,60,0.24); background:rgba(234,88,12,0.16); }
+
+.hvac-control-btn.temp { min-width:54px; font-family:Consolas, monospace; color:#fef3c7; }
+
+.hvac-error { position:relative; margin-top:7px; color:#fecaca; font-size:11px; line-height:1.35; padding:7px 9px; border-radius:10px; background:rgba(127,29,29,0.12); border:1px solid rgba(239,68,68,0.22); }
+
+.hvac-empty { grid-column:1/-1; color:var(--text-sub); text-align:center; padding:24px 16px; border-radius:14px; border:1px dashed rgba(148,163,184,0.20); background:rgba(2,6,23,0.22); }
+
+@media screen and (max-width: 900px) { .hvac-body { grid-template-columns:minmax(104px, .72fr) minmax(0, 1fr); } .hvac-dashboard-grid, .hvac-group-grid, .hvac-dashboard-grid .hvac-group-grid, #view-hvac .hvac-grid { grid-template-columns:1fr; } #view-hvac .hvac-group-section { grid-column:1/-1; } .hvac-group-head { align-items:flex-start; flex-direction:column; } .hvac-group-stats { justify-content:flex-start; } .hvac-temp-value { font-size:28px; } .hvac-mode-popover { top:43px; } }
+
+@media screen and (max-width: 520px) { .hvac-body { grid-template-columns:1fr; } .hvac-temp-panel { min-height:92px; } }
+
+/* Codex 2026-05-16: make HVAC room groups read as separate base cards. */
+        #view-hvac .hvac-grid {
+            gap:18px !important;
+        }
+
+#view-hvac .hvac-group-section {
+            position:relative !important;
+            isolation:isolate;
+            overflow:hidden !important;
+            padding:14px !important;
+            border-radius:20px !important;
+            border:1px solid rgba(96,165,250,0.24) !important;
+            background:
+                linear-gradient(180deg, rgba(17,30,50,0.96), rgba(9,18,32,0.96)) !important;
+            box-shadow:0 18px 42px rgba(2,6,23,0.28), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+        }
+
+#view-hvac .hvac-group-section::before {
+            content:'' !important;
+            position:absolute !important;
+            inset:0 auto 0 0 !important;
+            width:5px !important;
+            background:linear-gradient(180deg, rgba(56,189,248,0.98), rgba(59,130,246,0.38)) !important;
+            opacity:1 !important;
+            pointer-events:none !important;
+            z-index:0 !important;
+        }
+
+#view-hvac .hvac-group-section::after {
+            content:'' !important;
+            position:absolute !important;
+            inset:0 !important;
+            border-radius:inherit !important;
+            background:
+                radial-gradient(circle at 14% 0%, rgba(56,189,248,0.13), transparent 34%),
+                linear-gradient(90deg, rgba(148,163,184,0.05), transparent 38%) !important;
+            pointer-events:none !important;
+            z-index:0 !important;
+        }
+
+#view-hvac .hvac-group-head {
+            margin:0 0 12px !important;
+            padding:0 2px 10px 8px !important;
+            border-bottom:1px solid rgba(148,163,184,0.14) !important;
+        }
+
+#view-hvac .hvac-group-head,
+        #view-hvac .hvac-group-grid {
+            position:relative !important;
+            z-index:1 !important;
+        }
+
+#view-hvac .hvac-group-title {
+            font-size:17px !important;
+            letter-spacing:.3px !important;
+        }
+
+#view-hvac .hvac-group-subtitle {
+            color:#a8bedb !important;
+        }
+
+#view-hvac .hvac-group-hall1 { border-color:rgba(56,189,248,0.34) !important; }
+
+#view-hvac .hvac-group-hall1::before { background:linear-gradient(180deg, #38bdf8, #2563eb) !important; }
+
+#view-hvac .hvac-group-hall2 { border-color:rgba(129,140,248,0.36) !important; }
+
+#view-hvac .hvac-group-hall2::before { background:linear-gradient(180deg, #818cf8, #2563eb) !important; }
+
+#view-hvac .hvac-group-cafe { border-color:rgba(251,146,60,0.36) !important; }
+
+#view-hvac .hvac-group-cafe::before { background:linear-gradient(180deg, #fb923c, #f59e0b) !important; }
+
+#view-hvac .hvac-group-office { border-color:rgba(14,165,233,0.34) !important; }
+
+#view-hvac .hvac-group-office::before { background:linear-gradient(180deg, #0ea5e9, #06b6d4) !important; }
+
+#view-hvac .hvac-group-meeting { border-color:rgba(168,85,247,0.36) !important; }
+
+#view-hvac .hvac-group-meeting::before { background:linear-gradient(180deg, #a855f7, #6366f1) !important; }
+
+#view-hvac .hvac-group-machine { border-color:rgba(34,197,94,0.32) !important; }
+
+#view-hvac .hvac-group-machine::before { background:linear-gradient(180deg, #22c55e, #14b8a6) !important; }
+
+/* Codex 2026-05-16: compact HVAC room layout for 1080p screens. */
+        #view-hvac .card {
+            padding:12px !important;
+        }
+
+#view-hvac .card-title {
+            margin-bottom:10px !important;
+            padding-bottom:8px !important;
+        }
+
+#view-hvac .hvac-grid {
+            grid-template-columns:repeat(4, minmax(0, 1fr)) !important;
+            gap:10px !important;
+            align-items:start !important;
+        }
+
+#view-hvac .hvac-group-section {
+            padding:10px !important;
+            margin:0 0 10px !important;
+            border-width:1px !important;
+            border-radius:16px !important;
+            box-shadow:0 10px 24px rgba(2,6,23,0.24), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+        }
+
+#view-hvac .hvac-group-section::before {
+            width:4px !important;
+        }
+
+#view-hvac .hvac-group-section::after {
+            opacity:.72 !important;
+        }
+
+#view-hvac .hvac-group-count-1 { grid-column:span 1 !important; }
+
+#view-hvac .hvac-group-count-2 { grid-column:span 2 !important; }
+
+#view-hvac .hvac-group-count-3 { grid-column:span 3 !important; }
+
+#view-hvac .hvac-group-count-4 { grid-column:span 4 !important; }
+
+#view-hvac .hvac-group-count-1 .hvac-group-grid { grid-template-columns:1fr !important; }
+
+#view-hvac .hvac-group-count-2 .hvac-group-grid { grid-template-columns:repeat(2, minmax(0, 1fr)) !important; }
+
+#view-hvac .hvac-group-count-3 .hvac-group-grid { grid-template-columns:repeat(3, minmax(0, 1fr)) !important; }
+
+#view-hvac .hvac-group-count-4 .hvac-group-grid { grid-template-columns:repeat(4, minmax(0, 1fr)) !important; }
+
+#view-hvac .hvac-group-head {
+            align-items:center !important;
+            gap:8px !important;
+            margin:0 0 8px !important;
+            padding:0 2px 7px 9px !important;
+        }
+
+#view-hvac .hvac-group-title {
+            font-size:15px !important;
+            line-height:1.05 !important;
+        }
+
+#view-hvac .hvac-group-subtitle {
+            margin-top:1px !important;
+            font-size:9px !important;
+            line-height:1.15 !important;
+        }
+
+#view-hvac .hvac-group-stats {
+            gap:4px !important;
+        }
+
+#view-hvac .hvac-group-stat {
+            padding:3px 6px !important;
+            font-size:8px !important;
+        }
+
+#view-hvac .hvac-group-grid {
+            gap:8px !important;
+            align-items:stretch !important;
+        }
+
+#view-hvac .hvac-card {
+            padding:7px !important;
+            border-radius:12px !important;
+            min-height:0 !important;
+        }
+
+#view-hvac .hvac-card::before {
+            width:130px !important;
+            height:130px !important;
+            inset:-70px -70px auto auto !important;
+        }
+
+#view-hvac .hvac-card-head {
+            gap:6px !important;
+            margin-bottom:5px !important;
+            align-items:flex-start !important;
+        }
+
+#view-hvac .hvac-title {
+            font-size:12px !important;
+            line-height:1.12 !important;
+            display:-webkit-box;
+            -webkit-line-clamp:2;
+            -webkit-box-orient:vertical;
+            overflow:hidden;
+        }
+
+#view-hvac .hvac-subtitle {
+            margin-top:2px !important;
+            font-size:8px !important;
+            line-height:1.15 !important;
+        }
+
+#view-hvac .hvac-state-badge {
+            min-height:18px !important;
+            padding:0 6px !important;
+            font-size:8px !important;
+            gap:4px !important;
+        }
+
+#view-hvac .hvac-state-badge::before {
+            width:6px !important;
+            height:6px !important;
+        }
+
+#view-hvac .hvac-power-btn {
+            width:36px !important;
+            height:36px !important;
+            min-width:36px !important;
+        }
+
+#view-hvac .hvac-body {
+            grid-template-columns:minmax(78px, .58fr) minmax(0, 1fr) !important;
+            gap:6px !important;
+        }
+
+#view-hvac .hvac-temp-panel {
+            min-height:72px !important;
+            padding:6px !important;
+            padding-right:28px !important;
+            border-radius:9px !important;
+        }
+
+#view-hvac .hvac-temp-label {
+            font-size:8px !important;
+        }
+
+#view-hvac .hvac-temp-value {
+            font-size:22px !important;
+            margin-top:1px !important;
+        }
+
+#view-hvac .hvac-temp-value small {
+            font-size:10px !important;
+        }
+
+#view-hvac .hvac-temp-hint {
+            font-size:8px !important;
+        }
+
+#view-hvac .hvac-temp-stepper {
+            right:6px !important;
+            gap:5px !important;
+        }
+
+#view-hvac .hvac-temp-step-btn {
+            width:19px !important;
+            height:19px !important;
+            font-size:12px !important;
+        }
+
+#view-hvac .hvac-thermal-pill {
+            min-height:19px !important;
+            margin-top:4px !important;
+            padding:0 6px !important;
+            font-size:8px !important;
+        }
+
+#view-hvac .hvac-side-panel {
+            gap:5px !important;
+        }
+
+#view-hvac .hvac-mode-trigger,
+        #view-hvac .hvac-action-strip,
+        #view-hvac .hvac-fan-control,
+        #view-hvac .hvac-power-row {
+            min-height:28px !important;
+            padding:4px 7px !important;
+            border-radius:8px !important;
+        }
+
+#view-hvac .hvac-mode-name,
+        #view-hvac .hvac-action-text {
+            font-size:10px !important;
+        }
+
+#view-hvac .hvac-mode-caption,
+        #view-hvac .hvac-action-caption,
+        #view-hvac .hvac-power-label {
+            font-size:8px !important;
+        }
+
+#view-hvac .hvac-fan-dots span {
+            width:7px !important;
+            height:7px !important;
+        }
+
+#view-hvac .hvac-card-foot {
+            margin-top:5px !important;
+            font-size:8px !important;
+            line-height:1.2 !important;
+        }
+
+@media screen and (max-width: 1500px) {
+            #view-hvac .hvac-grid { grid-template-columns:repeat(3, minmax(0, 1fr)) !important; }
+            #view-hvac .hvac-group-count-4,
+            #view-hvac .hvac-group-count-3 { grid-column:span 3 !important; }
+            #view-hvac .hvac-group-count-4 .hvac-group-grid { grid-template-columns:repeat(4, minmax(0, 1fr)) !important; }
+        }
+
+@media screen and (max-width: 1100px) {
+            #view-hvac .hvac-grid { grid-template-columns:repeat(2, minmax(0, 1fr)) !important; }
+            #view-hvac .hvac-group-count-4,
+            #view-hvac .hvac-group-count-3,
+            #view-hvac .hvac-group-count-2 { grid-column:span 2 !important; }
+            #view-hvac .hvac-group-count-4 .hvac-group-grid,
+            #view-hvac .hvac-group-count-3 .hvac-group-grid { grid-template-columns:repeat(2, minmax(0, 1fr)) !important; }
+        }
+
+@media screen and (max-width: 720px) {
+            #view-hvac .hvac-grid,
+            #view-hvac .hvac-group-grid,
+            #view-hvac .hvac-group-count-4 .hvac-group-grid,
+            #view-hvac .hvac-group-count-3 .hvac-group-grid,
+            #view-hvac .hvac-group-count-2 .hvac-group-grid { grid-template-columns:1fr !important; }
+            #view-hvac .hvac-group-section,
+            #view-hvac .hvac-group-count-4,
+            #view-hvac .hvac-group-count-3,
+            #view-hvac .hvac-group-count-2,
+            #view-hvac .hvac-group-count-1 { grid-column:1 / -1 !important; }
+        }
+
+/* HVAC detail density pass: reduce card height and make room groups use horizontal space efficiently. */
+        #view-hvac > .card { padding:12px; }
+
+#view-hvac .card-title { margin-bottom:10px; padding-bottom:8px; }
+
+#view-hvac .hvac-grid {
+            grid-template-columns:repeat(6, minmax(0, 1fr)) !important;
+            gap:10px !important;
+            align-items:start;
+        }
+
+#view-hvac .hvac-group-section {
+            grid-column:span 6 !important;
+            padding:8px !important;
+            margin:0 0 8px !important;
+            border-radius:12px !important;
+            box-shadow:0 8px 18px rgba(2,6,23,0.20), inset 0 1px 0 rgba(255,255,255,0.05) !important;
+        }
+
+#view-hvac .hvac-group-count-1 { grid-column:span 2 !important; }
+
+#view-hvac .hvac-group-count-2 { grid-column:span 3 !important; }
+
+#view-hvac .hvac-group-count-3 { grid-column:span 4 !important; }
+
+#view-hvac .hvac-group-count-4 { grid-column:span 6 !important; }
+
+#view-hvac .hvac-group-head {
+            align-items:center;
+            gap:7px;
+            margin:0 0 7px !important;
+            padding:0 2px 6px 7px !important;
+            border-radius:8px !important;
+        }
+
+#view-hvac .hvac-group-title-row { gap:5px; }
+
+#view-hvac .hvac-group-title { font-size:14px !important; line-height:1.05; white-space:nowrap; }
+
+#view-hvac .hvac-group-subtitle { display:none !important; }
+
+#view-hvac .hvac-room-env-chip { padding:2px 6px; gap:4px; font-size:8px; }
+
+#view-hvac .hvac-room-env-chip strong { font-size:9px; }
+
+#view-hvac .hvac-group-stats { gap:4px; }
+
+#view-hvac .hvac-group-stat { padding:3px 6px; font-size:8px; }
+
+#view-hvac .hvac-group-grid {
+            grid-template-columns:repeat(auto-fit, minmax(250px, 1fr)) !important;
+            gap:8px !important;
+        }
+
+#view-hvac .hvac-group-count-1 .hvac-group-grid { grid-template-columns:1fr !important; }
+
+#view-hvac .hvac-group-count-2 .hvac-group-grid { grid-template-columns:repeat(2, minmax(0, 1fr)) !important; }
+
+#view-hvac .hvac-group-count-3 .hvac-group-grid { grid-template-columns:repeat(3, minmax(0, 1fr)) !important; }
+
+#view-hvac .hvac-group-count-4 .hvac-group-grid { grid-template-columns:repeat(4, minmax(0, 1fr)) !important; }
+
+#view-hvac .hvac-card { padding:8px; border-radius:10px; box-shadow:0 8px 18px rgba(2,6,23,0.16); }
+
+#view-hvac .hvac-card::before { inset:-98px -96px auto auto; width:150px; height:150px; }
+
+#view-hvac .hvac-card::after { height:2px; }
+
+#view-hvac .hvac-card-head { align-items:center; gap:6px; margin-bottom:6px; }
+
+#view-hvac .hvac-title {
+            font-size:13px;
+            line-height:1.08;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+        }
+
+#view-hvac .hvac-subtitle {
+            margin-top:2px;
+            font-size:8px;
+            line-height:1.1;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            word-break:normal;
+        }
+
+#view-hvac .hvac-top-actions { gap:5px; }
+
+#view-hvac .hvac-chip-row { gap:4px; }
+
+#view-hvac .hvac-state-badge { min-height:18px; padding:0 6px; gap:4px; font-size:8px; }
+
+#view-hvac .hvac-state-badge::before { width:6px; height:6px; box-shadow:0 0 0 2px rgba(34,197,94,0.14); }
+
+#view-hvac .projector-power-key { width:30px; height:30px; min-width:30px; }
+
+#view-hvac .projector-power-key svg { width:14px; height:14px; }
+
+#view-hvac .hvac-body { grid-template-columns:minmax(92px, .58fr) minmax(0, 1fr); gap:7px; }
+
+#view-hvac .hvac-temp-panel { min-height:78px; padding:7px 32px 7px 7px; border-radius:9px; }
+
+#view-hvac .hvac-temp-label { font-size:8px; }
+
+#view-hvac .hvac-temp-value { margin-top:1px; font-size:24px; letter-spacing:0; }
+
+#view-hvac .hvac-temp-value small { font-size:10px; }
+
+#view-hvac .hvac-temp-target.compact { margin-top:2px; font-size:8px; line-height:1; }
+
+#view-hvac .hvac-temp-hint { font-size:8px; }
+
+#view-hvac .hvac-thermal-pill { min-height:18px; margin-top:3px; padding:0 6px; gap:3px; font-size:8px; }
+
+#view-hvac .hvac-thermal-pill svg { width:10px; height:10px; }
+
+#view-hvac .hvac-temp-stepper { right:6px; gap:5px; }
+
+#view-hvac .hvac-temp-step-btn { width:22px; height:22px; font-size:13px; box-shadow:none; }
+
+#view-hvac .hvac-side-panel { gap:5px; }
+
+#view-hvac .hvac-mode-trigger { min-height:30px; padding:5px 7px; border-radius:8px; gap:5px; }
+
+#view-hvac .hvac-mode-main { gap:5px; }
+
+#view-hvac .hvac-mode-icon { width:12px; height:12px; margin-right:1px; }
+
+#view-hvac .hvac-mode-icon svg { width:12px; height:12px; }
+
+#view-hvac .hvac-mode-caption,
+        #view-hvac .hvac-action-caption { font-size:7px; }
+
+#view-hvac .hvac-mode-name,
+        #view-hvac .hvac-action-text { font-size:9px; }
+
+#view-hvac .hvac-mode-side { font-size:7px; }
+
+#view-hvac .hvac-mode-popover { top:34px; left:4px; right:4px; padding:5px; gap:4px; }
+
+#view-hvac .hvac-mode-option { min-height:24px; font-size:9px; border-radius:7px; }
+
+#view-hvac .hvac-action-strip { min-height:26px; padding:0 7px; border-radius:8px; gap:5px; }
+
+#view-hvac .hvac-info-stack { gap:5px; }
+
+#view-hvac .hvac-info-row { min-height:26px; padding:0 7px; border-radius:8px; gap:6px; }
+
+#view-hvac .hvac-info-row .label { font-size:8px; }
+
+#view-hvac .hvac-info-row .value { font-size:9px; line-height:1.1; }
+
+#view-hvac .hvac-fan-inline { gap:4px; }
+
+#view-hvac .hvac-fan-inline-label { font-size:8px; }
+
+#view-hvac .hvac-fan-inline-bars { min-width:30px; gap:2px; }
+
+#view-hvac .hvac-fan-inline-bars .hvac-fan-bar { height:4px; }
+
+#view-hvac .hvac-fan-inline-bars .hvac-fan-bar:nth-child(2) { height:6px; }
+
+#view-hvac .hvac-fan-inline-bars .hvac-fan-bar:nth-child(3) { height:8px; }
+
+#view-hvac .hvac-fan-inline-bars .hvac-fan-bar:nth-child(4) { height:10px; }
+
+#view-hvac .hvac-error { margin-top:5px; padding:5px 7px; font-size:9px; border-radius:8px; }
+
+@media screen and (max-width: 1680px) {
+            #view-hvac .hvac-grid { grid-template-columns:repeat(4, minmax(0, 1fr)) !important; }
+            #view-hvac .hvac-group-section,
+            #view-hvac .hvac-group-count-4 { grid-column:span 4 !important; }
+            #view-hvac .hvac-group-count-3 { grid-column:span 4 !important; }
+        }
+
+@media screen and (max-width: 1240px) {
+            #view-hvac .hvac-grid { grid-template-columns:repeat(2, minmax(0, 1fr)) !important; }
+            #view-hvac .hvac-group-section,
+            #view-hvac .hvac-group-count-1,
+            #view-hvac .hvac-group-count-2,
+            #view-hvac .hvac-group-count-3,
+            #view-hvac .hvac-group-count-4 { grid-column:span 2 !important; }
+            #view-hvac .hvac-group-count-3 .hvac-group-grid,
+            #view-hvac .hvac-group-count-4 .hvac-group-grid { grid-template-columns:repeat(2, minmax(0, 1fr)) !important; }
+        }
+
+@media screen and (max-width: 760px) {
+            #view-hvac > .card { padding:10px; }
+            #view-hvac .hvac-grid,
+            #view-hvac .hvac-group-grid,
+            #view-hvac .hvac-group-count-2 .hvac-group-grid,
+            #view-hvac .hvac-group-count-3 .hvac-group-grid,
+            #view-hvac .hvac-group-count-4 .hvac-group-grid { grid-template-columns:1fr !important; }
+            #view-hvac .hvac-group-section,
+            #view-hvac .hvac-group-count-1,
+            #view-hvac .hvac-group-count-2,
+            #view-hvac .hvac-group-count-3,
+            #view-hvac .hvac-group-count-4 { grid-column:1/-1 !important; }
+            #view-hvac .hvac-group-head { align-items:flex-start; flex-direction:column; }
+            #view-hvac .hvac-body { grid-template-columns:minmax(88px, .58fr) minmax(0, 1fr); }
+        }
+
+/* HVAC fixed card grid: avoid stretching individual cards into long strips. */
+        #view-hvac .hvac-grid {
+            display:flex !important;
+            flex-wrap:wrap !important;
+            align-items:flex-start !important;
+            align-content:flex-start !important;
+            gap:10px !important;
+        }
+
+#view-hvac .hvac-group-section,
+        #view-hvac .hvac-group-count-1,
+        #view-hvac .hvac-group-count-2,
+        #view-hvac .hvac-group-count-3,
+        #view-hvac .hvac-group-count-4 {
+            grid-column:auto !important;
+            flex:0 0 auto !important;
+            width:auto !important;
+            max-width:100% !important;
+        }
+
+#view-hvac .hvac-group-section {
+            padding:8px !important;
+        }
+
+#view-hvac .hvac-group-grid,
+        #view-hvac .hvac-group-count-1 .hvac-group-grid,
+        #view-hvac .hvac-group-count-2 .hvac-group-grid,
+        #view-hvac .hvac-group-count-3 .hvac-group-grid,
+        #view-hvac .hvac-group-count-4 .hvac-group-grid {
+            display:grid !important;
+            grid-template-columns:repeat(var(--hvac-fixed-cols, 1), 320px) !important;
+            gap:8px !important;
+            width:max-content !important;
+            max-width:100% !important;
+        }
+
+#view-hvac .hvac-group-count-1 { --hvac-fixed-cols:1; }
+
+#view-hvac .hvac-group-count-2 { --hvac-fixed-cols:2; }
+
+#view-hvac .hvac-group-count-3 { --hvac-fixed-cols:3; }
+
+#view-hvac .hvac-group-count-4 { --hvac-fixed-cols:4; }
+
+#view-hvac .hvac-card {
+            width:320px !important;
+            max-width:320px !important;
+            min-height:0 !important;
+        }
+
+#view-hvac .hvac-body {
+            grid-template-columns:98px minmax(0, 1fr) !important;
+            gap:6px !important;
+        }
+
+#view-hvac .hvac-temp-panel {
+            min-height:78px !important;
+        }
+
+#view-hvac .hvac-info-stack {
+            gap:4px !important;
+        }
+
+#view-hvac .hvac-info-row {
+            min-height:24px !important;
+        }
+
+@media screen and (max-width: 1720px) {
+            #view-hvac .hvac-group-count-4 { --hvac-fixed-cols:2; }
+        }
+
+@media screen and (max-width: 1380px) {
+            #view-hvac .hvac-group-count-3,
+            #view-hvac .hvac-group-count-4 { --hvac-fixed-cols:2; }
+        }
+
+@media screen and (max-width: 900px) {
+            #view-hvac .hvac-group-count-2,
+            #view-hvac .hvac-group-count-3,
+            #view-hvac .hvac-group-count-4 { --hvac-fixed-cols:1; }
+            #view-hvac .hvac-group-grid,
+            #view-hvac .hvac-group-count-1 .hvac-group-grid,
+            #view-hvac .hvac-group-count-2 .hvac-group-grid,
+            #view-hvac .hvac-group-count-3 .hvac-group-grid,
+            #view-hvac .hvac-group-count-4 .hvac-group-grid {
+                grid-template-columns:minmax(0, 1fr) !important;
+                width:100% !important;
+            }
+            #view-hvac .hvac-group-section {
+                width:100% !important;
+            }
+            #view-hvac .hvac-card {
+                width:100% !important;
+                max-width:none !important;
+            }
+        }
