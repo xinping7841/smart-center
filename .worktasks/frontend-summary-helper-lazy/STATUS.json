@@ -1,0 +1,10 @@
+{
+  "task": "frontend-summary-helper-lazy",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-frontend-summary-helper-lazy-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-summary-helper-lazy",
+  "started_at": "2026-05-31 18:29:42",
+  "status": "in_progress"
+}

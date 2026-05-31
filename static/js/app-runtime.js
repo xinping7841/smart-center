@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-ups-lazy-split';
+        const lazyModuleVersion = '20260531-summary-helper-lazy';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -54,11 +54,15 @@
             scripts: [`/static/js/views/screen-runtime.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('snmp-runtime', {
-            scripts: [`/static/js/views/snmp-runtime.js?v=${lazyModuleVersion}`],
+            scripts: [
+                `/static/js/views/snmp-summary.js?v=${lazyModuleVersion}`,
+                `/static/js/views/snmp-runtime.js?v=${lazyModuleVersion}`,
+            ],
         });
         SmartCenter.registerLazyModule('snmp-full', {
             styles: viewStyleGroups.snmp,
             scripts: [
+                `/static/js/views/snmp-summary.js?v=${lazyModuleVersion}`,
                 `/static/js/views/snmp-runtime.js?v=${lazyModuleVersion}`,
                 `/static/js/views/snmp.js?v=${lazyModuleVersion}`,
             ],
@@ -82,7 +86,10 @@
         SmartCenter.registerLazyModule('power-view-style', { styles: viewStyleGroups.power });
         SmartCenter.registerLazyModule('meter-view-style', { styles: viewStyleGroups.meter });
         SmartCenter.registerLazyModule('power-meter-runtime', {
-            scripts: [`/static/js/views/power-meter-runtime.js?v=${lazyModuleVersion}`],
+            scripts: [
+                `/static/js/views/power-meter.js?v=${lazyModuleVersion}`,
+                `/static/js/views/power-meter-runtime.js?v=${lazyModuleVersion}`,
+            ],
         });
         SmartCenter.registerLazyModule('light-runtime', {
             scripts: [`/static/js/views/light-runtime.js?v=${lazyModuleVersion}`],
