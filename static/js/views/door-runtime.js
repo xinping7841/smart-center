@@ -91,6 +91,61 @@
         metaEl.textContent = payload.last_error_text || payload.last_error || '等待重连';
     }
 
+    function renderDoorPageShell() {
+        const container = document.getElementById('view-door');
+        if (!container || document.getElementById('doorStatus')) return false;
+        container.innerHTML = `
+            <div class="card">
+                <div class="card-title">
+                    <span>门禁状态与视觉辅助</span>
+                    <div style="display:flex; gap:10px; align-items: center;">
+                        <span id="debugTip" style="font-size:12px; color:var(--text-sub);">加载中...</span>
+                        <span id="doorStatus" class="tag door-status-unknown">检测中...</span>
+                    </div>
+                </div>
+                <div class="video-wrapper" style="position: relative; border-radius: 12px; overflow: hidden; margin-bottom: 20px; background: linear-gradient(180deg, #020617, #0f172a); min-height: 420px; padding: 14px;">
+                    <div id="doorNetworkSummary" style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+                        <div style="padding:12px 14px; border-radius:12px; background:rgba(15,23,42,0.72); border:1px solid rgba(148,163,184,0.14); color:#94a3b8; font-size:12px;">正在读取门禁视频链路诊断...</div>
+                    </div>
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px; width:100%;">
+                        <div style="position:relative; border-radius:12px; overflow:hidden; min-height:220px; background:#000; border:1px solid rgba(148,163,184,0.18);">
+                            <img id="videoImg" alt="大门内画面加载中..." style="width:100%; height:100%; object-fit:contain; display:block;" crossorigin="anonymous">
+                            <canvas id="drawCanvasMain" style="position:absolute; inset:0; width:100%; height:100%; cursor:crosshair; display:none;"></canvas>
+                            <div style="position:absolute; left:10px; top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                                <span class="tag info" id="doorCameraMainLabel">左侧画面</span>
+                                <span class="tag" id="doorCameraMainState">待连接</span>
+                            </div>
+                            <div id="doorCameraMainMeta" style="position:absolute; right:10px; bottom:10px; font-size:12px; color:#cbd5e1; background:rgba(2,6,23,0.58); border:1px solid rgba(148,163,184,0.18); padding:6px 9px; border-radius:999px;">等待取流</div>
+                        </div>
+                        <div style="position:relative; border-radius:12px; overflow:hidden; min-height:220px; background:#000; border:1px solid rgba(148,163,184,0.18);">
+                            <img id="videoImgAux" alt="大门外画面加载中..." style="width:100%; height:100%; object-fit:contain; display:block;" crossorigin="anonymous">
+                            <canvas id="drawCanvasAux" style="position:absolute; inset:0; width:100%; height:100%; cursor:crosshair; display:none;"></canvas>
+                            <div style="position:absolute; left:10px; top:10px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                                <span class="tag info" id="doorCameraAuxLabel">右侧画面</span>
+                                <span class="tag" id="doorCameraAuxState">待连接</span>
+                            </div>
+                            <div id="doorCameraAuxMeta" style="position:absolute; right:10px; bottom:10px; font-size:12px; color:#cbd5e1; background:rgba(2,6,23,0.58); border:1px solid rgba(148,163,184,0.18); padding:6px 9px; border-radius:999px;">等待取流</div>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+                        <button class="btn-base" style="background:var(--brand-blue);" onclick="startDoorVideoStream()">加载监控画面</button>
+                        <button class="btn-base" style="background:#475569;" onclick="stopDoorVideoStream()">停止监控画面</button>
+                    </div>
+                </div>
+                <div class="btn-group" style="justify-content: center; flex-wrap: wrap;">
+                    <button class="btn-base" style="background:#475569;" onclick="startDrawRegion('left')">框选左侧识别区</button>
+                    <button class="btn-base" style="background:#334155;" onclick="startDrawRegion('right')">框选右侧识别区</button>
+                    <button class="btn-base btn-ai" onclick="openWizard()">AI 智能标定向导</button>
+                    <div style="width: 20px;"></div>
+                    <button class="btn-base btn-start" onclick="controlDoor('open')">开启大门</button>
+                    <button class="btn-base" style="background:#64748b;" onclick="controlDoor('stop')">停止电机</button>
+                    <button class="btn-base btn-stop" onclick="controlDoor('close')">关闭大门</button>
+                </div>
+            </div>
+        `;
+        return true;
+    }
+
     function formatDoorCameraDiag(payload, context = {}) {
         const ctx = getContext(context);
         const p = payload && typeof payload === 'object' ? payload : {};
@@ -222,12 +277,14 @@
     }
 
     function initCanvas() {
+        renderDoorPageShell();
         initDoorCanvas('left');
         initDoorCanvas('right');
     }
 
     function startDrawRegion(slot = 'right') {
         const ctx = getContext();
+        renderDoorPageShell();
         const els = getDoorSlotElements(slot);
         if (!els.canvas || !els.image) return;
         initDoorCanvas(slot);
@@ -238,6 +295,7 @@
     }
 
     function startDoorVideoStream() {
+        renderDoorPageShell();
         const leftEls = getDoorSlotElements('left');
         const rightEls = getDoorSlotElements('right');
         if (!leftEls.image && !rightEls.image) return;
@@ -285,6 +343,7 @@
 
     function updateDoorStatus(force = false, context = {}) {
         const ctx = getContext(context);
+        if (ctx.getActiveViewId?.() === 'door') renderDoorPageShell();
         const now = Date.now();
         if (!force && now - state.lastDoorStatusFetchAt < 1000) return Promise.resolve(null);
         state.lastDoorStatusFetchAt = now;
@@ -349,6 +408,7 @@
             doorViewSlots: Object.assign({}, state.doorViewSlots),
             doorRegionsCache: Object.assign({}, state.doorRegionsCache),
         }),
+        renderDoorPageShell,
         initCanvas,
         startDrawRegion,
         startDoorVideoStream,
@@ -358,6 +418,7 @@
     };
 
     Object.assign(state, api);
+    global.renderDoorPageShell = renderDoorPageShell;
     global.initCanvas = initCanvas;
     global.startDrawRegion = startDrawRegion;
     global.startDoorVideoStream = startDoorVideoStream;
