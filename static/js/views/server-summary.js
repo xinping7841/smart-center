@@ -1,7 +1,7 @@
 // AI_MODULE: server_summary_view
 // AI_PURPOSE: 首页服务器摘要轻量渲染，避免 dashboard 首屏加载完整 server-monitor.js。
-// AI_BOUNDARY: 只读 /api/machines 已返回的数据；不提供关机、重启、唤醒、加密锁详情等高风险操作。
-// AI_DATA_FLOW: /api/machines -> dashboard-server-compact-grid DOM。
+// AI_BOUNDARY: 优先只读 /api/dashboard/summary 的紧凑机器摘要；不提供关机、重启、唤醒、加密锁详情等高风险操作。
+// AI_DATA_FLOW: /api/dashboard/summary.modules.server.machines -> dashboard-server-compact-grid DOM。
 // AI_RUNTIME: 仅首页按需加载；服务器详情页仍由 static/js/views/server-monitor.js 负责。
 // AI_RISK: 低，不下发真实控制；但状态判断必须与服务器页保持一致，避免误导值班判断。
 // AI_SEARCH_KEYWORDS: server summary, dashboard compact, lightweight server, frontend performance.

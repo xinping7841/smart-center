@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-dashboard-server-gate-v2';
+        const lazyModuleVersion = '20260531-server-summary-light-v1';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -235,7 +235,7 @@
             scrollBound: false,
         };
         const dashboardDeferredModules = {
-            server_compact: { sectionId: 'server_compact', modules: ['server-runtime', 'server-summary-view'], label: '服务器摘要模块' },
+            server_compact: { sectionId: 'server_compact', modules: ['server-summary-view'], label: '服务器摘要模块' },
             hvac: { sectionId: 'hvac', modules: ['hvac-summary-view'], label: '空调摘要模块' },
             power_compact: { sectionId: 'power_compact', modules: ['power-meter-runtime'], label: '强电摘要模块' },
             power_quick: { sectionId: 'power_quick', modules: ['power-meter-runtime'], label: '强电总览模块' },
@@ -263,11 +263,14 @@
             return ensureModulesReady(item.modules, item.label)
                 .then(result => {
                     if (key === 'server_compact') {
-                        const snapshot = window.SmartCenter?.serverRuntime?.getStateSnapshot?.() || {};
-                        const data = Array.isArray(snapshot.dashboardServerCompactList) && snapshot.dashboardServerCompactList.length
-                            ? snapshot.dashboardServerCompactList
-                            : (Array.isArray(snapshot.globalServerList) ? snapshot.globalServerList : []);
-                        if (Array.isArray(data) && data.length) renderDashboardServerCompactWhenReady(data);
+                        const summaryMachines = getDashboardSummaryModule('server')?.machines;
+                        const runtimeState = window.SmartCenter?.serverRuntime || {};
+                        const data = Array.isArray(summaryMachines) && summaryMachines.length
+                            ? summaryMachines
+                            : (Array.isArray(runtimeState.dashboardServerCompactList) && runtimeState.dashboardServerCompactList.length
+                                ? runtimeState.dashboardServerCompactList
+                                : []);
+                        renderDashboardServerCompactWhenReady(data);
                     } else if (key === 'hvac' && getActiveViewId() === 'dashboard') {
                         updateHvacStatus(false);
                     } else if ((key === 'power_compact' || key === 'power_quick') && getActiveViewId() === 'dashboard') {
@@ -2490,8 +2493,8 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             if (runtimeState && Array.isArray(data)) runtimeState.dashboardServerCompactList = data;
             const container = document.getElementById('dashboard-server-compact-grid');
             if (!container) return Promise.resolve(false);
-            if (window.SmartCenter?.serverRuntime?.renderDashboardServerCompactWhenReady && window.SmartCenter?.serverSummary) {
-                return Promise.resolve(window.SmartCenter.serverRuntime.renderDashboardServerCompactWhenReady(data, getServerRuntimeContext()));
+            if (window.SmartCenter?.serverSummary?.renderDashboardServerCompact) {
+                return Promise.resolve(window.SmartCenter.serverSummary.renderDashboardServerCompact(data, { container }));
             }
             if (!String(container.innerHTML || '').trim()) {
                 container.classList.add('home-status-list');
@@ -2501,11 +2504,15 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 scheduleDashboardDeferredModule('server_compact', 0, 'summary');
                 return Promise.resolve(false);
             }
-            return withServerRuntime(
-                (api, ctx) => api.renderDashboardServerCompactWhenReady(data, ctx),
-                '服务器摘要模块',
-                ['server-runtime', 'server-summary-view']
-            ).then(Boolean);
+            return ensureModulesReady(['server-summary-view'], '服务器摘要模块')
+                .then(() => {
+                    if (!window.SmartCenter?.serverSummary?.renderDashboardServerCompact) return false;
+                    return !!window.SmartCenter.serverSummary.renderDashboardServerCompact(data, { container });
+                })
+                .catch(err => {
+                    console.error('服务器摘要模块加载失败', err);
+                    return false;
+                });
         }
 
         function refreshDashboardServerCompactFallback() {

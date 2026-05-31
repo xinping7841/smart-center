@@ -1,0 +1,10 @@
+{
+  "task": "frontend-server-summary-no-full-fetch",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-frontend-server-summary-no-full-fetch-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-server-summary-no-full-fetch",
+  "started_at": "2026-05-31 19:52:08",
+  "status": "in_progress"
+}
