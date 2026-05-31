@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-universal-template-slim-v1';
+        const lazyModuleVersion = '20260531-universal-template-slim-v2';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -350,6 +350,9 @@
                 });
         }
         function installLazyGlobal(functionName, moduleNames, fallbackValue = undefined) {
+            if (typeof window[functionName] === 'function' && !window[functionName].__smartLazyShim) {
+                return;
+            }
             const shim = function smartLazyGlobalShim(...args) {
                 return callLazyGlobal(moduleNames, functionName, args, fallbackValue);
             };
@@ -1710,6 +1713,15 @@
             if (viewId === 'dashboard') preloadDashboardSupportModules();
             refreshPollingVisibility();
         }
+        Object.assign(window, {
+            ensureModulesReady,
+            ensureViewReady,
+            getActiveViewId,
+            registerPollingTask,
+            switchTab,
+            findNavElementByView,
+            getViewTitleFromNav,
+        });
         function formatGlobalTime(now = new Date()) {
             const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
             const pad = value => String(value).padStart(2, '0');

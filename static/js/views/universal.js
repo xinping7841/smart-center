@@ -755,6 +755,18 @@
             });
     }
 
+    function isUniversalViewActive() {
+        if (typeof global.getActiveViewId === 'function') return global.getActiveViewId() === 'universal';
+        return document.getElementById('view-universal')?.classList.contains('active') === true;
+    }
+
+    function startUniversalViewIfActive() {
+        if (!isUniversalViewActive()) return;
+        renderUniversalControlPage(true);
+        updateProtocolDeviceCards(true);
+        updateNodeRedDevices(true);
+    }
+
     const api = {
         fireUniversalCommand,
         handleLongPressStart,
@@ -773,7 +785,7 @@
     SmartCenter.universal = Object.assign({}, SmartCenter.universal || {}, api);
     if (typeof SmartCenter.registerModule === 'function') {
         installProtocolCardDensityStyle();
-        const isUniversalActive = typeof global.getActiveViewId !== 'function' || global.getActiveViewId() === 'universal';
+        const isUniversalActive = isUniversalViewActive();
         if (isUniversalActive) renderUniversalControlPage();
         const protocolPollRegister = typeof global.registerPollingTask === 'function' ? global.registerPollingTask : (typeof SmartCenter.registerPollingTask === 'function' ? SmartCenter.registerPollingTask.bind(SmartCenter) : null);
         if (protocolPollRegister) {
@@ -793,4 +805,11 @@
     }
 
     Object.assign(global, api);
+    const ready = () => {
+        startUniversalViewIfActive();
+        setTimeout(startUniversalViewIfActive, 120);
+    };
+    if (typeof SmartCenter.onReady === 'function') SmartCenter.onReady(ready);
+    else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready, { once: true });
+    else ready();
 })(window);
