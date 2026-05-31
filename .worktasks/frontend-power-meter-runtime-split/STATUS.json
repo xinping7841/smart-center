@@ -1,0 +1,10 @@
+{
+  "task": "frontend-power-meter-runtime-split",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-frontend-power-meter-runtime-split-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-power-meter-runtime-split",
+  "started_at": "2026-05-31 15:32:26",
+  "status": "validated_pending_prod"
+}

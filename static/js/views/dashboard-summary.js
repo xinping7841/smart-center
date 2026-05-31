@@ -77,6 +77,18 @@
         const networkDevices = (((modules.snmp || {}).devices) || []);
         const proxy = modules.proxy || {};
         setText('dash-power-online', String(power.online ?? 0));
+        const powerDevices = Array.isArray((modules.power || {}).devices) ? (modules.power || {}).devices : [];
+        const dashboardDailyEnergy = powerDevices.reduce((sum, item) => {
+            const value = Number(item && item.daily_energy);
+            return sum + (Number.isFinite(value) ? value : 0);
+        }, 0);
+        if (dashboardDailyEnergy > 0) {
+            setText('dash-total-daily-energy', dashboardDailyEnergy.toFixed(1));
+            const dailyMeta = document.getElementById('dash-total-daily-meta');
+            if (dailyMeta && !window.SmartCenter?.powerMeterRuntime?.meterCenterCache) {
+                dailyMeta.innerHTML = '单位 kWh · 首页轻量快照，电表模块加载后刷新完整口径';
+            }
+        }
         setText('dash-light-online', String(light.online ?? 0));
         setText('dash-sequencer-online', String(sequencer.online ?? 0));
         setText('dash-sequencer-total', String(sequencer.total ?? 0));

@@ -22,6 +22,7 @@ event_logs.db
 energy_log.json
 operation_logs.json
 audit_logs.json
+runtime/auth_users.json
 reports/
 */data/reports/
 .baseline_reports/perf-baseline-*.json
