@@ -1,0 +1,10 @@
+{
+  "task": "backend-summary-cache",
+  "module": "backend_api",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-backend-summary-cache-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/backend-summary-cache",
+  "started_at": "2026-05-31 19:34:54",
+  "status": "in_progress"
+}

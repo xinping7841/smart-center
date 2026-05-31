@@ -8,6 +8,8 @@
 # AI_SEARCH_KEYWORDS: dashboard, summary, counts, modules, home overview.
 
 from datetime import datetime
+from copy import deepcopy
+import threading
 import time
 
 from flask import Blueprint, jsonify
@@ -18,6 +20,9 @@ from runtime.state import PROXY_STATUS, SNMP_STATUS, UPS_STATUS
 
 
 bp = Blueprint("dashboard", __name__)
+_DASHBOARD_SUMMARY_CACHE = {"payload": None, "ts": 0.0}
+_DASHBOARD_SUMMARY_CACHE_LOCK = threading.Lock()
+_DASHBOARD_SUMMARY_CACHE_TTL_SEC = 2.0
 
 
 def _now_iso():
@@ -332,6 +337,17 @@ def _proxy_snapshot():
 @bp.route("/api/dashboard/summary")
 @require_permission("dashboard.view")
 def api_dashboard_summary():
+    now = time.monotonic()
+    with _DASHBOARD_SUMMARY_CACHE_LOCK:
+        cached_payload = _DASHBOARD_SUMMARY_CACHE.get("payload")
+        cached_ts = float(_DASHBOARD_SUMMARY_CACHE.get("ts") or 0.0)
+        cache_age = now - cached_ts if cached_ts else 0.0
+        if isinstance(cached_payload, dict) and cache_age <= _DASHBOARD_SUMMARY_CACHE_TTL_SEC:
+            payload = deepcopy(cached_payload)
+            payload["cache_hit"] = True
+            payload["cache_age_sec"] = round(max(0.0, cache_age), 2)
+            return jsonify(payload)
+
     started = time.monotonic()
     cabinets = _cabinet_snapshot()
     lights = _light_snapshot()
@@ -344,6 +360,8 @@ def api_dashboard_summary():
     payload = {
         "ok": True,
         "read_only": True,
+        "cache_hit": False,
+        "cache_age_sec": 0.0,
         "generated_at": _now_iso(),
         "elapsed_ms": round((time.monotonic() - started) * 1000, 2),
         "counts": {
@@ -373,4 +391,7 @@ def api_dashboard_summary():
             "proxy": proxy,
         },
     }
+    with _DASHBOARD_SUMMARY_CACHE_LOCK:
+        _DASHBOARD_SUMMARY_CACHE["payload"] = deepcopy(payload)
+        _DASHBOARD_SUMMARY_CACHE["ts"] = time.monotonic()
     return jsonify(payload)

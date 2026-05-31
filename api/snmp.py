@@ -24,6 +24,7 @@ bp = Blueprint("snmp", __name__)
 _SNMP_API_CACHE_LOCK = threading.Lock()
 _SNMP_API_CACHE = {}
 _SNMP_API_CACHE_TTL_SEC = 1.0
+_SNMP_API_COMPACT_CACHE_TTL_SEC = 3.0
 _SNMP_COMPACT_SUMMARY_KEYS = {
     "alert_counts",
     "ap_count",
@@ -402,10 +403,11 @@ def _build_snmp_status_snapshot(cfg):
 def api_snmp_status():
     compact = _truthy_query_arg("compact") or _truthy_query_arg("summary")
     cache_key = "compact" if compact else "full"
+    cache_ttl = _SNMP_API_COMPACT_CACHE_TTL_SEC if compact else _SNMP_API_CACHE_TTL_SEC
     now = time.monotonic()
     with _SNMP_API_CACHE_LOCK:
         cached = _SNMP_API_CACHE.get(cache_key)
-        if cached and (now - cached["ts"]) <= _SNMP_API_CACHE_TTL_SEC:
+        if cached and (now - cached["ts"]) <= cache_ttl:
             return jsonify(cached["data"])
 
     data = {}
