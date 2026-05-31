@@ -1,0 +1,10 @@
+{
+  "task": "frontend-ups-lazy-split",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-frontend-ups-lazy-split-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-ups-lazy-split",
+  "started_at": "2026-05-31 18:22:00",
+  "status": "in_progress"
+}

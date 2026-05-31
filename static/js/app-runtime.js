@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-door-runtime-split';
+        const lazyModuleVersion = '20260531-ups-lazy-split';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -90,7 +90,10 @@
         SmartCenter.registerLazyModule('door-runtime', {
             scripts: [`/static/js/views/door-runtime.js?v=${lazyModuleVersion}`],
         });
-        SmartCenter.registerLazyModule('ups-view-style', { styles: viewStyleGroups.ups });
+        SmartCenter.registerLazyModule('ups-runtime', {
+            styles: viewStyleGroups.ups,
+            scripts: [`/static/js/views/ups.js?v=${lazyModuleVersion}`],
+        });
         SmartCenter.registerLazyModule('auto-view-style', { styles: viewStyleGroups.auto });
         SmartCenter.registerLazyModule('automation-view', {
             scripts: [`/static/js/views/automation-view.js?v=${lazyModuleVersion}`],
@@ -117,7 +120,7 @@
         SmartCenter.registerViewModules('light', ['light-runtime']);
         SmartCenter.registerViewModules('door', ['door-runtime']);
         SmartCenter.registerViewModules('meter', ['meter-view-style', 'power-meter-runtime']);
-        SmartCenter.registerViewModules('ups', ['ups-view-style']);
+        SmartCenter.registerViewModules('ups', ['ups-runtime']);
         SmartCenter.registerViewModules('auto', ['auto-view-style', 'automation-view']);
         SmartCenter.registerViewModules('sequencer', ['sequencer-view-style', 'sequencer-runtime']);
         SmartCenter.registerViewModules('env', ['env-view-style']);
@@ -448,7 +451,6 @@
         const projectorConfigs = configData.projectors || [];
         const upsConfigs = configData.ups_devices || [];
         window.upsConfigs = upsConfigs;
-        if (window.SmartCenter?.ups?.setUpsConfigs) window.SmartCenter.ups.setUpsConfigs(upsConfigs);
         const snmpConfigs = configData.snmp_devices || [];
         const nvrConfigs = Array.isArray(configData.nvr_devices) ? configData.nvr_devices : [];
         const sequencerConfigs = Array.isArray(configData.sequencers) ? configData.sequencers : [];
@@ -1514,7 +1516,7 @@
                     .catch(() => {});
             }, 120);
             if (viewId === 'meter') setTimeout(() => { ensureViewReady('meter').then(() => updateMeterCenter()).catch(() => {}); }, 80);
-            if (viewId === 'ups') setTimeout(() => { updateUpsStatus(); }, 80);
+            if (viewId === 'ups') setTimeout(() => { ensureViewReady('ups').then(() => updateUpsStatus()).catch(() => {}); }, 80);
             if (viewId === 'snmp') setTimeout(() => { ensureViewReady('snmp').then(() => updateSnmpStatus({ full: true })).catch(() => {}); }, 80);
             if (viewId === 'proxy') setTimeout(() => { ensureViewReady('proxy').then(() => updateProxyStatus()).catch(() => {}); }, 80);
             if (viewId === 'auto') setTimeout(() => { loadAutomationStatus(true); loadAutomationLogs(); }, 80);
@@ -2214,7 +2216,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
 
         registerPollingTask('power', 3500, () => updatePowerData(), () => getActiveViewId() === 'power' || (getActiveViewId() === 'dashboard' && (isDashboardSectionNearViewport('power_compact') || isDashboardSectionNearViewport('power_quick'))));
         registerPollingTask('meter', 4500, () => updateMeterCenter(), () => getActiveViewId() === 'meter');
-        registerPollingTask('ups', 4500, () => updateUpsStatus(), () => ['dashboard', 'ups'].includes(getActiveViewId()) || isDashboardSectionVisible('ups_compact') || isDashboardSectionVisible('ups'));
+        registerPollingTask('ups', 4500, () => ensureViewReady('ups').then(() => updateUpsStatus()), () => getActiveViewId() === 'ups' || (getActiveViewId() === 'dashboard' && (isDashboardSectionNearViewport('ups_compact') || isDashboardSectionNearViewport('ups'))));
         registerPollingTask('hy_edge', 6000, () => updateHyEdgeStatus(), () => ['dashboard'].includes(getActiveViewId()) || isDashboardSectionVisible('hy_edge'));
         registerPollingTask('dashboard_summary', 5000, () => updateDashboardSummary(), () => getActiveViewId() === 'dashboard' || isDashboardSectionVisible('stats'));
         registerPollingTask('proxy', 5000, () => ensureViewReady('proxy').then(() => updateProxyStatus()), () => getActiveViewId() === 'proxy');
