@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-snmp-runtime-slim';
+        const lazyModuleVersion = '20260531-server-runtime-split';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -24,6 +24,9 @@
             logs: [lazyStyle('logs')],
         };
         SmartCenter.registerLazyModule('server-view-style', { styles: viewStyleGroups.server });
+        SmartCenter.registerLazyModule('server-runtime', {
+            scripts: [`/static/js/views/server-runtime.js?v=${lazyModuleVersion}`],
+        });
         SmartCenter.registerLazyModule('server-monitor-view', {
             scripts: [`/static/js/views/server-monitor.js?v=${lazyModuleVersion}`],
         });
@@ -94,7 +97,7 @@
         SmartCenter.registerLazyModule('logs-view-style', { styles: viewStyleGroups.logs });
         SmartCenter.registerLazyModule('dashboard-view-style', { styles: viewStyleGroups.dashboard });
         SmartCenter.registerViewModules('dashboard', ['dashboard-view-style']);
-        SmartCenter.registerViewModules('server', ['server-view-style', 'server-monitor-view']);
+        SmartCenter.registerViewModules('server', ['server-view-style', 'server-runtime', 'server-monitor-view']);
         SmartCenter.registerViewModules('hvac', ['hvac-view-style', 'hvac-view']);
         SmartCenter.registerViewModules('projector', ['projector-view-style', 'projector-runtime', 'projector-view']);
         SmartCenter.registerViewModules('screen', ['screen-runtime']);
@@ -142,7 +145,7 @@
             scrollBound: false,
         };
         const dashboardDeferredModules = {
-            server_compact: { sectionId: 'server_compact', modules: ['server-summary-view'], label: '服务器摘要模块' },
+            server_compact: { sectionId: 'server_compact', modules: ['server-runtime', 'server-summary-view'], label: '服务器摘要模块' },
             hvac: { sectionId: 'hvac', modules: ['hvac-summary-view'], label: '空调摘要模块' },
             power_compact: { sectionId: 'power_compact', modules: ['power-meter-runtime'], label: '强电摘要模块' },
             power_quick: { sectionId: 'power_quick', modules: ['power-meter-runtime'], label: '强电总览模块' },
@@ -168,9 +171,10 @@
             return ensureModulesReady(item.modules, item.label)
                 .then(result => {
                     if (key === 'server_compact') {
-                        const data = Array.isArray(dashboardServerCompactList) && dashboardServerCompactList.length
-                            ? dashboardServerCompactList
-                            : globalServerList;
+                        const snapshot = window.SmartCenter?.serverRuntime?.getStateSnapshot?.() || {};
+                        const data = Array.isArray(snapshot.dashboardServerCompactList) && snapshot.dashboardServerCompactList.length
+                            ? snapshot.dashboardServerCompactList
+                            : (Array.isArray(snapshot.globalServerList) ? snapshot.globalServerList : []);
                         if (Array.isArray(data) && data.length) renderDashboardServerCompactWhenReady(data);
                     } else if (key === 'hvac' && getActiveViewId() === 'dashboard') {
                         updateHvacStatus(false);
@@ -449,8 +453,6 @@
         let doorRegionsCache = ((configData.door_config || {}).regions) || {};
         let appPollingStarted = false;
         const pollingTasks = [];
-        const serverCommandPending = {};
-        let serverCommandRefreshTimer = null;
         function setDoorSlotVisual(slot, payload) {
             const els = getDoorSlotElements(slot);
             const stateEl = els.state;
@@ -647,8 +649,8 @@
                     renderDashboardSummaryTopStats(dashboardSummaryCache);
                     const serverMachines = dashboardSummaryCache.modules?.server?.machines;
                     if (Array.isArray(serverMachines)) {
-                        dashboardServerCompactList = serverMachines;
-                        renderDashboardServerCompactWhenReady(dashboardServerCompactList);
+                        window.SmartCenter?.serverRuntime?.setDashboardServerCompactList?.(serverMachines);
+                        renderDashboardServerCompactWhenReady(serverMachines);
                     }
                     if (getActiveViewId() === 'proxy' && dashboardSummaryCache.modules?.proxy) {
                         renderProxyDetail(dashboardSummaryCache.modules.proxy);
@@ -767,8 +769,11 @@
                 if (!task.timer) schedulePollingTask(task, getPollingInitialDelay(task, index));
             });
         }
-        let globalServerList = [];
-        let dashboardServerCompactList = [];
+        window.SmartCenter = window.SmartCenter || {};
+        window.SmartCenter.serverRuntime = Object.assign({
+            globalServerList: [],
+            dashboardServerCompactList: [],
+        }, window.SmartCenter.serverRuntime || {});
         function canOpenConfigCenter() {
             const role = String(currentUser.role || '').toLowerCase();
             const accountCategory = String(currentUser.account_category || '').toLowerCase();
@@ -781,7 +786,9 @@
             return hasView && hasElevatedConfigPermission;
         }
         const serverMonitorConfig = configData.server_monitor || { agent_host: '', agent_port: 6899 };
-        let latestAgentVersion = String(serverMonitorConfig.agent_version || '').trim();
+        window.SmartCenter.serverRuntime.latestAgentVersion = String(
+            window.SmartCenter.serverRuntime.latestAgentVersion || serverMonitorConfig.agent_version || ''
+        ).trim();
         const hvacConfigs = Array.isArray(configData.hvac_devices) ? configData.hvac_devices : [];
         let hvacStatusCache = {};
         if (!Array.isArray(configData.sidebar)) configData.sidebar = [];
@@ -841,14 +848,19 @@
             dashboardSectionConfig.screen.visible = dashboardSectionConfig.screen.visible !== false;
         }
         function getAgentBaseUrl() {
+            const api = window.SmartCenter?.serverRuntime;
+            if (api?.getDeployBatUrl) return String(api.getDeployBatUrl(getServerRuntimeContext())).replace(/\/deploy_agent\.bat$/, '');
             const host = (serverMonitorConfig.agent_host || '').trim() || window.location.hostname;
             const port = parseInt(serverMonitorConfig.agent_port || 6899, 10) || 6899;
             return `http://${host}:${port}`;
         }
         function getDeployBatUrl() {
-            return `${getAgentBaseUrl()}/deploy_agent.bat`;
+            const api = window.SmartCenter?.serverRuntime;
+            return api?.getDeployBatUrl ? api.getDeployBatUrl(getServerRuntimeContext()) : `${getAgentBaseUrl()}/deploy_agent.bat`;
         }
         function getDeployCommandText() {
+            const api = window.SmartCenter?.serverRuntime;
+            if (api?.getDeployCommandText) return api.getDeployCommandText(getServerRuntimeContext());
             const batUrl = `${getDeployBatUrl()}?ts=$(Get-Date -Format yyyyMMddHHmmss)`;
             return `$u="${batUrl}"; $p="$env:TEMP\\smart-center-deploy.bat"; iwr -UseBasicParsing -Headers @{"Cache-Control"="no-cache";"Pragma"="no-cache"} -Uri $u -OutFile $p; Start-Process -FilePath $p -Verb RunAs`;
         }
@@ -857,8 +869,10 @@
             return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
         }
         function updateDeployModalInfo() {
+            const api = window.SmartCenter?.serverRuntime;
+            if (api?.updateDeployModalInfo) return api.updateDeployModalInfo(getServerRuntimeContext());
             const versionEl = document.getElementById('deploy-agent-version-text');
-            if (versionEl) versionEl.textContent = latestAgentVersion || '读取中...';
+            if (versionEl) versionEl.textContent = window.SmartCenter?.serverRuntime?.latestAgentVersion || '读取中...';
             const generatedAtEl = document.getElementById('deploy-generated-at-text');
             if (generatedAtEl) generatedAtEl.textContent = formatDeployGeneratedAt();
             const deployCmdEl = document.getElementById('deploy-cmd-text');
@@ -870,7 +884,7 @@
             updateDeployModalInfo();
             const modal = document.getElementById('deployModal');
             if (modal) modal.style.display = 'block';
-            refreshLatestAgentVersion().finally(() => updateDeployModalInfo());
+            return withServerRuntime((api, ctx) => api.openDeployModal(ctx), 'Agent 部署模块');
         }
         function parseAgentVersionBase(version) {
             const text = String(version || '').trim();
@@ -895,36 +909,34 @@
             return 0;
         }
         function refreshLatestAgentVersion() {
+            const api = window.SmartCenter?.serverRuntime;
+            if (api?.refreshLatestAgentVersion) {
+                return api.refreshLatestAgentVersion(getServerRuntimeContext());
+            }
             const ts = Date.now();
             const primaryUrl = `/agent/config?probe=1&ts=${ts}`;
             const fallbackUrl = `${getAgentBaseUrl()}/agent/config?probe=1&ts=${ts}`;
             const applyVersion = data => {
                 const version = String(data?.version || '').trim();
-                    if (version) {
-                        latestAgentVersion = version;
-                        updateDeployModalInfo();
-                        if (Array.isArray(globalServerList) && globalServerList.length) {
-                        renderServerGridDeferred(globalServerList, { force: true });
-                        renderDashboardServerCompactWhenReady(globalServerList);
-                    }
+                if (version) {
+                    window.SmartCenter.serverRuntime.latestAgentVersion = version;
+                    updateDeployModalInfo();
                 }
-                return version;
+                return window.SmartCenter.serverRuntime.latestAgentVersion || version;
             };
             return fetchJson(primaryUrl, {}, '读取 Agent 最新版本失败')
                 .catch(() => fetchJson(fallbackUrl, {}, '读取 Agent 最新版本失败'))
-                .then(data => {
-                    return applyVersion(data);
-                })
+                .then(applyVersion)
                 .catch(err => {
                     console.warn('Agent 最新版本读取失败', err);
-                    return latestAgentVersion;
+                    return window.SmartCenter?.serverRuntime?.latestAgentVersion || '';
                 });
         }
         function copyDeployCommand() {
-            return copyTextWithToast(getDeployCommandText(), '覆盖安装命令已复制');
+            return withServerRuntime((api, ctx) => api.copyDeployCommand(ctx), 'Agent 部署模块');
         }
         function copyDeployBatUrl() {
-            return copyTextWithToast(getDeployBatUrl(), '批处理地址已复制');
+            return withServerRuntime((api, ctx) => api.copyDeployBatUrl(ctx), 'Agent 部署模块');
         }
         function getServerSummaryApi() {
             return window.SmartCenter?.serverSummary || window.SmartCenter?.serverMonitor || null;
@@ -2216,16 +2228,52 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             return ' clock-ok';
         }
 
+        // AI_BRIDGE: server_runtime
+        // 服务器监控的轮询、排序、控制和导出已迁移到 static/js/views/server-runtime.js。
+        function getServerRuntimeContext() {
+            return {
+                configData,
+                serverMonitorConfig,
+                fetchJson,
+                postJsonLoose,
+                translateApiError,
+                ensurePermission,
+                showToast,
+                escapeHtml,
+                getActiveViewId,
+                ensureModulesReady,
+                isDashboardSectionNearViewport,
+                scheduleDashboardDeferredModule,
+                getPermissionDisabledClass,
+                getPermissionDisabledAttrs,
+                copyTextWithToast,
+                compareAgentVersionBase,
+            };
+        }
+        function withServerRuntime(callback, contextLabel = '服务器监控运行时模块', moduleNames = ['server-runtime']) {
+            return ensureModulesReady(moduleNames, contextLabel)
+                .then(() => {
+                    const api = window.SmartCenter?.serverRuntime || null;
+                    if (api && typeof callback === 'function') return callback(api, getServerRuntimeContext());
+                    return null;
+                })
+                .catch(() => null);
+        }
         function getServerRenderContext() {
+            const api = window.SmartCenter?.serverRuntime;
+            if (api?.getServerRenderContext) return api.getServerRenderContext(getServerRuntimeContext());
+            let serverViewMode = 'compact';
+            try { serverViewMode = localStorage.getItem('smart-center-server-view-mode') || 'compact'; } catch (_) {}
             return {
                 serverViewMode,
-                latestAgentVersion,
+                latestAgentVersion: window.SmartCenter?.serverRuntime?.latestAgentVersion || String(serverMonitorConfig.agent_version || '').trim(),
                 compareAgentVersionBase,
                 getPermissionDisabledClass,
                 getPermissionDisabledAttrs,
-                getServerCommandPending,
+                getServerCommandPending: mac => window.SmartCenter?.serverRuntime?.getServerCommandPending?.(mac) || null,
             };
         }
+        window.getServerRuntimeContext = getServerRuntimeContext;
 
         // AI_BRIDGE: projector_runtime
         // 投影机状态缓存、渲染协调和控制链路已迁移到 static/js/views/projector-runtime.js。
@@ -2863,438 +2911,60 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 .catch(err => console.error('灯光日志更新失败', err));
         };
 
+
         wakeServer = function(mac) {
-            if (!ensurePermission('server.control', '唤醒服务器节点')) return;
-            if (mac.startsWith('TEMP')) {
-                showToast('没有真实 MAC 地址，无法发送网络唤醒', true);
-                return;
-            }
-            if (!confirm('确定发送网络唤醒魔术包(WOL)吗？')) return;
-            fetchJson('/api/wake/' + encodeURIComponent(mac), { method: 'POST' }, '唤醒请求失败')
-                .then(result => {
-                    const targets = Array.isArray(result?.targets) ? result.targets.length : 0;
-                    showToast(targets ? `唤醒包已发出，广播目标 ${targets} 个` : '唤醒包已发出');
-                    if (typeof burstRefreshServerData === 'function') burstRefreshServerData();
-                })
-                .catch(err => showToast(translateApiError(err?.message, '唤醒请求失败'), true));
+            return withServerRuntime(
+                (api, ctx) => api.wakeServer(mac, ctx),
+                '服务器唤醒模块'
+            );
         };
 
         sendServerCmd = function(mac, cmd) {
-            if (!ensurePermission('server.control', '下发服务器指令')) return;
-            const actionMap = { shutdown: '关机', restart: '重启', refresh: '刷新信息' };
-            const actionName = actionMap[cmd] || cmd;
-            const prompt = cmd === 'refresh' ? '确定要远程刷新此节点的硬件信息吗？' : `危险操作：确定要让此节点立刻【${actionName}】吗？`;
-            if (!confirm(prompt)) return;
-            postJsonLoose(`/api/machines/${mac}/command`, { command: cmd }, `指令 [${actionName}] 下发失败`)
-                .then(() => {
-                    markServerCommandPending(mac, cmd, actionName);
-                    showToast(`指令 [${actionName}] 已进入下发队列`);
-                    burstRefreshServerData();
-                })
-                .catch(err => showToast(translateApiError(err?.message, `指令 [${actionName}] 下发失败`), true));
+            return withServerRuntime(
+                (api, ctx) => api.sendServerCmd(mac, cmd, ctx),
+                '服务器控制模块'
+            );
         };
 
         moveServer = function(mac, direction) {
-            if (!ensurePermission('server.control', '调整服务器排序')) return;
-            const idx = globalServerList.findIndex(m => m.mac === mac);
-            if (idx < 0) return;
-            const newIdx = idx + direction;
-            if (newIdx < 0 || newIdx >= globalServerList.length) return;
-            const temp = globalServerList[idx];
-            globalServerList[idx] = globalServerList[newIdx];
-            globalServerList[newIdx] = temp;
-            globalServerList.forEach((m, i) => { m.sort_order = i + 1; });
-            renderServerGridDeferred(globalServerList, { force: true });
-            renderDashboardServerCompactWhenReady(globalServerList);
-            postJsonLoose('/api/machines/sort', { macs: globalServerList.map(m => m.mac) }, '服务器排序保存失败')
-                .then(() => updateServerData())
-                .catch(err => {
-                    showToast(translateApiError(err?.message, '服务器排序保存失败'), true);
-                    updateServerData();
-                });
+            return withServerRuntime(
+                (api, ctx) => api.moveServer(mac, direction, ctx),
+                '服务器排序模块',
+                ['server-runtime', 'server-monitor-view']
+            );
         };
 
-        function formatServerMetric(value, suffix = '%') {
-            const api = getServerSummaryApi();
-            if (api && typeof api.formatServerMetric === 'function') {
-                return api.formatServerMetric.apply(api, Array.from(arguments));
-            }
-            const num = Number(value);
-            if (!Number.isFinite(num)) return `0${suffix}`;
-            return `${num.toFixed(num % 1 ? 1 : 0)}${suffix}`;
-        }
-        function normalizeServerBytes(value) {
-            const api = getServerSummaryApi();
-            if (api && typeof api.normalizeServerBytes === 'function') {
-                return api.normalizeServerBytes.apply(api, Array.from(arguments));
-            }
-            const num = Number(value);
-            return Number.isFinite(num) ? num : 0;
-        }
-        function formatNetworkMbps(kbPerSec) {
-            return SmartCenter.serverMonitor.formatNetworkMbps.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        let serverViewMode = (() => {
-            try { return localStorage.getItem('smart-center-server-view-mode') || 'compact'; } catch (_) { return 'compact'; }
-        })();
-        let serverGridRenderToken = 0;
-        let serverGridSignature = '';
-        let serverDataRequestInFlight = null;
-        function getServerGridSignature(machines) {
-            try {
-                return JSON.stringify((Array.isArray(machines) ? machines : []).map(m => [
-                    m.mac,
-                    m.is_online,
-                    m.report_online,
-                    m.runtime_fresh,
-                    m.last_online,
-                    m.server_received_at,
-                    m.clock_offset_sec,
-                    m.last_report_kind,
-                    m.sort_order,
-                    m.card_size,
-                    m.remark,
-                    m.status?.hardware_refreshed_at,
-                    m.status?.clock_heartbeat_at,
-                    m.agent_status?.version,
-                    m.diagnostic?.code,
-                    m.pending_power_command?.command,
-                    m.claimed_power_command?.command
-                ]));
-            } catch (_) {
-                return String(Date.now());
-            }
-        }
-        function renderServerGridDeferred(machines, options = {}) {
-            const container = document.getElementById('server-grid-container');
-            if (!container || !window.SmartCenter?.serverMonitor) return;
-            const signature = serverViewMode + '|' + getServerGridSignature(machines);
-            if (!options.force && signature === serverGridSignature) return;
-            serverGridSignature = signature;
-            const token = ++serverGridRenderToken;
-            const renderNow = () => {
-                if (token !== serverGridRenderToken) return;
-                container.innerHTML = renderServerGroupedGrid(machines);
-            };
-            if (typeof window.requestAnimationFrame === 'function') {
-                window.requestAnimationFrame(() => window.requestAnimationFrame(renderNow));
-            } else {
-                window.setTimeout(renderNow, 0);
-            }
-        }
-        function applyServerViewMode(mode) {
-            serverViewMode = mode === 'detail' ? 'detail' : 'compact';
-            document.querySelectorAll('[data-server-view-mode]').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.serverViewMode === serverViewMode);
-                btn.setAttribute('aria-pressed', btn.dataset.serverViewMode === serverViewMode ? 'true' : 'false');
-            });
-            const modeLabel = document.getElementById('server-mode-current');
-            if (modeLabel) modeLabel.textContent = serverViewMode === 'detail' ? '详细模式' : '简洁模式';
-            const container = document.getElementById('server-grid-container');
-            if (container) container.classList.toggle('server-detail-mode', serverViewMode === 'detail');
-        }
         function setServerViewMode(mode) {
-            applyServerViewMode(mode);
-            try { localStorage.setItem('smart-center-server-view-mode', serverViewMode); } catch (_) {}
-            if (Array.isArray(globalServerList) && globalServerList.length) {
-                renderServerGridDeferred(globalServerList, { force: true });
-            }
+            return withServerRuntime(
+                (api, ctx) => api.setServerViewMode(mode, ctx),
+                '服务器视图模块',
+                ['server-runtime', 'server-monitor-view']
+            );
         }
-        function csvCell(value) {
-            const text = String(value ?? '').replace(/\r?\n/g, ' ').trim();
-            return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-        }
-        function exportListCell(items) {
-            return (items || []).map(item => String(item ?? '').trim()).filter(Boolean).join(' | ');
-        }
+
         function getServerDeviceInfoExportRows() {
-            const rows = [];
-            const list = Array.isArray(globalServerList) ? globalServerList : [];
-            list.forEach(machine => {
-                const st = machine.status || {};
-                const network = st.network_summary || {};
-                const wifi = st.wireless || {};
-                const bt = st.bluetooth || {};
-                const adapters = Array.isArray(st.network_adapters) ? st.network_adapters.filter(adapter => !adapter?.is_virtual) : [];
-                const codemeter = st.codemeter && typeof st.codemeter === 'object' ? st.codemeter : {};
-                const codemeterSerials = getCodeMeterSerials(codemeter);
-                const codemeterLicenses = normalizeCodeMeterLicenses(codemeter, codemeterSerials);
-                const codemeterValidity = getCodeMeterValidityText(codemeter);
-                const codemeterLabel = getCodeMeterLicenseLabel(codemeter);
-                const codemeterInstalled = codemeter.installed === true ? '已安装' : (codemeter.installed === false ? '未安装' : '');
-                const codemeterRunning = codemeter.running === true ? '运行中' : (codemeter.running === false ? '未运行' : '');
-                const licenseRows = codemeterLicenses.length ? codemeterLicenses : [];
-                const nearestExpiringLicense = licenseRows
-                    .filter(license => !license.permanent && license.expiryText)
-                    .slice()
-                    .sort((a, b) => String(a.expiryText || '').localeCompare(String(b.expiryText || '')))[0];
-                const adapterRows = adapters.map((adapter, index) => {
-                    const ips = Array.isArray(adapter?.ipv4) ? adapter.ipv4 : [adapter?.adapter_ip, adapter?.ip, adapter?.ipv4].filter(Boolean);
-                    const name = adapter?.description || adapter?.adapter_description || adapter?.name || adapter?.adapter_name || '';
-                    const mac = normalizeDisplayMac(adapter?.adapter_mac || adapter?.mac || adapter?.physical_mac || adapter?.address);
-                    const speed = adapter?.speed_mbps || adapter?.link_speed_mbps || adapter?.speed || '';
-                    const state = adapter?.state || adapter?.status || '';
-                    const prefix = `${index + 1}.`;
-                    return {
-                        name: name ? `${prefix} ${name}` : '',
-                        ip: ips.length ? `${prefix} ${ips.join(' / ')}` : '',
-                        mac: mac ? `${prefix} ${mac}` : '',
-                        speed: speed ? `${prefix} ${speed}` : '',
-                        state: state ? `${prefix} ${state}` : '',
-                    };
-                });
-                rows.push({
-                    name: getServerDisplayName(machine),
-                    group: machine.asset_group || '',
-                    ip: machine.ip || '',
-                    mac: machine.mac || '',
-                    cpu: st.cpu_name || '',
-                    motherboard: st.motherboard || '',
-                    mem_speed_mhz: st.mem_speed || '',
-                    os: st.os_info?.name || st.os_caption || st.os_version || '',
-                    memory: st.memory_topology?.installed_count ? `${st.memory_topology.installed_count}条 ${memoryChannelText(st.memory_topology)}` : '',
-                    disk_count: st.storage_summary?.disk_count ?? (Array.isArray(st.storage_devices) ? st.storage_devices.length : ''),
-                    network_summary: `${network.active_count ?? 0}/${network.physical_count ?? 0}网卡`,
-                    wireless: wifi.present ? (wifi.connected ? `Wi-Fi ${wifi.ssid || '已连接'}` : 'Wi-Fi未连') : '',
-                    bluetooth: bt.present ? (bt.blocked ? '蓝牙阻塞' : '蓝牙') : '',
-                    adapter_name: exportListCell(adapterRows.map(item => item.name)),
-                    adapter_ip: exportListCell(adapterRows.map(item => item.ip)),
-                    adapter_mac: exportListCell(adapterRows.map(item => item.mac)),
-                    adapter_speed_mbps: exportListCell(adapterRows.map(item => item.speed)),
-                    adapter_state: exportListCell(adapterRows.map(item => item.state)),
-                    codemeter_installed: codemeterInstalled,
-                    codemeter_running: codemeterRunning,
-                    codemeter_validity: codemeterValidity,
-                    codemeter_label: codemeterLabel,
-                    codemeter_all_serials: codemeterSerials.join(' / '),
-                    codemeter_serial: licenseRows.length ? exportListCell(licenseRows.map((license, index) => `${index + 1}. ${license.serial || codemeterSerials.join(' / ')}`)) : codemeterSerials.join(' / '),
-                    codemeter_product_code: exportListCell(licenseRows.map((license, index) => license.code ? `${index + 1}. ${license.code}` : '')),
-                    codemeter_expiry: exportListCell(licenseRows.map((license, index) => `${index + 1}. ${license.permanent ? '长期' : (license.expiryText || '')}`)),
-                    codemeter_days_left: nearestExpiringLicense
-                        ? `=MAX(0,DATEVALUE("${nearestExpiringLicense.expiryText}")-TODAY())`
-                        : (licenseRows.some(license => license.permanent) ? '长期' : ''),
-                    codemeter_license_status: licenseRows.length
-                        ? exportListCell(licenseRows.map((license, index) => `${index + 1}. ${license.expired ? '已过期' : (license.permanent ? '长期' : '有效')}`))
-                        : codemeterValidity,
-                });
-            });
-            return rows;
+            const api = window.SmartCenter?.serverRuntime;
+            return api?.getServerDeviceInfoExportRows ? api.getServerDeviceInfoExportRows() : [];
         }
+
         function exportServerDeviceInfoCsv() {
-            const rows = getServerDeviceInfoExportRows();
-            if (!rows.length) {
-                showToast('暂无可导出的服务器设备信息', true);
-                return;
-            }
-            const columns = [
-                ['name', '设备名'],
-                ['group', '分组'],
-                ['ip', '管理IP'],
-                ['mac', '主MAC'],
-                ['cpu', 'CPU'],
-                ['motherboard', '主板'],
-                ['mem_speed_mhz', '内存频率MHz'],
-                ['os', '系统'],
-                ['memory', '内存'],
-                ['disk_count', '硬盘数量'],
-                ['network_summary', '网络汇总'],
-                ['wireless', '无线'],
-                ['bluetooth', '蓝牙'],
-                ['adapter_name', '网卡名称'],
-                ['adapter_ip', '网卡IP'],
-                ['adapter_mac', '网卡MAC'],
-                ['adapter_speed_mbps', '网卡速率Mbps'],
-                ['adapter_state', '网卡状态'],
-                ['codemeter_installed', '加密锁安装'],
-                ['codemeter_running', '加密锁服务'],
-                ['codemeter_validity', '加密锁状态'],
-                ['codemeter_label', '加密锁授权'],
-                ['codemeter_all_serials', '全部加密锁编号'],
-                ['codemeter_serial', '加密锁编号'],
-                ['codemeter_product_code', '产品码'],
-                ['codemeter_expiry', '到期时间'],
-                ['codemeter_days_left', '剩余天数'],
-                ['codemeter_license_status', '授权状态'],
-            ];
-            const csv = [columns.map(([, label]) => csvCell(label)).join(',')]
-                .concat(rows.map(row => columns.map(([key]) => csvCell(row[key])).join(',')))
-                .join('\r\n');
-            const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `server-device-info-${new Date().toISOString().slice(0, 10)}.csv`;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            URL.revokeObjectURL(url);
-            showToast('服务器设备信息 CSV 已生成');
+            return withServerRuntime(
+                (api, ctx) => api.exportServerDeviceInfoCsv(ctx),
+                '服务器导出模块',
+                ['server-runtime', 'server-monitor-view']
+            );
         }
         window.getServerDeviceInfoExportRows = getServerDeviceInfoExportRows;
         window.exportServerDeviceInfoCsv = exportServerDeviceInfoCsv;
-        function formatBytesGiB(bytes) {
-            return SmartCenter.serverMonitor.formatBytesGiB.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function compactHardwareName(value, fallback = '--') {
-            return SmartCenter.serverMonitor.compactHardwareName.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function compactCpuName(name) {
-            return SmartCenter.serverMonitor.compactCpuName.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function memoryChannelText(topology) {
-            return SmartCenter.serverMonitor.memoryChannelText.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function renderServerHardwareExtra(st) {
-            return SmartCenter.serverMonitor.renderServerHardwareExtra.apply(SmartCenter.serverMonitor, Array.from(arguments).concat([getServerRenderContext()]));
-        }
-        function getStorageVolumeRows(st) {
-            return SmartCenter.serverMonitor.getStorageVolumeRows.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function renderServerStorageRows(st) {
-            return SmartCenter.serverMonitor.renderServerStorageRows.apply(SmartCenter.serverMonitor, Array.from(arguments).concat([getServerRenderContext()]));
-        }
-        function getNetworkPrimaryLabel(st) {
-            return SmartCenter.serverMonitor.getNetworkPrimaryLabel.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function normalizeDisplayMac(value) {
-            return SmartCenter.serverMonitor.normalizeDisplayMac.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function getServerPhysicalMac(m) {
-            return SmartCenter.serverMonitor.getServerPhysicalMac.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function getServerIdentityLine(m) {
-            return SmartCenter.serverMonitor.getServerIdentityLine.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function isVirtualGpuName(name) {
-            return SmartCenter.serverMonitor.isVirtualGpuName.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function compactGpuName(name) {
-            return SmartCenter.serverMonitor.compactGpuName.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function normalizeGpuIdentity(name) {
-            return SmartCenter.serverMonitor.normalizeGpuIdentity.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function dedupeGpuRows(gpuList) {
-            return SmartCenter.serverMonitor.dedupeGpuRows.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function renderServerGpuList(rawGpuList) {
-            return SmartCenter.serverMonitor.renderServerGpuList.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function getServerCompactGpuText(rawGpuList) {
-            const api = getServerSummaryApi();
-            return api && typeof api.getServerCompactGpuText === 'function' ? api.getServerCompactGpuText.apply(api, Array.from(arguments)) : '未采到';
-        }
-        function getServerCompactMetricClass(value) {
-            const api = getServerSummaryApi();
-            return api && typeof api.getServerCompactMetricClass === 'function' ? api.getServerCompactMetricClass.apply(api, Array.from(arguments)) : '';
-        }
-        function getServerCompactGroupName(machine) {
-            const api = getServerSummaryApi();
-            return api && typeof api.getServerCompactGroupName === 'function' ? api.getServerCompactGroupName.apply(api, Array.from(arguments)) : '未分组';
-        }
-        function getServerDisplayName(machine) {
-            const api = getServerSummaryApi();
-            return api && typeof api.getServerDisplayName === 'function' ? api.getServerDisplayName.apply(api, Array.from(arguments)) : (machine?.custom_name || machine?.remark || machine?.hostname || machine?.ip || '未知节点');
-        }
-        function buildServerCompactGroups(machines) {
-            const api = getServerSummaryApi();
-            return api && typeof api.buildServerCompactGroups === 'function' ? api.buildServerCompactGroups.apply(api, Array.from(arguments)) : [];
-        }
-        function isServerDashboardVisible(machine) {
-            const api = getServerSummaryApi();
-            return api && typeof api.isServerDashboardVisible === 'function'
-                ? api.isServerDashboardVisible.apply(api, Array.from(arguments))
-                : String(machine?.asset_group || '').trim().length > 0;
-        }
-        function getServerCompactAlertText(machine, diagnostic, online) {
-            const api = getServerSummaryApi();
-            return api && typeof api.getServerCompactAlertText === 'function' ? api.getServerCompactAlertText.apply(api, Array.from(arguments)) : '';
-        }
-        function getServerCompactTooltip(machine, diagnostic, st, gpuText, alertText) {
-            const api = getServerSummaryApi();
-            return api && typeof api.getServerCompactTooltip === 'function' ? api.getServerCompactTooltip.apply(api, Array.from(arguments)) : getServerDisplayName(machine);
-        }
-        function renderDashboardServerCompact(data = []) {
-            const container = document.getElementById('dashboard-server-compact-grid');
-            if (!container) return;
-            if (window.SmartCenter?.serverSummary?.renderDashboardServerCompact) {
-                SmartCenter.serverSummary.renderDashboardServerCompact(data, {
-                    container,
-                    fallbackList: Array.isArray(dashboardServerCompactList) && dashboardServerCompactList.length
-                        ? dashboardServerCompactList
-                        : (Array.isArray(globalServerList) ? globalServerList : []),
-                });
-                return;
-            }
-            const machines = Array.isArray(data) && data.length
-                ? data
-                : (Array.isArray(dashboardServerCompactList) && dashboardServerCompactList.length
-                    ? dashboardServerCompactList
-                    : (Array.isArray(globalServerList) ? globalServerList : []));
-            const visibleMachines = machines.filter(isServerDashboardVisible);
-            if (!machines.length) {
-                container.classList.remove('server-compact-grouped');
-                container.innerHTML = '<div style="color:var(--text-sub); grid-column:1/-1; text-align:center; padding:10px;">正在加载机器状态...</div>';
-                return;
-            }
-            if (!visibleMachines.length) {
-                container.classList.remove('server-compact-grouped');
-                container.innerHTML = '<div style="color:var(--text-sub); grid-column:1/-1; text-align:center; padding:10px;">暂无已分组机器，未分组机器不参与首页显示。</div>';
-                return;
-            }
-            container.classList.add('home-status-list');
-            container.classList.add('server-compact-grouped');
-            const renderMachineRow = (m) => {
-                const st = m.status || {};
-                const agent = m.agent_status || {};
-                const diagnostic = buildServerDiagnostic(agent, m);
-                const online = !!m.is_online;
-                const reportOnline = !!diagnostic.reportOnline;
-                const badgeText = diagnostic.badgeText || (online ? '运行正常' : '离线');
-                const gpuText = getServerCompactGpuText(st.gpu_list);
-                const rowHealthy = online && diagnostic.level === 'success';
-                const dotClass = rowHealthy ? 'online' : (reportOnline ? 'warning' : 'error');
-                const titleBadge = `<span class="home-status-dot ${dotClass}" title="${escapeHtml(badgeText)}"></span>`;
-                const alertText = getServerCompactAlertText(m, diagnostic, online);
-                const alertHtml = alertText ? `<span class="home-server-alert" title="${escapeHtml(alertText)}">${escapeHtml(alertText)}</span>` : '';
-                const titleText = getServerCompactTooltip(m, diagnostic, st, gpuText, alertText);
-                return `<div class="home-status-row home-server-row ${rowHealthy ? '' : (reportOnline ? 'warning' : 'offline')}" title="${escapeHtml(titleText)}">
-                    <div class="home-row-main">
-                        <div class="home-row-title-line"><strong>${escapeHtml(getServerDisplayName(m))}</strong>${titleBadge}</div>
-                        ${alertHtml}
-                    </div>
-                </div>`;
-            };
-            container.innerHTML = buildServerCompactGroups(visibleMachines).map(([groupName, rows]) => {
-                const onlineCount = rows.filter(item => item.is_online).length;
-                const warningCount = rows.filter(item => {
-                    const diagnostic = buildServerDiagnostic(item.agent_status || {}, item);
-                    return diagnostic.level !== 'success' && !!diagnostic.reportOnline;
-                }).length;
-                const offlineCount = rows.filter(item => {
-                    const diagnostic = buildServerDiagnostic(item.agent_status || {}, item);
-                    return !item.is_online && !diagnostic.reportOnline;
-                }).length;
-                const groupClass = offlineCount ? 'offline' : (warningCount ? 'warning' : '');
-                const warnHtml = warningCount ? `<span class="warn">异 ${warningCount}</span>` : '';
-                const offlineHtml = offlineCount ? `<span class="bad">离 ${offlineCount}</span>` : '';
-                return `<section class="home-server-group ${groupClass}">
-                    <div class="home-server-group-head">
-                        <div class="home-server-group-name">${escapeHtml(groupName)}</div>
-                        <div class="home-server-group-stats"><span class="ok">${onlineCount}/${rows.length}</span>${warnHtml}${offlineHtml}</div>
-                    </div>
-                    <div class="home-server-group-list">${rows.map(renderMachineRow).join('')}</div>
-                </section>`;
-            }).join('');
-        }
+
         function renderDashboardServerCompactWhenReady(data = []) {
+            const runtimeState = window.SmartCenter?.serverRuntime;
+            if (runtimeState && Array.isArray(data)) runtimeState.dashboardServerCompactList = data;
             const container = document.getElementById('dashboard-server-compact-grid');
             if (!container) return Promise.resolve(false);
-            if (window.SmartCenter?.serverSummary) {
-                renderDashboardServerCompact(data);
-                return Promise.resolve(true);
+            if (window.SmartCenter?.serverRuntime?.renderDashboardServerCompactWhenReady && window.SmartCenter?.serverSummary) {
+                return Promise.resolve(window.SmartCenter.serverRuntime.renderDashboardServerCompactWhenReady(data, getServerRuntimeContext()));
             }
-            dashboardServerCompactList = Array.isArray(data) ? data : dashboardServerCompactList;
             if (!String(container.innerHTML || '').trim()) {
                 container.classList.add('home-status-list');
                 container.innerHTML = '<div style="color:var(--text-sub); grid-column:1/-1; text-align:center; padding:10px;">服务器摘要加载中...</div>';
@@ -3303,154 +2973,42 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 scheduleDashboardDeferredModule('server_compact', 0, 'summary');
                 return Promise.resolve(false);
             }
-            return ensureModulesReady(['server-summary-view'], '服务器摘要模块')
-                .then(() => {
-                    renderDashboardServerCompact(dashboardServerCompactList);
-                    return true;
-                })
-                .catch(() => false);
+            return withServerRuntime(
+                (api, ctx) => api.renderDashboardServerCompactWhenReady(data, ctx),
+                '服务器摘要模块',
+                ['server-runtime', 'server-summary-view']
+            ).then(Boolean);
         }
+
         function refreshDashboardServerCompactFallback() {
-            const container = document.getElementById('dashboard-server-compact-grid');
-            if (!container) return;
-            if (Array.isArray(dashboardServerCompactList) && dashboardServerCompactList.length) {
-                renderDashboardServerCompactWhenReady(dashboardServerCompactList);
-            } else if (Array.isArray(globalServerList) && globalServerList.length) {
-                renderDashboardServerCompactWhenReady(globalServerList);
-            }
+            const runtimeState = window.SmartCenter?.serverRuntime || {};
+            const data = Array.isArray(runtimeState.dashboardServerCompactList) && runtimeState.dashboardServerCompactList.length
+                ? runtimeState.dashboardServerCompactList
+                : (Array.isArray(runtimeState.globalServerList) ? runtimeState.globalServerList : []);
+            return renderDashboardServerCompactWhenReady(data);
         }
-        function renderServerMetaStrip(m, st, agent, diagnostic) {
-            return SmartCenter.serverMonitor.renderServerMetaStrip.apply(SmartCenter.serverMonitor, Array.from(arguments).concat([getServerRenderContext()]));
-        }
-        function renderServerAttention(diagnostic) {
-            return SmartCenter.serverMonitor.renderServerAttention.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function getCodeMeterSerials(codemeter) {
-            return SmartCenter.serverMonitor.getCodeMeterSerials.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function getCodeMeterLicenseLabel(codemeter) {
-            return SmartCenter.serverMonitor.getCodeMeterLicenseLabel.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function parseCodeMeterExpiry(value) {
-            return SmartCenter.serverMonitor.parseCodeMeterExpiry.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function formatCodeMeterExpiry(date) {
-            return SmartCenter.serverMonitor.formatCodeMeterExpiry.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function hasCompanyCodeMeterLicense(codemeter) {
-            return SmartCenter.serverMonitor.hasCompanyCodeMeterLicense.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function getCodeMeterValidityText(codemeter) {
-            return SmartCenter.serverMonitor.getCodeMeterValidityText.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function normalizeCodeMeterLicenses(codemeter, serials = []) {
-            return SmartCenter.serverMonitor.normalizeCodeMeterLicenses.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function getCodeMeterExpiryStatusFromLicenses(licenses) {
-            return SmartCenter.serverMonitor.getCodeMeterExpiryStatusFromLicenses.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function renderServerCodeMeterLine(codemeter) {
-            return SmartCenter.serverMonitor.renderServerCodeMeterLine.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function getServerGroupName(machine) {
-            return SmartCenter.serverMonitor.getServerGroupName.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
-        function isAgentVersionOutdated(agent = {}) {
-            return SmartCenter.serverMonitor.isAgentVersionOutdated.apply(SmartCenter.serverMonitor, Array.from(arguments).concat([getServerRenderContext()]));
-        }
-        function getAgentUpdateHint(agent = {}) {
-            return SmartCenter.serverMonitor.getAgentUpdateHint.apply(SmartCenter.serverMonitor, Array.from(arguments).concat([getServerRenderContext()]));
-        }
+
         function markServerCommandPending(mac, cmd, actionName) {
-            const key = String(mac || '').trim().toUpperCase();
-            if (!key) return;
-            serverCommandPending[key] = {
-                cmd,
-                actionName: actionName || cmd,
-                queuedAt: Date.now()
-            };
+            return window.SmartCenter?.serverRuntime?.markServerCommandPending?.(mac, cmd, actionName);
         }
+
         function getServerCommandPending(mac) {
-            const key = String(mac || '').trim().toUpperCase();
-            const pending = key ? serverCommandPending[key] : null;
-            if (!pending) return null;
-            const ageMs = Date.now() - Number(pending.queuedAt || 0);
-            if (ageMs > 120000) {
-                delete serverCommandPending[key];
-                return null;
-            }
-            return { ...pending, ageMs };
+            return window.SmartCenter?.serverRuntime?.getServerCommandPending?.(mac) || null;
         }
-        function clearSettledServerCommandPending(machines = []) {
-            machines.forEach(machine => {
-                const key = String(machine?.mac || '').trim().toUpperCase();
-                const pending = key ? serverCommandPending[key] : null;
-                if (!pending) return;
-                if ((pending.cmd === 'shutdown' || pending.cmd === 'restart') && machine?.is_online === false) {
-                    delete serverCommandPending[key];
-                } else if (pending.cmd === 'refresh') {
-                    const status = machine?.status || {};
-                    const refreshedAt = Date.parse(status.hardware_refreshed_at || machine?.last_online || '');
-                    if (Number.isFinite(refreshedAt) && refreshedAt >= Number(pending.queuedAt || 0) - 5000) {
-                        delete serverCommandPending[key];
-                    }
-                }
-            });
-        }
-        function renderServerCommandPending(pending) {
-            return SmartCenter.serverMonitor.renderServerCommandPending.apply(SmartCenter.serverMonitor, Array.from(arguments));
-        }
+
         function burstRefreshServerData() {
-            if (typeof updateServerData === 'function') updateServerData();
-            [1500, 5000, 12000, 25000, 45000, 70000].forEach(delay => {
-                window.setTimeout(() => {
-                    if (typeof updateServerData === 'function') updateServerData();
-                }, delay);
-            });
-            if (serverCommandRefreshTimer) window.clearInterval(serverCommandRefreshTimer);
-            const startedAt = Date.now();
-            serverCommandRefreshTimer = window.setInterval(() => {
-                if (Date.now() - startedAt > 90000) {
-                    window.clearInterval(serverCommandRefreshTimer);
-                    serverCommandRefreshTimer = null;
-                    return;
-                }
-                if (typeof updateServerData === 'function') updateServerData();
-            }, 5000);
+            return withServerRuntime(
+                (api, ctx) => api.burstRefreshServerData(ctx),
+                '服务器刷新模块'
+            );
         }
-        function renderServerCard(m) {
-            return SmartCenter.serverMonitor.renderServerCard.apply(SmartCenter.serverMonitor, Array.from(arguments).concat([getServerRenderContext()]));
-        }
-        function renderServerGroupedGrid(machines) {
-            return SmartCenter.serverMonitor.renderServerGroupedGrid.apply(SmartCenter.serverMonitor, Array.from(arguments).concat([getServerRenderContext()]));
-        }
+
         updateServerData = function() {
-            if (serverDataRequestInFlight) return serverDataRequestInFlight;
-            serverDataRequestInFlight = fetchJson('/api/machines', {}, '服务器列表读取失败')
-                .then(data => {
-                    applyServerViewMode(serverViewMode);
-                    data.sort((a, b) => {
-                        if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
-                        return a.mac.localeCompare(b.mac);
-                    });
-                    clearSettledServerCommandPending(data);
-                    globalServerList = data;
-                    const dashboardMachines = data.filter(isServerDashboardVisible);
-                    dashboardServerCompactList = dashboardMachines;
-                    const sTotal = document.getElementById('dash-server-total');
-                    if (sTotal) sTotal.innerText = dashboardMachines.length;
-                    const onlineCount = dashboardMachines.filter(m => m.is_online).length;
-                    const sOnline = document.getElementById('dash-server-online');
-                    if (sOnline) sOnline.innerText = onlineCount;
-                    renderServerGridDeferred(data);
-                    renderDashboardServerCompactWhenReady(data);
-                    return data;
-                })
-                .catch(err => console.error('服务器数据更新失败', err))
-                .finally(() => {
-                    serverDataRequestInFlight = null;
-                });
-            return serverDataRequestInFlight;
+            return withServerRuntime(
+                (api, ctx) => api.updateServerData(ctx),
+                '服务器监控模块',
+                ['server-runtime', 'server-monitor-view']
+            );
         };
 
         fireProjectorCommand = function(devId, payload, format, name='') {

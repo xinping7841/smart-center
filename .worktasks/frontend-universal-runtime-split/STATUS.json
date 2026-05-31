@@ -1,0 +1,12 @@
+{
+  "task": "frontend-universal-runtime-split",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-frontend-universal-runtime-split-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-universal-runtime-split",
+  "started_at": "2026-05-31 17:00:42",
+  "status": "in_progress",
+  "phase": "server-runtime-split-validation",
+  "updated_at": "2026-05-31 17:40:00"
+}
