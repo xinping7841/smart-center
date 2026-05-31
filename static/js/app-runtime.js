@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-universal-template-slim-v2';
+        const lazyModuleVersion = '20260601-modal-template-slim-v1';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -865,6 +865,41 @@
             const pad = value => String(value).padStart(2, '0');
             return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
         }
+        function ensureDeployModalShell() {
+            if (document.getElementById('deployModal')) return;
+            document.body.insertAdjacentHTML('beforeend', `
+                <div id="deployModal" class="wizard-overlay">
+                    <div class="modal-box-center">
+                        <h3 style="color:var(--brand-blue); margin-bottom:15px;">Windows 节点覆盖安装 / 升级</h3>
+                        <p style="color:var(--text-sub); font-size:14px; margin-bottom:10px;">在目标 Windows 机器上打开 <strong>管理员 PowerShell</strong>，运行下方命令即可覆盖安装最新 Agent。执行一次后，后续 Agent Worker 会自动从中控拉取新版。</p>
+                        <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:12px;">
+                            <div style="background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.28); border-radius:10px; padding:10px 12px;">
+                                <div style="color:#93c5fd; font-size:12px; margin-bottom:4px;">当前发布版本</div>
+                                <div id="deploy-agent-version-text" style="color:#fef08a; font-size:18px; font-weight:900;">读取中...</div>
+                            </div>
+                            <div style="background:rgba(15,23,42,0.70); border:1px solid rgba(148,163,184,0.18); border-radius:10px; padding:10px 12px;">
+                                <div style="color:#94a3b8; font-size:12px; margin-bottom:4px;">命令生成时间</div>
+                                <div id="deploy-generated-at-text" style="color:#e2e8f0; font-size:18px; font-weight:800;">--</div>
+                            </div>
+                        </div>
+                        <div style="background:#000; color:#0f0; padding:15px; border-radius:6px; font-family:monospace; word-break:break-all; font-size:13px; margin-bottom:20px;" id="deploy-cmd-text"></div>
+                        <div style="background:rgba(15,23,42,0.75); color:#cbd5e1; padding:12px 14px; border-radius:10px; border:1px solid rgba(148,163,184,0.16); font-size:12px; line-height:1.7; margin-bottom:16px;">
+                            <div>批处理地址：<span id="deploy-bat-url-text" style="color:#93c5fd; word-break:break-all;"></span></div>
+                            <div>说明：推荐使用上方 PowerShell 命令；批处理地址保留为备用。远程机器只需覆盖安装一次，后续由计划任务自动运行并支持 Worker 自动更新。</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <button class="btn-base" style="background:var(--brand-blue);" onclick="copyDeployCommand()">复制覆盖安装命令</button>
+                            <button class="btn-base" style="background:#0f766e;" onclick="copyDeployBatUrl()">复制批处理地址</button>
+                            <button class="btn-base" style="background:#475569;" onclick="closeDeployModal()">关闭</button>
+                        </div>
+                    </div>
+                </div>
+            `);
+        }
+        function closeDeployModal() {
+            const modal = document.getElementById('deployModal');
+            if (modal) modal.style.display = 'none';
+        }
         function updateDeployModalInfo() {
             const api = window.SmartCenter?.serverRuntime;
             if (api?.updateDeployModalInfo) return api.updateDeployModalInfo(getServerRuntimeContext());
@@ -878,6 +913,7 @@
             if (deployBatUrlEl) deployBatUrlEl.textContent = getDeployBatUrl();
         }
         function openDeployModal() {
+            ensureDeployModalShell();
             updateDeployModalInfo();
             const modal = document.getElementById('deployModal');
             if (modal) modal.style.display = 'block';
@@ -935,6 +971,7 @@
         function copyDeployBatUrl() {
             return withServerRuntime((api, ctx) => api.copyDeployBatUrl(ctx), 'Agent 部署模块');
         }
+        Object.assign(window, { openDeployModal, closeDeployModal, copyDeployCommand, copyDeployBatUrl });
         function getServerSummaryApi() {
             return window.SmartCenter?.serverSummary || window.SmartCenter?.serverMonitor || null;
         }
@@ -1959,9 +1996,129 @@
             if (getActiveViewId() === 'door' || window.SmartCenter?.doorRuntime) initCanvas();
             resizePowerCharts();
         });
-        function openWizard() { document.getElementById('aiWizardModal').style.display = 'block'; document.getElementById('step1-card').style.opacity = '1'; document.getElementById('step1-card').style.pointerEvents = 'auto'; document.getElementById('step2-card').style.opacity = '0.4'; document.getElementById('step2-card').style.pointerEvents = 'none'; }
-        function closeWizard() { document.getElementById('aiWizardModal').style.display = 'none'; }
-        const wizardBox = document.getElementById('wizardBox'); const wizardHeader = document.getElementById('wizardHeader'); let isWizDragging = false; let wizOffsetX = 0, wizOffsetY = 0; wizardHeader.addEventListener('mousedown', function(e) { if(e.target.tagName.toLowerCase() === 'button') return; isWizDragging = true; wizOffsetX = e.clientX - wizardBox.offsetLeft; wizOffsetY = e.clientY - wizardBox.offsetTop; wizardBox.style.transition = 'none'; wizardBox.style.opacity = '0.9'; }); document.addEventListener('mousemove', function(e) { if (!isWizDragging) return; wizardBox.style.left = (e.clientX - wizOffsetX) + 'px'; wizardBox.style.top = (e.clientY - wizOffsetY) + 'px'; wizardBox.style.right = 'auto'; }); document.addEventListener('mouseup', function() { if (isWizDragging) { isWizDragging = false; wizardBox.style.transition = 'opacity 0.2s'; wizardBox.style.opacity = '1'; } });
+        let isWizDragging = false;
+        let wizOffsetX = 0;
+        let wizOffsetY = 0;
+        function ensureAiWizardModalShell() {
+            if (document.getElementById('aiWizardModal')) return;
+            document.body.insertAdjacentHTML('beforeend', `
+                <div id="aiWizardModal" class="wizard-overlay">
+                    <div class="wizard-box" id="wizardBox">
+                        <div id="wizardHeader" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; cursor: move; background: rgba(59, 130, 246, 0.15); padding: 10px 15px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">
+                            <h3 style="color:var(--brand-blue); margin:0; font-size: 15px; pointer-events: none;">智能标定向导</h3>
+                            <button class="btn-base" style="background:transparent; border:1px solid #475569; padding:2px 8px; font-size:12px; cursor: pointer;" onclick="closeWizard()">关闭</button>
+                        </div>
+                        <div class="wizard-step" id="step1-card">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><h4 style="margin:0;">1. 标定“完全关闭”</h4><span id="wiz-status-closed" style="font-size:12px; color:var(--warning);">待操作</span></div>
+                            <button class="btn-base btn-success wizard-btn" onclick="captureWizard('closed', 'wiz-status-closed')">拍下“关闭”基准图</button>
+                        </div>
+                        <div class="wizard-step" id="step2-card" style="opacity:0.4; pointer-events:none;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><h4 style="margin:0;">2. 标定“完全打开”</h4><span id="wiz-status-open" style="font-size:12px; color:var(--warning);">待操作</span></div>
+                            <button class="btn-base btn-danger wizard-btn" onclick="captureWizard('open', 'wiz-status-open')">拍下“打开”基准图</button>
+                        </div>
+                        <div class="wizard-step" style="border-color: var(--brand-blue); margin-bottom:0;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><h4 style="margin:0; color:var(--brand-blue);">3. 生成特征模型</h4></div>
+                            <button id="btnWizardRecord" class="btn-base btn-ai wizard-btn" onclick="applyAiCalibration()">一键生成 AI 推演模型</button>
+                        </div>
+                    </div>
+                </div>
+            `);
+            const wizardBox = document.getElementById('wizardBox');
+            const wizardHeader = document.getElementById('wizardHeader');
+            if (!wizardBox || !wizardHeader || wizardHeader.dataset.dragBound === '1') return;
+            wizardHeader.dataset.dragBound = '1';
+            wizardHeader.addEventListener('mousedown', event => {
+                if (event.target.tagName.toLowerCase() === 'button') return;
+                isWizDragging = true;
+                wizOffsetX = event.clientX - wizardBox.offsetLeft;
+                wizOffsetY = event.clientY - wizardBox.offsetTop;
+                wizardBox.style.transition = 'none';
+                wizardBox.style.opacity = '0.9';
+            });
+        }
+        function openWizard() {
+            ensureAiWizardModalShell();
+            document.getElementById('aiWizardModal').style.display = 'block';
+            document.getElementById('step1-card').style.opacity = '1';
+            document.getElementById('step1-card').style.pointerEvents = 'auto';
+            document.getElementById('step2-card').style.opacity = '0.4';
+            document.getElementById('step2-card').style.pointerEvents = 'none';
+        }
+        function closeWizard() {
+            const modal = document.getElementById('aiWizardModal');
+            if (modal) modal.style.display = 'none';
+        }
+        function setWizardStatus(elementId, text, isError = false) {
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            el.textContent = text;
+            el.style.color = isError ? 'var(--danger)' : 'var(--success)';
+        }
+        function captureWizard(state, statusId) {
+            ensureAiWizardModalShell();
+            setWizardStatus(statusId, '拍摄中...');
+            return fetchJsonLoose(`/api/ai_wizard/capture/${encodeURIComponent(state)}`, { method: 'POST' }, '门禁标定拍摄失败')
+                .then(data => {
+                    const ok = data.status === 'success' || data.ok === true;
+                    setWizardStatus(statusId, ok ? '已完成' : (data.msg || '失败'), !ok);
+                    if (ok && state === 'closed') {
+                        const next = document.getElementById('step2-card');
+                        if (next) {
+                            next.style.opacity = '1';
+                            next.style.pointerEvents = 'auto';
+                        }
+                    }
+                    showToast(data.msg || (ok ? '标定参考图已保存' : '标定失败'), !ok);
+                    return data;
+                })
+                .catch(err => {
+                    setWizardStatus(statusId, '失败', true);
+                    showToast(translateApiError(err?.message, '门禁标定拍摄失败'), true);
+                    return null;
+                });
+        }
+        function applyAiCalibration() {
+            ensureAiWizardModalShell();
+            const btn = document.getElementById('btnWizardRecord');
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = '生成中...';
+            }
+            return fetchJsonLoose('/api/ai_wizard/apply_model', { method: 'POST' }, '门禁标定模型生成失败')
+                .then(data => {
+                    const ok = data.status === 'success' || data.ok === true;
+                    showToast(data.msg || (ok ? 'AI 标定模型已生成' : 'AI 标定模型生成失败'), !ok);
+                    return data;
+                })
+                .catch(err => {
+                    showToast(translateApiError(err?.message, '门禁标定模型生成失败'), true);
+                    return null;
+                })
+                .finally(() => {
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.textContent = '一键生成 AI 推演模型';
+                    }
+                });
+        }
+        document.addEventListener('mousemove', event => {
+            if (!isWizDragging) return;
+            const wizardBox = document.getElementById('wizardBox');
+            if (!wizardBox) return;
+            wizardBox.style.left = (event.clientX - wizOffsetX) + 'px';
+            wizardBox.style.top = (event.clientY - wizOffsetY) + 'px';
+            wizardBox.style.right = 'auto';
+        });
+        document.addEventListener('mouseup', () => {
+            if (!isWizDragging) return;
+            isWizDragging = false;
+            const wizardBox = document.getElementById('wizardBox');
+            if (wizardBox) {
+                wizardBox.style.transition = 'opacity 0.2s';
+                wizardBox.style.opacity = '1';
+            }
+        });
+        Object.assign(window, { openWizard, closeWizard, captureWizard, applyAiCalibration });
 
         // 强电与灯光控制
         configData.cabinets.forEach((cab, idx) => { pwrLocks[idx] = {}; pwrStates[idx] = []; pwrDesiredStates[idx] = {}; });
@@ -2132,7 +2289,27 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                     getCardStateClass,
                 };
         };
+        function ensureProjectorRemoteModalShell() {
+            if (document.getElementById('projectorRemoteModal')) return;
+            document.body.insertAdjacentHTML('beforeend', `
+                <div id="projectorRemoteModal" class="wizard-overlay">
+                    <div class="modal-box-center projector-remote-shell">
+                        <div class="projector-remote-header">
+                            <div>
+                                <div class="projector-remote-title" id="projectorRemoteTitle">投影机遥控器</div>
+                                <div class="projector-remote-subtitle" id="projectorRemoteSubtitle">正在加载设备信息...</div>
+                            </div>
+                            <button class="btn-base" style="background:#334155;" onclick="closeProjectorRemote()">关闭</button>
+                        </div>
+                        <div id="projectorRemoteContent" class="projector-remote-body">
+                            <div class="projector-empty-tip" style="grid-column:1/-1; margin:18px;">正在加载遥控器面板...</div>
+                        </div>
+                    </div>
+                </div>
+            `);
+        }
         window.openProjectorRemote = function(projId) {
+            ensureProjectorRemoteModalShell();
             return withProjectorRuntime((api, ctx) => api.openProjectorRemote(projId, ctx), '投影遥控器模块');
         };
         window.closeProjectorRemote = function() {

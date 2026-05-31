@@ -518,69 +518,6 @@
         </div>
     </div>
 
-    <div id="deployModal" class="wizard-overlay">
-        <div class="modal-box-center">
-            <h3 style="color:var(--brand-blue); margin-bottom:15px;">Windows 节点覆盖安装 / 升级</h3>
-            <p style="color:var(--text-sub); font-size:14px; margin-bottom:10px;">在目标 Windows 机器上打开 <strong>管理员 PowerShell</strong>，运行下方命令即可覆盖安装最新 Agent。执行一次后，后续 Agent Worker 会自动从中控拉取新版。</p>
-            <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:12px;">
-                <div style="background:rgba(59,130,246,0.12); border:1px solid rgba(59,130,246,0.28); border-radius:10px; padding:10px 12px;">
-                    <div style="color:#93c5fd; font-size:12px; margin-bottom:4px;">当前发布版本</div>
-                    <div id="deploy-agent-version-text" style="color:#fef08a; font-size:18px; font-weight:900;">读取中...</div>
-                </div>
-                <div style="background:rgba(15,23,42,0.70); border:1px solid rgba(148,163,184,0.18); border-radius:10px; padding:10px 12px;">
-                    <div style="color:#94a3b8; font-size:12px; margin-bottom:4px;">命令生成时间</div>
-                    <div id="deploy-generated-at-text" style="color:#e2e8f0; font-size:18px; font-weight:800;">--</div>
-                </div>
-            </div>
-            <div style="background:#000; color:#0f0; padding:15px; border-radius:6px; font-family:monospace; word-break:break-all; font-size:13px; margin-bottom:20px;" id="deploy-cmd-text"></div>
-            <div style="background:rgba(15,23,42,0.75); color:#cbd5e1; padding:12px 14px; border-radius:10px; border:1px solid rgba(148,163,184,0.16); font-size:12px; line-height:1.7; margin-bottom:16px;">
-                <div>批处理地址：<span id="deploy-bat-url-text" style="color:#93c5fd; word-break:break-all;"></span></div>
-                <div>说明：推荐使用上方 PowerShell 命令；批处理地址保留为备用。远程机器只需覆盖安装一次，后续由计划任务自动运行并支持 Worker 自动更新。</div>
-            </div>
-            <div style="text-align:right;">
-                <button class="btn-base" style="background:var(--brand-blue);" onclick="copyDeployCommand()">复制覆盖安装命令</button>
-                <button class="btn-base" style="background:#0f766e;" onclick="copyDeployBatUrl()">复制批处理地址</button>
-                <button class="btn-base" style="background:#475569;" onclick="document.getElementById('deployModal').style.display='none'">关闭</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="aiWizardModal" class="wizard-overlay">
-        <div class="wizard-box" id="wizardBox">
-            <div id="wizardHeader" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; cursor: move; background: rgba(59, 130, 246, 0.15); padding: 10px 15px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.3);">
-                <h3 style="color:var(--brand-blue); margin:0; font-size: 15px; pointer-events: none;">智能标定向导</h3>
-                <button class="btn-base" style="background:transparent; border:1px solid #475569; padding:2px 8px; font-size:12px; cursor: pointer;" onclick="closeWizard()">关闭</button>
-            </div>
-            <div class="wizard-step" id="step1-card">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><h4 style="margin:0;">1. 标定“完全关闭”</h4><span id="wiz-status-closed" style="font-size:12px; color:var(--warning);">待操作</span></div>
-                <button class="btn-base btn-success wizard-btn" onclick="captureWizard('closed', 'wiz-status-closed')">拍下“关闭”基准图</button>
-            </div>
-            <div class="wizard-step" id="step2-card" style="opacity:0.4; pointer-events:none;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><h4 style="margin:0;">2. 标定“完全打开”</h4><span id="wiz-status-open" style="font-size:12px; color:var(--warning);">待操作</span></div>
-                <button class="btn-base btn-danger wizard-btn" onclick="captureWizard('open', 'wiz-status-open')">拍下“打开”基准图</button>
-            </div>
-            <div class="wizard-step" style="border-color: var(--brand-blue); margin-bottom:0;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;"><h4 style="margin:0; color:var(--brand-blue);">3. 生成特征模型</h4></div>
-                <button id="btnWizardRecord" class="btn-base btn-ai wizard-btn" onclick="applyAiCalibration()">一键生成 AI 推演模型</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="projectorRemoteModal" class="wizard-overlay">
-        <div class="modal-box-center projector-remote-shell">
-            <div class="projector-remote-header">
-                <div>
-                    <div class="projector-remote-title" id="projectorRemoteTitle">投影机遥控器</div>
-                    <div class="projector-remote-subtitle" id="projectorRemoteSubtitle">正在加载设备信息...</div>
-                </div>
-                <button class="btn-base" style="background:#334155;" onclick="closeProjectorRemote()">关闭</button>
-            </div>
-            <div id="projectorRemoteContent" class="projector-remote-body">
-                <div class="projector-empty-tip" style="grid-column:1/-1; margin:18px;">正在加载遥控器面板...</div>
-            </div>
-        </div>
-    </div>
-
     <script src="/static/js/core/bootstrap.js?v=20260530-lazy-modules"></script>
     <script src="/static/js/core/utils.js?v=20260531-lazy-loader-v2"></script>
 
@@ -592,6 +529,6 @@
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
     </script>
-    <script src="/static/js/app-runtime.js?v=20260531-universal-template-slim-v2"></script>
+    <script src="/static/js/app-runtime.js?v=20260601-modal-template-slim-v1"></script>
 </body>
 </html>
