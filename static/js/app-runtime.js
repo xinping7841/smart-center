@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-runtime-domain-split';
+        const lazyModuleVersion = '20260531-automation-ui-split';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -363,16 +363,6 @@
         let nvrWallSnapshotRefreshTimer = null;
         let automationStatusCache = { server_time: '', rules: [] };
         let automationStatusLoading = false;
-        let automationGroupSignature = '';
-        let activeAutomationCanvasRuleId = '';
-        let activeAutomationCanvasNodeId = '';
-        let automationCanvasZoom = 1;
-        let automationCanvasPanX = 0;
-        let automationCanvasPanY = 0;
-        let automationCanvasBaseX = 28;
-        let automationCanvasBaseY = 0;
-        let automationCanvasDragState = null;
-        let automationCanvasSuppressClickUntil = 0;
         const snmpOpenDetailsState = {};
         let dashboardSummaryCache = null;
         let dashboardSummaryInFlight = null;
@@ -1039,6 +1029,9 @@
         function getAutomationStatusMap() {
             return new Map((Array.isArray(automationStatusCache.rules) ? automationStatusCache.rules : []).map(item => [String(item.id), item]));
         }
+        function getAutomationStatusCache() {
+            return automationStatusCache;
+        }
         function getAutomationViewApi() {
             return window.SmartCenter?.automationView || null;
         }
@@ -1046,574 +1039,31 @@
             if (getAutomationViewApi()) return Promise.resolve(getAutomationViewApi());
             return ensureModulesReady(['automation-view'], contextLabel).then(() => getAutomationViewApi());
         }
-        function getFallbackAutomationRuleRuntimeMeta(rule) {
-            const state = rule?.state || {};
-            const triggerType = String(rule?.trigger_type || 'condition');
-            if (!rule?.enabled) return { cls: 'waiting', cardClass: '', text: '已停用' };
-            if (String(state.last_error || '').trim()) return { cls: 'error', cardClass: 'runtime-error', text: '异常' };
-            if (state.scene_running) return { cls: 'running', cardClass: 'runtime-running', text: '执行中' };
-            if (state.last_trigger_matched || state.last_condition_stable) return { cls: 'matched', cardClass: 'runtime-matched', text: triggerType === 'schedule' ? '今日已执行' : '条件命中' };
-            if (state.last_condition_raw) return { cls: 'waiting', cardClass: '', text: '防抖中' };
-            if (triggerType === 'compound') return { cls: 'waiting', cardClass: '', text: state.preconditions_met === false ? '前置未满足' : '组合监测' };
-            if (triggerType === 'schedule') return { cls: 'waiting', cardClass: '', text: '等待定时' };
-            return { cls: 'waiting', cardClass: '', text: '监测中' };
-        }
-        function getAutomationRuleRuntimeMeta(rule) {
-            const api = getAutomationViewApi();
-            if (api && typeof api.getAutomationRuleRuntimeMeta === 'function') {
-                return api.getAutomationRuleRuntimeMeta.apply(api, Array.from(arguments));
-            }
-            return getFallbackAutomationRuleRuntimeMeta(rule);
-        }
-        function getAutomationGroupMeta(rule = {}) {
-            const explicitName = String(rule.group_name || rule.group_title || rule.display_group || '').trim();
-            const explicitKey = String(rule.group || rule.automation_group || rule.group_id || explicitName || '').trim();
-            if (explicitName || explicitKey) {
-                return {
-                    key: (explicitKey || explicitName).toLowerCase().replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '_') || 'custom',
-                    title: explicitName || explicitKey,
-                    subtitle: '配置分组'
-                };
-            }
-            const text = `${rule.id || ''} ${rule.name || ''} ${rule.scene_id || ''} ${rule.scene_name || ''}`.toLowerCase();
-            if (text.includes('outdoor_light') || text.includes('户外灯') || text.includes('庭院灯')) {
-                return { key: 'outdoor_light', title: '庭院灯 / 户外灯', subtitle: '低照度开灯、定时关灯、午夜兜底关灯集中显示' };
-            }
-            if (text.includes('machine_room_hvac') || (text.includes('机房') && text.includes('空调'))) {
-                return { key: 'machine_room_hvac', title: '机房空调', subtitle: '工作日开关机和低温保护集中显示' };
-            }
-            const sceneRoot = String(rule.scene_id || 'other')
-                .replace(/^scene_/, '')
-                .replace(/_(low_temp|workday|auto|manual)?_?(on|off|open|close|start|stop)$/i, '')
-                .replace(/[^a-z0-9]+/gi, '_') || 'other';
-            return { key: `scene_${sceneRoot}`, title: rule.scene_name || '其他自动化', subtitle: '按目标场景自动归组' };
-        }
-        function ensureAutomationRuleGroups(rules) {
-            const list = document.getElementById('automation-rule-list');
-            if (!list) return;
-            const cards = Array.from(list.querySelectorAll('[data-auto-rule-id]'));
-            if (!cards.length) return;
-            const runtimeRules = Array.isArray(rules) && rules.length
-                ? rules
-                : cards.map(card => ({
-                    id: card.dataset.autoRuleId,
-                    name: card.dataset.autoRuleName || '',
-                    scene_id: card.dataset.autoSceneId || ''
-                }));
-            const cardMap = new Map(cards.map(card => [String(card.dataset.autoRuleId || ''), card]));
-            const groups = [];
-            const groupMap = new Map();
-            const signatureParts = [];
-            runtimeRules.forEach(rule => {
-                const card = cardMap.get(String(rule?.id || ''));
-                if (!card) return;
-                const meta = getAutomationGroupMeta(rule);
-                signatureParts.push(`${meta.key}:${String(rule?.id || '')}`);
-                if (!groupMap.has(meta.key)) {
-                    const group = { ...meta, rules: [] };
-                    groupMap.set(meta.key, group);
-                    groups.push(group);
-                }
-                groupMap.get(meta.key).rules.push(rule);
-            });
-            if (!groups.length) return;
-            const signature = signatureParts.join('|');
-            if (automationGroupSignature === signature && list.querySelector('.auto-rule-group')) return;
-            automationGroupSignature = signature;
-            const fragment = document.createDocumentFragment();
-            groups.forEach(group => {
-                const section = document.createElement('section');
-                section.className = 'auto-rule-group';
-                section.dataset.autoGroupKey = group.key;
-                section.innerHTML = `
-                    <div class="auto-rule-group-head">
-                        <div class="auto-rule-group-title-wrap">
-                            <div class="auto-rule-group-title">${escapeHtml(group.title)}</div>
-                            <div class="auto-rule-group-sub">${escapeHtml(group.subtitle || '')}</div>
-                        </div>
-                        <span class="auto-rule-group-summary">整理中</span>
-                    </div>
-                    <div class="auto-rule-group-body"></div>
-                `;
-                const body = section.querySelector('.auto-rule-group-body');
-                group.rules.forEach(rule => {
-                    const card = cardMap.get(String(rule?.id || ''));
-                    if (card && body) body.appendChild(card);
-                });
-                fragment.appendChild(section);
-            });
-            list.replaceChildren(fragment);
-        }
-        function isAutomationScheduleDoneToday(rule) {
-            const state = rule?.state || {};
-            const today = getAutomationTodayKey();
-            return String(state.last_schedule_day || '') === today || String(state.last_schedule_key || '').startsWith(today);
-        }
-        function isAutomationScheduleStateDoneToday(triggerState = {}) {
-            const today = getAutomationTodayKey();
-            return String(triggerState.last_schedule_day || '') === today || String(triggerState.last_schedule_key || '').startsWith(today);
-        }
-        function buildAutomationConditionStateChips(condition = {}, state = {}, labelPrefix = '') {
-            const api = getAutomationViewApi();
-            return api?.buildAutomationConditionStateChips ? api.buildAutomationConditionStateChips.apply(api, Array.from(arguments)) : [];
-        }
-        function findAutomationScene(sceneId) {
-            const api = getAutomationViewApi();
-            if (api?.findAutomationScene) return api.findAutomationScene(sceneId, { configData });
-            const id = String(sceneId || '').trim();
-            return (Array.isArray(configData.scenes) ? configData.scenes : []).find(scene => String(scene?.id || '') === id) || null;
-        }
-        function formatAutomationConditionSummary(condition = {}, state = {}) {
-            const api = getAutomationViewApi();
-            return api?.formatAutomationConditionSummary ? api.formatAutomationConditionSummary.apply(api, Array.from(arguments)) : [];
-        }
-        function getAutomationConditionNodeClass(condition = {}, state = {}) {
-            const api = getAutomationViewApi();
-            return api?.getAutomationConditionNodeClass ? api.getAutomationConditionNodeClass.apply(api, Array.from(arguments)) : 'wait';
-        }
-        function formatAutomationScheduleSummary(schedule = {}, state = {}) {
-            const api = getAutomationViewApi();
-            return api?.formatAutomationScheduleSummary ? api.formatAutomationScheduleSummary.apply(api, Array.from(arguments)) : [];
-        }
-        function getAutomationScheduleNodeClass(state = {}) {
-            const api = getAutomationViewApi();
-            return api?.getAutomationScheduleNodeClass ? api.getAutomationScheduleNodeClass.apply(api, Array.from(arguments)) : 'wait';
-        }
-        function formatAutomationActionLabel(action = {}, index = 0) {
-            const api = getAutomationViewApi();
-            return api?.formatAutomationActionLabel ? api.formatAutomationActionLabel.apply(api, Array.from(arguments)) : (action.action_type || action.action || `动作 ${index + 1}`);
-        }
-        function formatAutomationActionDetails(action = {}) {
-            const api = getAutomationViewApi();
-            return api?.formatAutomationActionDetails ? api.formatAutomationActionDetails(action, { getHvacModeText }) : [];
-        }
-        function makeAutomationNodeId(kind, index, extra = '') {
-            const api = getAutomationViewApi();
-            return api?.makeAutomationNodeId ? api.makeAutomationNodeId.apply(api, Array.from(arguments)) : `${kind}-${index}${extra ? `-${extra}` : ''}`.replace(/[^a-zA-Z0-9_-]+/g, '-');
-        }
-        function formatAutomationNodeDetails(node = {}) {
-            const api = getAutomationViewApi();
-            return api?.formatAutomationNodeDetails ? api.formatAutomationNodeDetails.apply(api, Array.from(arguments)) : (Array.isArray(node.details) ? node.details : []);
-        }
-        function renderAutomationFlowNode(node) {
-            const api = getAutomationViewApi();
-            return api?.renderAutomationFlowNode ? api.renderAutomationFlowNode.apply(api, Array.from(arguments)) : '';
-        }
-        function buildAutomationFlowNodes(rule = {}) {
-            const api = getAutomationViewApi();
-            return api?.buildAutomationFlowNodes ? api.buildAutomationFlowNodes(rule, { configData, getHvacModeText }) : [];
-        }
-        function getActiveAutomationCanvasRule() {
-            if (!activeAutomationCanvasRuleId) return null;
-            return getAutomationStatusMap().get(String(activeAutomationCanvasRuleId))
-                || (Array.isArray(configData.automations) ? configData.automations : []).find(item => String(item?.id || '') === String(activeAutomationCanvasRuleId))
-                || null;
-        }
-        function renderAutomationCanvasInspector(rule, node) {
-            const inspector = document.getElementById('automation-node-inspector');
-            if (!inspector) return;
-            if (!rule || !node) {
-                inspector.innerHTML = '<div class="auto-node-inspector-empty">点击任意节点，查看当前值、判断条件、执行目标和可编辑入口。</div>';
-                return;
-            }
-            const details = formatAutomationNodeDetails(node);
-            const editableText = node.editable ? '此节点可通过规则编辑安全修改' : '此节点当前为查看模式';
-            inspector.innerHTML = `
-                <div class="auto-node-inspector-card">
-                    <div class="auto-node-inspector-kicker">${escapeHtml(node.type || '节点')}</div>
-                    <div class="auto-node-inspector-title">${escapeHtml(node.title || '--')}</div>
-                    <div class="auto-node-inspector-state ${escapeHtml(node.status || 'wait')}">${escapeHtml(node.stateText || '等待')}</div>
-                    <div class="auto-node-inspector-list">
-                        ${details.length ? details.map(item => `<div>${escapeHtml(item)}</div>`).join('') : '<div>暂无详细参数。</div>'}
-                    </div>
-                    <div class="auto-node-inspector-note">${escapeHtml(editableText)}</div>
-                    <div class="auto-node-inspector-actions">
-                        ${node.editable && String(rule.trigger_type || '') !== 'compound' ? `<button class="auto-node-modal-btn" type="button" onclick="openAutomationCanvasEditor('${escapeHtml(node.editTarget || '')}')">打开编辑</button>` : ''}
-                        <button class="auto-node-modal-btn secondary" type="button" onclick="scrollAutomationRuleIntoView('${escapeHtml(rule.id || '')}')">定位卡片</button>
-                    </div>
-                </div>
-            `;
-        }
-        function clampAutomationCanvasZoom(value) {
-            const next = Number(value);
-            if (!Number.isFinite(next)) return 1;
-            return Math.max(0.42, Math.min(1.4, next));
-        }
-        function updateAutomationCanvasZoomLabel() {
-            const label = document.getElementById('auto-node-zoom-value');
-            if (label) label.textContent = `${Math.round(automationCanvasZoom * 100)}%`;
-        }
-        function measureAutomationFlowRawWidth(scaleEl) {
-            if (!scaleEl) return 0;
-            const children = Array.from(scaleEl.children);
-            if (!children.length) return 0;
-            const left = Math.min(...children.map(el => el.offsetLeft));
-            const right = Math.max(...children.map(el => el.offsetLeft + el.offsetWidth));
-            return Math.max(0, right - left);
-        }
-        function measureAutomationFlowRawHeight(scaleEl) {
-            if (!scaleEl) return 0;
-            const children = Array.from(scaleEl.children);
-            if (!children.length) return 0;
-            return Math.max(...children.map(el => el.offsetHeight));
-        }
-        function applyAutomationCanvasZoom({ fit = false } = {}) {
-            const canvas = document.getElementById('automation-node-canvas');
-            const scaleEl = canvas?.querySelector('.auto-flow-scale');
-            if (!canvas || !scaleEl) return;
-            automationCanvasZoom = clampAutomationCanvasZoom(automationCanvasZoom);
-            const rawWidth = measureAutomationFlowRawWidth(scaleEl);
-            const rawHeight = measureAutomationFlowRawHeight(scaleEl);
-            const visualWidth = rawWidth * automationCanvasZoom;
-            const visualHeight = rawHeight * automationCanvasZoom;
-            const x = Math.max(18, fit ? (canvas.clientWidth - visualWidth) / 2 : 28);
-            const y = Math.max(0, Math.min(canvas.clientHeight - visualHeight, 0));
-            automationCanvasBaseX = x;
-            automationCanvasBaseY = y / 2;
-            if (fit) {
-                automationCanvasPanX = 0;
-                automationCanvasPanY = 0;
-            }
-            scaleEl.style.width = `${Math.max(rawWidth, 1)}px`;
-            scaleEl.style.minWidth = `${Math.max(rawWidth, 1)}px`;
-            scaleEl.style.marginLeft = '0px';
-            scaleEl.style.transform = `translate(${Math.round(automationCanvasBaseX + automationCanvasPanX)}px, calc(-50% + ${Math.round(automationCanvasBaseY + automationCanvasPanY)}px)) scale(${automationCanvasZoom})`;
-            updateAutomationCanvasZoomLabel();
-        }
-        function zoomAutomationNodeCanvas(delta) {
-            automationCanvasZoom = clampAutomationCanvasZoom(automationCanvasZoom + Number(delta || 0));
-            applyAutomationCanvasZoom({ fit: false });
-        }
-        window.zoomAutomationNodeCanvas = zoomAutomationNodeCanvas;
-        function fitAutomationNodeCanvas() {
-            const canvas = document.getElementById('automation-node-canvas');
-            const scaleEl = canvas?.querySelector('.auto-flow-scale');
-            if (!canvas || !scaleEl) return;
-            const rawWidth = measureAutomationFlowRawWidth(scaleEl);
-            const rawHeight = measureAutomationFlowRawHeight(scaleEl);
-            const availableW = Math.max(220, canvas.clientWidth - 72);
-            const availableH = Math.max(120, canvas.clientHeight - 80);
-            automationCanvasZoom = clampAutomationCanvasZoom(Math.min(1.12, availableW / Math.max(rawWidth, 1), availableH / Math.max(rawHeight, 1)));
-            applyAutomationCanvasZoom({ fit: true });
-        }
-        window.fitAutomationNodeCanvas = fitAutomationNodeCanvas;
-        function getAutomationCanvasClientPoint(event) {
-            const touch = event?.touches?.[0] || event?.changedTouches?.[0];
-            if (touch) return { x: touch.clientX, y: touch.clientY };
-            return { x: event?.clientX || 0, y: event?.clientY || 0 };
-        }
-        function startAutomationCanvasPan(event) {
-            if (!event) return;
-            if (event.button !== undefined && event.button !== 0) return;
-            const canvas = document.getElementById('automation-node-canvas');
-            if (!canvas) return;
-            const point = getAutomationCanvasClientPoint(event);
-            automationCanvasDragState = {
-                startX: point.x,
-                startY: point.y,
-                lastX: point.x,
-                lastY: point.y,
-                panX: automationCanvasPanX,
-                panY: automationCanvasPanY,
-                moved: false,
-                pointerId: event.pointerId,
+        function getAutomationRuntimeContext() {
+            return {
+                configData,
+                currentUser,
+                getActiveViewId,
+                getAutomationStatusCache,
+                getAutomationStatusMap,
+                loadAutomationStatus,
+                loadAutomationLogs: window.SmartCenter?.logs?.loadAutomationLogs || window.loadAutomationLogs,
+                ensurePermission,
+                postJsonLoose,
+                translateApiError,
+                showToast,
+                formatAutomationRuleTime,
+                formatAutomationValue,
+                escapeHtml,
             };
-            canvas.classList.add('dragging');
-            if (event.pointerId !== undefined) canvas.setPointerCapture?.(event.pointerId);
-            event.preventDefault?.();
-        }
-        function moveAutomationCanvasPan(event) {
-            if (!automationCanvasDragState) return;
-            const point = getAutomationCanvasClientPoint(event);
-            const dx = point.x - automationCanvasDragState.startX;
-            const dy = point.y - automationCanvasDragState.startY;
-            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) automationCanvasDragState.moved = true;
-            automationCanvasPanX = automationCanvasDragState.panX + dx;
-            automationCanvasPanY = automationCanvasDragState.panY + dy;
-            automationCanvasDragState.lastX = point.x;
-            automationCanvasDragState.lastY = point.y;
-            applyAutomationCanvasZoom({ fit: false });
-            event.preventDefault?.();
-        }
-        function endAutomationCanvasPan(event) {
-            if (!automationCanvasDragState) return;
-            const canvas = document.getElementById('automation-node-canvas');
-            const moved = !!automationCanvasDragState.moved;
-            const pointerId = automationCanvasDragState.pointerId;
-            automationCanvasDragState = null;
-            canvas?.classList.remove('dragging');
-            if (pointerId !== undefined) canvas?.releasePointerCapture?.(pointerId);
-            if (moved) automationCanvasSuppressClickUntil = Date.now() + 220;
-            event?.preventDefault?.();
-        }
-        function bindAutomationCanvasPan() {
-            const canvas = document.getElementById('automation-node-canvas');
-            if (!canvas || canvas.dataset.panBound === '1') return;
-            canvas.dataset.panBound = '1';
-            canvas.addEventListener('pointerdown', startAutomationCanvasPan);
-            canvas.addEventListener('pointermove', moveAutomationCanvasPan);
-            canvas.addEventListener('pointerup', endAutomationCanvasPan);
-            canvas.addEventListener('pointercancel', endAutomationCanvasPan);
-            canvas.addEventListener('pointerleave', endAutomationCanvasPan);
-            canvas.addEventListener('mousedown', startAutomationCanvasPan);
-            window.addEventListener('mousemove', moveAutomationCanvasPan);
-            window.addEventListener('mouseup', endAutomationCanvasPan);
-            canvas.addEventListener('touchstart', startAutomationCanvasPan, { passive: false });
-            window.addEventListener('touchmove', moveAutomationCanvasPan, { passive: false });
-            window.addEventListener('touchend', endAutomationCanvasPan, { passive: false });
-            window.addEventListener('touchcancel', endAutomationCanvasPan, { passive: false });
-        }
-        function handleAutomationCanvasNodeClick(event, nodeId) {
-            if (Date.now() < automationCanvasSuppressClickUntil) {
-                event?.preventDefault?.();
-                event?.stopPropagation?.();
-                return false;
-            }
-            selectAutomationCanvasNode(nodeId);
-            return true;
-        }
-        window.handleAutomationCanvasNodeClick = handleAutomationCanvasNodeClick;
-        function renderAutomationNodeCanvas(rule) {
-            const canvas = document.getElementById('automation-node-canvas');
-            const title = document.getElementById('automationNodeModalTitle');
-            const sub = document.getElementById('automationNodeModalSub');
-            const editBtn = document.getElementById('auto-node-edit-shortcut');
-            if (!canvas || !rule) return;
-            bindAutomationCanvasPan();
-            const nodes = buildAutomationFlowNodes(rule);
-            if (!nodes.some(node => node.id === activeAutomationCanvasNodeId)) {
-                activeAutomationCanvasNodeId = nodes[0]?.id || '';
-            }
-            if (title) title.textContent = rule.name || rule.id || '自动化规则';
-            if (sub) {
-                const scene = findAutomationScene(rule.scene_id || rule.action_scene_id);
-                sub.textContent = `规则 ${rule.id || '--'} · ${rule.enabled ? '已启用' : '已停用'} · 场景 ${scene?.name || rule.scene_name || rule.scene_id || rule.action_scene_id || '--'}`;
-            }
-            if (editBtn) {
-                const canEdit = String(rule.trigger_type || '') !== 'compound';
-                editBtn.disabled = !canEdit;
-                editBtn.textContent = canEdit ? '编辑此规则' : '组合规则暂只读';
-            }
-            canvas.innerHTML = `<div class="auto-flow-scale">${nodes.map((node, idx) => `${idx > 0 ? '<div class="auto-flow-link"></div>' : ''}${renderAutomationFlowNode(node)}`).join('')}</div>`;
-            canvas.querySelectorAll('.auto-flow-node').forEach(nodeEl => {
-                nodeEl.classList.toggle('selected', String(nodeEl.dataset.autoNodeId || '') === String(activeAutomationCanvasNodeId));
-            });
-            applyAutomationCanvasZoom({ fit: false });
-            const selected = nodes.find(node => node.id === activeAutomationCanvasNodeId) || nodes[0];
-            renderAutomationCanvasInspector(rule, selected);
-        }
-        function openAutomationNodeCanvas(ruleId) {
-            if (!getAutomationViewApi()) {
-                ensureAutomationViewReady('自动化节点画布模块')
-                    .then(() => openAutomationNodeCanvas(ruleId))
-                    .catch(() => {});
-                return;
-            }
-            const modal = document.getElementById('automationNodeModal');
-            if (!modal) return;
-            activeAutomationCanvasRuleId = String(ruleId || '');
-            activeAutomationCanvasNodeId = '';
-            automationCanvasZoom = 1;
-            automationCanvasPanX = 0;
-            automationCanvasPanY = 0;
-            const rule = getActiveAutomationCanvasRule();
-            if (!rule) {
-                showToast('未找到自动化规则，稍后自动刷新后再试', true);
-                loadAutomationStatus(true);
-                return;
-            }
-            modal.classList.add('open');
-            modal.setAttribute('aria-hidden', 'false');
-            document.body.classList.add('auto-node-modal-open');
-            renderAutomationNodeCanvas(rule);
-            requestAnimationFrame(() => fitAutomationNodeCanvas());
-        }
-        window.openAutomationNodeCanvas = openAutomationNodeCanvas;
-        function closeAutomationNodeCanvas() {
-            const modal = document.getElementById('automationNodeModal');
-            if (!modal) return;
-            modal.classList.remove('open');
-            modal.setAttribute('aria-hidden', 'true');
-            document.body.classList.remove('auto-node-modal-open');
-        }
-        window.closeAutomationNodeCanvas = closeAutomationNodeCanvas;
-        function selectAutomationCanvasNode(nodeId) {
-            activeAutomationCanvasNodeId = String(nodeId || '');
-            const rule = getActiveAutomationCanvasRule();
-            if (rule) renderAutomationNodeCanvas(rule);
-        }
-        window.selectAutomationCanvasNode = selectAutomationCanvasNode;
-        document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && document.getElementById('automationNodeModal')?.classList.contains('open')) {
-                closeAutomationNodeCanvas();
-            }
-        });
-        function openAutomationCanvasEditor(editTarget = '') {
-            const rule = getActiveAutomationCanvasRule();
-            if (!rule || !rule.id) return;
-            if (String(rule.trigger_type || '') === 'compound') {
-                showToast('组合规则结构更复杂，当前先支持节点查看，编辑会单独做安全版本。', true);
-                return;
-            }
-            closeAutomationNodeCanvas();
-            toggleAutomationEditor(rule.id, true);
-            scrollAutomationRuleIntoView(rule.id);
-            if (editTarget) {
-                const focusMap = { condition: 'prop', schedule: 'time' };
-                const suffix = focusMap[String(editTarget)] || '';
-                const el = suffix ? document.getElementById(`auto-field-${rule.id}-${suffix}`) : null;
-                if (el) setTimeout(() => el.focus(), 80);
-            }
-        }
-        function scrollAutomationRuleIntoView(ruleId) {
-            const card = document.getElementById(`auto-card-${ruleId}`);
-            if (card) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-        function renderAutomationNodePanel(rule) {
-            if (!rule || !rule.id) return;
-            const panel = document.getElementById(`auto-node-panel-${rule.id}`);
-            if (!panel || !panel.classList.contains('open')) return;
-            const nodes = buildAutomationFlowNodes(rule);
-            panel.innerHTML = `
-                <div class="auto-node-toolbar">
-                    <div>
-                        <div class="auto-node-title">节点流程图</div>
-                        <div class="auto-node-sub">从左到右：规则触发 -> 条件/时间/前置 -> 场景联动 -> 执行动作</div>
-                    </div>
-                    <button class="auto-edit-btn" type="button" onclick="toggleAutomationNodeView('${escapeHtml(rule.id)}', false)">收起</button>
-                </div>
-                <div class="auto-flow-canvas">
-                    ${nodes.map((node, idx) => `${idx > 0 ? '<div class="auto-flow-link"></div>' : ''}${renderAutomationFlowNode(node)}`).join('')}
-                </div>
-            `;
-        }
-        function toggleAutomationNodeView(ruleId, forceOpen = null) {
-            if (!getAutomationViewApi()) {
-                ensureAutomationViewReady('自动化节点视图模块')
-                    .then(() => toggleAutomationNodeView(ruleId, forceOpen))
-                    .catch(() => {});
-                return;
-            }
-            const panel = document.getElementById(`auto-node-panel-${ruleId}`);
-            const btn = document.querySelector(`[data-auto-node-btn="${ruleId}"]`);
-            if (!panel) return;
-            const shouldOpen = forceOpen === null ? !panel.classList.contains('open') : !!forceOpen;
-            panel.classList.toggle('open', shouldOpen);
-            if (btn) btn.textContent = shouldOpen ? '收起节点' : '节点视图';
-            if (shouldOpen) {
-                const rule = getAutomationStatusMap().get(String(ruleId)) || { id: ruleId, name: panel.closest('[data-auto-rule-name]')?.dataset?.autoRuleName || '' };
-                renderAutomationNodePanel(rule);
-            }
-        }
-        function buildAutomationScheduleStateChips(schedule = {}, state = {}, labelPrefix = '定时') {
-            const api = getAutomationViewApi();
-            return api?.buildAutomationScheduleStateChips ? api.buildAutomationScheduleStateChips.apply(api, Array.from(arguments)) : [];
-        }
-        function buildAutomationConditionChips(rule) {
-            const api = getAutomationViewApi();
-            return api?.buildAutomationConditionChips ? api.buildAutomationConditionChips.apply(api, Array.from(arguments)) : [];
-        }
-        function renderAutomationConditionChips(rule) {
-            if (!rule || !rule.id) return;
-            const row = document.getElementById(`auto-condition-row-${rule.id}`);
-            if (!row) return;
-            const chips = buildAutomationConditionChips(rule);
-            row.innerHTML = chips.length ? chips.map(chip => `
-                <span class="auto-condition-chip ${chip.cls || 'info'}" title="${escapeHtml(chip.title || `${chip.label} ${chip.text}`)}">
-                    <b>${escapeHtml(chip.label)}</b>${escapeHtml(chip.text)}
-                </span>
-            `).join('') : '<span class="auto-condition-chip muted">无附加条件</span>';
-        }
-        function updateAutomationGroupSummaries(rules) {
-            const list = document.getElementById('automation-rule-list');
-            if (!list || !Array.isArray(rules)) return;
-            list.querySelectorAll('.auto-rule-group').forEach(section => {
-                const ruleIds = Array.from(section.querySelectorAll('[data-auto-rule-id]')).map(card => String(card.dataset.autoRuleId || ''));
-                const groupRules = rules.filter(rule => ruleIds.includes(String(rule?.id || '')));
-                const enabled = groupRules.filter(rule => rule?.enabled).length;
-                const running = groupRules.filter(rule => rule?.state?.scene_running).length;
-                const errors = groupRules.filter(rule => String(rule?.state?.last_error || '').trim()).length;
-                const matched = groupRules.filter(rule => ['条件命中', '今日已执行', '执行中'].includes(getAutomationRuleRuntimeMeta(rule).text)).length;
-                const waiting = Math.max(groupRules.length - matched - errors - running, 0);
-                const summary = section.querySelector('.auto-rule-group-summary');
-                section.classList.toggle('has-error', errors > 0);
-                section.classList.toggle('has-running', running > 0);
-                section.classList.toggle('has-matched', matched > 0);
-                if (summary) {
-                    summary.textContent = `${groupRules.length} 条 · ${enabled} 启用 · ${matched} 达成 · ${waiting} 等待`;
-                }
-            });
         }
         function renderAutomationPageStatus() {
             const rules = Array.isArray(automationStatusCache.rules) ? automationStatusCache.rules : [];
             if (getActiveViewId() !== 'auto') return;
             if (!document.getElementById('view-auto')) return;
-            if (!getAutomationViewApi()) {
-                ensureAutomationViewReady('自动化运行页面模块')
-                    .then(() => renderAutomationPageStatus())
-                    .catch(() => {});
-                return;
-            }
-            ensureAutomationRuleGroups(rules);
-            const enabledCount = rules.filter(rule => rule && rule.enabled).length;
-            const matchedCount = rules.filter(rule => {
-                const state = rule?.state || {};
-                return !!state.last_trigger_matched || !!state.last_condition_stable || !!state.scene_running;
-            }).length;
-            const runningCount = rules.filter(rule => !!rule?.state?.scene_running).length;
-            const lastRule = rules
-                .filter(rule => rule?.state?.last_triggered_at)
-                .sort((a, b) => new Date(String(b.state.last_triggered_at).replace(' ', 'T')).getTime() - new Date(String(a.state.last_triggered_at).replace(' ', 'T')).getTime())[0];
-
-            const setText = (id, text) => {
-                const el = document.getElementById(id);
-                if (el) el.textContent = text;
-            };
-            setText('auto-kpi-total', String(rules.length || document.querySelectorAll('[data-auto-rule-id]').length));
-            setText('auto-kpi-enabled', String(enabledCount));
-            setText('auto-kpi-matched', String(matchedCount));
-            setText('auto-kpi-running', `执行中 ${runningCount}`);
-            setText('auto-kpi-last-rule', lastRule?.name || '暂无');
-            setText('auto-kpi-last-time', lastRule?.state?.last_triggered_at ? formatAutomationRuleTime(lastRule.state.last_triggered_at) : '等待运行记录');
-
-            rules.forEach(rule => {
-                if (!rule || !rule.id) return;
-                const state = rule.state || {};
-                const ruleId = String(rule.id);
-                const card = document.getElementById(`auto-card-${ruleId}`);
-                const stateEl = document.getElementById(`auto-runtime-state-${ruleId}`);
-                const valueEl = document.getElementById(`auto-runtime-value-${ruleId}`);
-                const lastEl = document.getElementById(`auto-runtime-last-${ruleId}`);
-                const sceneEl = document.getElementById(`auto-runtime-scene-${ruleId}`);
-                const meta = getAutomationRuleRuntimeMeta(rule);
-                if (card) {
-                    card.classList.toggle('disabled', !rule.enabled);
-                    card.classList.remove('runtime-matched', 'runtime-running', 'runtime-error');
-                    if (meta.cardClass) card.classList.add(meta.cardClass);
-                }
-                if (stateEl) {
-                    stateEl.className = `auto-runtime-chip ${meta.cls}`;
-                    stateEl.textContent = meta.text;
-                    if (state.last_error) stateEl.title = String(state.last_error);
-                }
-                if (valueEl) {
-                    const currentValue = formatAutomationValue(state.current_value);
-                    const hitsText = Number(state.hits_required || 0) > 1 ? ` · 命中 ${state.hits || 0}/${state.hits_required}` : '';
-                    valueEl.textContent = `当前值 ${currentValue}${hitsText}`;
-                }
-                if (lastEl) {
-                    const lastValue = formatAutomationValue(state.last_trigger_value);
-                    const lastTime = formatAutomationRuleTime(state.last_triggered_at);
-                    lastEl.textContent = `最近触发 ${lastTime}${lastValue !== '--' ? ` · ${lastValue}` : ''}`;
-                }
-                if (sceneEl) {
-                    sceneEl.textContent = rule.scene_name ? `场景 ${rule.scene_name}` : `场景 ${rule.scene_id || '--'}`;
-                    sceneEl.title = rule.scene_id || '';
-                }
-                renderAutomationConditionChips(rule);
-                renderAutomationNodePanel(rule);
-            });
-            updateAutomationGroupSummaries(rules);
+            ensureAutomationViewReady('自动化运行页面模块')
+                .then(api => api?.renderAutomationPageStatus?.(rules, getAutomationRuntimeContext()))
+                .catch(() => {});
         }
         function getEnvConfigById(deviceId) {
             const targetId = String(deviceId || '').trim();
@@ -1957,7 +1407,9 @@
                 if (dashAutoEnabled) dashAutoEnabled.innerText = String(enabledCount);
                 if (dashAutoErrors) dashAutoErrors.innerText = String(errorCount);
                 renderOutdoorAutomationDashboardCard();
-                renderAutomationPageStatus();
+                if (getActiveViewId() === 'auto') {
+                    renderAutomationPageStatus();
+                }
             } catch (err) {
                 if (showError) showToast(err.message || '自动化状态读取失败', true);
                 console.error('自动化状态读取失败', err);
@@ -5772,94 +5224,51 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 .filter(item => item && item.enabled && item.available);
         }
 
-        toggleAutomation = function(ruleId, isEnabled) {
-            if (!ensurePermission('automation.edit', '修改自动化规则')) return;
-            postJsonLoose('/api/automation/toggle', { id: ruleId, enabled: isEnabled }, '自动化规则更新失败')
-                .then(d => {
-                    if (d.success) {
-                        showToast(isEnabled ? '自动化规则已启用' : '自动化规则已暂停');
-                        const card = document.getElementById('auto-card-' + ruleId);
-                        if (card) {
-                            if (isEnabled) card.classList.remove('disabled');
-                            else card.classList.add('disabled');
-                        }
-                        setTimeout(() => { loadAutomationStatus(); loadAutomationLogs(); }, 120);
-                    } else {
-                        showToast(d.msg || '自动化规则更新失败', true);
-                    }
+        function withAutomationView(callback, contextLabel = '自动化运行页面模块') {
+            return ensureAutomationViewReady(contextLabel)
+                .then(api => {
+                    if (api && typeof callback === 'function') return callback(api);
+                    return null;
                 })
-                .catch(err => showToast(translateApiError(err?.message, '自动化规则更新失败'), true));
-        };
-        function toggleAutomationEditor(ruleId, forceOpen = null) {
-            const panel = document.getElementById(`auto-edit-panel-${ruleId}`);
-            const btn = document.querySelector(`[data-auto-edit-btn="${ruleId}"]`);
-            if (!panel) return;
-            const shouldOpen = forceOpen === null ? !panel.classList.contains('open') : !!forceOpen;
-            panel.classList.toggle('open', shouldOpen);
-            if (btn) btn.textContent = shouldOpen ? '收起编辑' : '编辑条件';
+                .catch(() => null);
         }
-        function applyRuleToAutoCard(rule) {
-            if (!rule || !rule.id) return;
-            const card = document.getElementById(`auto-card-${rule.id}`);
-            if (!card) return;
-            const descEl = card.querySelector('.desc');
-            if (descEl) {
-                let desc = '';
-                if (rule.trigger_type === 'schedule') {
-                    desc = `定时执行，每日 ${rule.schedule?.time || '08:00'}`;
-                } else if (rule.trigger_type === 'condition') {
-                    desc = `条件触发，当 ${rule.condition?.source_type || 'env'} / ${rule.condition?.prop || 'lux'} ${rule.condition?.op || '<'} ${rule.condition?.value ?? 0} 时`;
-                } else if (rule.trigger_type === 'compound') {
-                    desc = `组合触发，${String(rule.trigger_mode || 'any') === 'all' ? '全部条件满足才执行' : '任意一个条件满足即执行'}`;
-                } else {
-                    desc = `混合模式，在 ${rule.schedule?.time_start || '00:00'} - ${rule.schedule?.time_end || '23:59'} 期间，若 ${rule.condition?.source_type || 'env'} / ${rule.condition?.prop || 'lux'} ${rule.condition?.op || '<'} ${rule.condition?.value ?? 0} 则触发`;
-                }
-                descEl.innerHTML = `${escapeHtml(desc)}<span style="color:var(--brand-blue); margin-left:10px;">触发动作：调用场景联动 [ID: ${escapeHtml(rule.action_scene_id || '')}]</span>`;
+        window.toggleAutomation = (ruleId, isEnabled) => withAutomationView(
+            api => api.toggleAutomation?.(ruleId, isEnabled, getAutomationRuntimeContext()),
+            '自动化开关模块'
+        );
+        window.toggleAutomationEditor = (ruleId, forceOpen = null) => withAutomationView(
+            api => api.toggleAutomationEditor?.(ruleId, forceOpen, getAutomationRuntimeContext()),
+            '自动化编辑模块'
+        );
+        window.saveAutomationRule = ruleId => withAutomationView(
+            api => api.saveAutomationRule?.(ruleId, getAutomationRuntimeContext()),
+            '自动化保存模块'
+        );
+        window.openAutomationNodeCanvas = ruleId => withAutomationView(
+            api => api.openAutomationNodeCanvas?.(ruleId, getAutomationRuntimeContext()),
+            '自动化节点画布模块'
+        );
+        window.closeAutomationNodeCanvas = () => withAutomationView(
+            api => api.closeAutomationNodeCanvas?.(),
+            '自动化节点画布模块'
+        );
+        window.toggleAutomationNodeView = (ruleId = null, forceOpen = null) => withAutomationView(
+            api => api.toggleAutomationNodeView?.(ruleId, forceOpen, getAutomationRuntimeContext()),
+            '自动化节点视图模块'
+        );
+        window.zoomAutomationNodeCanvas = delta => withAutomationView(
+            api => api.zoomAutomationNodeCanvas?.(delta),
+            '自动化节点缩放模块'
+        );
+        window.fitAutomationNodeCanvas = () => withAutomationView(
+            api => api.fitAutomationNodeCanvas?.(),
+            '自动化节点缩放模块'
+        );
+        window.handleAutomationCanvasNodeClick = (event, nodeId) => {
+            const api = getAutomationViewApi();
+            if (!api?.handleAutomationCanvasNodeClick) {
+                event?.preventDefault?.();
+                return false;
             }
-        }
-        function readAutoField(ruleId, suffix) {
-            const el = document.getElementById(`auto-field-${ruleId}-${suffix}`);
-            return el ? el.value : '';
-        }
-        function saveAutomationRule(ruleId) {
-            if (!ensurePermission('automation.edit', '修改自动化规则内部条件')) return;
-            const saveBtn = document.getElementById(`auto-save-btn-${ruleId}`);
-            if (saveBtn) saveBtn.disabled = true;
-            const payload = {
-                id: ruleId,
-                trigger_type: String(readAutoField(ruleId, 'trigger_type') || 'condition'),
-                action_scene_id: String(readAutoField(ruleId, 'action_scene_id') || '').trim(),
-                condition: {
-                    source_type: String(readAutoField(ruleId, 'source_type') || 'env'),
-                    device_id: String(readAutoField(ruleId, 'device_id') || '').trim(),
-                    prop: String(readAutoField(ruleId, 'prop') || 'lux').trim(),
-                    op: String(readAutoField(ruleId, 'op') || '<'),
-                    value: Number(readAutoField(ruleId, 'value') || 0),
-                    debounce_sec: Number(readAutoField(ruleId, 'debounce_sec') || 0),
-                    hysteresis: Number(readAutoField(ruleId, 'hysteresis') || 0),
-                    consecutive_hits: Number(readAutoField(ruleId, 'consecutive_hits') || 1),
-                    crossing_mode: String(readAutoField(ruleId, 'crossing_mode') || 'none'),
-                    rearm_value: String(readAutoField(ruleId, 'rearm_value') || '').trim(),
-                    window_bootstrap_sec: Number(readAutoField(ruleId, 'window_bootstrap_sec') || 0),
-                },
-                schedule: {
-                    day_type: String(readAutoField(ruleId, 'day_type') || 'everyday'),
-                    time: String(readAutoField(ruleId, 'time') || '08:00'),
-                    time_start: String(readAutoField(ruleId, 'time_start') || '00:00'),
-                    time_end: String(readAutoField(ruleId, 'time_end') || '23:59'),
-                }
-            };
-            postJsonLoose('/api/automation/update', payload, '自动化规则保存失败')
-                .then(d => {
-                    if (d.success) {
-                        showToast('自动化规则已保存');
-                        if (d.rule) applyRuleToAutoCard(d.rule);
-                        toggleAutomationEditor(ruleId, false);
-                        setTimeout(() => { loadAutomationStatus(); loadAutomationLogs(); }, 120);
-                    } else {
-                        showToast(d.msg || '自动化规则保存失败', true);
-                    }
-                })
-                .catch(err => showToast(translateApiError(err?.message, '自动化规则保存失败'), true))
-                .finally(() => { if (saveBtn) saveBtn.disabled = false; });
-        }
+            return api.handleAutomationCanvasNodeClick(event, nodeId, getAutomationRuntimeContext());
+        };
