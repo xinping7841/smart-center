@@ -247,7 +247,67 @@
         return d.toLocaleString('zh-CN', { hour12: false });
     }
 
+    function renderEventLogPageShell() {
+        const container = document.getElementById('view-logs');
+        if (!container || document.getElementById('event-log-tbody')) return false;
+        container.innerHTML = `
+            <div class="card event-log-page">
+                <div class="card-title">
+                    <span>日志中心</span>
+                    <span style="font-size:12px; color:var(--text-sub);">控制命令 / 状态变化 / 外部变化</span>
+                </div>
+                <div class="event-log-toolbar">
+                    <select id="event-filter-category" onchange="refreshEventLogs(true)">
+                        <option value="">全部</option>
+                        <option value="hvac">空调</option>
+                        <option value="power">强电</option>
+                        <option value="light">灯光</option>
+                        <option value="sequencer">时序电源</option>
+                        <option value="automation">自动化</option>
+                        <option value="system">系统</option>
+                    </select>
+                    <select id="event-filter-type" onchange="refreshEventLogs(true)">
+                        <option value="">全部</option>
+                        <option value="command">控制命令</option>
+                        <option value="state_change">状态变化</option>
+                        <option value="automation">自动化</option>
+                        <option value="error">错误</option>
+                    </select>
+                    <select id="event-filter-result" onchange="refreshEventLogs(true)">
+                        <option value="">全部</option>
+                        <option value="success">成功</option>
+                        <option value="failed">失败</option>
+                        <option value="confirmed">已确认</option>
+                        <option value="external_detected">外部变化</option>
+                    </select>
+                    <select id="event-filter-hours" onchange="refreshEventLogs(true)">
+                        <option value="24">最近24小时</option>
+                        <option value="1">最近1小时</option>
+                        <option value="168">最近7天</option>
+                        <option value="">全部</option>
+                    </select>
+                    <input id="event-filter-q" placeholder="搜索设备、动作、实体、来源" onkeydown="if(event.key==='Enter') refreshEventLogs(true)">
+                    <button type="button" onclick="refreshEventLogs(true)">刷新</button>
+                </div>
+                <div class="event-log-summary" id="event-log-summary">等待加载...</div>
+                <div class="event-log-table-wrap">
+                    <table class="event-log-table">
+                        <thead><tr><th>时间</th><th>系统</th><th>类型</th><th>来源/结果</th><th>设备</th><th>内容</th></tr></thead>
+                        <tbody id="event-log-tbody"><tr><td colspan="6">正在加载日志...</td></tr></tbody>
+                    </table>
+                </div>
+                <div class="event-log-pager">
+                    <button type="button" id="event-prev-btn" onclick="pageEventLogs(-1)">上一页</button>
+                    <span id="event-page-text" class="event-log-summary">第 1 页</span>
+                    <button type="button" id="event-next-btn" onclick="pageEventLogs(1)">下一页</button>
+                </div>
+            </div>
+        `;
+        return true;
+    }
+
     function renderEventLogs(payload) {
+        renderEventLogPageShell();
         const eventLogState = state.eventLogState;
         const tbody = document.getElementById('event-log-tbody');
         const summary = document.getElementById('event-log-summary');
@@ -289,6 +349,7 @@
     }
 
     function refreshEventLogs(reset = false) {
+        renderEventLogPageShell();
         const eventLogState = state.eventLogState;
         if (reset) eventLogState.offset = 0;
         const params = new URLSearchParams();
@@ -362,6 +423,7 @@
         renderPowerDetailLogs,
         getEventFilterValue,
         formatEventTime,
+        renderEventLogPageShell,
         renderEventLogs,
         refreshEventLogs,
         pageEventLogs,
