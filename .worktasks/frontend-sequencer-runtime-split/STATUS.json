@@ -1,0 +1,10 @@
+{
+  "task": "frontend-sequencer-runtime-split",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-frontend-sequencer-runtime-split-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-sequencer-runtime-split",
+  "started_at": "2026-05-31 15:04:44",
+  "status": "ready_for_validation"
+}

@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-screen-runtime-split';
+        const lazyModuleVersion = '20260531-sequencer-runtime-split';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -78,6 +78,9 @@
             scripts: [`/static/js/views/automation-view.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('sequencer-view-style', { styles: viewStyleGroups.sequencer });
+        SmartCenter.registerLazyModule('sequencer-runtime', {
+            scripts: [`/static/js/views/sequencer-runtime.js?v=${lazyModuleVersion}`],
+        });
         SmartCenter.registerLazyModule('env-view-style', { styles: viewStyleGroups.env });
         SmartCenter.registerLazyModule('logs-view-style', { styles: viewStyleGroups.logs });
         SmartCenter.registerLazyModule('dashboard-view-style', { styles: viewStyleGroups.dashboard });
@@ -96,7 +99,7 @@
         SmartCenter.registerViewModules('meter', ['meter-view-style']);
         SmartCenter.registerViewModules('ups', ['ups-view-style']);
         SmartCenter.registerViewModules('auto', ['auto-view-style', 'automation-view']);
-        SmartCenter.registerViewModules('sequencer', ['sequencer-view-style']);
+        SmartCenter.registerViewModules('sequencer', ['sequencer-view-style', 'sequencer-runtime']);
         SmartCenter.registerViewModules('env', ['env-view-style']);
         SmartCenter.registerViewModules('logs', ['logs-view-style']);
         function ensureModulesReady(moduleNames, contextLabel = '功能模块') {
@@ -786,8 +789,6 @@
                 if (!task.timer) schedulePollingTask(task, getPollingInitialDelay(task, index));
             });
         }
-        let sequencerStatusCache = {};
-        let sequencerFilters = { dashboard: 'all', page: 'all' };
         let globalServerList = [];
         let dashboardServerCompactList = [];
         function canOpenConfigCenter() {
@@ -2659,7 +2660,7 @@
             }
             if (viewId === 'hvac') setTimeout(() => { ensureViewReady('hvac').then(() => { updateHvacStatus(true); updateEnvData(); }).catch(() => {}); }, 80);
             if (viewId === 'door') setTimeout(() => { initCanvas(); updateDoorStatus(true).finally(() => startDoorVideoStream()); }, 100);
-            if (viewId === 'sequencer') setTimeout(() => { updateSequencerStatus(); }, 80);
+            if (viewId === 'sequencer') setTimeout(() => { ensureViewReady('sequencer').then(() => updateSequencerStatus()).catch(() => {}); }, 80);
             if (viewId === 'universal') setTimeout(() => { ensureViewReady('universal').then(() => updateNodeRedDevices(true)).catch(() => {}); }, 80);
             if (viewId === 'apple_audio') setTimeout(() => { ensureViewReady('apple_audio').then(() => initAppleAudioDemo()).catch(() => {}); }, 60);
             if (viewId === 'local_model') setTimeout(() => { ensureViewReady('local_model').then(() => window.SmartCenter?.localModel?.init?.()).catch(() => {}); }, 60);
@@ -2688,167 +2689,28 @@
             }
             updateDeployModalInfo();
         }
-        function getSequencerOnlineClass(device) {
-            return device && device.online ? 'online' : 'offline';
+        function getSequencerRuntimeContext() {
+            return {
+                fetchJson,
+                postJsonLoose,
+                ensurePermission,
+                showToast,
+                translateApiError,
+                escapeHtml,
+                hasPermission,
+                getPermissionDisabledClass,
+                getPermissionDisabledAttrs,
+                updateDashboardLogs,
+            };
         }
-        function renderSequencerCard(device) {
-            const channels = Array.isArray(device.channels) ? device.channels : [];
-            const commMode = String(device.comm_mode || 'TCP').toUpperCase();
-            const connectionText = commMode === 'COM'
-                ? `${device.baudrate || 19200} / ${device.data_bits || 8}${String(device.parity || 'N').slice(0,1)}${device.stop_bits || 1}`
-                : `${device.ip || '--'}:${device.port || '--'}`;
-            const sequencerLogs = Array.isArray(device.logs) ? device.logs.slice(0, 6) : [];
-            const updatedAtText = device.updated_at ? new Date(device.updated_at).toLocaleTimeString('zh-CN', {hour12:false}) : '--:--:--';
-            const lastSuccessText = device.last_success_at ? new Date(device.last_success_at).toLocaleTimeString('zh-CN', {hour12:false}) : '--:--:--';
-            const currentStatusText = device.online
-                ? `${device.mode || '时序模式'} / ${device.startup_mode || '手动'} / ${device.last_action || '待机'}`
-                : `${device.last_action || '离线'}${device.error_display ? ' / ' + device.error_display : ''}`;
-            const shortErrorText = device.error_display ? String(device.error_display).split(/[，,。]/)[0] : '';
-            const channelHtml = channels.filter(ch => ch.visible !== false).map(ch => `
-                <button class="sequencer-channel-btn ${ch.state ? 'on' : 'off'}${getPermissionDisabledClass('sequencer.control')}" ${getPermissionDisabledAttrs('sequencer.control', '当前账号无时序电源控制权限')} onclick="fireSequencerAction('${escapeHtml(device.id)}', 'toggle_channel', ${Number(ch.channel)})">
-                    <span class="sequencer-inline-led ${ch.state ? 'on' : ''}"></span>
-                    <span class="name">${escapeHtml(ch.name || ('CH' + ch.channel))}</span>
-                    <span class="state">${ch.state ? '已开启' : '已关闭'}</span>
-                </button>
-            `).join('');
-            const logHtml = sequencerLogs.length ? sequencerLogs.map(log => {
-                const timeText = log.time ? new Date(log.time).toLocaleTimeString('zh-CN', {hour12:false}) : '--:--:--';
-                const message = escapeHtml(String(log.operation || '').replace(/\[.*?\]\s*/, '') || '未命名记录');
-                return `<div class="sequencer-mini-log-item"><span class="sequencer-mini-log-time">[${timeText}]</span><span class="sequencer-mini-log-text">${message}</span></div>`;
-            }).join('') : '<div style="color:var(--text-sub); font-size:12px;">暂无时序电源日志</div>';
-            return `<div class="sequencer-card ${getSequencerOnlineClass(device)}">
-                <div class="sequencer-head">
-                    <div>
-                        <div class="card-head-kicker">Sequencer Control</div>
-                        <div class="sequencer-title">${escapeHtml(device.name || device.id)}</div>
-                        <div class="sequencer-subtitle">地址 ${escapeHtml(String(device.address ?? 1))} / ${escapeHtml(device.protocol || 'DGH 8路时序器')} / ${escapeHtml(device.brand || 'DGH')}</div>
-                    </div>
-                    <div class="status-chip-stack">
-                        <span class="sequencer-tag ${device.online ? 'online' : ''}">${device.online ? '在线' : '离线'}</span>
-                        <span class="sequencer-tag ${device.locked ? 'locked' : ''}">${device.locked ? '已锁定' : '未锁定'}</span>
-                        ${(!device.online && shortErrorText) ? `<span class="sequencer-tag error">${escapeHtml(shortErrorText)}</span>` : ''}
-                    </div>
-                </div>
-                <div class="sequencer-summary-text">通道状态摘要: ${escapeHtml(device.channel_summary || '无通道状态')}</div>
-                <div class="sequencer-meta">
-                    <div class="sequencer-meta-item"><div class="label">接入方式</div><div class="value">${escapeHtml(commMode)}</div></div>
-                    <div class="sequencer-meta-item"><div class="label">${commMode === 'COM' ? '串口参数' : '网络地址'}</div><div class="value">${escapeHtml(String(connectionText))}</div></div>
-                    <div class="sequencer-meta-item"><div class="label">当前状态</div><div class="value">${escapeHtml(currentStatusText)}</div></div>
-                    <div class="sequencer-meta-item log"><div class="label">最近操作</div><div class="sequencer-mini-log-list">${logHtml}</div></div>
-                </div>
-                <div class="sequencer-toolbar">
-                    <button class="sequencer-action-btn seq-on${getPermissionDisabledClass('sequencer.control')}" ${getPermissionDisabledAttrs('sequencer.control', '当前账号无时序电源控制权限')} onclick="fireSequencerAction('${escapeHtml(device.id)}', 'sequence_on')">顺序开启</button>
-                    <button class="sequencer-action-btn seq-off${getPermissionDisabledClass('sequencer.control')}" ${getPermissionDisabledAttrs('sequencer.control', '当前账号无时序电源控制权限')} onclick="fireSequencerAction('${escapeHtml(device.id)}', 'sequence_off')">顺序关闭</button>
-                    <button class="sequencer-action-btn all-on${getPermissionDisabledClass('sequencer.control')}" ${getPermissionDisabledAttrs('sequencer.control', '当前账号无时序电源控制权限')} onclick="fireSequencerAction('${escapeHtml(device.id)}', 'all_on')">全部开启</button>
-                    <button class="sequencer-action-btn all-off${getPermissionDisabledClass('sequencer.control')}" ${getPermissionDisabledAttrs('sequencer.control', '当前账号无时序电源控制权限')} onclick="fireSequencerAction('${escapeHtml(device.id)}', 'all_off')">全部关闭</button>
-                    <button class="sequencer-action-btn lock${getPermissionDisabledClass('sequencer.control')}" ${getPermissionDisabledAttrs('sequencer.control', '当前账号无时序电源控制权限')} onclick="fireSequencerAction('${escapeHtml(device.id)}', 'toggle_lock')">${device.locked ? '解除锁定' : '锁定设备'}</button>
-                </div>
-                <div class="sequencer-channel-grid">${channelHtml || '<div style="grid-column:1/-1;color:var(--text-sub);">未配置通道</div>'}</div>
-                <div class="sequencer-diagnostics">
-                    <div class="sequencer-diag-item">
-                        <div class="label">最后轮询</div>
-                        <div class="value">${escapeHtml(updatedAtText)}</div>
-                    </div>
-                    <div class="sequencer-diag-item">
-                        <div class="label">最后成功通讯</div>
-                        <div class="value">${escapeHtml(lastSuccessText)}</div>
-                    </div>
-                    <div class="sequencer-diag-item">
-                        <div class="label">最后指令</div>
-                        <div class="value">${escapeHtml(device.last_command_hex || '--')}</div>
-                    </div>
-                    <div class="sequencer-diag-item">
-                        <div class="label">最后回包</div>
-                        <div class="value">${escapeHtml(device.last_response_hex || '--')}</div>
-                    </div>
-                </div>
-                ${device.error ? `<div class="card-inline-note error">通讯异常：${escapeHtml(device.error)}</div>` : ''}
-            </div>`;
-        }
-        function renderCompactSequencerCard(device) {
-            const visibleChannels = Array.isArray(device?.channels) ? device.channels.filter(ch => ch && ch.visible !== false).slice(0, 8) : [];
-            const canControlChannels = hasPermission('sequencer.control');
-            const channelHtml = visibleChannels.map(ch => {
-                const title = canControlChannels
-                    ? `${ch.name || ('CH' + ch.channel)} · 点击切换`
-                    : '当前账号无时序电源控制权限';
-                return `
-                <button type="button" class="dashboard-sequencer-channel ${ch.state ? 'on' : 'off'}${canControlChannels ? '' : ' is-disabled'}" ${canControlChannels ? '' : 'disabled'} title="${escapeHtml(title)}" onclick="fireSequencerAction('${escapeHtml(device.id)}', 'toggle_channel', ${Number(ch.channel)})">
-                    <span class="dashboard-sequencer-channel-index">${escapeHtml(String(ch.channel || '--'))}</span>
-                    <span class="dashboard-sequencer-channel-led"></span>
-                    <span class="dashboard-sequencer-channel-state">${ch.state ? '开' : '关'}</span>
-                </button>`;
-            }).join('');
-            const updatedAtText = device.updated_at ? new Date(device.updated_at).toLocaleTimeString('zh-CN', { hour12:false }) : '--:--:--';
-            const actionText = device.last_action || (device.online ? '待机' : '离线');
-            const modeText = device.startup_mode || device.mode || '手动';
-            const summaryText = device.channel_summary || `${visibleChannels.filter(ch => ch.state).length}/${visibleChannels.length || 0} 路开启`;
-            return `<div class="dashboard-sequencer-panel ${device && device.online ? '' : 'offline'}">
-                <div class="dashboard-sequencer-device">
-                    <div class="dashboard-sequencer-title-row">
-                        <div class="dashboard-sequencer-name">${escapeHtml(device.name || device.id)}</div>
-                    </div>
-                    <div class="dashboard-sequencer-meta">
-                        <span class="ups-chip ${device && device.online ? 'online' : 'error'}">${device && device.online ? '在线' : '离线'}</span>
-                        <span class="ups-chip ${device && device.locked ? 'warning' : ''}">${device && device.locked ? '锁定' : '可控'}</span>
-                        <span>${escapeHtml(modeText)}</span>
-                        <span class="dot"></span>
-                        <span>${escapeHtml(actionText)}</span>
-                        <span class="dot"></span>
-                        <span>${escapeHtml(compactSnmpText(summaryText, 14))}</span>
-                    </div>
-                </div>
-                <div class="dashboard-sequencer-strip">${channelHtml || '<div class="dashboard-sequencer-empty" style="grid-column:1/-1;">未配置通道</div>'}</div>
-                <div class="dashboard-sequencer-actions">
-                    <button class="dashboard-mini-btn success${getPermissionDisabledClass('sequencer.control')}" ${getPermissionDisabledAttrs('sequencer.control', '当前账号无时序电源控制权限')} onclick="fireSequencerAction('${escapeHtml(device.id)}', 'sequence_on')">顺开</button>
-                    <button class="dashboard-mini-btn danger${getPermissionDisabledClass('sequencer.control')}" ${getPermissionDisabledAttrs('sequencer.control', '当前账号无时序电源控制权限')} onclick="fireSequencerAction('${escapeHtml(device.id)}', 'sequence_off')">顺关</button>
-                    <button class="dashboard-mini-btn secondary${getPermissionDisabledClass('sequencer.control')}" ${getPermissionDisabledAttrs('sequencer.control', '当前账号无时序电源控制权限')} onclick="fireSequencerAction('${escapeHtml(device.id)}', 'all_off')">全关</button>
-                    <span class="dashboard-mini-note">更新 ${escapeHtml(updatedAtText)}</span>
-                </div>
-            </div>`;
-        }
-        function getSortedSequencerDevices() {
-            const devices = Array.isArray(sequencerStatusCache.devices) ? [...sequencerStatusCache.devices] : [];
-            return devices.sort((a, b) => {
-                const sortDiff = (Number(a.sort_order || 999) - Number(b.sort_order || 999));
-                if (sortDiff !== 0) return sortDiff;
-                const nameA = String(a.name || a.id || '').toLowerCase();
-                const nameB = String(b.name || b.id || '').toLowerCase();
-                const nameDiff = nameA.localeCompare(nameB, 'zh-CN');
-                if (nameDiff !== 0) return nameDiff;
-                return String(a.ip || '').localeCompare(String(b.ip || ''), 'zh-CN');
-            });
-        }
-        function filterSequencerDevices(devices, mode) {
-            if (mode === 'online') return devices.filter(item => item.online);
-            if (mode === 'offline') return devices.filter(item => !item.online || !!item.error_display);
-            return devices;
-        }
-        function setSequencerFilter(mode, scope='dashboard') {
-            sequencerFilters[scope] = mode;
-            const wrapId = scope === 'dashboard' ? 'dashboard-sequencer-filters' : 'page-sequencer-filters';
-            const wrap = document.getElementById(wrapId);
-            if (wrap) {
-                wrap.querySelectorAll('.sequencer-filter-btn').forEach(btn => {
-                    btn.classList.toggle('active', btn.textContent.includes(mode === 'all' ? '全部' : mode === 'online' ? '在线' : '离线/异常'));
-                });
-            }
-            renderSequencerCards();
-        }
-        function renderSequencerCards() {
-            const devices = getSortedSequencerDevices();
-            const dashboardGrid = document.getElementById('dashboard-sequencer-grid');
-            const pageGrid = document.getElementById('sequencer-page-grid');
-            const dashboardDevices = filterSequencerDevices(devices, sequencerFilters.dashboard);
-            const pageDevices = filterSequencerDevices(devices, sequencerFilters.page);
-            const dashboardHtml = dashboardDevices.length ? dashboardDevices.map(renderCompactSequencerCard).join('') : '<div class="dashboard-sequencer-empty">当前筛选条件下暂无时序电源设备</div>';
-            const pageHtml = pageDevices.length ? pageDevices.map(renderSequencerCard).join('') : '<div style="color:var(--text-sub); grid-column:1/-1; text-align:center; padding:20px;">当前筛选条件下暂无时序电源设备</div>';
-            if (dashboardGrid) dashboardGrid.innerHTML = dashboardHtml;
-            if (pageGrid) pageGrid.innerHTML = pageHtml;
-            const totalEl = document.getElementById('dash-sequencer-total');
-            const onlineEl = document.getElementById('dash-sequencer-online');
-            if (totalEl) totalEl.innerText = devices.length;
-            if (onlineEl) onlineEl.innerText = devices.filter(item => item.online).length;
+        function withSequencerRuntime(callback, contextLabel = '时序电源运行时模块') {
+            return ensureModulesReady(['sequencer-runtime'], contextLabel)
+                .then(() => {
+                    const api = window.SmartCenter?.sequencerRuntime || null;
+                    if (api && typeof callback === 'function') return callback(api, getSequencerRuntimeContext());
+                    return null;
+                })
+                .catch(() => null);
         }
         function applyDashboardSectionOrder() {
             const dashboard = document.getElementById('view-dashboard');
@@ -3672,7 +3534,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             const modules = getActiveViewId() === 'projector' ? ['projector-runtime', 'projector-view'] : ['projector-runtime', 'projector-summary-view'];
             return ensureModulesReady(modules, '投影模块').then(() => updateProjectorStatus());
         }, () => getActiveViewId() === 'projector' || (getActiveViewId() === 'dashboard' && isDashboardSectionNearViewport('projector')));
-        registerPollingTask('sequencer', 4500, () => updateSequencerStatus(), () => ['dashboard', 'sequencer'].includes(getActiveViewId()) || isDashboardSectionVisible('sequencer'));
+        registerPollingTask('sequencer', 4500, () => ensureModulesReady(['sequencer-runtime'], '时序电源运行时模块').then(() => updateSequencerStatus()), () => getActiveViewId() === 'sequencer' || (getActiveViewId() === 'dashboard' && isDashboardSectionNearViewport('sequencer')));
         registerPollingTask('screen', 4500, () => ensureModulesReady(['screen-runtime'], '幕布运行时模块').then(() => updateScreenStatus()), () => getActiveViewId() === 'screen' || (getActiveViewId() === 'dashboard' && isDashboardSectionNearViewport('screen')));
         registerPollingTask('apple_audio', 3200, () => ensureViewReady('apple_audio').then(() => loadAppleAudioStatus()), () => ['apple_audio'].includes(getActiveViewId()));
         registerPollingTask('logs', 5000, () => updateDashboardLogs(), () => getActiveViewId() === 'dashboard');
@@ -3808,36 +3670,24 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         };
 
         updateSequencerStatus = function() {
-            fetchJson('/api/sequencer/status', {}, '时序电源状态读取失败')
-                .then(data => {
-                    sequencerStatusCache = data || {};
-                    renderSequencerCards();
-                })
-                .catch(err => console.error('时序电源状态更新失败', err));
+            return withSequencerRuntime(
+                (api, ctx) => api.updateSequencerStatus(ctx),
+                '时序电源状态模块'
+            );
         };
 
         fireSequencerAction = function(id, action, channel = null) {
-            if (!ensurePermission('sequencer.control', '操作时序电源')) return;
-            showToast('时序电源指令下发中...', false);
-            postJsonLoose('/api/sequencer/control', { id, action, channel }, '时序电源指令下发失败')
-                .then(data => {
-                    if (!data.success) {
-                        showToast(data.message || data.msg || '执行失败', true);
-                        return;
-                    }
-                    showToast(`执行成功${data.command ? ' - ' + data.command : ''}`);
-                    if (data.device && Array.isArray(data.device.channels)) {
-                        sequencerStatusCache = sequencerStatusCache || {};
-                        sequencerStatusCache.devices = Array.isArray(sequencerStatusCache.devices) ? sequencerStatusCache.devices : [];
-                        const idx = sequencerStatusCache.devices.findIndex(item => item && item.id === data.device.id);
-                        if (idx >= 0) sequencerStatusCache.devices[idx] = data.device;
-                        else sequencerStatusCache.devices.push(data.device);
-                        renderSequencerCards();
-                    }
-                    [350, 900, 1800, 3500].forEach(delay => setTimeout(updateSequencerStatus, delay));
-                    setTimeout(updateDashboardLogs, 300);
-                })
-                .catch(err => showToast(translateApiError(err?.message, '网络请求失败'), true));
+            return withSequencerRuntime(
+                (api, ctx) => api.fireSequencerAction(id, action, channel, ctx),
+                '时序电源控制模块'
+            );
+        };
+
+        setSequencerFilter = function(mode, scope = 'dashboard') {
+            return withSequencerRuntime(
+                (api, ctx) => api.setSequencerFilter(mode, scope, ctx),
+                '时序电源筛选模块'
+            );
         };
 
         updateDoorStatus = function(force = false) {

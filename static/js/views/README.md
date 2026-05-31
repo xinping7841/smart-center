@@ -18,6 +18,7 @@ This directory is the target for gradually extracting logic from `templates/inde
 - `dashboard-summary.js`: dashboard top counters, proxy/env summary bridge, and footer health summary render helpers.
 - `hvac-view.js`: HVAC room grouping, status text, mode/fan/power display helpers, dashboard overview cards, and room temperature/humidity chips.
 - `screen-runtime.js`: dashboard screen/curtain status cards, companion env/UPS/automation panels, and `/api/screen/control` command glue.
+- `sequencer-runtime.js`: sequencer dashboard/page cards, online/offline filters, and `/api/sequencer/control` command glue.
 - `projector.js`: projector command normalization, PJLink/RS232 display formatting, inferred current evidence cards, dashboard/page projector cards, and remote-panel rendering helpers.
 - `current-collector.js`: standalone current collector page, live polling, pause/resume display, group totals, raw channel cards, and `/api/current-collector/*` actions.
 - `driver-hub.js`: standalone driver hub snapshot page, group filtering, health counters, and driver table rendering.
