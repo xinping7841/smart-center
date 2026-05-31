@@ -1566,7 +1566,7 @@
                     <div class="auto-node-modal-sub" id="automationNodeModalSub">按触发、条件、场景、执行顺序展示，点击节点查看配置和运行状态。</div>
                 </div>
                 <div class="auto-node-modal-actions">
-                    <button class="auto-node-modal-btn secondary" type="button" id="auto-node-inline-toggle" onclick="toggleAutomationNodeView(activeAutomationCanvasRuleId || '')">卡片内预览</button>
+                    <button class="auto-node-modal-btn secondary" type="button" id="auto-node-inline-toggle" onclick="toggleAutomationNodeView()">卡片内预览</button>
                     <button class="auto-node-modal-btn" type="button" id="auto-node-edit-shortcut" onclick="openAutomationCanvasEditor()">编辑此规则</button>
                     <button class="auto-node-modal-close" type="button" onclick="closeAutomationNodeCanvas()" aria-label="关闭节点画布">×</button>
                 </div>
@@ -1682,6 +1682,6 @@
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
     </script>
-    <script src="/static/js/app-runtime.js?v=20260531-runtime-domain-split"></script>
+    <script src="/static/js/app-runtime.js?v=20260531-automation-ui-split"></script>
 </body>
 </html>
