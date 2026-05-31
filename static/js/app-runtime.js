@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260601-modal-template-slim-v1';
+        const lazyModuleVersion = '20260601-dashboard-shell-v1';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -94,6 +94,9 @@
         SmartCenter.registerLazyModule('hy-edge-runtime', {
             scripts: [`/static/js/views/hy-edge.js?v=${lazyModuleVersion}`],
         });
+        SmartCenter.registerLazyModule('dashboard-shell-runtime', {
+            scripts: [`/static/js/views/dashboard-shell.js?v=${lazyModuleVersion}`],
+        });
         SmartCenter.registerLazyModule('dashboard-summary-runtime', {
             scripts: [`/static/js/views/dashboard-summary.js?v=${lazyModuleVersion}`],
         });
@@ -131,7 +134,7 @@
         SmartCenter.registerLazyModule('env-view-style', { styles: viewStyleGroups.env });
         SmartCenter.registerLazyModule('logs-view-style', { styles: viewStyleGroups.logs });
         SmartCenter.registerLazyModule('dashboard-view-style', { styles: viewStyleGroups.dashboard });
-        SmartCenter.registerViewModules('dashboard', ['dashboard-view-style', 'dashboard-summary-runtime']);
+        SmartCenter.registerViewModules('dashboard', ['dashboard-view-style', 'dashboard-shell-runtime', 'dashboard-summary-runtime']);
         SmartCenter.registerViewModules('server', ['server-view-style', 'server-runtime', 'server-monitor-view']);
         SmartCenter.registerViewModules('hvac', ['hvac-view-style', 'hvac-view']);
         SmartCenter.registerViewModules('projector', ['projector-view-style', 'projector-runtime', 'projector-view']);
@@ -212,6 +215,15 @@
             if (api?.renderDashboardSummaryTopStats) return Promise.resolve(api);
             return ensureModulesReady(['dashboard-summary-runtime'], contextLabel).then(() => window.SmartCenter?.dashboardSummary || null);
         }
+        function ensureDashboardShellRendered() {
+            const root = document.getElementById('view-dashboard');
+            if (!root) return false;
+            if (root.dataset.dashboardShellRendered === '1') return true;
+            const api = window.SmartCenter?.dashboardShell || null;
+            if (api?.renderDashboardShell) return api.renderDashboardShell(configData);
+            if (typeof window.renderDashboardShell === 'function') return window.renderDashboardShell(configData);
+            return false;
+        }
         window.loadAutomationLogs = (showError = false) => withLogsRuntime(api => api.loadAutomationLogs?.(showError), '自动化日志模块');
         window.refreshEventLogs = (reset = false) => withLogsRuntime(api => api.refreshEventLogs?.(reset), '事件日志模块');
         window.pageEventLogs = delta => withLogsRuntime(api => api.pageEventLogs?.(delta), '事件日志模块');
@@ -253,6 +265,7 @@
         };
         function isDashboardSectionNearViewport(sectionId, marginPx = 520) {
             if (getActiveViewId() !== 'dashboard') return false;
+            ensureDashboardShellRendered();
             const section = document.querySelector(`#view-dashboard [data-section-id="${sectionId}"]`);
             if (!section || section.style.display === 'none') return false;
             const style = window.getComputedStyle ? window.getComputedStyle(section) : null;
@@ -311,6 +324,7 @@
             });
         }
         function initDashboardDeferredModuleObserver() {
+            ensureDashboardShellRendered();
             if (dashboardDeferredModuleState.observer || typeof IntersectionObserver !== 'function') return;
             dashboardDeferredModuleState.observer = new IntersectionObserver(entries => {
                 entries.forEach(entry => {
@@ -577,6 +591,7 @@
         function isDashboardSectionVisible(sectionId) {
             const dashboard = document.getElementById('view-dashboard');
             if (!dashboard || !dashboard.classList.contains('active')) return false;
+            ensureDashboardShellRendered();
             const section = dashboard.querySelector(`[data-section-id="${sectionId}"]`);
             if (!section) return false;
             if (section.style.display === 'none') return false;
@@ -1663,6 +1678,7 @@
         function closeSidebar() { document.body.classList.remove('sidebar-open'); }
         function switchTab(viewId, title, navEl) {
             const previousView = getActiveViewId();
+            if (viewId === 'dashboard') ensureDashboardShellRendered();
             if (previousView === 'camera_preview' && viewId !== 'camera_preview') stopNvrPreviewStreams();
             if (viewId !== 'snmp') clearSnmpSelectedDevice();
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
@@ -1804,6 +1820,7 @@
                 .catch(() => null);
         }
         function applyDashboardSectionOrder() {
+            ensureDashboardShellRendered();
             const dashboard = document.getElementById('view-dashboard');
             if (!dashboard) return;
             const sections = Array.from(dashboard.querySelectorAll('[data-section-id]'));
@@ -2471,6 +2488,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
 
         document.addEventListener('DOMContentLoaded', () => {
             applyAdaptiveDensity();
+            guardFrontendStep('bootstrap.dashboard_shell', () => ensureDashboardShellRendered());
             guardFrontendStep('bootstrap.permission_ui', () => applyPermissionUI());
             guardFrontendStep('bootstrap.dashboard_order', () => applyDashboardSectionOrder());
             guardFrontendStep('bootstrap.dashboard_masonry_observer', () => initDashboardMasonryObservers());

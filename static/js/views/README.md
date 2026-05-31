@@ -16,6 +16,7 @@ This directory is the target for gradually extracting logic from `templates/inde
 - `power-meter.js`: shared power cabinet and meter display helpers, cabinet/channel labels, meter cards, reference summaries, and source badges.
 - `automation-view.js`: automation runtime/status helpers, condition chips, schedule summaries, node data builders, and node HTML rendering.
 - `dashboard-summary.js`: dashboard top counters, proxy/env summary bridge, and footer health summary render helpers.
+- `dashboard-shell.js`: dashboard static shell renderer; keeps homepage IDs and section containers out of `templates/index.html` while preserving runtime polling behavior.
 - `hvac-view.js`: HVAC room grouping, status text, mode/fan/power display helpers, dashboard overview cards, and room temperature/humidity chips.
 - `screen-runtime.js`: dashboard screen/curtain status cards, companion env/UPS/automation panels, and `/api/screen/control` command glue.
 - `sequencer-runtime.js`: sequencer dashboard/page cards, online/offline filters, and `/api/sequencer/control` command glue.
