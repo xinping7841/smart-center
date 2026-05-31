@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-automation-ui-split';
+        const lazyModuleVersion = '20260531-projector-runtime-split';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -38,6 +38,9 @@
             scripts: [`/static/js/views/hvac-summary.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('projector-view-style', { styles: viewStyleGroups.projector });
+        SmartCenter.registerLazyModule('projector-runtime', {
+            scripts: [`/static/js/views/projector-runtime.js?v=${lazyModuleVersion}`],
+        });
         SmartCenter.registerLazyModule('projector-view', {
             scripts: [`/static/js/views/projector.js?v=${lazyModuleVersion}`],
         });
@@ -78,7 +81,7 @@
         SmartCenter.registerViewModules('dashboard', ['dashboard-view-style']);
         SmartCenter.registerViewModules('server', ['server-view-style', 'server-monitor-view']);
         SmartCenter.registerViewModules('hvac', ['hvac-view-style', 'hvac-view']);
-        SmartCenter.registerViewModules('projector', ['projector-view-style', 'projector-view']);
+        SmartCenter.registerViewModules('projector', ['projector-view-style', 'projector-runtime', 'projector-view']);
         SmartCenter.registerViewModules('snmp', ['snmp-full']);
         SmartCenter.registerViewModules('camera_preview', ['snmp-full']);
         SmartCenter.registerViewModules('proxy', ['proxy-view']);
@@ -125,7 +128,7 @@
         const dashboardDeferredModules = {
             server_compact: { sectionId: 'server_compact', modules: ['server-summary-view'], label: '服务器摘要模块' },
             hvac: { sectionId: 'hvac', modules: ['hvac-summary-view'], label: '空调摘要模块' },
-            projector: { sectionId: 'projector', modules: ['projector-summary-view'], label: '投影摘要模块' },
+            projector: { sectionId: 'projector', modules: ['projector-runtime', 'projector-summary-view'], label: '投影摘要模块' },
         };
         function isDashboardSectionNearViewport(sectionId, marginPx = 520) {
             if (getActiveViewId() !== 'dashboard') return false;
@@ -776,9 +779,7 @@
                 if (!task.timer) schedulePollingTask(task, getPollingInitialDelay(task, index));
             });
         }
-        let projectorStatusCache = {};
         let sequencerStatusCache = {};
-        let currentProjectorRemoteId = null;
         let sequencerFilters = { dashboard: 'all', page: 'all' };
         let globalServerList = [];
         let dashboardServerCompactList = [];
@@ -3391,13 +3392,17 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             };
         }
 
-        // AI_BRIDGE: projector_view_helpers
-        // 投影机渲染/格式化逻辑已迁移到 static/js/views/projector.js；这里仅保留运行时状态上下文和真实控制链路。
-        function getProjectorViewContext() {
+        // AI_BRIDGE: projector_runtime
+        // 投影机状态缓存、渲染协调和控制链路已迁移到 static/js/views/projector-runtime.js。
+        function getProjectorRuntimeContext() {
             return {
                 projectorConfigs,
-                statusCache: projectorStatusCache,
-                getStatus: (projId) => projectorStatusCache[projId] || null,
+                getActiveViewId,
+                ensureModulesReady,
+                fetchJson,
+                postJsonLoose,
+                ensurePermission,
+                showToast,
                 escapeHtml,
                 getPermissionDisabledClass,
                 getPermissionDisabledAttrs,
@@ -3405,28 +3410,43 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 getCardStateClass,
             };
         }
-        window.getProjectorViewContext = getProjectorViewContext;
-
-        function openProjectorRemote(projId) {
-            currentProjectorRemoteId = String(projId);
-            const modal = document.getElementById('projectorRemoteModal');
-            if (modal) modal.style.display = 'block';
-            ensureModulesReady(['projector-view'], '投影遥控器模块')
+        function withProjectorRuntime(callback, contextLabel = '投影运行时模块') {
+            return ensureModulesReady(['projector-runtime'], contextLabel)
                 .then(() => {
-                    if (typeof renderProjectorRemote === 'function') renderProjectorRemote(currentProjectorRemoteId);
+                    const api = window.SmartCenter?.projectorRuntime || null;
+                    if (api && typeof callback === 'function') return callback(api, getProjectorRuntimeContext());
+                    return null;
                 })
-                .catch(() => showToast('投影遥控器模块加载失败，请刷新后重试', true));
+                .catch(() => null);
         }
-        function closeProjectorRemote() {
+        window.getProjectorViewContext = function() {
+            const api = window.SmartCenter?.projectorRuntime;
+            return api?.getProjectorViewContext
+                ? api.getProjectorViewContext(getProjectorRuntimeContext())
+                : {
+                    projectorConfigs,
+                    statusCache: {},
+                    getStatus: () => null,
+                    escapeHtml,
+                    getPermissionDisabledClass,
+                    getPermissionDisabledAttrs,
+                    getDeviceStatusMeta,
+                    getCardStateClass,
+                };
+        };
+        window.openProjectorRemote = function(projId) {
+            return withProjectorRuntime((api, ctx) => api.openProjectorRemote(projId, ctx), '投影遥控器模块');
+        };
+        window.closeProjectorRemote = function() {
+            const api = window.SmartCenter?.projectorRuntime;
+            if (api?.closeProjectorRemote) return api.closeProjectorRemote();
             const modal = document.getElementById('projectorRemoteModal');
             if (modal) modal.style.display = 'none';
-            currentProjectorRemoteId = null;
-        }
-
-        function refreshProjectorStatusAfterCommand() {
-            updateProjectorStatus();
-            [700, 1800, 4200].forEach(delay => setTimeout(updateProjectorStatus, delay));
-        }
+            return null;
+        };
+        window.refreshProjectorStatusAfterCommand = function() {
+            return withProjectorRuntime((api, ctx) => api.refreshProjectorStatusAfterCommand(ctx), '投影运行时模块');
+        };
 
         function getScreenCommand(screen, action) {
             return (screen.commands || []).find(cmd => String(cmd.action || '').toLowerCase() === action) || null;
@@ -3784,7 +3804,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             if (getActiveViewId() === 'auto') loadAutomationLogs();
         }, () => ['dashboard', 'auto'].includes(getActiveViewId()));
         registerPollingTask('projector', 6000, () => {
-            const modules = getActiveViewId() === 'projector' ? ['projector-view'] : ['projector-summary-view'];
+            const modules = getActiveViewId() === 'projector' ? ['projector-runtime', 'projector-view'] : ['projector-runtime', 'projector-summary-view'];
             return ensureModulesReady(modules, '投影模块').then(() => updateProjectorStatus());
         }, () => getActiveViewId() === 'projector' || (getActiveViewId() === 'dashboard' && isDashboardSectionNearViewport('projector')));
         registerPollingTask('sequencer', 4500, () => updateSequencerStatus(), () => ['dashboard', 'sequencer'].includes(getActiveViewId()) || isDashboardSectionVisible('sequencer'));
@@ -4952,14 +4972,10 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         };
 
         fireProjectorCommand = function(devId, payload, format, name='') {
-            if (!ensurePermission('projector.control', '操作投影机')) return;
-            showToast('投影指令下发中...', false);
-            postJsonLoose('/api/projector/control', { device_id: devId, command: { payload: payload, format: format, name: name } }, '投影指令下发失败')
-                .then(data => {
-                    showToast(data.success ? '执行成功' : ('执行失败: ' + (data.response || data.msg || '未知错误')), !data.success);
-                    if (data.success) refreshProjectorStatusAfterCommand();
-                })
-                .catch(() => showToast('网络请求失败', true));
+            return withProjectorRuntime(
+                (api, ctx) => api.fireProjectorCommand(devId, payload, format, name, ctx),
+                '投影控制模块'
+            );
         };
 
         fireScreenCommand = function(screenId, payload, format, action) {
@@ -4974,36 +4990,10 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         };
 
         updateProjectorStatus = function() {
-            fetchJson('/api/projector/status', {}, '投影机状态读取失败')
-                .then(data => {
-                    projectorStatusCache = data || {};
-                    const summaryApi = window.SmartCenter?.projectorSummary || window.SmartCenter?.projector || null;
-                    const fullApi = window.SmartCenter?.projector || null;
-                    if (summaryApi && typeof summaryApi.renderProjectorCards === 'function') {
-                        summaryApi.renderProjectorCards('dashboard-projector-grid', 'dashboard', getProjectorViewContext());
-                    }
-                    if (getActiveViewId() === 'projector' && fullApi && typeof fullApi.renderProjectorCards === 'function') {
-                        fullApi.renderProjectorCards('projector-page-grid', 'page', getProjectorViewContext());
-                    }
-                    let onlineCount = 0;
-                    const projectorApi = summaryApi || fullApi;
-                    const dashboardProjectors = projectorApi && typeof projectorApi.getDashboardProjectors === 'function'
-                        ? projectorApi.getDashboardProjectors(getProjectorViewContext())
-                        : projectorConfigs.filter(proj => proj.visible !== false && proj.dashboard_visible !== false);
-                    dashboardProjectors.forEach(proj => {
-                        if ((projectorStatusCache[proj.id] || {}).online) onlineCount++;
-                    });
-                    const dashProjectorOnline = document.getElementById('dash-projector-online');
-                    if (dashProjectorOnline) dashProjectorOnline.innerText = onlineCount;
-                    const dashProjectorTotal = document.getElementById('dash-projector-total');
-                    if (dashProjectorTotal) dashProjectorTotal.innerText = dashboardProjectors.length;
-                    if (currentProjectorRemoteId) {
-                        ensureModulesReady(['projector-view'], '投影遥控器模块')
-                            .then(() => { if (typeof renderProjectorRemote === 'function') renderProjectorRemote(currentProjectorRemoteId); })
-                            .catch(() => {});
-                    }
-                })
-                .catch(err => console.error('投影机状态更新失败', err));
+            return withProjectorRuntime(
+                (api, ctx) => api.updateProjectorStatus(ctx),
+                '投影状态模块'
+            );
         };
 
         updateScreenStatus = function() {
