@@ -1,0 +1,10 @@
+{
+  "task": "backend-snmp-compact-slim",
+  "module": "backend_api",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-backend-snmp-compact-slim-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/backend-snmp-compact-slim",
+  "started_at": "2026-05-31 19:44:25",
+  "status": "in_progress"
+}

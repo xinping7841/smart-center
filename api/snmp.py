@@ -257,19 +257,19 @@ def _compact_interface_summary(interface_summary):
     if isinstance(compact.get("active_top_rows"), list):
         compact["active_top_rows"] = compact["active_top_rows"][:8]
     for key, limit in (
-        ("switch_port_rows", 28),
-        ("top_busy_port_rows", 12),
-        ("high_utilization_port_rows", 12),
-        ("configured_port_rows", 28),
-        ("configured_vlan_rows", 24),
-        ("configured_vlan_traffic_rows", 24),
-        ("vlan_traffic_rows", 24),
-        ("vlan_gateway_rows", 24),
-        ("port_preview_rows", 8),
+        ("switch_port_rows", 10),
+        ("top_busy_port_rows", 6),
+        ("high_utilization_port_rows", 6),
+        ("configured_port_rows", 0),
+        ("configured_vlan_rows", 0),
+        ("configured_vlan_traffic_rows", 0),
+        ("vlan_traffic_rows", 0),
+        ("vlan_gateway_rows", 0),
+        ("port_preview_rows", 4),
         ("down_rows", 8),
-        ("bridge_port_mac_rows", 12),
-        ("bridge_vlan_rows", 12),
-        ("bridge_fdb_rows", 12),
+        ("bridge_port_mac_rows", 0),
+        ("bridge_vlan_rows", 0),
+        ("bridge_fdb_rows", 0),
     ):
         if isinstance(compact.get(key), list):
             compact[key] = compact[key][:limit]
@@ -285,8 +285,8 @@ def _compact_summary(summary):
     if isinstance(compact.get("gpu_metrics"), list):
         compact["gpu_metrics"] = compact["gpu_metrics"][:4]
     for key, limit in (
-        ("network_top_rows", 8),
-        ("physical_top_rows", 8),
+        ("network_top_rows", 4),
+        ("physical_top_rows", 4),
         ("wan_top_rows", 8),
         ("lan_top_rows", 8),
         ("storage_rows", 24),
@@ -298,7 +298,7 @@ def _compact_summary(summary):
         if isinstance(compact.get(key), list):
             compact[key] = compact[key][:limit]
     if isinstance(compact.get("interface_rows"), list):
-        compact["interface_rows"] = compact["interface_rows"][:12]
+        compact["interface_rows"] = compact["interface_rows"][:4]
     return compact
 
 
