@@ -1666,7 +1666,6 @@
 
     <script src="/static/js/core/bootstrap.js?v=20260530-lazy-modules"></script>
     <script src="/static/js/core/utils.js?v=20260522-stage2-shared-utils"></script>
-    <script src="/static/js/views/dashboard-summary.js?v=20260522-stage8-dashboard-summary"></script>
 
     <script>
         // AI_MODULE: app_runtime_config
@@ -1676,6 +1675,6 @@
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
     </script>
-    <script src="/static/js/app-runtime.js?v=20260531-common-runtime-lazy"></script>
+    <script src="/static/js/app-runtime.js?v=20260531-dashboard-summary-lazy"></script>
 </body>
 </html>

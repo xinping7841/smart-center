@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-common-runtime-lazy';
+        const lazyModuleVersion = '20260531-dashboard-summary-lazy';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -94,6 +94,9 @@
         SmartCenter.registerLazyModule('hy-edge-runtime', {
             scripts: [`/static/js/views/hy-edge.js?v=${lazyModuleVersion}`],
         });
+        SmartCenter.registerLazyModule('dashboard-summary-runtime', {
+            scripts: [`/static/js/views/dashboard-summary.js?v=${lazyModuleVersion}`],
+        });
         SmartCenter.registerLazyModule('power-meter-runtime', {
             scripts: [
                 `/static/js/views/logs.js?v=${lazyModuleVersion}`,
@@ -122,7 +125,7 @@
         SmartCenter.registerLazyModule('env-view-style', { styles: viewStyleGroups.env });
         SmartCenter.registerLazyModule('logs-view-style', { styles: viewStyleGroups.logs });
         SmartCenter.registerLazyModule('dashboard-view-style', { styles: viewStyleGroups.dashboard });
-        SmartCenter.registerViewModules('dashboard', ['dashboard-view-style']);
+        SmartCenter.registerViewModules('dashboard', ['dashboard-view-style', 'dashboard-summary-runtime']);
         SmartCenter.registerViewModules('server', ['server-view-style', 'server-runtime', 'server-monitor-view']);
         SmartCenter.registerViewModules('hvac', ['hvac-view-style', 'hvac-view']);
         SmartCenter.registerViewModules('projector', ['projector-view-style', 'projector-runtime', 'projector-view']);
@@ -196,6 +199,11 @@
                     console.error(`${contextLabel}调用失败`, err);
                     return null;
                 });
+        }
+        function ensureDashboardSummaryReady(contextLabel = '首页汇总模块') {
+            const api = window.SmartCenter?.dashboardSummary || null;
+            if (api?.renderDashboardSummaryTopStats) return Promise.resolve(api);
+            return ensureModulesReady(['dashboard-summary-runtime'], contextLabel).then(() => window.SmartCenter?.dashboardSummary || null);
         }
         window.loadAutomationLogs = (showError = false) => withLogsRuntime(api => api.loadAutomationLogs?.(showError), '自动化日志模块');
         window.refreshEventLogs = (reset = false) => withLogsRuntime(api => api.refreshEventLogs?.(reset), '事件日志模块');
@@ -585,7 +593,10 @@
             if (el) el.innerHTML = html;
         }
         function normalizeDashboardSummaryPayload(payload) {
-            return SmartCenter.dashboardSummary.normalizeDashboardSummaryPayload.apply(SmartCenter.dashboardSummary, arguments);
+            const api = SmartCenter.dashboardSummary || {};
+            return typeof api.normalizeDashboardSummaryPayload === 'function'
+                ? api.normalizeDashboardSummaryPayload.apply(api, arguments)
+                : (payload && typeof payload === 'object' ? payload : { counts: {}, modules: {} });
         }
         function getDashboardSummaryModule(name) {
             return ((dashboardSummaryCache || {}).modules || {})[name] || {};
@@ -597,20 +608,27 @@
             return { pickDashboardEnvSensor, renderDashboardProxySummary };
         }
         function renderDashboardSummaryTopStats(payload) {
-            return SmartCenter.dashboardSummary.renderDashboardSummaryTopStats(payload, getDashboardSummaryRenderContext());
+            return ensureDashboardSummaryReady()
+                .then(api => api?.renderDashboardSummaryTopStats?.(payload, getDashboardSummaryRenderContext()));
         }
         function renderDashboardFooterStatus(payload = {}, derived = {}) {
-            return SmartCenter.dashboardSummary.renderDashboardFooterStatus(payload, derived);
+            const api = SmartCenter.dashboardSummary || {};
+            return api?.renderDashboardFooterStatus?.(payload, derived);
         }
         function renderDashboardEnvSummary(envModule = {}) {
-            return SmartCenter.dashboardSummary.renderDashboardEnvSummary(envModule, getDashboardSummaryRenderContext());
+            const api = SmartCenter.dashboardSummary || {};
+            return api?.renderDashboardEnvSummary?.(envModule, getDashboardSummaryRenderContext());
         }
         function updateDashboardSummary() {
             if (dashboardSummaryInFlight) return dashboardSummaryInFlight;
-            dashboardSummaryInFlight = fetchJson('/api/dashboard/summary', {}, '首页汇总状态读取失败')
+            dashboardSummaryInFlight = ensureDashboardSummaryReady()
+                .then(() => fetchJson('/api/dashboard/summary', {}, '首页汇总状态读取失败'))
                 .then(data => {
                     dashboardSummaryCache = normalizeDashboardSummaryPayload(data);
-                    renderDashboardSummaryTopStats(dashboardSummaryCache);
+                    return renderDashboardSummaryTopStats(dashboardSummaryCache).then(() => dashboardSummaryCache);
+                })
+                .then(cache => {
+                    dashboardSummaryCache = cache || dashboardSummaryCache;
                     const serverMachines = dashboardSummaryCache.modules?.server?.machines;
                     if (Array.isArray(serverMachines)) {
                         window.SmartCenter?.serverRuntime?.setDashboardServerCompactList?.(serverMachines);

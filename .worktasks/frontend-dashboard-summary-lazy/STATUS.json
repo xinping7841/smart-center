@@ -1,0 +1,10 @@
+{
+  "task": "frontend-dashboard-summary-lazy",
+  "module": "templates_index_html",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-frontend-dashboard-summary-lazy-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-dashboard-summary-lazy",
+  "started_at": "2026-05-31 18:51:02",
+  "status": "in_progress"
+}
