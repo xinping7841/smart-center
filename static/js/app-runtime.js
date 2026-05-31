@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-projector-runtime-split';
+        const lazyModuleVersion = '20260531-screen-runtime-split';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -47,6 +47,9 @@
         SmartCenter.registerLazyModule('projector-summary-view', {
             scripts: [`/static/js/views/projector-summary.js?v=${lazyModuleVersion}`],
         });
+        SmartCenter.registerLazyModule('screen-runtime', {
+            scripts: [`/static/js/views/screen-runtime.js?v=${lazyModuleVersion}`],
+        });
         SmartCenter.registerLazyModule('snmp-full', {
             styles: viewStyleGroups.snmp,
             scripts: [`/static/js/views/snmp.js?v=${lazyModuleVersion}`],
@@ -82,6 +85,7 @@
         SmartCenter.registerViewModules('server', ['server-view-style', 'server-monitor-view']);
         SmartCenter.registerViewModules('hvac', ['hvac-view-style', 'hvac-view']);
         SmartCenter.registerViewModules('projector', ['projector-view-style', 'projector-runtime', 'projector-view']);
+        SmartCenter.registerViewModules('screen', ['screen-runtime']);
         SmartCenter.registerViewModules('snmp', ['snmp-full']);
         SmartCenter.registerViewModules('camera_preview', ['snmp-full']);
         SmartCenter.registerViewModules('proxy', ['proxy-view']);
@@ -129,6 +133,7 @@
             server_compact: { sectionId: 'server_compact', modules: ['server-summary-view'], label: '服务器摘要模块' },
             hvac: { sectionId: 'hvac', modules: ['hvac-summary-view'], label: '空调摘要模块' },
             projector: { sectionId: 'projector', modules: ['projector-runtime', 'projector-summary-view'], label: '投影摘要模块' },
+            screen: { sectionId: 'screen', modules: ['screen-runtime'], label: '幕布运行时模块' },
         };
         function isDashboardSectionNearViewport(sectionId, marginPx = 520) {
             if (getActiveViewId() !== 'dashboard') return false;
@@ -157,6 +162,8 @@
                         updateHvacStatus(false);
                     } else if (key === 'projector' && getActiveViewId() === 'dashboard') {
                         updateProjectorStatus();
+                    } else if (key === 'screen' && getActiveViewId() === 'dashboard') {
+                        updateScreenStatus();
                     }
                     return result;
                 })
@@ -3448,170 +3455,28 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             return withProjectorRuntime((api, ctx) => api.refreshProjectorStatusAfterCommand(ctx), '投影运行时模块');
         };
 
-        function getScreenCommand(screen, action) {
-            return (screen.commands || []).find(cmd => String(cmd.action || '').toLowerCase() === action) || null;
+        function getScreenRuntimeContext() {
+            return {
+                configData,
+                fetchJson,
+                postJsonLoose,
+                ensurePermission,
+                showToast,
+                escapeHtml,
+                getPermissionDisabledClass,
+                getPermissionDisabledAttrs,
+                getDeviceStatusMeta,
+                getCardStateClass,
+            };
         }
-        function getScreenActionText(status) {
-            if (!status || status.online === false) return '离线';
-            if (status.is_moving) return status.action === 'up' ? '正在上升...' : '正在下降...';
-            return '已停止';
-        }
-        function getScreenActionColor(status) {
-            if (!status || status.online === false) return '#94a3b8';
-            if (status.is_moving) return 'var(--warning)';
-            return 'var(--text-sub)';
-        }
-        function renderScreenControlButton(screen, action, label, className) {
-            const cmd = getScreenCommand(screen, action);
-            const iconMap = { up: '↑', stop: '■', down: '↓' };
-            const icon = iconMap[action] || '•';
-            if (!cmd) {
-                return `<button class="screen-control-btn ${className}" disabled title="未配置${label}指令"><span class="btn-icon">${icon}</span><span class="btn-text">${label}</span></button>`;
-            }
-            return `<button class="screen-control-btn ${className}${getPermissionDisabledClass('screen.control')}" ${getPermissionDisabledAttrs('screen.control', '当前账号无幕布控制权限')} title="${label}" onclick="fireScreenCommand('${escapeHtml(screen.id)}', '${escapeHtml(cmd.payload || '')}', '${escapeHtml(cmd.format || 'hex')}', '${escapeHtml(cmd.action || action)}')"><span class="btn-icon">${icon}</span><span class="btn-text">${label}</span></button>`;
-        }
-        function buildScreenEnvCards() {
-            const cards = [];
-            if (Array.isArray(envConfigs) && envConfigs.length) {
-                const onlineEnv = envConfigs.map(cfg => ({ cfg, st: window.__envStatusCache?.[cfg.id] || {} })).find(item => item.st && item.st.online);
-                const fallbackEnv = envConfigs[0] ? { cfg: envConfigs[0], st: window.__envStatusCache?.[envConfigs[0].id] || {} } : null;
-                const envItem = onlineEnv || fallbackEnv;
-                if (envItem) {
-                    const cfg = envItem.cfg;
-                    const st = envItem.st || {};
-                    const online = !!st.online;
-                    const temp = st.temp !== null && st.temp !== undefined ? `${st.temp}°C` : '--';
-                    const hum = st.hum !== null && st.hum !== undefined ? `${st.hum}%` : '--';
-                    const lux = st.lux !== null && st.lux !== undefined ? `${st.lux} Lux` : '--';
-                    const tempIcon = `<span class="screen-companion-metric-icon temp"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 5a2 2 0 1 1 4 0v7.2a4.5 4.5 0 1 1-4 0V5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 14V8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="17" r="1.8" fill="currentColor"/></svg></span>`;
-                    const humIcon = `<span class="screen-companion-metric-icon hum"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3.8C9.4 7.2 6 10.4 6 14.2A6 6 0 0 0 18 14.2c0-3.8-3.4-7-6-10.4Z" fill="currentColor" fill-opacity="0.92"/><path d="M9.6 15.4c.5 1.4 1.6 2.2 3 2.5" stroke="#dbeafe" stroke-width="1.4" stroke-linecap="round"/></svg></span>`;
-                    const luxIcon = `<span class="screen-companion-metric-icon lux"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><path d="M12 2.8v2.3M12 18.9v2.3M21.2 12h-2.3M5.1 12H2.8M18.6 5.4l-1.6 1.6M7 17l-1.6 1.6M18.6 18.6 17 17M7 7 5.4 5.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>`;
-                    cards.push(`<div class="screen-companion-card screen-companion-env">
-                        <div class="screen-companion-title">
-                            <span>${escapeHtml(cfg.name || cfg.id)}</span>
-                            <span class="screen-companion-tag" style="${online ? '' : 'color:#cbd5e1;background:rgba(100,116,139,0.16);border-color:rgba(148,163,184,0.18);'}">${online ? '在线' : '离线'}</span>
-                        </div>
-                        <div class="screen-companion-metrics">
-                            <div class="screen-companion-metric">
-                                <div class="metric-label-wrap">${tempIcon}<div class="label">温度</div></div>
-                                <div class="value">${escapeHtml(temp)}</div>
-                            </div>
-                            <div class="screen-companion-metric">
-                                <div class="metric-label-wrap">${humIcon}<div class="label">湿度</div></div>
-                                <div class="value">${escapeHtml(hum)}</div>
-                            </div>
-                            <div class="screen-companion-metric">
-                                <div class="metric-label-wrap">${luxIcon}<div class="label">光照</div></div>
-                                <div class="value">${escapeHtml(lux)}</div>
-                            </div>
-                        </div>
-                        <div class="screen-companion-footer">
-                            <span>来源 ${escapeHtml(cfg.name || cfg.id)}</span>
-                            <span>${online ? '实时采集' : '等待恢复'}</span>
-                        </div>
-                    </div>`);
-                }
-            }
-            if (!cards.length) {
-                cards.push(`<div class="screen-companion-card screen-placeholder-card">
-                    <div class="screen-companion-title">
-                        <span class="screen-placeholder-icon">+</span>
-                        <span>环境摘要</span>
-                    </div>
-                    <div class="screen-companion-note">这里显示环境传感器的温度、湿度和光照摘要。</div>
-                </div>`);
-            }
-            return cards.join('');
-        }
-        function buildScreenAutomationCards() {
-            return `<div class="dash-stat-card outdoor-automation-card" id="dash-outdoor-automation-card">
-                <div class="outdoor-auto-head">
-                    <div class="outdoor-auto-title">户外灯自动化</div>
-                    <span class="outdoor-auto-chip" id="dash-outdoor-auto-chip">等待状态</span>
-                </div>
-                <div class="outdoor-auto-main">
-                    <div class="outdoor-auto-kpi">
-                        <div class="value" id="dash-outdoor-lux">--</div>
-                        <div class="sub" id="dash-outdoor-status-text">正在等待光照与自动化状态...</div>
-                    </div>
-                    <div class="outdoor-auto-metrics">
-                        <div class="outdoor-auto-metric">
-                            <div class="label">开灯窗口</div>
-                            <div class="value" id="dash-outdoor-eta">--</div>
-                        </div>
-                        <div class="outdoor-auto-metric">
-                            <div class="label">关灯计划</div>
-                            <div class="value" id="dash-outdoor-off-countdown">--</div>
-                        </div>
-                        <div class="outdoor-auto-metric">
-                            <div class="label">开灯条件</div>
-                            <div class="value" id="dash-outdoor-window">--</div>
-                        </div>
-                        <div class="outdoor-auto-metric">
-                            <div class="label">复位规则</div>
-                            <div class="value" id="dash-outdoor-debounce">--</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="outdoor-auto-note" id="dash-outdoor-note">低于阈值自动开灯，20:00 自动关灯。</div>
-            </div>`;
-        }
-        function renderScreenStatusCard(screen) {
-            const status = screen.status || {};
-            const statusMeta = getDeviceStatusMeta(status, { staleText: '陈旧', errorText: '异常' });
-            const isOnline = statusMeta.isOnlineLike;
-            const position = Number.isFinite(Number(status.position)) ? Number(status.position) : 0;
-            const height = Number.isFinite(Number(status.height)) ? Number(status.height) : 0;
-            const totalHeight = screen.screen_config?.total_height || status.total_height || 3.0;
-            const totalTime = screen.screen_config?.total_time || 30;
-            const onlineText = statusMeta.text;
-            const actionText = getScreenActionText(status);
-            const remainingTime = Number.isFinite(Number(status.remaining_time)) ? Number(status.remaining_time).toFixed(1) : '0.0';
-            const clampedPosition = Math.max(0, Math.min(100, position));
-            const posState = clampedPosition >= 95 ? '全降（到底）' : (clampedPosition <= 5 ? '全升（到顶）' : '中间位置');
-            return `<div class="screen-status-card ${isOnline ? '' : 'offline'} ${getCardStateClass(statusMeta)}" id="screen-status-${escapeHtml(screen.id)}">
-                <div class="screen-status-header">
-                    <div class="screen-status-name">${escapeHtml(screen.name || screen.id)}</div>
-                    <div class="screen-status-online ${isOnline ? '' : 'offline'} ${statusMeta.level === 'stale' || statusMeta.level === 'error' ? 'warning' : ''}">${onlineText}</div>
-                </div>
-                <div class="screen-main-row">
-                    <div class="screen-core-meta">
-                        <div class="screen-progress-panel">
-                            <div class="screen-progress-rail" title="竖版位置进度">
-                                <div class="screen-progress-fill-vertical" style="height:${clampedPosition}%; --screen-pos:${clampedPosition}%;"></div>
-                            </div>
-                            <div class="screen-progress-meta">
-                                <div class="screen-progress-head">
-                                    <span class="screen-progress-label">当前位置</span>
-                                    <span class="screen-position-text">${clampedPosition.toFixed(1)}%</span>
-                                </div>
-                                <div class="screen-position-note">${posState}</div>
-                                <div class="screen-metrics">
-                                    <div>
-                                        <div class="screen-metric-label">当前高度</div>
-                                        <div class="screen-metric-value">${height.toFixed(2)} 米</div>
-                                    </div>
-                                    <div>
-                                        <div class="screen-metric-label">幕布状态</div>
-                                        <div class="screen-metric-value" style="color:${getScreenActionColor(status)}">${escapeHtml(actionText)}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="screen-control-side">
-                        ${renderScreenControlButton(screen, 'up', '上升', 'up')}
-                        ${renderScreenControlButton(screen, 'stop', '停止', 'stop')}
-                        ${renderScreenControlButton(screen, 'down', '下降', 'down')}
-                    </div>
-                </div>
-                <div class="screen-status-foot">
-                    <span>总高度：${escapeHtml(totalHeight)} 米</span>
-                    <span>全程时间：${escapeHtml(totalTime)} 秒</span>
-                    <span>剩余时间：${escapeHtml(remainingTime)} 秒</span>
-                </div>
-                <div class="dashboard-mini-note">${escapeHtml(statusMeta.note)}</div>
-            </div>`;
+        function withScreenRuntime(callback, contextLabel = '幕布运行时模块') {
+            return ensureModulesReady(['screen-runtime'], contextLabel)
+                .then(() => {
+                    const api = window.SmartCenter?.screenRuntime || null;
+                    if (api && typeof callback === 'function') return callback(api, getScreenRuntimeContext());
+                    return null;
+                })
+                .catch(() => null);
         }
 
         // 环境与自动化引擎
@@ -3808,7 +3673,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             return ensureModulesReady(modules, '投影模块').then(() => updateProjectorStatus());
         }, () => getActiveViewId() === 'projector' || (getActiveViewId() === 'dashboard' && isDashboardSectionNearViewport('projector')));
         registerPollingTask('sequencer', 4500, () => updateSequencerStatus(), () => ['dashboard', 'sequencer'].includes(getActiveViewId()) || isDashboardSectionVisible('sequencer'));
-        registerPollingTask('screen', 4500, () => updateScreenStatus(), () => ['dashboard', 'screen'].includes(getActiveViewId()) || isDashboardSectionVisible('screen'));
+        registerPollingTask('screen', 4500, () => ensureModulesReady(['screen-runtime'], '幕布运行时模块').then(() => updateScreenStatus()), () => getActiveViewId() === 'screen' || (getActiveViewId() === 'dashboard' && isDashboardSectionNearViewport('screen')));
         registerPollingTask('apple_audio', 3200, () => ensureViewReady('apple_audio').then(() => loadAppleAudioStatus()), () => ['apple_audio'].includes(getActiveViewId()));
         registerPollingTask('logs', 5000, () => updateDashboardLogs(), () => getActiveViewId() === 'dashboard');
         registerPollingTask('event_logs', 5000, () => refreshEventLogs(false), () => getActiveViewId() === 'logs');
@@ -4979,14 +4844,10 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         };
 
         fireScreenCommand = function(screenId, payload, format, action) {
-            if (!ensurePermission('screen.control', '操作幕布')) return;
-            showToast('幕布指令下发中...', false);
-            postJsonLoose('/api/screen/control', { screen_id: screenId, command: { payload: payload, format: format, action: action } }, '幕布指令下发失败')
-                .then(data => {
-                    showToast(data.success ? '执行成功' : ('执行失败: ' + (data.response || data.msg || '未知错误')), !data.success);
-                    if (data.success) setTimeout(updateScreenStatus, 120);
-                })
-                .catch(() => showToast('幕布指令下发失败', true));
+            return withScreenRuntime(
+                (api, ctx) => api.fireScreenCommand(screenId, payload, format, action, ctx),
+                '幕布控制模块'
+            );
         };
 
         updateProjectorStatus = function() {
@@ -4997,16 +4858,10 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         };
 
         updateScreenStatus = function() {
-            fetchJson('/api/screens', {}, '幕布状态读取失败')
-                .then(data => {
-                    const grid = document.getElementById('screen-status-grid');
-                    if (!grid) return;
-                    const screens = data.screens || [];
-                    grid.innerHTML = screens.length
-                        ? screens.map(screen => renderScreenStatusCard(screen)).join('')
-                        : '<div style="color:var(--text-sub); grid-column: 1/-1; text-align:center; padding:20px;">未配置幕布设备</div>';
-                })
-                .catch(err => console.error('幕布状态更新失败', err));
+            return withScreenRuntime(
+                (api, ctx) => api.updateScreenStatus(ctx),
+                '幕布状态模块'
+            );
         };
 
         function extractMacAddress(value) {
