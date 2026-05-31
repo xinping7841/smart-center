@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-universal-template-slim-v1';
+        const lazyModuleVersion = '20260531-light-scene-template-slim-v1';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -107,6 +107,9 @@
         SmartCenter.registerLazyModule('light-runtime', {
             scripts: [`/static/js/views/light-runtime.js?v=${lazyModuleVersion}`],
         });
+        SmartCenter.registerLazyModule('light-scene-view', {
+            scripts: [`/static/js/views/light-scene-view.js?v=${lazyModuleVersion}`],
+        });
         SmartCenter.registerLazyModule('door-runtime', {
             scripts: [`/static/js/views/door-runtime.js?v=${lazyModuleVersion}`],
         });
@@ -137,7 +140,8 @@
         SmartCenter.registerViewModules('apple_audio', ['apple-audio-view']);
         SmartCenter.registerViewModules('local_model', ['local-model-view']);
         SmartCenter.registerViewModules('power', ['power-view-style', 'power-meter-runtime']);
-        SmartCenter.registerViewModules('light', ['light-runtime']);
+        SmartCenter.registerViewModules('light', ['light-runtime', 'light-scene-view']);
+        SmartCenter.registerViewModules('scene', ['light-runtime', 'light-scene-view']);
         SmartCenter.registerViewModules('door', ['door-runtime']);
         SmartCenter.registerViewModules('meter', ['meter-view-style', 'power-meter-runtime']);
         SmartCenter.registerViewModules('ups', ['ups-runtime']);
@@ -1652,6 +1656,19 @@
                     .catch(() => {});
             }, 100);
             if (viewId === 'sequencer') setTimeout(() => { ensureViewReady('sequencer').then(() => updateSequencerStatus()).catch(() => {}); }, 80);
+            if (viewId === 'light') setTimeout(() => {
+                ensureViewReady('light')
+                    .then(() => {
+                        renderLightSceneView('light');
+                        return updateLightData();
+                    })
+                    .catch(() => {});
+            }, 80);
+            if (viewId === 'scene') setTimeout(() => {
+                ensureViewReady('scene')
+                    .then(() => renderLightSceneView('scene'))
+                    .catch(() => {});
+            }, 80);
             if (viewId === 'universal') setTimeout(() => {
                 ensureViewReady('universal')
                     .then(() => {
@@ -2344,7 +2361,14 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             const modules = getActiveViewId() === 'hvac' ? ['hvac-view'] : ['hvac-summary-view'];
             return ensureModulesReady(modules, '空调模块').then(() => updateHvacStatus());
         }, () => getActiveViewId() === 'hvac' || (getActiveViewId() === 'dashboard' && isDashboardSectionNearViewport('hvac')));
-        registerPollingTask('light', 2200, () => ensureModulesReady(['light-runtime'], '灯光状态模块').then(() => updateLightData()), () => getActiveViewId() === 'light' || (getActiveViewId() === 'dashboard' && (isDashboardSectionNearViewport('light_compact') || isDashboardSectionNearViewport('light_quick'))));
+        registerPollingTask('light', 2200, () => {
+            const modules = getActiveViewId() === 'light' ? ['light-runtime', 'light-scene-view'] : ['light-runtime'];
+            return ensureModulesReady(modules, '灯光状态模块')
+                .then(() => {
+                    if (getActiveViewId() === 'light') renderLightSceneView('light');
+                    return updateLightData();
+                });
+        }, () => getActiveViewId() === 'light' || (getActiveViewId() === 'dashboard' && (isDashboardSectionNearViewport('light_compact') || isDashboardSectionNearViewport('light_quick'))));
         registerPollingTask('node_red', 5000, () => ensureViewReady('universal').then(() => updateNodeRedDevices()), () => getActiveViewId() === 'universal');
         registerPollingTask('server', 5000, () => ensureViewReady('server').then(() => updateServerData()), () => getActiveViewId() === 'server');
         registerPollingTask('door', 1200, () => updateDoorStatus(), () => ['dashboard', 'door'].includes(getActiveViewId()) || isDashboardSectionVisible('door'));

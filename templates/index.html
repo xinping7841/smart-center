@@ -470,53 +470,11 @@
             </div>
 
             <div id="view-light" class="view-section">
-                {% for device in config.light_devices %}
-                <div class="card">
-                    <div class="cab-header">
-                        <h3>{{ device.name }}</h3>
-                        <span class="tag error" id="light-status-{{ device.id }}">检测中</span>
+                <div id="light-page-grid">
+                    <div class="card">
+                        <div style="color:var(--text-sub); text-align:center; padding:20px;">正在加载灯光设备...</div>
                     </div>
-                    <div class="info-bar">
-                        <div>品牌:<span>{{ device.brand }}</span></div>
-                        <div>站号:<span>{{ device.slave_id }}</span></div>
-                        <div>地址:<span>{{ device.ip }}:{{ device.port }}</span></div>
-                    </div>
-                    <div class="channel-grid" id="light-channels-{{ device.id }}">
-                        {% for ch in device.channels_config|default([])|sort(attribute='sort') %}
-                        {% if ch.visible %}
-                        <button class="ch-btn ch-err ch-span-{{ ch.span | default(1) }}" id="lch_{{ device.id }}_{{ ch.channel }}" onclick="toggleLight({{ device.id }}, {{ ch.channel }})">
-                            <span class="name">{{ ch.name }}</span>
-                            <span class="state">离线</span>
-                        </button>
-                        {% endif %}
-                        {% endfor %}
-                    </div>
-                    {% if device.input_channels_config %}
-                    <div class="relay-input-panel" id="light-input-panel-{{ device.id }}">
-                        <div class="relay-input-title">输入接口状态</div>
-                        <div class="relay-input-grid" id="light-inputs-{{ device.id }}">
-                            {% for ch in device.input_channels_config|default([])|sort(attribute='sort') %}
-                            {% if ch.visible %}
-                            <div class="relay-input-chip unknown ch-span-{{ ch.span | default(1) }}" id="lin_{{ device.id }}_{{ ch.channel }}">
-                                <span class="name">{{ ch.name }}</span>
-                                <span class="state">待确认</span>
-                            </div>
-                            {% endif %}
-                            {% endfor %}
-                        </div>
-                    </div>
-                    {% endif %}
-                    {% if device.dashboard_action_buttons %}
-                    <div class="dashboard-mini-actions" style="margin-top:-4px;">
-                        {% for action in device.dashboard_action_buttons %}
-                        {% if action.visible != false %}
-                        <button class="dashboard-mini-btn secondary{{ ' permission-disabled' if false else '' }}" onclick="triggerLightAction('{{ device.id }}', '{{ action.action }}', '{{ action.label or action.action }}')">{{ action.label or action.action }}</button>
-                        {% endif %}
-                        {% endfor %}
-                    </div>
-                    {% endif %}
                 </div>
-                {% endfor %}
                 <div class="card">
                     <div class="card-title">场馆灯光日志</div>
                     <div class="log-list" id="light-global-log" style="height:250px;"></div>
@@ -700,20 +658,8 @@
             <div id="view-scene" class="view-section">
                 <div class="card">
                     <div class="card-title">快捷全局指令</div>
-                    <div class="scene-grid scene-quick-grid">
-                        {% set visible_scene_count = namespace(value=0) %}
-                        {% for scene in config.scenes|sort(attribute='sort') %}
-                        {% if scene.visible %}
-                        {% set visible_scene_count.value = visible_scene_count.value + 1 %}
-                        <button class="scene-btn scene-quick-btn" onclick='executeScene({{ scene.id|tojson }}, {{ scene.name|tojson }})'>
-                            <span>场景</span>
-                            <strong>{{ scene.name }}</strong>
-                        </button>
-                        {% endif %}
-                        {% endfor %}
-                        {% if visible_scene_count.value == 0 %}
-                        <div class="scene-empty">尚未配置手动快捷场景，可在系统配置中添加并设为可见。</div>
-                        {% endif %}
+                    <div class="scene-grid scene-quick-grid" id="scene-quick-grid">
+                        <div class="scene-empty">正在加载快捷场景...</div>
                     </div>
                 </div>
                 <div class="card">
@@ -721,65 +667,8 @@
                         <span>自动化引用场景</span>
                         <span style="font-size:12px; color:var(--text-sub);">这些场景由自动化规则调用，默认不作为手动快捷按钮展示</span>
                     </div>
-                    <div class="automation-scene-grid">
-                        {% set auto_scene_count = namespace(value=0) %}
-                        {% for scene in config.scenes|sort(attribute='sort') %}
-                            {% set refs = namespace(names=[]) %}
-                            {% for rule in config.automations|default([]) %}
-                                {% if rule.action_scene_id|string == scene.id|string %}
-                                    {% set refs.names = refs.names + [rule.name] %}
-                                {% endif %}
-                            {% endfor %}
-                            {% if refs.names|length > 0 %}
-                            {% set auto_scene_count.value = auto_scene_count.value + 1 %}
-                            <button type="button" class="automation-scene-card" onclick='executeScene({{ scene.id|tojson }}, {{ scene.name|tojson }})' title="点击测试触发&#10;ID: {{ scene.id }}&#10;引用规则：{{ refs.names|join(' / ') }}">
-                                <div class="automation-scene-main">
-                                    <div class="automation-scene-title-row">
-                                        <span class="automation-scene-badge">自动化专用</span>
-                                        <strong>{{ scene.name }}</strong>
-                                    </div>
-                                    <div class="automation-scene-meta">
-                                        <span>{{ scene.actions|default([])|length }}步动作</span>
-                                        <span>{{ refs.names|length }}条规则</span>
-                                    </div>
-                                    <div class="automation-scene-refs">{{ refs.names|join(' / ') }}</div>
-                                    <div class="automation-scene-actions">
-                                        {% for action in scene.actions|default([]) %}
-                                            {% set sub = action.sub_system|default('') %}
-                                            {% set at = action.action_type|default('') %}
-                                            {% if sub == 'hvac' %}
-                                                {% if at == 'power_on' %}
-                                                    <span>空调 开机</span>
-                                                {% elif at == 'power_off' %}
-                                                    <span>空调 关机</span>
-                                                {% elif at == 'set_mode' %}
-                                                    <span>空调 模式 {{ action.mode|default('') }}</span>
-                                                {% elif at == 'set_temp' %}
-                                                    <span>空调 {{ action.temperature|default('--') }}°C</span>
-                                                {% elif at == 'set_fan_mode' %}
-                                                    <span>空调 风量 {{ action.fan_mode|default('') }}</span>
-                                                {% else %}
-                                                    <span>空调 {{ at }}</span>
-                                                {% endif %}
-                                            {% elif sub == 'universal' %}
-                                                <span>发送指令</span>
-                                            {% elif sub == 'screen' %}
-                                                <span>幕布 {{ at }}</span>
-                                            {% elif sub == 'projector' %}
-                                                <span>投影 {{ at }}</span>
-                                            {% else %}
-                                                <span>{{ sub|default('设备') }} {{ at|default('动作') }}</span>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                                <span class="automation-scene-test-btn">测试</span>
-                            </button>
-                            {% endif %}
-                        {% endfor %}
-                        {% if auto_scene_count.value == 0 %}
-                        <div class="scene-empty">当前没有被自动化规则引用的场景。</div>
-                        {% endif %}
+                    <div class="automation-scene-grid" id="automation-scene-grid">
+                        <div class="scene-empty">正在加载自动化场景...</div>
                     </div>
                 </div>
             </div>
