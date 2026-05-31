@@ -1,0 +1,10 @@
+{
+  "task": "frontend-deep-split",
+  "module": "frontend-performance",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-frontend-deep-split-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-deep-split",
+  "started_at": "2026-05-31 08:05:29",
+  "status": "in_progress"
+}
