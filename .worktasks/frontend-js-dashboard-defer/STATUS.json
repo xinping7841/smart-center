@@ -1,0 +1,13 @@
+{
+  "task": "frontend-js-dashboard-defer",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-frontend-js-dashboard-defer-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-js-dashboard-defer",
+  "started_at": "2026-05-31 10:42:51",
+  "status": "validated_local",
+  "phase": "ready_for_commit_deploy",
+  "updated_at": "2026-05-31 11:20:00",
+  "summary": "dashboard summary modules split for server/hvac/projector"
+}
