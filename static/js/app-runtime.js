@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-summary-helper-lazy';
+        const lazyModuleVersion = '20260531-common-runtime-lazy';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -85,8 +85,18 @@
         });
         SmartCenter.registerLazyModule('power-view-style', { styles: viewStyleGroups.power });
         SmartCenter.registerLazyModule('meter-view-style', { styles: viewStyleGroups.meter });
+        SmartCenter.registerLazyModule('logs-runtime', {
+            scripts: [`/static/js/views/logs.js?v=${lazyModuleVersion}`],
+        });
+        SmartCenter.registerLazyModule('env-runtime', {
+            scripts: [`/static/js/views/env.js?v=${lazyModuleVersion}`],
+        });
+        SmartCenter.registerLazyModule('hy-edge-runtime', {
+            scripts: [`/static/js/views/hy-edge.js?v=${lazyModuleVersion}`],
+        });
         SmartCenter.registerLazyModule('power-meter-runtime', {
             scripts: [
+                `/static/js/views/logs.js?v=${lazyModuleVersion}`,
                 `/static/js/views/power-meter.js?v=${lazyModuleVersion}`,
                 `/static/js/views/power-meter-runtime.js?v=${lazyModuleVersion}`,
             ],
@@ -128,10 +138,10 @@
         SmartCenter.registerViewModules('door', ['door-runtime']);
         SmartCenter.registerViewModules('meter', ['meter-view-style', 'power-meter-runtime']);
         SmartCenter.registerViewModules('ups', ['ups-runtime']);
-        SmartCenter.registerViewModules('auto', ['auto-view-style', 'automation-view']);
+        SmartCenter.registerViewModules('auto', ['auto-view-style', 'logs-runtime', 'automation-view']);
         SmartCenter.registerViewModules('sequencer', ['sequencer-view-style', 'sequencer-runtime']);
-        SmartCenter.registerViewModules('env', ['env-view-style']);
-        SmartCenter.registerViewModules('logs', ['logs-view-style']);
+        SmartCenter.registerViewModules('env', ['env-view-style', 'env-runtime']);
+        SmartCenter.registerViewModules('logs', ['logs-view-style', 'logs-runtime']);
         function ensureModulesReady(moduleNames, contextLabel = '功能模块') {
             if (!window.SmartCenter || typeof SmartCenter.ensureModules !== 'function') return Promise.resolve([]);
             return SmartCenter.ensureModules(moduleNames).catch(err => {
@@ -148,6 +158,60 @@
                 throw err;
             });
         }
+        function ensureLogsReady(contextLabel = '日志模块') {
+            const api = window.SmartCenter?.logs || null;
+            if (api?.updateDashboardLogs) return Promise.resolve(api);
+            return ensureModulesReady(['logs-runtime'], contextLabel).then(() => window.SmartCenter?.logs || null);
+        }
+        function withLogsRuntime(callback, contextLabel = '日志模块') {
+            return ensureLogsReady(contextLabel)
+                .then(api => (api && typeof callback === 'function' ? callback(api) : null))
+                .catch(err => {
+                    console.error(`${contextLabel}调用失败`, err);
+                    return null;
+                });
+        }
+        function ensureEnvReady(contextLabel = '环境模块') {
+            const api = window.SmartCenter?.env || null;
+            if (api?.updateEnvData) return Promise.resolve(api);
+            return ensureModulesReady(['env-runtime'], contextLabel).then(() => window.SmartCenter?.env || null);
+        }
+        function withEnvRuntime(callback, contextLabel = '环境模块') {
+            return ensureEnvReady(contextLabel)
+                .then(api => (api && typeof callback === 'function' ? callback(api) : null))
+                .catch(err => {
+                    console.error(`${contextLabel}调用失败`, err);
+                    return null;
+                });
+        }
+        function ensureHyEdgeReady(contextLabel = 'HY 异地状态模块') {
+            const api = window.SmartCenter?.hyEdge || null;
+            if (api?.updateHyEdgeStatus) return Promise.resolve(api);
+            return ensureModulesReady(['hy-edge-runtime'], contextLabel).then(() => window.SmartCenter?.hyEdge || null);
+        }
+        function withHyEdgeRuntime(callback, contextLabel = 'HY 异地状态模块') {
+            return ensureHyEdgeReady(contextLabel)
+                .then(api => (api && typeof callback === 'function' ? callback(api) : null))
+                .catch(err => {
+                    console.error(`${contextLabel}调用失败`, err);
+                    return null;
+                });
+        }
+        window.loadAutomationLogs = (showError = false) => withLogsRuntime(api => api.loadAutomationLogs?.(showError), '自动化日志模块');
+        window.refreshEventLogs = (reset = false) => withLogsRuntime(api => api.refreshEventLogs?.(reset), '事件日志模块');
+        window.pageEventLogs = delta => withLogsRuntime(api => api.pageEventLogs?.(delta), '事件日志模块');
+        window.updateDashboardLogs = () => withLogsRuntime(api => api.updateDashboardLogs?.(), '首页日志模块');
+        window.renderPowerDetailLogs = (cabId, logs) => withLogsRuntime(api => api.renderPowerDetailLogs?.(cabId, logs), '强电日志模块');
+        window.renderPowerLogSourceTag = (log, classPrefix = 'source-tag') => {
+            const api = window.SmartCenter?.logs || null;
+            return api?.renderPowerLogSourceTag ? api.renderPowerLogSourceTag(log, classPrefix) : '';
+        };
+        window.normalizeLogOperationText = log => {
+            const api = window.SmartCenter?.logs || null;
+            return api?.normalizeLogOperationText ? api.normalizeLogOperationText(log) : String(log?.operation || log?.msg || log || '');
+        };
+        window.updateEnvData = () => withEnvRuntime(api => api.updateEnvData?.(), '环境数据模块');
+        window.updateHyEdgeStatus = () => withHyEdgeRuntime(api => api.updateHyEdgeStatus?.(), 'HY 异地状态模块');
         function scheduleIdleTask(callback, timeout = 1800) {
             if (typeof callback !== 'function') return;
             if (typeof window.requestIdleCallback === 'function') {
@@ -1526,7 +1590,14 @@
             if (viewId === 'ups') setTimeout(() => { ensureViewReady('ups').then(() => updateUpsStatus()).catch(() => {}); }, 80);
             if (viewId === 'snmp') setTimeout(() => { ensureViewReady('snmp').then(() => updateSnmpStatus({ full: true })).catch(() => {}); }, 80);
             if (viewId === 'proxy') setTimeout(() => { ensureViewReady('proxy').then(() => updateProxyStatus()).catch(() => {}); }, 80);
-            if (viewId === 'auto') setTimeout(() => { loadAutomationStatus(true); loadAutomationLogs(); }, 80);
+            if (viewId === 'auto') setTimeout(() => {
+                ensureViewReady('auto')
+                    .then(() => {
+                        loadAutomationStatus(true);
+                        return window.loadAutomationLogs();
+                    })
+                    .catch(() => {});
+            }, 80);
             if (viewId === 'camera_preview') {
                 setTimeout(() => {
                     ensureSnmpRuntimeReady('监控预览模块')
@@ -1538,7 +1609,14 @@
                         .finally(() => renderNvrPreviewPanel({ refresh: true }));
                 }, 80);
             }
-            if (viewId === 'hvac') setTimeout(() => { ensureViewReady('hvac').then(() => { updateHvacStatus(true); updateEnvData(); }).catch(() => {}); }, 80);
+            if (viewId === 'hvac') setTimeout(() => {
+                ensureViewReady('hvac')
+                    .then(() => {
+                        updateHvacStatus(true);
+                        return window.updateEnvData();
+                    })
+                    .catch(() => {});
+            }, 80);
             if (viewId === 'door') setTimeout(() => {
                 ensureViewReady('door')
                     .then(() => {
@@ -1591,7 +1669,7 @@
                 hasPermission,
                 getPermissionDisabledClass,
                 getPermissionDisabledAttrs,
-                updateDashboardLogs,
+                updateDashboardLogs: window.updateDashboardLogs,
             };
         }
         function withSequencerRuntime(callback, contextLabel = '时序电源运行时模块') {
@@ -1783,7 +1861,7 @@
                         renderHvacCards();
                     }
                     showToast(data.msg || '空调控制成功');
-                    setTimeout(() => { updateHvacStatus(); updateDashboardLogs(); }, 320);
+                    setTimeout(() => { updateHvacStatus(); window.updateDashboardLogs(); }, 320);
                 })
                 .catch(err => {
                     showToast(translateApiError(err?.message, '空调控制失败'), true);
@@ -2224,7 +2302,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         registerPollingTask('power', 3500, () => updatePowerData(), () => getActiveViewId() === 'power' || (getActiveViewId() === 'dashboard' && (isDashboardSectionNearViewport('power_compact') || isDashboardSectionNearViewport('power_quick'))));
         registerPollingTask('meter', 4500, () => updateMeterCenter(), () => getActiveViewId() === 'meter');
         registerPollingTask('ups', 4500, () => ensureViewReady('ups').then(() => updateUpsStatus()), () => getActiveViewId() === 'ups' || (getActiveViewId() === 'dashboard' && (isDashboardSectionNearViewport('ups_compact') || isDashboardSectionNearViewport('ups'))));
-        registerPollingTask('hy_edge', 6000, () => updateHyEdgeStatus(), () => ['dashboard'].includes(getActiveViewId()) || isDashboardSectionVisible('hy_edge'));
+        registerPollingTask('hy_edge', 6000, () => window.updateHyEdgeStatus(), () => ['dashboard'].includes(getActiveViewId()) || isDashboardSectionVisible('hy_edge'));
         registerPollingTask('dashboard_summary', 5000, () => updateDashboardSummary(), () => getActiveViewId() === 'dashboard' || isDashboardSectionVisible('stats'));
         registerPollingTask('proxy', 5000, () => ensureViewReady('proxy').then(() => updateProxyStatus()), () => getActiveViewId() === 'proxy');
         registerPollingTask('snmp', 9000, () => updateSnmpStatus(), () => ['dashboard', 'snmp', 'camera_preview'].includes(getActiveViewId()) || isDashboardSectionVisible('snmp'));
@@ -2236,10 +2314,10 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         registerPollingTask('node_red', 5000, () => ensureViewReady('universal').then(() => updateNodeRedDevices()), () => getActiveViewId() === 'universal');
         registerPollingTask('server', 5000, () => ensureViewReady('server').then(() => updateServerData()), () => getActiveViewId() === 'server');
         registerPollingTask('door', 1200, () => updateDoorStatus(), () => ['dashboard', 'door'].includes(getActiveViewId()) || isDashboardSectionVisible('door'));
-        registerPollingTask('env', 3500, () => updateEnvData(), () => ['dashboard', 'env', 'hvac'].includes(getActiveViewId()) || isDashboardSectionVisible('env') || isDashboardSectionVisible('hvac'));
+        registerPollingTask('env', 3500, () => window.updateEnvData(), () => ['dashboard', 'env', 'hvac'].includes(getActiveViewId()) || isDashboardSectionVisible('env') || isDashboardSectionVisible('hvac'));
         registerPollingTask('automation', 4000, () => {
             loadAutomationStatus();
-            if (getActiveViewId() === 'auto') loadAutomationLogs();
+            if (getActiveViewId() === 'auto') window.loadAutomationLogs();
         }, () => ['dashboard', 'auto'].includes(getActiveViewId()));
         registerPollingTask('projector', 6000, () => {
             const modules = getActiveViewId() === 'projector' ? ['projector-runtime', 'projector-view'] : ['projector-runtime', 'projector-summary-view'];
@@ -2248,8 +2326,8 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         registerPollingTask('sequencer', 4500, () => ensureModulesReady(['sequencer-runtime'], '时序电源运行时模块').then(() => updateSequencerStatus()), () => getActiveViewId() === 'sequencer' || (getActiveViewId() === 'dashboard' && isDashboardSectionNearViewport('sequencer')));
         registerPollingTask('screen', 4500, () => ensureModulesReady(['screen-runtime'], '幕布运行时模块').then(() => updateScreenStatus()), () => getActiveViewId() === 'screen' || (getActiveViewId() === 'dashboard' && isDashboardSectionNearViewport('screen')));
         registerPollingTask('apple_audio', 3200, () => ensureViewReady('apple_audio').then(() => loadAppleAudioStatus()), () => ['apple_audio'].includes(getActiveViewId()));
-        registerPollingTask('logs', 5000, () => updateDashboardLogs(), () => getActiveViewId() === 'dashboard');
-        registerPollingTask('event_logs', 5000, () => refreshEventLogs(false), () => getActiveViewId() === 'logs');
+        registerPollingTask('logs', 5000, () => window.updateDashboardLogs(), () => getActiveViewId() === 'dashboard');
+        registerPollingTask('event_logs', 5000, () => window.refreshEventLogs(false), () => getActiveViewId() === 'logs');
 
         // AI_BRIDGE: door_runtime
         // 门禁状态、视频取流、区域框选和真实开关门控制已迁移到 static/js/views/door-runtime.js。

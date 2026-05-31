@@ -1666,9 +1666,6 @@
 
     <script src="/static/js/core/bootstrap.js?v=20260530-lazy-modules"></script>
     <script src="/static/js/core/utils.js?v=20260522-stage2-shared-utils"></script>
-    <script src="/static/js/views/logs.js?v=20260522-stage2-logs-view"></script>
-    <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
-    <script src="/static/js/views/env.js?v=20260522-stage2-env-view"></script>
     <script src="/static/js/views/dashboard-summary.js?v=20260522-stage8-dashboard-summary"></script>
 
     <script>
@@ -1679,6 +1676,6 @@
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
     </script>
-    <script src="/static/js/app-runtime.js?v=20260531-summary-helper-lazy"></script>
+    <script src="/static/js/app-runtime.js?v=20260531-common-runtime-lazy"></script>
 </body>
 </html>

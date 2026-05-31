@@ -1,0 +1,10 @@
+{
+  "task": "frontend-common-runtime-lazy",
+  "module": "templates_index_html",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-frontend-common-runtime-lazy-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-common-runtime-lazy",
+  "started_at": "2026-05-31 18:39:28",
+  "status": "in_progress"
+}
