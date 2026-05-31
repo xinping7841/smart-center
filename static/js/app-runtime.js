@@ -2235,7 +2235,9 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             guardFrontendStep('bootstrap.dashboard_masonry', () => scheduleDashboardMasonry(160));
             guardFrontendStep('bootstrap.global_clock', () => updateGlobalClock());
             guardFrontendStep('bootstrap.agent_version', () => refreshLatestAgentVersion());
-            guardFrontendStep('bootstrap.server_compact', () => refreshDashboardServerCompactFallback());
+            guardFrontendStep('bootstrap.server_compact', () => {
+                if (getActiveViewId() === 'dashboard') refreshDashboardServerCompactFallback();
+            });
             const userBadge = document.getElementById('top-user-badge');
             if (userBadge) {
                 userBadge.addEventListener('click', event => {
@@ -2482,6 +2484,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         window.exportServerDeviceInfoCsv = exportServerDeviceInfoCsv;
 
         function renderDashboardServerCompactWhenReady(data = []) {
+            if (getActiveViewId() !== 'dashboard') return Promise.resolve(false);
             const runtimeState = window.SmartCenter?.serverRuntime;
             if (runtimeState && Array.isArray(data)) runtimeState.dashboardServerCompactList = data;
             const container = document.getElementById('dashboard-server-compact-grid');
@@ -2505,6 +2508,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         }
 
         function refreshDashboardServerCompactFallback() {
+            if (getActiveViewId() !== 'dashboard') return Promise.resolve(false);
             const runtimeState = window.SmartCenter?.serverRuntime || {};
             const data = Array.isArray(runtimeState.dashboardServerCompactList) && runtimeState.dashboardServerCompactList.length
                 ? runtimeState.dashboardServerCompactList

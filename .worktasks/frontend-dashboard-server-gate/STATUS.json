@@ -1,0 +1,10 @@
+{
+  "task": "frontend-dashboard-server-gate",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-frontend-dashboard-server-gate-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-dashboard-server-gate",
+  "started_at": "2026-05-31 18:57:27",
+  "status": "in_progress"
+}
