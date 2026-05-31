@@ -1,0 +1,10 @@
+{
+  "task": "frontend-screen-runtime-split",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-frontend-screen-runtime-split-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-screen-runtime-split",
+  "started_at": "2026-05-31 14:40:30",
+  "status": "ready_for_validation"
+}
