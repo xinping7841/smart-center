@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-light-runtime-split';
+        const lazyModuleVersion = '20260531-door-runtime-split';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -87,6 +87,9 @@
         SmartCenter.registerLazyModule('light-runtime', {
             scripts: [`/static/js/views/light-runtime.js?v=${lazyModuleVersion}`],
         });
+        SmartCenter.registerLazyModule('door-runtime', {
+            scripts: [`/static/js/views/door-runtime.js?v=${lazyModuleVersion}`],
+        });
         SmartCenter.registerLazyModule('ups-view-style', { styles: viewStyleGroups.ups });
         SmartCenter.registerLazyModule('auto-view-style', { styles: viewStyleGroups.auto });
         SmartCenter.registerLazyModule('automation-view', {
@@ -112,6 +115,7 @@
         SmartCenter.registerViewModules('local_model', ['local-model-view']);
         SmartCenter.registerViewModules('power', ['power-view-style', 'power-meter-runtime']);
         SmartCenter.registerViewModules('light', ['light-runtime']);
+        SmartCenter.registerViewModules('door', ['door-runtime']);
         SmartCenter.registerViewModules('meter', ['meter-view-style', 'power-meter-runtime']);
         SmartCenter.registerViewModules('ups', ['ups-view-style']);
         SmartCenter.registerViewModules('auto', ['auto-view-style', 'automation-view']);
@@ -449,130 +453,8 @@
         const nvrConfigs = Array.isArray(configData.nvr_devices) ? configData.nvr_devices : [];
         const sequencerConfigs = Array.isArray(configData.sequencers) ? configData.sequencers : [];
         const dashboardSectionConfig = configData.dashboard_sections || {};
-        let doorVideoActive = false;
-        let doorVideoNonce = 0;
-        let lastDoorStatusFetchAt = 0;
-        let doorCameraStatusCache = {};
-        let doorViewSlots = ((configData.door_config || {}).view_slots) || { left: 'main', right: 'aux' };
-        let doorRegionsCache = ((configData.door_config || {}).regions) || {};
         let appPollingStarted = false;
         const pollingTasks = [];
-        function setDoorSlotVisual(slot, payload) {
-            const els = getDoorSlotElements(slot);
-            const stateEl = els.state;
-            const metaEl = els.meta;
-            if (!stateEl || !metaEl) return;
-            const enabled = payload ? payload.enabled !== false : true;
-            const online = !!(payload && payload.online);
-            const configured = !!(payload && payload.configured);
-            const transport = String((payload && payload.transport) || '').toUpperCase();
-            stateEl.textContent = !enabled ? '停用' : (online ? '在线' : (configured ? '离线' : '未配置'));
-            stateEl.className = `tag ${(!enabled) ? '' : (online ? 'green' : (configured ? 'warn' : ''))}`;
-            if (!enabled) {
-                metaEl.textContent = '监控已停用';
-                return;
-            }
-            if (!configured) {
-                metaEl.textContent = '未配置 RTSP';
-                return;
-            }
-            if (online) {
-                metaEl.textContent = `${transport || '--'} · ${payload.frame_width || '--'}x${payload.frame_height || '--'}`;
-                return;
-            }
-            metaEl.textContent = payload.last_error_text || payload.last_error || '等待重连';
-        }
-        function formatDoorCameraDiag(payload) {
-            const p = payload && typeof payload === 'object' ? payload : {};
-            const name = String(p.name || p.key || '--');
-            const host = String(p.host || '--');
-            const enabled = p.enabled === false ? '停用' : '启用';
-            const configured = p.configured ? '已配置' : '未配置';
-            const online = p.online ? '在线' : '离线';
-            const transport = p.online ? String((p.transport || '--')).toUpperCase() : '--';
-            const errorText = String(p.last_error_text || p.last_error || (p.online ? '正常' : '等待重连'));
-            const lastAttempt = String(p.last_attempt_at || '--');
-            return `
-                <div style="padding:12px 14px; border-radius:12px; background:rgba(15,23,42,0.72); border:1px solid rgba(148,163,184,0.14); min-width:220px; flex:1;">
-                    <div style="display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:8px;">
-                        <strong style="color:#e2e8f0; font-size:13px;">${escapeHtml(name)}</strong>
-                        <span class="tag ${p.online ? 'green' : 'warn'}">${escapeHtml(online)}</span>
-                    </div>
-                    <div style="font-size:12px; color:#94a3b8; line-height:1.8;">
-                        <div>地址: <span style="color:#e2e8f0;">${escapeHtml(host)}</span></div>
-                        <div>状态: <span style="color:#e2e8f0;">${enabled} / ${configured}</span></div>
-                        <div>链路: <span style="color:#e2e8f0;">${escapeHtml(transport)}</span></div>
-                        <div>错误: <span style="color:#f8fafc;">${escapeHtml(errorText)}</span></div>
-                        <div>最近尝试: <span style="color:#e2e8f0;">${escapeHtml(lastAttempt)}</span></div>
-                    </div>
-                </div>
-            `;
-        }
-        function renderDoorNetworkSummary() {
-            const container = document.getElementById('doorNetworkSummary');
-            if (!container) return;
-            const leftPayload = doorCameraStatusCache[getDoorSlotCameraKey('left')] || {};
-            const rightPayload = doorCameraStatusCache[getDoorSlotCameraKey('right')] || {};
-            container.innerHTML = `${formatDoorCameraDiag(leftPayload)}${formatDoorCameraDiag(rightPayload)}`;
-        }
-        function syncDoorVideoSources(forceReload = false) {
-            [['left', getDoorSlotElements('left')], ['right', getDoorSlotElements('right')]].forEach(([slot, els]) => {
-                if (!els.image) return;
-                const cameraKey = getDoorSlotCameraKey(slot);
-                const payload = doorCameraStatusCache[cameraKey] || {};
-                const targetSrc = `/video_feed/${cameraKey}?_=${doorVideoNonce}`;
-                if (!doorVideoActive || payload.enabled === false || payload.configured === false) {
-                    els.image.removeAttribute('src');
-                    return;
-                }
-                const currentSrc = String(els.image.getAttribute('src') || '');
-                if (forceReload || !currentSrc || !currentSrc.includes(`/video_feed/${cameraKey}`)) {
-                    els.image.src = targetSrc;
-                }
-            });
-        }
-        function getDoorSlotCameraKey(slot) {
-            const key = String((doorViewSlots || {})[slot] || '').trim();
-            if (key) return key;
-            return slot === 'right' ? 'main' : 'aux';
-        }
-        function getDoorSlotElements(slot) {
-            const isRight = slot === 'right';
-            return {
-                image: document.getElementById(isRight ? 'videoImgAux' : 'videoImg'),
-                canvas: document.getElementById(isRight ? 'drawCanvasAux' : 'drawCanvasMain'),
-                label: document.getElementById(isRight ? 'doorCameraAuxLabel' : 'doorCameraMainLabel'),
-                state: document.getElementById(isRight ? 'doorCameraAuxState' : 'doorCameraMainState'),
-                meta: document.getElementById(isRight ? 'doorCameraAuxMeta' : 'doorCameraMainMeta'),
-            };
-        }
-        function updateDoorSlotLabels() {
-            ['left', 'right'].forEach(slot => {
-                const cameraKey = getDoorSlotCameraKey(slot);
-                const payload = doorCameraStatusCache[cameraKey] || {};
-                const els = getDoorSlotElements(slot);
-                if (els.label) {
-                    const slotText = slot === 'right' ? '右侧画面' : '左侧画面';
-                    els.label.textContent = `${slotText} · ${payload.name || cameraKey || '--'}`;
-                }
-            });
-        }
-        function startDoorVideoStream() {
-            const leftEls = getDoorSlotElements('left');
-            const rightEls = getDoorSlotElements('right');
-            if (!leftEls.image && !rightEls.image) return;
-            doorVideoActive = true;
-            doorVideoNonce += 1;
-            syncDoorVideoSources(true);
-            updateDoorSlotLabels();
-        }
-        function stopDoorVideoStream() {
-            doorVideoActive = false;
-            ['left', 'right'].forEach(slot => {
-                const els = getDoorSlotElements(slot);
-                if (els.image) els.image.removeAttribute('src');
-            });
-        }
         function isPageVisible() {
             return document.visibilityState !== 'hidden';
         }
@@ -581,8 +463,13 @@
                 stopDoorVideoStream();
             } else if (getActiveViewId() === 'door') {
                 setTimeout(() => {
-                    startDoorVideoStream();
-                    updateDoorStatus(true);
+                    ensureViewReady('door')
+                        .then(() => {
+                            if (getActiveViewId() !== 'door') return;
+                            startDoorVideoStream();
+                            updateDoorStatus(true);
+                        })
+                        .catch(() => {});
                 }, 80);
             }
             refreshPollingVisibility();
@@ -1643,7 +1530,18 @@
                 }, 80);
             }
             if (viewId === 'hvac') setTimeout(() => { ensureViewReady('hvac').then(() => { updateHvacStatus(true); updateEnvData(); }).catch(() => {}); }, 80);
-            if (viewId === 'door') setTimeout(() => { initCanvas(); updateDoorStatus(true).finally(() => startDoorVideoStream()); }, 100);
+            if (viewId === 'door') setTimeout(() => {
+                ensureViewReady('door')
+                    .then(() => {
+                        if (getActiveViewId() !== 'door') return null;
+                        initCanvas();
+                        return updateDoorStatus(true);
+                    })
+                    .finally(() => {
+                        if (getActiveViewId() === 'door') startDoorVideoStream();
+                    })
+                    .catch(() => {});
+            }, 100);
             if (viewId === 'sequencer') setTimeout(() => { ensureViewReady('sequencer').then(() => updateSequencerStatus()).catch(() => {}); }, 80);
             if (viewId === 'universal') setTimeout(() => { ensureViewReady('universal').then(() => updateNodeRedDevices(true)).catch(() => {}); }, 80);
             if (viewId === 'apple_audio') setTimeout(() => { ensureViewReady('apple_audio').then(() => initAppleAudioDemo()).catch(() => {}); }, 60);
@@ -1885,75 +1783,10 @@
 
         setInterval(updateGlobalClock, 1000);
 
-        // 门禁控制
-        let doorDrawState = { slot: '', isDrawing: false, startX: 0, startY: 0 };
-        function initDoorCanvas(slot) {
-            const els = getDoorSlotElements(slot);
-            if (!els.canvas || !els.image) return;
-            if (els.image.clientWidth > 0) {
-                els.canvas.width = els.image.clientWidth;
-                els.canvas.height = els.image.clientHeight;
-            }
-        }
-        ['left', 'right'].forEach(slot => {
-            const els = getDoorSlotElements(slot);
-            if (!els.canvas || !els.image) return;
-            const ctx = els.canvas.getContext('2d');
-            els.image.onload = function() { initDoorCanvas(slot); };
-            els.canvas.addEventListener('mousedown', function(e) {
-                if (doorDrawState.slot !== slot) return;
-                doorDrawState.isDrawing = true;
-                const rect = els.image.getBoundingClientRect();
-                doorDrawState.startX = e.clientX - rect.left;
-                doorDrawState.startY = e.clientY - rect.top;
-            });
-            els.canvas.addEventListener('mousemove', function(e) {
-                if (doorDrawState.slot !== slot || !doorDrawState.isDrawing) return;
-                const rect = els.image.getBoundingClientRect();
-                const currentX = e.clientX - rect.left;
-                const currentY = e.clientY - rect.top;
-                ctx.clearRect(0, 0, els.canvas.width, els.canvas.height);
-                ctx.strokeStyle = '#3b82f6';
-                ctx.lineWidth = 3;
-                ctx.strokeRect(doorDrawState.startX, doorDrawState.startY, currentX - doorDrawState.startX, currentY - doorDrawState.startY);
-            });
-            els.canvas.addEventListener('mouseup', function(e) {
-                if (doorDrawState.slot !== slot || !doorDrawState.isDrawing) return;
-                doorDrawState.isDrawing = false;
-                const rect = els.image.getBoundingClientRect();
-                const endX = e.clientX - rect.left;
-                const endY = e.clientY - rect.top;
-                const p_x1 = Math.max(0, Math.min(doorDrawState.startX, endX) / rect.width);
-                const p_y1 = Math.max(0, Math.min(doorDrawState.startY, endY) / rect.height);
-                const p_x2 = Math.min(1, Math.max(doorDrawState.startX, endX) / rect.width);
-                const p_y2 = Math.min(1, Math.max(doorDrawState.startY, endY) / rect.height);
-                const cameraKey = getDoorSlotCameraKey(slot);
-                saveDoorRegionSelection({ camera_key: cameraKey, p_x1, p_y1, p_x2, p_y2 })
-                    .then(data => {
-                        doorRegionsCache[cameraKey] = (data && data.region) ? data.region : { p_x1, p_y1, p_x2, p_y2 };
-                        ctx.clearRect(0, 0, els.canvas.width, els.canvas.height);
-                        els.canvas.style.display = 'none';
-                        doorDrawState.slot = '';
-                    })
-                    .catch(err => {
-                        showToast(`保存失败: ${translateApiError(err?.message, '请稍后重试')}`, true);
-                    });
-            });
-        });
-        window.onresize = () => {
-            initDoorCanvas('left');
-            initDoorCanvas('right');
+        window.addEventListener('resize', () => {
+            if (getActiveViewId() === 'door' || window.SmartCenter?.doorRuntime) initCanvas();
             resizePowerCharts();
-        };
-        function startDrawRegion(slot = 'right') {
-            const els = getDoorSlotElements(slot);
-            if (!els.canvas || !els.image) return;
-            initDoorCanvas(slot);
-            doorDrawState = { slot, isDrawing: false, startX: 0, startY: 0 };
-            els.canvas.style.display = 'block';
-            els.canvas.style.cursor = 'crosshair';
-            showToast(`请在${slot === 'right' ? '右侧' : '左侧'}画面拖拽框选检测区域`);
-        }
+        });
         function openWizard() { document.getElementById('aiWizardModal').style.display = 'block'; document.getElementById('step1-card').style.opacity = '1'; document.getElementById('step1-card').style.pointerEvents = 'auto'; document.getElementById('step2-card').style.opacity = '0.4'; document.getElementById('step2-card').style.pointerEvents = 'none'; }
         function closeWizard() { document.getElementById('aiWizardModal').style.display = 'none'; }
         const wizardBox = document.getElementById('wizardBox'); const wizardHeader = document.getElementById('wizardHeader'); let isWizDragging = false; let wizOffsetX = 0, wizOffsetY = 0; wizardHeader.addEventListener('mousedown', function(e) { if(e.target.tagName.toLowerCase() === 'button') return; isWizDragging = true; wizOffsetX = e.clientX - wizardBox.offsetLeft; wizOffsetY = e.clientY - wizardBox.offsetTop; wizardBox.style.transition = 'none'; wizardBox.style.opacity = '0.9'; }); document.addEventListener('mousemove', function(e) { if (!isWizDragging) return; wizardBox.style.left = (e.clientX - wizOffsetX) + 'px'; wizardBox.style.top = (e.clientY - wizOffsetY) + 'px'; wizardBox.style.right = 'auto'; }); document.addEventListener('mouseup', function() { if (isWizDragging) { isWizDragging = false; wizardBox.style.transition = 'opacity 0.2s'; wizardBox.style.opacity = '1'; } });
@@ -2237,10 +2070,53 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             reportFrontendError('window.unhandledrejection', detail);
         });
 
-        function initCanvas() {
-            initDoorCanvas('left');
-            initDoorCanvas('right');
+        function getDoorRuntimeContext() {
+            return {
+                fetchJsonLoose,
+                ensurePermission,
+                showToast,
+                translateApiError,
+                escapeHtml,
+                updateDashboardDoorStatusFromEnv,
+                updateDashboardDoorStatusFromVision,
+            };
         }
+        window.getDoorRuntimeContext = getDoorRuntimeContext;
+        function withDoorRuntime(callback, contextLabel = '门禁运行时模块') {
+            return ensureModulesReady(['door-runtime'], contextLabel)
+                .then(() => {
+                    const api = window.SmartCenter?.doorRuntime || null;
+                    if (api && typeof callback === 'function') return callback(api, getDoorRuntimeContext());
+                    return null;
+                })
+                .catch(() => null);
+        }
+        function initCanvas() {
+            return withDoorRuntime((api) => api.initCanvas(), '门禁画布模块');
+        }
+        function startDrawRegion(slot = 'right') {
+            return withDoorRuntime((api) => api.startDrawRegion(slot), '门禁框选模块');
+        }
+        function startDoorVideoStream() {
+            return withDoorRuntime((api) => api.startDoorVideoStream(), '门禁视频模块');
+        }
+        function stopDoorVideoStream() {
+            const api = window.SmartCenter?.doorRuntime || null;
+            if (api && typeof api.stopDoorVideoStream === 'function') api.stopDoorVideoStream();
+            return Promise.resolve(null);
+        }
+        function updateDoorStatus(force = false) {
+            return withDoorRuntime((api, ctx) => api.updateDoorStatus(force, ctx), '门禁状态模块');
+        }
+        function controlDoor(action) {
+            return withDoorRuntime((api, ctx) => api.controlDoor(action, ctx), '门禁控制模块');
+        }
+        window.initCanvas = initCanvas;
+        window.startDrawRegion = startDrawRegion;
+        window.startDoorVideoStream = startDoorVideoStream;
+        window.stopDoorVideoStream = stopDoorVideoStream;
+        window.updateDoorStatus = updateDoorStatus;
+        window.controlDoor = controlDoor;
 
         document.addEventListener('DOMContentLoaded', () => {
             applyAdaptiveDensity();
@@ -2320,8 +2196,11 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             if (getActiveViewId() === 'door') {
                 setTimeout(() => {
                     guardFrontendStep('bootstrap.door_init', () => {
+                        if (getActiveViewId() !== 'door') return;
                         initCanvas();
-                        updateDoorStatus(true).finally(() => startDoorVideoStream());
+                        updateDoorStatus(true).finally(() => {
+                            if (getActiveViewId() === 'door') startDoorVideoStream();
+                        });
                     });
                 }, 180);
             }
@@ -2363,145 +2242,9 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         registerPollingTask('logs', 5000, () => updateDashboardLogs(), () => getActiveViewId() === 'dashboard');
         registerPollingTask('event_logs', 5000, () => refreshEventLogs(false), () => getActiveViewId() === 'logs');
 
-        function saveDoorRegionSelection(regionPayload) {
-            return fetchJsonLoose('/update_door_region', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(regionPayload)
-            }, '保存检测区域失败').then(data => {
-                showToast(data.msg || '检测区域已更新', data.status === 'error');
-                if (data.status === 'error') {
-                    throw new Error(data.msg || '保存检测区域失败');
-                }
-                return data;
-            });
-        }
-
-        function requestDoorStatus() {
-            return fetchJsonLoose('/get_door_status', {}, '读取门禁状态失败');
-        }
-
-        function postDoorAction(action) {
-            return fetchJsonLoose(`/door_control/${action}`, {}, '门禁指令下发失败');
-        }
-
-        updateSequencerStatus = function() {
-            return withSequencerRuntime(
-                (api, ctx) => api.updateSequencerStatus(ctx),
-                '时序电源状态模块'
-            );
-        };
-
-        fireSequencerAction = function(id, action, channel = null) {
-            return withSequencerRuntime(
-                (api, ctx) => api.fireSequencerAction(id, action, channel, ctx),
-                '时序电源控制模块'
-            );
-        };
-
-        setSequencerFilter = function(mode, scope = 'dashboard') {
-            return withSequencerRuntime(
-                (api, ctx) => api.setSequencerFilter(mode, scope, ctx),
-                '时序电源筛选模块'
-            );
-        };
-
-        updateDoorStatus = function(force = false) {
-            const now = Date.now();
-            if (!force && now - lastDoorStatusFetchAt < 1000) return Promise.resolve(null);
-            lastDoorStatusFetchAt = now;
-            return requestDoorStatus()
-                .then(data => {
-                    if (data.status !== 'success') return null;
-                    const cameraMap = {};
-                    (Array.isArray(data.cameras) ? data.cameras : []).forEach(item => {
-                        const key = String(item?.key || '').trim();
-                        if (key) cameraMap[key] = item;
-                    });
-                    doorCameraStatusCache = cameraMap;
-                    if (data.view_slots && typeof data.view_slots === 'object') doorViewSlots = data.view_slots;
-                    if (data.regions && typeof data.regions === 'object') doorRegionsCache = data.regions;
-                    const leftCameraKey = getDoorSlotCameraKey('left');
-                    const rightCameraKey = getDoorSlotCameraKey('right');
-                    setDoorSlotVisual('left', cameraMap[leftCameraKey] || {});
-                    setDoorSlotVisual('right', cameraMap[rightCameraKey] || {});
-                    updateDoorSlotLabels();
-                    renderDoorNetworkSummary();
-                    syncDoorVideoSources(force);
-                    const statusEl = document.getElementById('doorStatus');
-                    if (statusEl) {
-                        statusEl.textContent = data.msg;
-                        statusEl.className = `tag door-status-${data.door_status}`;
-                    }
-                    const debugTip = document.getElementById('debugTip');
-                    if (debugTip) {
-                        const offlineCount = Object.values(cameraMap).filter(item => item && item.online === false && item.configured).length;
-                        debugTip.textContent = offlineCount > 0 ? `视觉辅助，${offlineCount} 路视频链路异常 | ${data.diff}` : `视觉辅助识别 | ${data.diff}`;
-                    }
-                    if (!updateDashboardDoorStatusFromEnv()) updateDashboardDoorStatusFromVision(data);
-                    return data;
-                })
-                .catch(() => {
-                    const statusEl = document.getElementById('doorStatus');
-                    if (statusEl) statusEl.textContent = '检测器离线';
-                    setDoorSlotVisual('left', { configured: true, online: false, last_error: 'status_fetch_failed', last_error_text: '状态读取失败' });
-                    setDoorSlotVisual('right', { configured: true, online: false, last_error: 'status_fetch_failed', last_error_text: '状态读取失败' });
-                    renderDoorNetworkSummary();
-                    return null;
-                });
-        };
-
-        captureWizard = function(state, statusId) {
-            const btn = event.target;
-            const oldText = btn.innerHTML;
-            btn.innerHTML = '正在保存...';
-            btn.disabled = true;
-            fetchJsonLoose(`/api/ai_wizard/capture/${state}`, { method: 'POST' }, '拍照保存失败')
-                .then(data => {
-                    showToast(data.msg || '拍照完成', data.status === 'error');
-                    if (data.status === 'success') {
-                        const statusSpan = document.getElementById(statusId);
-                        if (statusSpan) {
-                            statusSpan.innerHTML = '已保存';
-                            statusSpan.style.color = 'var(--success)';
-                        }
-                        if (state === 'closed') {
-                            document.getElementById('step1-card').style.opacity = '0.4';
-                            document.getElementById('step1-card').style.pointerEvents = 'none';
-                            document.getElementById('step2-card').style.opacity = '1';
-                            document.getElementById('step2-card').style.pointerEvents = 'auto';
-                        }
-                    }
-                })
-                .catch(() => showToast('拍照保存失败', true))
-                .finally(() => {
-                    btn.innerHTML = oldText;
-                    btn.disabled = false;
-                });
-        };
-
-        applyAiCalibration = function() {
-            const btn = document.getElementById('btnWizardRecord');
-            btn.textContent = '正在提取并计算...';
-            btn.disabled = true;
-            fetchJsonLoose('/api/ai_wizard/apply_model', { method: 'POST' }, '生成模型失败')
-                .then(data => {
-                    showToast(data.msg || '模型生成完成', data.status === 'error');
-                    if (data.status === 'success') setTimeout(closeWizard, 1500);
-                })
-                .catch(() => showToast('生成模型失败', true))
-                .finally(() => {
-                    btn.disabled = false;
-                    btn.innerHTML = '一键生成 AI 推演模型';
-                });
-        };
-
-        controlDoor = function(action) {
-            if (!ensurePermission('door.control', '控制门禁')) return;
-            postDoorAction(action)
-                .then(data => showToast(data.msg || '门禁指令已下发', data.status === 'error'))
-                .catch(() => showToast('指令下发失败', true));
-        };
+        // AI_BRIDGE: door_runtime
+        // 门禁状态、视频取流、区域框选和真实开关门控制已迁移到 static/js/views/door-runtime.js。
+        // 保留全局函数名是为了兼容模板内联 onclick 与历史轮询入口。
 
         doPowerStart = function(cabId) {
             if (!ensurePermission('power.control', '执行强电启动')) return;
