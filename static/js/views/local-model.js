@@ -16,6 +16,125 @@
 
   function $(id) { return document.getElementById(id); }
   function esc(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+  function renderLocalModelPage() {
+    const root = $('view-local_model');
+    if (!root || $('local-model-shell')) return;
+    root.innerHTML = `
+      <div class="card">
+        <div class="card-title">
+          <span>本地模型</span>
+          <div class="local-model-actions">
+            <span class="local-model-status" id="healthBadge">未检测</span>
+            <button class="local-model-btn secondary" type="button" onclick="checkHealth()">检测服务</button>
+          </div>
+        </div>
+        <div class="local-model-shell" id="local-model-shell">
+          <section class="local-model-card local-model-chat">
+            <div class="local-model-head">
+              <div>
+                <div class="local-model-title">对话入口</div>
+                <div class="local-model-subtitle" id="modelLine">读取配置中...</div>
+              </div>
+              <div class="local-model-actions">
+                <button class="local-model-btn secondary" type="button" onclick="clearChat()">清空</button>
+              </div>
+            </div>
+            <div class="local-model-meta-grid">
+              <div class="local-model-meta-item">
+                <div class="local-model-meta-label">模型</div>
+                <div class="local-model-meta-value" id="localModelNameMeta">--</div>
+              </div>
+              <div class="local-model-meta-item">
+                <div class="local-model-meta-label">知识库</div>
+                <div class="local-model-meta-value" id="localModelDocsMeta">--</div>
+              </div>
+              <div class="local-model-meta-item">
+                <div class="local-model-meta-label">上下文</div>
+                <div class="local-model-meta-value" id="localModelContextMeta">--</div>
+              </div>
+              <div class="local-model-meta-item">
+                <div class="local-model-meta-label">vLLM</div>
+                <div class="local-model-meta-value" id="localModelVllmMeta">--</div>
+              </div>
+            </div>
+            <div class="local-model-messages messages" id="messages"></div>
+            <div class="local-model-composer">
+              <textarea class="local-model-textarea" id="prompt" placeholder="问本地模型，例如：整理当前投影机、空调、强电柜的协议和状态关注点"></textarea>
+              <button class="local-model-btn" id="sendBtn" type="button" onclick="sendChat()">发送</button>
+            </div>
+          </section>
+          <aside class="local-model-side">
+            <section class="local-model-card">
+              <div class="local-model-head">
+                <div class="local-model-title">后台配置</div>
+                <span class="local-model-status" id="saveBadge">未保存</span>
+              </div>
+              <div class="local-model-form">
+                <div>
+                  <label>名称</label>
+                  <input class="local-model-input" id="cfgName">
+                </div>
+                <div>
+                  <label>对话入口 / 知识代理</label>
+                  <input class="local-model-input" id="cfgBaseUrl">
+                </div>
+                <div>
+                  <label>vLLM 上游服务</label>
+                  <input class="local-model-input" id="cfgVllmBaseUrl">
+                </div>
+                <div>
+                  <label>模型</label>
+                  <input class="local-model-input" id="cfgModel">
+                </div>
+                <div>
+                  <label>API Key</label>
+                  <input class="local-model-input" id="cfgApiKey" placeholder="留空则保留原值，可填 dummy">
+                </div>
+                <div class="local-model-row2">
+                  <div>
+                    <label>温度</label>
+                    <input class="local-model-input" id="cfgTemperature" type="number" step="0.1" min="0" max="2">
+                  </div>
+                  <div>
+                    <label>输出上限</label>
+                    <input class="local-model-input" id="cfgMaxTokens" type="number" min="64" max="4096">
+                  </div>
+                </div>
+                <div class="local-model-row2">
+                  <div>
+                    <label>上下文长度</label>
+                    <input class="local-model-input" id="cfgMaxModelLen" type="number" min="1024" max="262144">
+                  </div>
+                  <div>
+                    <label>超时秒数</label>
+                    <input class="local-model-input" id="cfgTimeout" type="number" min="3" max="600">
+                  </div>
+                </div>
+                <div>
+                  <label>系统提示词</label>
+                  <textarea class="local-model-textarea" id="cfgSystemPrompt"></textarea>
+                </div>
+                <div class="local-model-actions">
+                  <button class="local-model-btn success" type="button" onclick="saveConfig()">保存配置</button>
+                  <button class="local-model-btn secondary" type="button" onclick="loadConfig()">重新读取</button>
+                </div>
+                <div class="local-model-hint">默认使用 122 的知识代理 8001 作为对话入口，vLLM 8000 作为上游状态校验。真实控制类建议只由模型分析，最终动作仍在中控页面执行。</div>
+              </div>
+            </section>
+            <section class="local-model-card">
+              <div class="local-model-head">
+                <div class="local-model-title">训练数据导出</div>
+                <button class="local-model-btn warning" type="button" onclick="exportTraining()">生成</button>
+              </div>
+              <div class="local-model-form">
+                <div class="local-model-hint" id="exportInfo">将设备、协议配置、事件日志和操作日志归一化为 JSON/JSONL，并自动脱敏凭据。</div>
+              </div>
+              <div class="local-model-files" id="files"></div>
+            </section>
+          </aside>
+        </div>
+      </div>`;
+  }
   function hasUi() { return !!($('messages') && $('prompt') && $('sendBtn')); }
   function optionalSet(id, value) { const el = $(id); if (el) el.textContent = value; }
   function optionalValue(id, value) { const el = $(id); if (el) el.value = value; }
@@ -223,6 +342,7 @@
     await loadFiles();
   }
   function init() {
+    renderLocalModelPage();
     if (!hasUi()) return;
     if (!initialized) {
       const prompt = $('prompt');
@@ -246,6 +366,7 @@
     init,
     loadConfig,
     loadFiles,
+    renderLocalModelPage,
     renderMessages,
     saveConfig,
     sendChat,
