@@ -3,49 +3,83 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-css-lazy-split';
-        const fullThemeCss = `/static/smart-center-time-ntp.css?v=${lazyModuleVersion}`;
+        const lazyModuleVersion = '20260531-css-module-split';
+        const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
+        const viewStyleGroups = {
+            dashboard: [lazyStyle('dashboard')],
+            server: [lazyStyle('server')],
+            hvac: [lazyStyle('hvac')],
+            projector: [lazyStyle('projector')],
+            snmp: [lazyStyle('snmp')],
+            proxy: [lazyStyle('proxy')],
+            universal: [lazyStyle('universal')],
+            apple_audio: [lazyStyle('apple_audio')],
+            local_model: [`/static/css/views/local-model.css?v=${lazyModuleVersion}`],
+            power: [lazyStyle('power')],
+            meter: [lazyStyle('meter')],
+            ups: [lazyStyle('ups')],
+            auto: [lazyStyle('auto')],
+            sequencer: [lazyStyle('sequencer')],
+            env: [lazyStyle('env')],
+            logs: [lazyStyle('logs')],
+        };
+        SmartCenter.registerLazyModule('server-view-style', { styles: viewStyleGroups.server });
         SmartCenter.registerLazyModule('server-monitor-view', {
-            styles: [fullThemeCss],
             scripts: [`/static/js/views/server-monitor.js?v=${lazyModuleVersion}`],
         });
+        SmartCenter.registerLazyModule('hvac-view-style', { styles: viewStyleGroups.hvac });
         SmartCenter.registerLazyModule('hvac-view', {
-            styles: [fullThemeCss],
             scripts: [`/static/js/views/hvac-view.js?v=${lazyModuleVersion}`],
         });
+        SmartCenter.registerLazyModule('projector-view-style', { styles: viewStyleGroups.projector });
         SmartCenter.registerLazyModule('projector-view', {
-            styles: [fullThemeCss],
             scripts: [`/static/js/views/projector.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('snmp-full', {
-            styles: [fullThemeCss],
+            styles: viewStyleGroups.snmp,
             scripts: [`/static/js/views/snmp.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('proxy-view', {
-            styles: [fullThemeCss],
+            styles: viewStyleGroups.proxy,
             scripts: [`/static/js/views/proxy.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('universal-view', {
-            styles: [fullThemeCss],
+            styles: viewStyleGroups.universal,
             scripts: [`/static/js/views/universal.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('apple-audio-view', {
-            styles: [fullThemeCss],
+            styles: viewStyleGroups.apple_audio,
             scripts: [`/static/js/views/apple-audio.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('local-model-view', {
-            styles: [fullThemeCss, `/static/css/views/local-model.css?v=${lazyModuleVersion}`],
+            styles: viewStyleGroups.local_model,
             scripts: [`/static/js/views/local-model.js?v=${lazyModuleVersion}`],
         });
-        SmartCenter.registerViewModules('server', ['server-monitor-view']);
-        SmartCenter.registerViewModules('hvac', ['hvac-view']);
-        SmartCenter.registerViewModules('projector', ['projector-view']);
+        SmartCenter.registerLazyModule('power-view-style', { styles: viewStyleGroups.power });
+        SmartCenter.registerLazyModule('meter-view-style', { styles: viewStyleGroups.meter });
+        SmartCenter.registerLazyModule('ups-view-style', { styles: viewStyleGroups.ups });
+        SmartCenter.registerLazyModule('auto-view-style', { styles: viewStyleGroups.auto });
+        SmartCenter.registerLazyModule('sequencer-view-style', { styles: viewStyleGroups.sequencer });
+        SmartCenter.registerLazyModule('env-view-style', { styles: viewStyleGroups.env });
+        SmartCenter.registerLazyModule('logs-view-style', { styles: viewStyleGroups.logs });
+        SmartCenter.registerLazyModule('dashboard-view-style', { styles: viewStyleGroups.dashboard });
+        SmartCenter.registerViewModules('dashboard', ['dashboard-view-style']);
+        SmartCenter.registerViewModules('server', ['server-view-style', 'server-monitor-view']);
+        SmartCenter.registerViewModules('hvac', ['hvac-view-style', 'hvac-view']);
+        SmartCenter.registerViewModules('projector', ['projector-view-style', 'projector-view']);
         SmartCenter.registerViewModules('snmp', ['snmp-full']);
         SmartCenter.registerViewModules('camera_preview', ['snmp-full']);
         SmartCenter.registerViewModules('proxy', ['proxy-view']);
         SmartCenter.registerViewModules('universal', ['universal-view']);
         SmartCenter.registerViewModules('apple_audio', ['apple-audio-view']);
         SmartCenter.registerViewModules('local_model', ['local-model-view']);
+        SmartCenter.registerViewModules('power', ['power-view-style']);
+        SmartCenter.registerViewModules('meter', ['meter-view-style']);
+        SmartCenter.registerViewModules('ups', ['ups-view-style']);
+        SmartCenter.registerViewModules('auto', ['auto-view-style']);
+        SmartCenter.registerViewModules('sequencer', ['sequencer-view-style']);
+        SmartCenter.registerViewModules('env', ['env-view-style']);
+        SmartCenter.registerViewModules('logs', ['logs-view-style']);
         function ensureModulesReady(moduleNames, contextLabel = '功能模块') {
             if (!window.SmartCenter || typeof SmartCenter.ensureModules !== 'function') return Promise.resolve([]);
             return SmartCenter.ensureModules(moduleNames).catch(err => {
@@ -2999,6 +3033,7 @@
             syncCurrentViewToUrl(viewId);
             if (window.innerWidth <= 760) closeSidebar();
             if (viewId !== 'door') stopDoorVideoStream();
+            ensureViewReady(viewId).catch(() => {});
             if (viewId === 'power') setTimeout(() => {
                 Object.entries(powerHistoryCache || {}).forEach(([cabId, rows]) => renderPowerEnergyChart(cabId, rows));
                 resizePowerCharts();

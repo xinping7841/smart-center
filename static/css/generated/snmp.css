@@ -1,0 +1,1571 @@
+/* AI_MODULE: css_snmp_theme
+   AI_PURPOSE: snmp view styling extracted from smart-center-time-ntp.css for lazy loading. */
+.snmp-port-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px; margin-bottom:14px; }
+
+.snmp-port-card { background:linear-gradient(180deg, rgba(2,6,23,0.42), rgba(15,23,42,0.28)); border:1px solid rgba(148,163,184,0.10); border-radius:12px; padding:10px 11px; min-height:94px; }
+
+.snmp-port-card.up { border-color:rgba(16,185,129,0.28); box-shadow:0 10px 18px rgba(16,185,129,0.08); }
+
+.snmp-port-card.down { border-color:rgba(100,116,139,0.22); }
+
+.snmp-port-name { font-size:12px; font-weight:800; color:#e2e8f0; line-height:1.35; word-break:break-word; }
+
+.snmp-port-meta { margin-top:6px; font-size:11px; color:#94a3b8; line-height:1.5; }
+
+.snmp-port-status-row { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+
+.snmp-insight-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; margin-bottom:14px; }
+
+.snmp-insight-panel { background:linear-gradient(180deg, rgba(2,6,23,0.42), rgba(15,23,42,0.28)); border:1px solid rgba(148,163,184,0.10); border-radius:14px; padding:12px; }
+
+.snmp-insight-panel.warning { border-color:rgba(245,158,11,0.30); box-shadow:0 10px 18px rgba(245,158,11,0.08); }
+
+.snmp-insight-panel.critical { border-color:rgba(239,68,68,0.34); box-shadow:0 10px 18px rgba(239,68,68,0.10); }
+
+.snmp-insight-head { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:10px; }
+
+.snmp-insight-title { font-size:13px; font-weight:800; color:#f8fafc; }
+
+.snmp-insight-note { font-size:11px; color:#94a3b8; }
+
+.snmp-stat-row { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
+
+.snmp-stat-card { background:rgba(15,23,42,0.44); border:1px solid rgba(148,163,184,0.10); border-radius:12px; padding:10px; min-height:72px; }
+
+.snmp-stat-card .label { font-size:11px; color:#94a3b8; margin-bottom:6px; }
+
+.snmp-stat-card .value { font-size:14px; font-weight:800; color:#f8fafc; line-height:1.4; }
+
+.snmp-flow-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin-bottom:14px; }
+
+.snmp-flow-card { background:linear-gradient(180deg, rgba(2,6,23,0.42), rgba(15,23,42,0.28)); border:1px solid rgba(148,163,184,0.10); border-radius:12px; padding:12px; min-height:120px; }
+
+.snmp-flow-card.wan { border-color:rgba(59,130,246,0.28); }
+
+.snmp-flow-card.lan { border-color:rgba(16,185,129,0.26); }
+
+.snmp-flow-card.physical { border-color:rgba(148,163,184,0.22); }
+
+.snmp-flow-title { font-size:12px; font-weight:800; color:#e2e8f0; margin-bottom:10px; }
+
+.snmp-flow-list { display:flex; flex-direction:column; gap:8px; }
+
+.snmp-flow-item { padding:8px 9px; border-radius:10px; background:rgba(15,23,42,0.46); border:1px solid rgba(148,163,184,0.08); }
+
+.snmp-flow-item-name { font-size:12px; font-weight:700; color:#f8fafc; }
+
+.snmp-flow-item-meta { margin-top:4px; font-size:11px; color:#94a3b8; line-height:1.5; }
+
+.snmp-storage-list { display:flex; flex-direction:column; gap:10px; margin-bottom:14px; }
+
+.snmp-storage-item { background:rgba(2,6,23,0.32); border:1px solid rgba(148,163,184,0.10); border-radius:12px; padding:12px; }
+
+.snmp-storage-item.warning { border-color:rgba(245,158,11,0.28); }
+
+.snmp-storage-item.critical { border-color:rgba(239,68,68,0.34); }
+
+.snmp-storage-top { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:8px; }
+
+.snmp-storage-name { font-size:12px; font-weight:800; color:#f8fafc; word-break:break-word; }
+
+.snmp-storage-usage { font-size:12px; font-weight:800; color:#e2e8f0; }
+
+.snmp-storage-bar { height:8px; border-radius:999px; background:rgba(148,163,184,0.16); overflow:hidden; }
+
+.snmp-storage-fill { height:100%; border-radius:999px; background:linear-gradient(90deg, #22c55e, #16a34a); }
+
+.snmp-storage-item.warning .snmp-storage-fill { background:linear-gradient(90deg, #f59e0b, #f97316); }
+
+.snmp-storage-item.critical .snmp-storage-fill { background:linear-gradient(90deg, #ef4444, #dc2626); }
+
+.snmp-storage-meta { margin-top:8px; font-size:11px; color:#94a3b8; line-height:1.5; }
+
+.snmp-hero { display:flex; justify-content:space-between; gap:14px; align-items:flex-start; margin-bottom:14px; }
+
+.snmp-hero-main { display:flex; gap:12px; align-items:flex-start; min-width:0; }
+
+.snmp-device-icon { width:54px; height:54px; border-radius:16px; display:flex; align-items:center; justify-content:center; font-size:26px; color:#f8fafc; flex-shrink:0; background:linear-gradient(135deg, rgba(59,130,246,0.24), rgba(15,23,42,0.92)); border:1px solid rgba(96,165,250,0.24); box-shadow:inset 0 1px 0 rgba(255,255,255,0.05); }
+
+.snmp-device-icon.nas { background:linear-gradient(135deg, rgba(14,165,233,0.24), rgba(15,23,42,0.92)); border-color:rgba(56,189,248,0.24); }
+
+.snmp-device-icon.router { background:linear-gradient(135deg, rgba(34,197,94,0.24), rgba(15,23,42,0.92)); border-color:rgba(74,222,128,0.24); }
+
+.snmp-device-icon.switch { background:linear-gradient(135deg, rgba(245,158,11,0.24), rgba(15,23,42,0.92)); border-color:rgba(251,191,36,0.24); }
+
+.snmp-hero-text { min-width:0; }
+
+.snmp-hero-kicker { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+
+.snmp-hero-title { font-size:22px; font-weight:800; color:#f8fafc; line-height:1.1; }
+
+.snmp-hero-subtitle { margin-top:5px; color:#94a3b8; font-size:13px; line-height:1.6; }
+
+.snmp-kpi-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px; margin-bottom:14px; }
+
+.snmp-kpi-card { position:relative; overflow:hidden; background:linear-gradient(180deg, rgba(15,23,42,0.66), rgba(2,6,23,0.48)); border:1px solid rgba(148,163,184,0.12); border-radius:14px; padding:12px; min-height:92px; }
+
+.snmp-kpi-card::after { content:''; position:absolute; inset:auto 0 0 0; height:3px; background:linear-gradient(90deg, rgba(59,130,246,0.9), rgba(14,165,233,0.9)); opacity:0.9; }
+
+.snmp-kpi-card.nas::after { background:linear-gradient(90deg, #06b6d4, #3b82f6); }
+
+.snmp-kpi-card.router::after { background:linear-gradient(90deg, #22c55e, #06b6d4); }
+
+.snmp-kpi-card.switch::after { background:linear-gradient(90deg, #f59e0b, #f97316); }
+
+.snmp-kpi-label { font-size:11px; color:#94a3b8; margin-bottom:8px; }
+
+.snmp-kpi-value { font-size:18px; font-weight:800; color:#f8fafc; line-height:1.25; word-break:break-word; }
+
+.snmp-kpi-meta { margin-top:6px; font-size:11px; color:#7dd3fc; line-height:1.4; }
+
+.snmp-switch-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; margin-bottom:14px; }
+
+.snmp-switch-panel { background:linear-gradient(180deg, rgba(2,6,23,0.42), rgba(15,23,42,0.28)); border:1px solid rgba(148,163,184,0.10); border-radius:14px; padding:12px; }
+
+.snmp-switch-panel.warning { border-color:rgba(245,158,11,0.30); }
+
+.snmp-switch-panel.critical { border-color:rgba(239,68,68,0.34); }
+
+.snmp-switch-port-grid { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px; }
+
+.snmp-switch-port { border-radius:12px; padding:10px; background:rgba(15,23,42,0.46); border:1px solid rgba(148,163,184,0.10); min-height:102px; }
+
+.snmp-switch-port.up { border-color:rgba(34,197,94,0.24); box-shadow:0 8px 16px rgba(16,185,129,0.08); }
+
+.snmp-switch-port.down { border-color:rgba(148,163,184,0.16); opacity:0.92; }
+
+.snmp-switch-port.uplink { border-color:rgba(59,130,246,0.30); box-shadow:0 8px 18px rgba(59,130,246,0.10); }
+
+.snmp-switch-port-name { font-size:12px; font-weight:800; color:#f8fafc; line-height:1.35; word-break:break-word; }
+
+.snmp-switch-port-head { display:flex; justify-content:space-between; gap:8px; align-items:flex-start; }
+
+.snmp-switch-port-index { display:inline-flex; align-items:center; justify-content:center; min-width:38px; padding:3px 8px; border-radius:999px; font-size:10px; font-weight:900; color:#cbd5e1; background:rgba(51,65,85,0.58); border:1px solid rgba(148,163,184,0.14); flex-shrink:0; }
+
+.snmp-switch-port-meta { margin-top:6px; font-size:11px; color:#94a3b8; line-height:1.5; }
+
+.snmp-switch-port-status { margin-top:8px; display:flex; gap:6px; flex-wrap:wrap; }
+
+.snmp-highlight-panel { margin-bottom:14px; border-radius:14px; padding:12px; background:linear-gradient(180deg, rgba(51,65,85,0.28), rgba(15,23,42,0.34)); border:1px solid rgba(148,163,184,0.14); }
+
+.snmp-highlight-panel.warning { border-color:rgba(245,158,11,0.34); box-shadow:0 10px 18px rgba(245,158,11,0.08); }
+
+.snmp-highlight-panel.critical { border-color:rgba(239,68,68,0.34); box-shadow:0 10px 18px rgba(239,68,68,0.10); }
+
+.snmp-highlight-title { font-size:13px; font-weight:800; color:#f8fafc; margin-bottom:6px; }
+
+.snmp-highlight-note { font-size:11px; color:#94a3b8; margin-bottom:10px; line-height:1.6; }
+
+.snmp-health-banner { margin-bottom:14px; border-radius:14px; padding:12px; border:1px solid rgba(148,163,184,0.14); background:linear-gradient(180deg, rgba(30,41,59,0.46), rgba(15,23,42,0.38)); }
+
+.snmp-health-banner.normal { border-color:rgba(16,185,129,0.34); box-shadow:0 10px 18px rgba(16,185,129,0.08); }
+
+.snmp-health-banner.warning { border-color:rgba(245,158,11,0.34); box-shadow:0 10px 18px rgba(245,158,11,0.08); }
+
+.snmp-health-banner.critical { border-color:rgba(239,68,68,0.34); box-shadow:0 10px 18px rgba(239,68,68,0.10); }
+
+.snmp-health-head { display:flex; justify-content:space-between; gap:12px; align-items:center; margin-bottom:10px; flex-wrap:wrap; }
+
+.snmp-health-title { font-size:13px; font-weight:800; color:#f8fafc; }
+
+.snmp-health-score { font-size:22px; font-weight:900; color:#f8fafc; }
+
+.snmp-summary-wrap { margin-bottom:12px; grid-column:1/-1; }
+
+.snmp-summary-wrap.dashboard { margin-bottom:8px; }
+
+.snmp-summary-wrap.dashboard .snmp-summary-head { display:none; }
+
+.snmp-summary-wrap.dashboard .snmp-summary-bar { grid-template-columns:repeat(6, minmax(0, 1fr)); gap:6px; }
+
+.snmp-summary-wrap.dashboard .snmp-summary-card { min-height:54px; padding:7px 8px; }
+
+.snmp-summary-wrap.dashboard .snmp-summary-card .label { margin-bottom:6px; }
+
+.snmp-summary-wrap.dashboard .snmp-summary-card .value { font-size:13px; }
+
+.snmp-summary-wrap.dashboard .snmp-summary-card .meta { display:none; }
+
+.snmp-summary-wrap.stats-only { margin:0; }
+
+.snmp-summary-head { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:10px; flex-wrap:wrap; }
+
+.snmp-summary-filter-tip { color:#94a3b8; font-size:12px; line-height:1.6; }
+
+.snmp-summary-filter-tip strong { color:#f8fafc; font-weight:800; }
+
+.snmp-summary-bar { display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:10px; }
+
+.snmp-summary-card { border-radius:14px; padding:10px 11px; background:linear-gradient(180deg, rgba(15,23,42,0.66), rgba(2,6,23,0.48)); border:1px solid rgba(148,163,184,0.12); min-height:76px; cursor:pointer; transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease, background .18s ease; }
+
+.snmp-summary-card:hover { transform:translateY(-1px); border-color:rgba(96,165,250,0.26); box-shadow:0 12px 24px rgba(15,23,42,0.22); }
+
+.snmp-summary-card.active { background:linear-gradient(180deg, rgba(30,64,175,0.34), rgba(15,23,42,0.62)); border-color:rgba(96,165,250,0.42); box-shadow:0 12px 24px rgba(59,130,246,0.18); }
+
+.snmp-summary-card.active.warning { background:linear-gradient(180deg, rgba(146,64,14,0.34), rgba(15,23,42,0.62)); border-color:rgba(245,158,11,0.42); box-shadow:0 12px 24px rgba(245,158,11,0.16); }
+
+.snmp-summary-card.active.critical { background:linear-gradient(180deg, rgba(127,29,29,0.34), rgba(15,23,42,0.62)); border-color:rgba(248,113,113,0.44); box-shadow:0 12px 24px rgba(239,68,68,0.18); }
+
+.snmp-summary-card .label { font-size:11px; color:#94a3b8; margin-bottom:8px; }
+
+.snmp-summary-card .value { font-size:16px; font-weight:900; color:#f8fafc; line-height:1.2; }
+
+.snmp-summary-card .meta { margin-top:6px; font-size:11px; color:#cbd5e1; line-height:1.5; }
+
+.snmp-filter-empty { grid-column:1/-1; text-align:center; border-radius:14px; padding:24px 18px; background:linear-gradient(180deg, rgba(15,23,42,0.54), rgba(2,6,23,0.36)); border:1px dashed rgba(148,163,184,0.22); color:#94a3b8; }
+
+.snmp-filter-empty strong { display:block; color:#f8fafc; font-size:15px; margin-bottom:8px; }
+
+.snmp-device-grid { grid-column:1/-1; display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:12px; align-items:start; }
+
+.snmp-dashboard-grid { grid-column:1/-1; display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 248px)); gap:10px; align-items:stretch; justify-content:flex-start; }
+
+.snmp-dashboard-card { position:relative; overflow:hidden; min-height:0; padding:9px 10px; border-radius:14px; background:linear-gradient(180deg, rgba(19,27,43,0.98), rgba(13,19,32,0.98)); border:1px solid rgba(71,85,105,0.5); box-shadow:0 8px 18px rgba(0,0,0,0.20); }
+
+.snmp-dashboard-card::after { content:''; position:absolute; left:0; right:0; bottom:0; height:3px; background:linear-gradient(90deg, rgba(59,130,246,0.9), rgba(14,165,233,0.86)); opacity:0.95; }
+
+.snmp-dashboard-card.warning { border-color:rgba(245,158,11,0.32); box-shadow:0 12px 24px rgba(245,158,11,0.10); }
+
+.snmp-dashboard-card.warning::after { background:linear-gradient(90deg, #f59e0b, #f97316); }
+
+.snmp-dashboard-card.critical { border-color:rgba(239,68,68,0.36); box-shadow:0 12px 24px rgba(239,68,68,0.12); }
+
+.snmp-dashboard-card.critical::after { background:linear-gradient(90deg, #ef4444, #dc2626); }
+
+.snmp-dashboard-card.offline { border-color:rgba(100,116,139,0.44); opacity:0.92; }
+
+.snmp-dashboard-head { display:flex; justify-content:space-between; gap:8px; align-items:flex-start; margin-bottom:7px; }
+
+.snmp-dashboard-main { display:flex; gap:10px; min-width:0; }
+
+.snmp-dashboard-body { min-width:0; }
+
+.snmp-dashboard-kicker { display:flex; align-items:center; gap:5px; flex-wrap:wrap; margin-bottom:4px; }
+
+.snmp-dashboard-title { font-size:13px; font-weight:800; color:#f8fafc; line-height:1.18; word-break:break-word; }
+
+.snmp-dashboard-subtitle { margin-top:2px; color:#94a3b8; font-size:10px; line-height:1.35; }
+
+.snmp-dashboard-status { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+
+.snmp-dashboard-score { margin-top:6px; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 7px; border-radius:10px; background:rgba(2,6,23,0.34); border:1px solid rgba(148,163,184,0.10); }
+
+.snmp-dashboard-score-label { font-size:10px; color:#94a3b8; }
+
+.snmp-dashboard-score-value { font-size:15px; font-weight:900; color:#f8fafc; line-height:1; }
+
+.snmp-dashboard-score-meta { font-size:9px; color:#cbd5e1; text-align:right; line-height:1.3; }
+
+.snmp-dashboard-metric-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:5px; margin-top:7px; }
+
+.snmp-dashboard-metric { border-radius:10px; padding:6px 7px; background:rgba(15,23,42,0.54); border:1px solid rgba(148,163,184,0.10); min-height:48px; }
+
+.snmp-dashboard-metric.warning { border-color:rgba(245,158,11,0.28); }
+
+.snmp-dashboard-metric.critical { border-color:rgba(239,68,68,0.30); }
+
+.snmp-dashboard-metric .label { font-size:10px; color:#94a3b8; margin-bottom:3px; }
+
+.snmp-dashboard-metric .value { font-size:11px; font-weight:800; color:#f8fafc; line-height:1.28; word-break:break-word; }
+
+.snmp-dashboard-metric .meta { margin-top:2px; font-size:9px; color:#cbd5e1; line-height:1.28; }
+
+.snmp-dashboard-note { margin-top:6px; color:#94a3b8; font-size:9px; line-height:1.35; }
+
+.snmp-device-card { padding:14px; }
+
+.snmp-device-card .ups-chip-row { gap:6px; }
+
+.snmp-device-card .ups-chip { padding:4px 9px; font-size:11px; }
+
+.snmp-device-card .ups-alert-list { gap:6px; margin-top:8px; }
+
+.snmp-device-card .ups-alert-chip { padding:4px 8px; font-size:11px; }
+
+.snmp-device-card .ups-meta-grid { gap:8px; margin-bottom:10px; }
+
+.snmp-device-card .ups-meta-item { min-height:0; padding:9px 10px; }
+
+.snmp-device-card .snmp-kpi-grid { gap:8px; margin-bottom:10px; }
+
+.snmp-device-card .snmp-kpi-card { min-height:76px; padding:10px; border-radius:12px; }
+
+.snmp-device-card .snmp-kpi-value { font-size:16px; }
+
+.snmp-device-card .snmp-hero { margin-bottom:10px; gap:10px; }
+
+.snmp-device-card .snmp-hero-main { gap:10px; }
+
+.snmp-device-card .snmp-device-icon { width:46px; height:46px; border-radius:14px; font-size:22px; }
+
+.snmp-device-card .snmp-hero-kicker { margin-bottom:4px; gap:6px; }
+
+.snmp-device-card .snmp-hero-title { font-size:18px; }
+
+.snmp-device-card .snmp-hero-subtitle { font-size:12px; margin-top:4px; line-height:1.45; }
+
+.snmp-device-card .snmp-health-banner { margin-bottom:10px; padding:10px 11px; }
+
+.snmp-device-card .snmp-health-score { font-size:18px; }
+
+.snmp-device-card .snmp-insight-grid, .snmp-device-card .snmp-flow-grid, .snmp-device-card .snmp-switch-grid, .snmp-device-card .snmp-spotlight-grid { gap:10px; margin-bottom:10px; }
+
+.snmp-device-card .snmp-switch-segment-grid { gap:8px; margin-top:10px; }
+
+.snmp-device-card.compact { padding:12px; }
+
+.snmp-device-card.compact .snmp-hero { margin-bottom:8px; }
+
+.snmp-device-card.compact .snmp-hero-title { font-size:16px; }
+
+.snmp-device-card.compact .snmp-hero-subtitle { font-size:12px; }
+
+.snmp-compact-stack { display:flex; flex-direction:column; gap:8px; }
+
+.snmp-compact-note { color:#94a3b8; font-size:12px; line-height:1.55; padding:9px 10px; border-radius:12px; background:rgba(2,6,23,0.26); border:1px solid rgba(148,163,184,0.10); }
+
+.snmp-compact-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
+
+.snmp-compact-tile { border-radius:12px; padding:9px 10px; background:rgba(15,23,42,0.50); border:1px solid rgba(148,163,184,0.10); }
+
+.snmp-compact-tile .label { font-size:11px; color:#94a3b8; margin-bottom:4px; }
+
+.snmp-compact-tile .value { font-size:13px; color:#f8fafc; font-weight:800; line-height:1.4; word-break:break-word; }
+
+.snmp-switch-port.warning { border-color:rgba(245,158,11,0.36); box-shadow:0 10px 20px rgba(245,158,11,0.12); }
+
+.snmp-switch-port.critical { border-color:rgba(239,68,68,0.42); box-shadow:0 12px 22px rgba(239,68,68,0.14); }
+
+.snmp-switch-port-badges { margin-top:8px; display:flex; gap:6px; flex-wrap:wrap; }
+
+.snmp-mini-chip { display:inline-flex; align-items:center; gap:5px; border-radius:999px; padding:4px 9px; font-size:11px; font-weight:800; border:1px solid rgba(148,163,184,0.16); background:rgba(15,23,42,0.55); color:#e2e8f0; }
+
+.snmp-mini-chip.warning { color:#fef3c7; background:rgba(245,158,11,0.16); border-color:rgba(245,158,11,0.30); }
+
+.snmp-mini-chip.error { color:#fee2e2; background:rgba(239,68,68,0.16); border-color:rgba(239,68,68,0.32); }
+
+.snmp-mini-chip.info { color:#bfdbfe; background:rgba(59,130,246,0.14); border-color:rgba(59,130,246,0.28); }
+
+.snmp-mini-chip.online { color:#bbf7d0; background:rgba(16,185,129,0.14); border-color:rgba(16,185,129,0.28); }
+
+.snmp-dense-list { display:flex; flex-direction:column; gap:8px; }
+
+.snmp-dense-row { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; padding:8px 10px; border-radius:12px; background:rgba(2,6,23,0.26); border:1px solid rgba(148,163,184,0.08); }
+
+.snmp-dense-key { font-size:11px; color:#94a3b8; line-height:1.5; }
+
+.snmp-dense-value { font-size:12px; color:#f8fafc; font-weight:800; line-height:1.5; text-align:right; word-break:break-word; }
+
+.snmp-spotlight-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; margin-bottom:14px; }
+
+.snmp-spotlight-card { position:relative; overflow:hidden; border-radius:14px; padding:12px; background:linear-gradient(180deg, rgba(15,23,42,0.72), rgba(2,6,23,0.50)); border:1px solid rgba(148,163,184,0.14); min-height:98px; }
+
+.snmp-spotlight-card::after { content:''; position:absolute; left:0; right:0; bottom:0; height:3px; background:linear-gradient(90deg, rgba(59,130,246,0.92), rgba(14,165,233,0.88)); }
+
+.snmp-spotlight-card.warning { border-color:rgba(245,158,11,0.34); }
+
+.snmp-spotlight-card.warning::after { background:linear-gradient(90deg, #f59e0b, #f97316); }
+
+.snmp-spotlight-card.critical { border-color:rgba(239,68,68,0.38); }
+
+.snmp-spotlight-card.critical::after { background:linear-gradient(90deg, #ef4444, #dc2626); }
+
+.snmp-spotlight-label { font-size:11px; color:#94a3b8; margin-bottom:8px; }
+
+.snmp-spotlight-value { font-size:18px; color:#f8fafc; font-weight:900; line-height:1.2; word-break:break-word; }
+
+.snmp-spotlight-meta { margin-top:6px; font-size:11px; color:#cbd5e1; line-height:1.5; }
+
+.snmp-switch-segment-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin-top:12px; }
+
+.snmp-switch-segment { border-radius:14px; padding:12px; background:rgba(2,6,23,0.28); border:1px solid rgba(148,163,184,0.10); }
+
+.snmp-switch-segment.warning { border-color:rgba(245,158,11,0.30); }
+
+.snmp-switch-segment.critical { border-color:rgba(239,68,68,0.34); }
+
+.snmp-switch-port-panel { margin-top:12px; border-radius:14px; border:1px solid rgba(148,163,184,0.12); background:linear-gradient(180deg, rgba(2,6,23,0.34), rgba(15,23,42,0.30)); overflow:hidden; }
+
+.snmp-switch-port-panel summary { list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; user-select:none; }
+
+.snmp-switch-port-panel summary::-webkit-details-marker { display:none; }
+
+.snmp-switch-port-panel[open] summary { border-bottom:1px solid rgba(148,163,184,0.12); background:rgba(15,23,42,0.34); }
+
+.snmp-switch-port-panel-title { font-size:13px; font-weight:800; color:#f8fafc; }
+
+.snmp-switch-port-panel-meta { margin-top:4px; font-size:11px; color:#94a3b8; line-height:1.55; }
+
+.snmp-switch-port-panel-count { display:inline-flex; align-items:center; gap:8px; color:#cbd5e1; font-size:11px; font-weight:800; }
+
+.snmp-switch-port-panel-body { padding:12px 14px 14px; }
+
+.snmp-switch-port-panel-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+
+.snmp-switch-port-panel-grid.single { grid-template-columns:1fr; }
+
+.snmp-vendor-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; margin-bottom:14px; }
+
+.snmp-vendor-card { border-radius:14px; padding:12px; background:linear-gradient(180deg, rgba(15,23,42,0.52), rgba(2,6,23,0.34)); border:1px solid rgba(148,163,184,0.12); }
+
+.snmp-vendor-card.warning { border-color:rgba(245,158,11,0.34); }
+
+.snmp-vendor-card.critical { border-color:rgba(239,68,68,0.38); }
+
+.snmp-vendor-card-title { font-size:13px; font-weight:800; color:#f8fafc; margin-bottom:6px; }
+
+.snmp-vendor-card-note { font-size:11px; color:#94a3b8; line-height:1.6; margin-bottom:10px; }
+
+.snmp-switch-segment-title { font-size:12px; font-weight:800; color:#f8fafc; margin-bottom:8px; }
+
+.snmp-switch-segment-note { font-size:11px; color:#94a3b8; margin-bottom:10px; line-height:1.5; }
+
+.snmp-switch-segment-list { display:flex; flex-direction:column; gap:8px; }
+
+.snmp-switch-segment-item { border-radius:12px; padding:9px 10px; background:rgba(15,23,42,0.48); border:1px solid rgba(148,163,184,0.10); }
+
+.snmp-switch-segment-item-top { display:flex; justify-content:space-between; gap:10px; align-items:center; }
+
+.snmp-switch-segment-name { font-size:12px; font-weight:800; color:#f8fafc; line-height:1.35; word-break:break-word; }
+
+.snmp-switch-segment-meta { margin-top:5px; font-size:11px; color:#94a3b8; line-height:1.5; }
+
+.snmp-footer-note { margin-top:10px; color:#64748b; font-size:11px; line-height:1.6; }
+
+@media screen and (max-width: 1200px) { .snmp-port-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+
+@media screen and (max-width: 1200px) { .snmp-flow-grid { grid-template-columns:1fr; } .snmp-insight-grid { grid-template-columns:1fr; } }
+
+@media screen and (max-width: 1200px) { .snmp-kpi-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } .snmp-switch-port-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } .snmp-switch-grid { grid-template-columns:1fr; } .snmp-summary-bar { grid-template-columns:repeat(3, minmax(0, 1fr)); } .snmp-summary-wrap.dashboard .snmp-summary-bar { grid-template-columns:repeat(3, minmax(0, 1fr)); } .snmp-switch-segment-grid { grid-template-columns:1fr; } .snmp-device-grid { grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); } .snmp-dashboard-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } .snmp-switch-port-panel-grid, .snmp-vendor-grid { grid-template-columns:1fr; } }
+
+@media screen and (max-width: 760px) { .snmp-port-grid { grid-template-columns:1fr; } }
+
+@media screen and (max-width: 760px) { .snmp-stat-row { grid-template-columns:1fr; } }
+
+@media screen and (max-width: 760px) { .snmp-kpi-grid { grid-template-columns:1fr; } .snmp-hero { flex-direction:column; } .snmp-switch-port-grid { grid-template-columns:1fr; } .snmp-summary-bar { grid-template-columns:1fr; } .snmp-summary-wrap.dashboard .snmp-summary-bar { grid-template-columns:repeat(2, minmax(0, 1fr)); } .snmp-spotlight-grid { grid-template-columns:1fr; } .snmp-device-grid { grid-template-columns:1fr; } .snmp-dashboard-grid { grid-template-columns:1fr; } .snmp-compact-grid { grid-template-columns:1fr; } .snmp-dashboard-head { flex-direction:column; } .snmp-dashboard-status { justify-content:flex-start; } .snmp-switch-port-panel summary { flex-direction:column; align-items:flex-start; } }
+
+.snmp-summary-head { margin-bottom:8px; }
+
+.snmp-summary-bar { grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); }
+
+.snmp-device-grid { grid-template-columns:1fr; gap:14px; }
+
+.snmp-device-card { padding:18px; }
+
+.snmp-device-shell { display:grid; grid-template-columns:minmax(280px, 340px) minmax(0, 1fr); gap:16px; align-items:start; }
+
+.snmp-device-summary, .snmp-device-content { display:flex; flex-direction:column; gap:12px; min-width:0; }
+
+.snmp-device-content { overflow:hidden; }
+
+.snmp-device-card .snmp-hero { margin-bottom:0; }
+
+.snmp-device-card .snmp-hero-main { align-items:center; }
+
+.snmp-device-card .snmp-hero-kicker { margin-bottom:6px; }
+
+.snmp-device-card .snmp-hero-title { font-size:20px; }
+
+.snmp-device-card .snmp-hero-subtitle { margin-top:4px; }
+
+.snmp-device-card .ups-chip-row { justify-content:flex-start; }
+
+.snmp-main-metric-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+
+.snmp-main-metric { border-radius:14px; padding:12px; background:linear-gradient(180deg, rgba(15,23,42,0.72), rgba(2,6,23,0.48)); border:1px solid rgba(148,163,184,0.12); min-height:88px; }
+
+.snmp-main-metric.warning { border-color:rgba(245,158,11,0.34); box-shadow:0 10px 18px rgba(245,158,11,0.08); }
+
+.snmp-main-metric.critical { border-color:rgba(239,68,68,0.38); box-shadow:0 12px 22px rgba(239,68,68,0.10); }
+
+.snmp-main-metric-label { font-size:11px; color:#94a3b8; margin-bottom:6px; }
+
+.snmp-main-metric-value { font-size:18px; font-weight:900; color:#f8fafc; line-height:1.2; word-break:break-word; }
+
+.snmp-main-metric-meta { margin-top:6px; font-size:11px; color:#cbd5e1; line-height:1.55; }
+
+.snmp-health-pill { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-radius:14px; background:linear-gradient(135deg, rgba(30,41,59,0.64), rgba(15,23,42,0.78)); border:1px solid rgba(148,163,184,0.14); }
+
+.snmp-health-pill.warning { border-color:rgba(245,158,11,0.34); }
+
+.snmp-health-pill.critical { border-color:rgba(239,68,68,0.38); }
+
+.snmp-health-pill-label { font-size:12px; color:#94a3b8; }
+
+.snmp-health-pill-value { font-size:24px; font-weight:900; color:#f8fafc; line-height:1; }
+
+.snmp-health-pill-meta { font-size:12px; color:#e2e8f0; line-height:1.5; }
+
+.snmp-focus-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
+
+.snmp-focus-panel { border-radius:14px; padding:12px; background:linear-gradient(180deg, rgba(2,6,23,0.38), rgba(15,23,42,0.26)); border:1px solid rgba(148,163,184,0.10); min-width:0; }
+
+.snmp-focus-panel.wide { grid-column:1/-1; }
+
+.snmp-focus-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+
+.snmp-focus-title { font-size:13px; font-weight:800; color:#f8fafc; }
+
+.snmp-focus-note { font-size:11px; color:#94a3b8; line-height:1.5; }
+
+.snmp-mini-list { display:flex; flex-direction:column; gap:8px; }
+
+.snmp-mini-item { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:10px; align-items:center; border-radius:12px; padding:9px 10px; background:rgba(15,23,42,0.46); border:1px solid rgba(148,163,184,0.10); }
+
+.snmp-mini-item.warning { border-color:rgba(245,158,11,0.30); }
+
+.snmp-mini-item.critical { border-color:rgba(239,68,68,0.34); }
+
+.snmp-mini-label-wrap { min-width:0; }
+
+.snmp-mini-label { font-size:12px; font-weight:800; color:#f8fafc; line-height:1.35; word-break:break-word; }
+
+.snmp-mini-meta { margin-top:4px; font-size:11px; color:#94a3b8; line-height:1.5; word-break:break-word; }
+
+.snmp-mini-value { font-size:12px; font-weight:800; color:#e2e8f0; text-align:right; line-height:1.35; word-break:break-word; }
+
+.snmp-mini-empty { padding:12px; border-radius:12px; border:1px dashed rgba(148,163,184,0.18); color:#94a3b8; background:rgba(2,6,23,0.24); font-size:12px; line-height:1.6; }
+
+.snmp-inline-details { border-radius:14px; border:1px solid rgba(148,163,184,0.12); background:linear-gradient(180deg, rgba(2,6,23,0.30), rgba(15,23,42,0.24)); overflow:hidden; }
+
+.snmp-inline-details summary { list-style:none; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; user-select:none; }
+
+.snmp-inline-details summary::-webkit-details-marker { display:none; }
+
+.snmp-inline-details[open] summary { background:rgba(15,23,42,0.34); border-bottom:1px solid rgba(148,163,184,0.12); }
+
+.snmp-inline-details-title { font-size:13px; font-weight:800; color:#f8fafc; }
+
+.snmp-inline-details-meta { font-size:11px; color:#94a3b8; line-height:1.5; text-align:right; }
+
+.snmp-inline-details-body { padding:14px; display:flex; flex-direction:column; gap:12px; }
+
+.snmp-device-card .snmp-switch-port-panel { margin-top:0; }
+
+.snmp-device-card .snmp-switch-port-panel-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+
+.snmp-device-card .snmp-switch-port-grid { grid-template-columns:repeat(3, minmax(0, 1fr)); }
+
+.snmp-device-card.compact .snmp-device-shell { grid-template-columns:minmax(220px, 300px) minmax(0, 1fr); }
+
+@media screen and (max-width: 1360px) {
+            .snmp-device-shell, .snmp-device-card.compact .snmp-device-shell { grid-template-columns:1fr; }
+        }
+
+@media screen and (max-width: 960px) {
+            .snmp-main-metric-grid, .snmp-focus-grid, .snmp-device-card .snmp-switch-port-panel-grid, .snmp-device-card .snmp-switch-port-grid, .snmp-port-grid { grid-template-columns:1fr; }
+            .snmp-summary-bar { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+        }
+
+@media screen and (max-width: 560px) {
+            .snmp-device-card { padding:14px; }
+            .snmp-device-card .snmp-hero-main { align-items:flex-start; }
+            .snmp-device-card .snmp-hero-title { font-size:18px; }
+            .snmp-inline-details summary { flex-direction:column; align-items:flex-start; }
+            .snmp-inline-details-meta { text-align:left; }
+            .snmp-summary-bar { grid-template-columns:1fr; }
+            .snmp-summary-wrap.dashboard .snmp-summary-bar { grid-template-columns:1fr; }
+            .snmp-dashboard-metric-grid { grid-template-columns:1fr; }
+            .snmp-dashboard-score { flex-direction:column; align-items:flex-start; }
+            .snmp-dashboard-score-meta { text-align:left; }
+        }
+
+body.compact-layout .snmp-summary-bar,
+        body.compact-layout .snmp-summary-wrap.dashboard .snmp-summary-bar { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+
+/* SNMP capacity-first layout */
+        .snmp-insight-panel.wide {
+            grid-column:1 / -1;
+        }
+
+.snmp-capacity-block {
+            border-radius:14px;
+            padding:12px;
+            background:linear-gradient(180deg, rgba(8,47,73,0.34), rgba(2,6,23,0.34));
+            border:1px solid rgba(56,189,248,0.18);
+            box-shadow:inset 0 1px 0 rgba(255,255,255,0.035);
+        }
+
+.snmp-capacity-block.warning {
+            border-color:rgba(245,158,11,0.34);
+            background:linear-gradient(180deg, rgba(120,53,15,0.24), rgba(2,6,23,0.34));
+        }
+
+.snmp-capacity-block.critical {
+            border-color:rgba(239,68,68,0.38);
+            background:linear-gradient(180deg, rgba(127,29,29,0.24), rgba(2,6,23,0.34));
+        }
+
+.snmp-capacity-head {
+            display:flex;
+            justify-content:space-between;
+            align-items:flex-start;
+            gap:12px;
+            margin-bottom:10px;
+        }
+
+.snmp-capacity-title {
+            font-size:13px;
+            font-weight:900;
+            color:#f8fafc;
+            line-height:1.25;
+        }
+
+.snmp-capacity-note {
+            margin-top:4px;
+            font-size:11px;
+            color:#bae6fd;
+            line-height:1.55;
+        }
+
+.snmp-capacity-percent {
+            flex-shrink:0;
+            font-size:24px;
+            font-weight:950;
+            color:#f8fafc;
+            line-height:1;
+            letter-spacing:-.03em;
+        }
+
+.snmp-storage-bar.capacity {
+            height:10px;
+            margin-bottom:11px;
+        }
+
+.snmp-capacity-grid {
+            display:grid;
+            grid-template-columns:repeat(2, minmax(0, 1fr));
+            gap:8px;
+        }
+
+.snmp-capacity-volume {
+            border-radius:12px;
+            padding:9px 10px;
+            background:rgba(2,6,23,0.34);
+            border:1px solid rgba(148,163,184,0.10);
+        }
+
+.snmp-capacity-volume.warning {
+            border-color:rgba(245,158,11,0.30);
+        }
+
+.snmp-capacity-volume.critical {
+            border-color:rgba(239,68,68,0.34);
+        }
+
+.snmp-capacity-volume-top {
+            display:flex;
+            justify-content:space-between;
+            gap:8px;
+            align-items:center;
+            margin-bottom:7px;
+            font-size:12px;
+            color:#f8fafc;
+            font-weight:850;
+            line-height:1.3;
+        }
+
+.snmp-capacity-volume-top span {
+            min-width:0;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            white-space:nowrap;
+        }
+
+.snmp-capacity-volume-top strong {
+            flex-shrink:0;
+            color:#e0f2fe;
+            font-size:12px;
+        }
+
+.snmp-capacity-volume-meta {
+            margin-top:6px;
+            font-size:11px;
+            color:#94a3b8;
+            line-height:1.35;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+        }
+
+.snmp-capacity-quota-note {
+            margin:0 0 10px;
+            padding:8px 10px;
+            border-radius:12px;
+            color:#bae6fd;
+            font-size:11px;
+            line-height:1.45;
+            background:rgba(14,165,233,0.10);
+            border:1px solid rgba(56,189,248,0.16);
+        }
+
+@media screen and (max-width: 760px) {
+            .snmp-capacity-grid {
+                grid-template-columns:1fr;
+            }
+            .snmp-capacity-head {
+                flex-direction:column;
+            }
+            .qnap-chassis-body {
+                grid-template-columns:1fr;
+            }
+            .qnap-device-illustration {
+                width:min(340px, 100%);
+                grid-template-columns:58px 1fr;
+                grid-template-rows:1fr 46px;
+                gap:7px;
+                padding:12px 14px 12px 12px;
+                border-radius:18px;
+            }
+            .qnap-device-left {
+                border-radius:13px;
+                padding:12px 7px;
+            }
+            .qnap-logo-dot {
+                width:34px;
+                font-size:6px;
+            }
+            .qnap-drive-stack.hdd,
+            .qnap-drive-stack.ssd {
+                gap:5px;
+            }
+            .qnap-drive-stack.hdd .qnap-drive-bay {
+                min-height:90px;
+            }
+        }
+
+/* SNMP detail page density pass: keep dashboard untouched, compress the full SNMP page for 1080p operators. */
+        #view-snmp .snmp-page-card {
+            padding:14px;
+        }
+
+#view-snmp .card-title {
+            margin-bottom:10px;
+            padding-bottom:9px;
+        }
+
+#view-snmp .snmp-page-grid {
+            display:block;
+        }
+
+#view-snmp .snmp-summary-wrap {
+            margin-bottom:10px;
+        }
+
+#view-snmp .snmp-summary-head {
+            margin-bottom:7px;
+        }
+
+#view-snmp .snmp-summary-filter-tip {
+            font-size:11px;
+            line-height:1.35;
+        }
+
+#view-snmp .snmp-summary-bar {
+            grid-template-columns:repeat(6, minmax(0, 1fr));
+            gap:7px;
+        }
+
+#view-snmp .snmp-summary-card {
+            min-height:48px;
+            padding:7px 9px;
+            border-radius:11px;
+        }
+
+#view-snmp .snmp-summary-card .label {
+            font-size:10px;
+            margin-bottom:4px;
+        }
+
+#view-snmp .snmp-summary-card .value {
+            font-size:14px;
+        }
+
+#view-snmp .snmp-summary-card .meta {
+            display:none;
+        }
+
+#view-snmp .snmp-device-grid {
+            grid-template-columns:repeat(2, minmax(0, 1fr));
+            gap:10px;
+        }
+
+#view-snmp .snmp-device-card {
+            padding:10px;
+            border-radius:14px;
+        }
+
+#view-snmp .snmp-device-shell,
+        #view-snmp .snmp-device-card.compact .snmp-device-shell {
+            display:flex;
+            flex-direction:column;
+            gap:8px;
+        }
+
+#view-snmp .snmp-device-summary,
+        #view-snmp .snmp-device-content {
+            gap:8px;
+        }
+
+#view-snmp .snmp-device-card .snmp-hero {
+            gap:8px;
+            margin-bottom:0;
+            align-items:flex-start;
+        }
+
+#view-snmp .snmp-device-card .snmp-hero-main {
+            gap:8px;
+            align-items:flex-start;
+        }
+
+#view-snmp .snmp-device-card .snmp-device-icon {
+            width:34px;
+            height:34px;
+            min-width:34px;
+            border-radius:10px;
+            font-size:17px;
+        }
+
+#view-snmp .snmp-device-card .snmp-hero-kicker {
+            gap:4px;
+            margin-bottom:3px;
+        }
+
+#view-snmp .snmp-device-card .snmp-hero-title {
+            font-size:14px;
+            line-height:1.15;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            max-width:100%;
+        }
+
+#view-snmp .snmp-device-card .snmp-hero-subtitle {
+            margin-top:2px;
+            font-size:10px;
+            line-height:1.25;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+        }
+
+#view-snmp .snmp-device-card .ups-chip-row {
+            gap:4px;
+            margin-top:6px;
+        }
+
+#view-snmp .snmp-device-card .ups-chip,
+        #view-snmp .snmp-device-card .ups-alert-chip,
+        #view-snmp .snmp-mini-chip {
+            padding:3px 6px;
+            font-size:9px;
+            line-height:1.15;
+        }
+
+#view-snmp .snmp-health-pill {
+            padding:7px 9px;
+            border-radius:11px;
+            gap:8px;
+        }
+
+#view-snmp .snmp-health-pill-label,
+        #view-snmp .snmp-health-pill-meta {
+            font-size:10px;
+            line-height:1.25;
+        }
+
+#view-snmp .snmp-health-pill-value {
+            font-size:17px;
+        }
+
+#view-snmp .snmp-main-metric-grid {
+            grid-template-columns:repeat(3, minmax(0, 1fr));
+            gap:6px;
+        }
+
+#view-snmp .snmp-main-metric {
+            min-height:54px;
+            padding:7px 8px;
+            border-radius:10px;
+        }
+
+#view-snmp .snmp-main-metric-label {
+            font-size:9px;
+            margin-bottom:3px;
+        }
+
+#view-snmp .snmp-main-metric-value {
+            font-size:13px;
+            line-height:1.15;
+        }
+
+#view-snmp .snmp-main-metric-meta {
+            margin-top:3px;
+            font-size:9px;
+            line-height:1.25;
+            display:-webkit-box;
+            -webkit-line-clamp:2;
+            -webkit-box-orient:vertical;
+            overflow:hidden;
+        }
+
+#view-snmp .snmp-focus-grid {
+            grid-template-columns:repeat(2, minmax(0, 1fr));
+            gap:7px;
+        }
+
+#view-snmp .snmp-focus-panel {
+            padding:8px;
+            border-radius:11px;
+        }
+
+#view-snmp .snmp-focus-panel.wide {
+            grid-column:auto;
+        }
+
+#view-snmp .snmp-focus-head {
+            margin-bottom:6px;
+            gap:6px;
+        }
+
+#view-snmp .snmp-focus-title,
+        #view-snmp .snmp-insight-title,
+        #view-snmp .snmp-flow-title,
+        #view-snmp .snmp-vendor-card-title,
+        #view-snmp .snmp-inline-details-title,
+        #view-snmp .snmp-switch-port-panel-title {
+            font-size:11px;
+            line-height:1.25;
+        }
+
+#view-snmp .snmp-focus-note,
+        #view-snmp .snmp-insight-note,
+        #view-snmp .snmp-vendor-card-note,
+        #view-snmp .snmp-inline-details-meta,
+        #view-snmp .snmp-switch-port-panel-meta {
+            font-size:9px;
+            line-height:1.3;
+        }
+
+#view-snmp .snmp-mini-list {
+            gap:5px;
+        }
+
+#view-snmp .snmp-mini-item {
+            padding:6px 7px;
+            border-radius:9px;
+            gap:6px;
+        }
+
+#view-snmp .snmp-mini-label {
+            font-size:10px;
+            line-height:1.2;
+        }
+
+#view-snmp .snmp-mini-meta,
+        #view-snmp .snmp-mini-value {
+            font-size:9px;
+            line-height:1.25;
+        }
+
+#view-snmp .snmp-mini-empty {
+            padding:8px;
+            border-radius:9px;
+            font-size:10px;
+            line-height:1.35;
+        }
+
+#view-snmp .snmp-inline-details {
+            border-radius:11px;
+        }
+
+#view-snmp .snmp-inline-details summary,
+        #view-snmp .snmp-switch-port-panel summary {
+            padding:8px 10px;
+            gap:8px;
+        }
+
+#view-snmp .snmp-inline-details-body,
+        #view-snmp .snmp-switch-port-panel-body {
+            padding:8px;
+            gap:8px;
+        }
+
+#view-snmp .snmp-switch-port-panel-grid,
+        #view-snmp .snmp-device-card .snmp-switch-port-panel-grid {
+            grid-template-columns:repeat(2, minmax(0, 1fr));
+            gap:6px;
+        }
+
+#view-snmp .snmp-switch-port-grid,
+        #view-snmp .snmp-device-card .snmp-switch-port-grid {
+            grid-template-columns:repeat(3, minmax(0, 1fr));
+            gap:6px;
+        }
+
+#view-snmp .snmp-switch-port,
+        #view-snmp .snmp-port-card {
+            min-height:0;
+            padding:7px;
+            border-radius:9px;
+        }
+
+#view-snmp .snmp-switch-port-name,
+        #view-snmp .snmp-port-name,
+        #view-snmp .snmp-switch-segment-name {
+            font-size:10px;
+            line-height:1.2;
+        }
+
+#view-snmp .snmp-switch-port-index {
+            min-width:28px;
+            padding:2px 5px;
+            font-size:8px;
+        }
+
+#view-snmp .snmp-switch-port-meta,
+        #view-snmp .snmp-port-meta,
+        #view-snmp .snmp-switch-segment-meta {
+            margin-top:3px;
+            font-size:9px;
+            line-height:1.25;
+        }
+
+#view-snmp .snmp-switch-port-status,
+        #view-snmp .snmp-switch-port-badges {
+            margin-top:5px;
+            gap:4px;
+        }
+
+#view-snmp .snmp-insight-grid,
+        #view-snmp .snmp-flow-grid,
+        #view-snmp .snmp-vendor-grid,
+        #view-snmp .snmp-switch-grid,
+        #view-snmp .snmp-switch-segment-grid,
+        #view-snmp .snmp-spotlight-grid {
+            grid-template-columns:repeat(2, minmax(0, 1fr));
+            gap:7px;
+            margin-bottom:7px;
+        }
+
+#view-snmp .snmp-insight-panel,
+        #view-snmp .snmp-flow-card,
+        #view-snmp .snmp-vendor-card,
+        #view-snmp .snmp-switch-panel,
+        #view-snmp .snmp-switch-segment {
+            min-height:0;
+            padding:8px;
+            border-radius:10px;
+        }
+
+#view-snmp .snmp-stat-row {
+            grid-template-columns:repeat(3, minmax(0, 1fr));
+            gap:5px;
+        }
+
+#view-snmp .snmp-stat-card {
+            min-height:44px;
+            padding:6px 7px;
+            border-radius:9px;
+        }
+
+#view-snmp .snmp-stat-card .label {
+            font-size:9px;
+            margin-bottom:3px;
+        }
+
+#view-snmp .snmp-stat-card .value {
+            font-size:11px;
+            line-height:1.2;
+        }
+
+#view-snmp .snmp-flow-list,
+        #view-snmp .snmp-switch-segment-list,
+        #view-snmp .snmp-storage-list {
+            gap:5px;
+        }
+
+#view-snmp .snmp-flow-item,
+        #view-snmp .snmp-switch-segment-item,
+        #view-snmp .snmp-storage-item,
+        #view-snmp .snmp-capacity-volume {
+            padding:6px 7px;
+            border-radius:9px;
+        }
+
+#view-snmp .snmp-flow-item-name,
+        #view-snmp .snmp-storage-name,
+        #view-snmp .snmp-capacity-title {
+            font-size:10px;
+            line-height:1.25;
+        }
+
+#view-snmp .snmp-flow-item-meta,
+        #view-snmp .snmp-storage-meta,
+        #view-snmp .snmp-capacity-note,
+        #view-snmp .snmp-capacity-volume-meta {
+            margin-top:3px;
+            font-size:9px;
+            line-height:1.25;
+        }
+
+#view-snmp .snmp-capacity-quota-note {
+            padding:6px 7px;
+            margin-bottom:6px;
+            font-size:9px;
+            line-height:1.3;
+            border-radius:9px;
+        }
+
+#view-snmp .qnap-chassis-panel {
+            padding:8px;
+            border-radius:10px;
+        }
+
+#view-snmp .qnap-chassis-head {
+            margin-bottom:7px;
+        }
+
+#view-snmp .qnap-chassis-title {
+            font-size:10px;
+        }
+
+#view-snmp .qnap-chassis-note,
+        #view-snmp .qnap-chassis-summary {
+            font-size:9px;
+            line-height:1.25;
+        }
+
+#view-snmp .qnap-chassis-body {
+            gap:7px;
+        }
+
+#view-snmp .qnap-device-illustration {
+            width:min(310px, 100%);
+            grid-template-columns:52px 1fr;
+            grid-template-rows:1fr 42px;
+            gap:6px;
+            padding:10px 12px 10px 10px;
+            border-radius:16px;
+        }
+
+#view-snmp .qnap-device-left {
+            border-radius:12px;
+            padding:10px 6px;
+        }
+
+#view-snmp .qnap-logo-dot {
+            width:30px;
+            height:13px;
+            font-size:5px;
+        }
+
+#view-snmp .qnap-status-lights {
+            top:34px;
+            right:6px;
+            gap:5px;
+        }
+
+#view-snmp .qnap-status-lights span {
+            width:4px;
+            height:13px;
+        }
+
+#view-snmp .qnap-button,
+        #view-snmp .qnap-usb {
+            left:11px;
+            right:11px;
+            height:20px;
+            border-radius:5px;
+        }
+
+#view-snmp .qnap-button {
+            bottom:42px;
+        }
+
+#view-snmp .qnap-usb {
+            bottom:14px;
+        }
+
+#view-snmp .qnap-drive-stack.hdd,
+        #view-snmp .qnap-drive-stack.ssd {
+            gap:5px;
+        }
+
+#view-snmp .qnap-drive-stack.hdd .qnap-drive-bay {
+            min-height:82px;
+        }
+
+#view-snmp .qnap-drive-led {
+            width:4px;
+            height:4px;
+            left:4px;
+            top:4px;
+        }
+
+#view-snmp .qnap-drive-slot {
+            font-size:7px;
+        }
+
+#view-snmp .qnap-device-name {
+            font-size:14px;
+        }
+
+#view-snmp .qnap-device-ratio,
+        #view-snmp .qnap-device-health {
+            font-size:10px;
+        }
+
+#view-snmp .qnap-device-health span {
+            width:15px;
+            height:15px;
+        }
+
+#view-snmp .qnap-device-health span::after {
+            left:5px;
+            top:3px;
+            width:4px;
+            height:8px;
+            border-width:0 2px 2px 0;
+        }
+
+#view-snmp .qnap-device-meta {
+            font-size:9px;
+        }
+
+#view-snmp .snmp-capacity-block {
+            padding:8px;
+            border-radius:10px;
+        }
+
+#view-snmp .snmp-capacity-head {
+            margin-bottom:7px;
+        }
+
+#view-snmp .snmp-capacity-percent {
+            font-size:18px;
+        }
+
+#view-snmp .snmp-capacity-grid {
+            gap:5px;
+        }
+
+#view-snmp .snmp-storage-bar {
+            height:6px;
+        }
+
+#view-snmp .snmp-storage-bar.capacity {
+            height:7px;
+            margin-bottom:7px;
+        }
+
+#view-snmp .snmp-dense-row {
+            padding:5px 0;
+            gap:8px;
+        }
+
+#view-snmp .snmp-dense-key,
+        #view-snmp .snmp-dense-value {
+            font-size:9px;
+            line-height:1.25;
+        }
+
+#view-snmp .snmp-compact-stack {
+            gap:6px;
+        }
+
+#view-snmp .snmp-compact-note {
+            padding:7px;
+            font-size:10px;
+            line-height:1.35;
+            border-radius:9px;
+        }
+
+#view-snmp .snmp-compact-grid {
+            grid-template-columns:repeat(3, minmax(0, 1fr));
+            gap:5px;
+        }
+
+#view-snmp .snmp-compact-tile {
+            padding:6px 7px;
+            border-radius:9px;
+        }
+
+#view-snmp .snmp-compact-tile .label {
+            font-size:9px;
+            margin-bottom:2px;
+        }
+
+#view-snmp .snmp-compact-tile .value {
+            font-size:10px;
+            line-height:1.25;
+        }
+
+@media screen and (min-width: 1500px) {
+            #view-snmp .snmp-device-grid {
+                grid-template-columns:repeat(3, minmax(0, 1fr));
+            }
+            #view-snmp .snmp-main-metric-grid,
+            #view-snmp .snmp-compact-grid {
+                grid-template-columns:repeat(4, minmax(0, 1fr));
+            }
+        }
+
+@media screen and (max-width: 1280px) {
+            #view-snmp .snmp-device-grid {
+                grid-template-columns:repeat(2, minmax(0, 1fr));
+            }
+            #view-snmp .snmp-summary-bar {
+                grid-template-columns:repeat(3, minmax(0, 1fr));
+            }
+            #view-snmp .snmp-main-metric-grid,
+            #view-snmp .snmp-stat-row,
+            #view-snmp .snmp-compact-grid {
+                grid-template-columns:repeat(2, minmax(0, 1fr));
+            }
+        }
+
+@media screen and (max-width: 860px) {
+            #view-snmp .snmp-device-grid,
+            #view-snmp .snmp-focus-grid,
+            #view-snmp .snmp-insight-grid,
+            #view-snmp .snmp-flow-grid,
+            #view-snmp .snmp-vendor-grid,
+            #view-snmp .snmp-switch-grid,
+            #view-snmp .snmp-switch-segment-grid {
+                grid-template-columns:1fr;
+            }
+            #view-snmp .snmp-summary-bar,
+            #view-snmp .snmp-main-metric-grid,
+            #view-snmp .snmp-stat-row,
+            #view-snmp .snmp-compact-grid {
+                grid-template-columns:repeat(2, minmax(0, 1fr));
+            }
+            #view-snmp .snmp-switch-port-grid,
+            #view-snmp .snmp-device-card .snmp-switch-port-grid,
+            #view-snmp .snmp-switch-port-panel-grid,
+            #view-snmp .snmp-device-card .snmp-switch-port-panel-grid {
+                grid-template-columns:1fr;
+            }
+        }
+
+/* SNMP one-page wall mode: four monitored devices should fit in a 1080p screen without scrolling. */
+        #view-snmp .snmp-onepage-grid {
+            grid-template-columns:repeat(4, minmax(0, 1fr));
+            gap:8px;
+        }
+
+#view-snmp .snmp-onepage-grid .snmp-device-card.compact {
+            padding:8px;
+            min-height:0;
+            border-radius:12px;
+        }
+
+#view-snmp .snmp-onepage-grid .snmp-hero {
+            display:block;
+            margin-bottom:6px;
+        }
+
+#view-snmp .snmp-onepage-grid .snmp-hero-main {
+            display:grid;
+            grid-template-columns:28px minmax(0, 1fr);
+            gap:7px;
+            align-items:start;
+        }
+
+#view-snmp .snmp-onepage-grid .snmp-device-icon {
+            width:28px;
+            height:28px;
+            min-width:28px;
+            border-radius:9px;
+            font-size:14px;
+        }
+
+#view-snmp .snmp-onepage-grid .snmp-hero-kicker {
+            gap:3px;
+            margin-bottom:3px;
+            max-height:18px;
+            overflow:hidden;
+        }
+
+#view-snmp .snmp-onepage-grid .snmp-hero-kicker .ups-chip:nth-child(n+3) {
+            display:none;
+        }
+
+#view-snmp .snmp-onepage-grid .snmp-hero-title {
+            font-size:13px;
+            line-height:1.1;
+        }
+
+#view-snmp .snmp-onepage-grid .snmp-hero-subtitle {
+            font-size:9px;
+            line-height:1.15;
+        }
+
+#view-snmp .snmp-onepage-grid .snmp-compact-stack {
+            gap:5px;
+        }
+
+#view-snmp .snmp-onepage-grid .snmp-compact-note {
+            padding:5px 6px;
+            font-size:9px;
+            line-height:1.22;
+            max-height:36px;
+            overflow:hidden;
+        }
+
+#view-snmp .snmp-onepage-grid .snmp-compact-grid {
+            grid-template-columns:repeat(2, minmax(0, 1fr));
+            gap:4px;
+        }
+
+#view-snmp .snmp-onepage-grid .snmp-compact-tile {
+            padding:5px 6px;
+            border-radius:8px;
+            min-height:38px;
+        }
+
+#view-snmp .snmp-onepage-grid .snmp-compact-tile .label {
+            font-size:8px;
+            line-height:1.1;
+        }
+
+#view-snmp .snmp-onepage-grid .snmp-compact-tile .value {
+            font-size:10px;
+            line-height:1.15;
+            display:-webkit-box;
+            -webkit-line-clamp:2;
+            -webkit-box-orient:vertical;
+            overflow:hidden;
+        }
+
+#view-snmp .snmp-onepage-grid .snmp-compact-tile:nth-child(n+5) {
+            display:none;
+        }
+
+#view-snmp .snmp-onepage-grid .ups-chip,
+        #view-snmp .snmp-onepage-grid .ups-alert-chip {
+            padding:2px 5px;
+            font-size:8px;
+        }
+
+#view-snmp .snmp-overview-card {
+            cursor:pointer;
+            transition:transform .16s ease, border-color .16s ease, box-shadow .16s ease, background .16s ease;
+        }
+
+#view-snmp .snmp-overview-card:hover,
+        #view-snmp .snmp-overview-card:focus-visible {
+            transform:translateY(-2px);
+            border-color:rgba(96,165,250,0.42);
+            box-shadow:0 14px 28px rgba(15,23,42,0.28), 0 0 0 1px rgba(96,165,250,0.12);
+            outline:none;
+        }
+
+#view-snmp .snmp-compact-action {
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            min-height:24px;
+            border-radius:8px;
+            font-size:9px;
+            font-weight:800;
+            color:#bfdbfe;
+            background:rgba(59,130,246,0.12);
+            border:1px solid rgba(96,165,250,0.22);
+        }
+
+#view-snmp .snmp-detail-page {
+            display:flex;
+            flex-direction:column;
+            gap:10px;
+        }
+
+#view-snmp .snmp-detail-toolbar {
+            display:grid;
+            grid-template-columns:auto minmax(0, 1fr) auto;
+            gap:12px;
+            align-items:center;
+            padding:10px 12px;
+            border-radius:14px;
+            background:linear-gradient(180deg, rgba(15,23,42,0.72), rgba(2,6,23,0.46));
+            border:1px solid rgba(148,163,184,0.14);
+        }
+
+#view-snmp .snmp-detail-back {
+            border:1px solid rgba(96,165,250,0.30);
+            background:rgba(59,130,246,0.14);
+            color:#dbeafe;
+            border-radius:10px;
+            padding:7px 10px;
+            font-size:12px;
+            font-weight:800;
+            cursor:pointer;
+        }
+
+#view-snmp .snmp-detail-back:hover {
+            border-color:rgba(147,197,253,0.54);
+            background:rgba(59,130,246,0.22);
+        }
+
+#view-snmp .snmp-detail-heading {
+            min-width:0;
+        }
+
+#view-snmp .snmp-detail-title {
+            color:#f8fafc;
+            font-size:16px;
+            font-weight:900;
+            line-height:1.2;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+        }
+
+#view-snmp .snmp-detail-subtitle {
+            margin-top:3px;
+            color:#94a3b8;
+            font-size:11px;
+            line-height:1.35;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+        }
+
+#view-snmp .snmp-detail-toolbar-actions {
+            display:flex;
+            gap:6px;
+            justify-content:flex-end;
+            flex-wrap:wrap;
+        }
+
+#view-snmp .snmp-detail-card-wrap .snmp-device-card {
+            width:100%;
+        }
+
+#view-snmp .snmp-detail-card-wrap .snmp-device-card.compact {
+            cursor:default;
+        }
+
+@media screen and (max-width: 1500px) {
+            #view-snmp .snmp-onepage-grid {
+                grid-template-columns:repeat(2, minmax(0, 1fr));
+            }
+        }
+
+@media screen and (max-width: 860px) {
+            #view-snmp .snmp-onepage-grid {
+                grid-template-columns:1fr;
+            }
+            #view-snmp .snmp-detail-toolbar {
+                grid-template-columns:1fr;
+                align-items:stretch;
+            }
+            #view-snmp .snmp-detail-toolbar-actions {
+                justify-content:flex-start;
+            }
+        }
+
+#view-snmp .snmp-device-grid > * { flex:0 0 380px !important; }
+
+#view-snmp .snmp-dashboard-grid > * { flex:0 0 260px !important; }

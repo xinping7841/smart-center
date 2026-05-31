@@ -1,0 +1,76 @@
+/* AI_MODULE: css_proxy_theme
+   AI_PURPOSE: proxy view styling extracted from smart-center-time-ntp.css for lazy loading. */
+.proxy-page-grid { display:grid; grid-template-columns:1.1fr .9fr; gap:14px; align-items:start; }
+
+.proxy-hero-card { position:relative; overflow:hidden; border-color:rgba(34,211,238,0.18); background:radial-gradient(circle at 0% 0%, rgba(14,165,233,0.20), transparent 32%), linear-gradient(135deg, rgba(15,23,42,0.96), rgba(2,6,23,0.90)); }
+
+.proxy-hero-card::after { content:''; position:absolute; right:-80px; top:-90px; width:220px; height:220px; border-radius:999px; background:radial-gradient(circle, rgba(34,211,238,0.16), rgba(34,211,238,0)); pointer-events:none; }
+
+.proxy-hero-head { position:relative; z-index:1; display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:12px; }
+
+.proxy-hero-title { font-size:18px; font-weight:900; color:#f8fafc; line-height:1.25; }
+
+.proxy-hero-subtitle { margin-top:4px; color:#94a3b8; font-size:12px; line-height:1.45; }
+
+.proxy-pill { display:inline-flex; align-items:center; justify-content:center; gap:5px; min-height:24px; padding:4px 9px; border-radius:999px; border:1px solid rgba(148,163,184,0.18); background:rgba(15,23,42,0.56); color:#cbd5e1; font-size:11px; font-weight:800; white-space:nowrap; }
+
+.proxy-pill.online { color:#bbf7d0; background:rgba(16,185,129,0.13); border-color:rgba(16,185,129,0.26); }
+
+.proxy-pill.warning { color:#fde68a; background:rgba(245,158,11,0.13); border-color:rgba(245,158,11,0.26); }
+
+.proxy-pill.error { color:#fecaca; background:rgba(239,68,68,0.13); border-color:rgba(239,68,68,0.26); }
+
+.proxy-hero-metrics { position:relative; z-index:1; display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px; }
+
+.proxy-hero-metric { min-width:0; border-radius:12px; padding:9px 10px; border:1px solid rgba(148,163,184,0.12); background:rgba(2,6,23,0.36); }
+
+.proxy-hero-metric .label { color:#94a3b8; font-size:10px; line-height:1.25; margin-bottom:5px; }
+
+.proxy-hero-metric .value { color:#f8fafc; font-size:16px; font-weight:900; line-height:1.12; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.proxy-hero-metric .value.ok { color:#86efac; }
+
+.proxy-hero-metric .value.warn { color:#fde68a; }
+
+.proxy-hero-metric .value.blue { color:#93c5fd; }
+
+.proxy-check-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:9px; }
+
+.proxy-check-card { border-radius:12px; padding:10px; border:1px solid rgba(148,163,184,0.13); background:rgba(15,23,42,0.50); min-height:76px; }
+
+.proxy-check-card.ok { border-color:rgba(16,185,129,0.26); background:rgba(16,185,129,0.08); }
+
+.proxy-check-card.error { border-color:rgba(239,68,68,0.26); background:rgba(239,68,68,0.08); }
+
+.proxy-check-name { display:flex; justify-content:space-between; gap:8px; align-items:center; color:#f8fafc; font-weight:900; font-size:13px; margin-bottom:8px; }
+
+.proxy-check-meta { color:#94a3b8; font-size:11px; line-height:1.45; }
+
+.proxy-table-wrap { overflow:auto; border-radius:14px; border:1px solid rgba(148,163,184,0.12); background:rgba(2,6,23,0.18); }
+
+.proxy-client-table { width:100%; border-collapse:collapse; min-width:720px; }
+
+.proxy-client-table th, .proxy-client-table td { padding:9px 10px; border-bottom:1px solid rgba(148,163,184,0.10); text-align:left; font-size:12px; color:#cbd5e1; white-space:nowrap; }
+
+.proxy-client-table th { color:#94a3b8; font-size:11px; background:rgba(15,23,42,0.58); position:sticky; top:0; z-index:1; }
+
+.proxy-client-table tr:last-child td { border-bottom:none; }
+
+.proxy-client-ip { color:#f8fafc; font-family:monospace; font-weight:900; }
+
+.proxy-client-active-dot { display:inline-block; width:8px; height:8px; border-radius:999px; margin-right:6px; background:#475569; vertical-align:1px; }
+
+.proxy-client-active-dot.on { background:#22c55e; box-shadow:0 0 10px rgba(34,197,94,.38); }
+
+.proxy-card-note { margin-top:10px; color:#94a3b8; font-size:11px; line-height:1.55; }
+
+@media screen and (max-width: 1180px) {
+            .proxy-page-grid { grid-template-columns:1fr; }
+            .proxy-hero-metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+        }
+
+@media screen and (max-width: 620px) {
+            .proxy-hero-head { flex-direction:column; }
+            .proxy-hero-metrics { grid-template-columns:1fr; }
+            .proxy-client-table { min-width:620px; }
+        }

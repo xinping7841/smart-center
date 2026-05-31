@@ -1,0 +1,71 @@
+/* AI_MODULE: css_universal_theme
+   AI_PURPOSE: universal view styling extracted from smart-center-time-ntp.css for lazy loading. */
+.node-red-device-grid { display:grid; grid-template-columns:repeat(auto-fill, 260px); gap:10px; margin-bottom:18px; align-items:stretch; justify-content:start; }
+
+.node-red-device-card { width:260px; min-height:118px; border:1px solid rgba(148,163,184,.18); border-radius:10px; background:linear-gradient(180deg, rgba(15,23,42,.92), rgba(30,41,59,.72)); color:#e2e8f0; padding:10px 11px; display:flex; flex-direction:column; gap:8px; position:relative; overflow:hidden; text-align:left; font:inherit; cursor:pointer; }
+
+.node-red-device-card.is-on { border-color:rgba(34,197,94,.42); background:linear-gradient(135deg, rgba(6,95,70,.74), rgba(15,23,42,.90)); box-shadow:0 10px 24px rgba(16,185,129,.14); }
+
+.node-red-device-card.is-off { border-color:rgba(71,85,105,.72); }
+
+.node-red-device-card.is-busy { border-color:rgba(245,158,11,.48); background:linear-gradient(135deg, rgba(120,53,15,.46), rgba(15,23,42,.90)); }
+
+.node-red-device-card.is-error { border-color:rgba(239,68,68,.42); background:linear-gradient(135deg, rgba(127,29,29,.46), rgba(15,23,42,.90)); }
+
+.node-red-device-card.is-offline { opacity:.78; }
+
+.node-red-device-card:hover { transform:translateY(-1px); border-color:rgba(96,165,250,.38); }
+
+.node-red-device-card:disabled { cursor:not-allowed; opacity:.62; transform:none; }
+
+.node-red-device-head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; min-width:0; }
+
+.node-red-device-title-wrap { min-width:0; }
+
+.node-red-device-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; font-weight:900; color:#f8fafc; }
+
+.node-red-device-type { margin-top:2px; font-size:10px; color:#94a3b8; font-weight:750; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.node-red-status-pill { flex:none; border-radius:999px; padding:4px 8px; background:rgba(15,23,42,.42); border:1px solid rgba(255,255,255,.12); color:#dbeafe; font-size:11px; font-weight:900; line-height:1; }
+
+.protocol-light-card.is-on .node-red-status-pill { color:#bbf7d0; border-color:rgba(187,247,208,.34); background:rgba(6,95,70,.28); }
+
+.protocol-light-card.is-off .node-red-status-pill { color:#cbd5e1; }
+
+.protocol-light-body { display:flex; align-items:center; justify-content:space-between; gap:12px; min-height:42px; margin-top:2px; }
+
+.protocol-light-icon { width:32px; height:32px; border-radius:999px; background:radial-gradient(circle at 50% 42%, rgba(148,163,184,.88), rgba(51,65,85,.9) 68%); box-shadow:0 0 0 5px rgba(148,163,184,.10); flex:none; }
+
+.protocol-light-card.is-on .protocol-light-icon { background:radial-gradient(circle at 50% 42%, #fde68a, #22c55e 70%); box-shadow:0 0 0 5px rgba(34,197,94,.15), 0 0 18px rgba(250,204,21,.30); }
+
+.protocol-light-action { color:#f8fafc; font-size:18px; line-height:1; font-weight:900; letter-spacing:0; }
+
+.node-red-device-meta { color:#94a3b8; font-size:11px; line-height:1.35; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.node-red-device-foot { margin-top:auto; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+
+.node-red-updated { color:#64748b; font-size:10px; font-family:monospace; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+.node-red-actions { display:flex; gap:6px; flex:none; }
+
+.node-red-action-btn { min-width:42px; height:30px; border:none; border-radius:8px; padding:0 10px; color:#e2e8f0; background:rgba(51,65,85,.92); border:1px solid rgba(148,163,184,.18); font-size:12px; font-weight:900; cursor:pointer; }
+
+.node-red-action-btn.primary { color:#ecfdf5; background:linear-gradient(135deg, rgba(16,185,129,.92), rgba(5,150,105,.92)); border-color:rgba(52,211,153,.42); }
+
+.node-red-action-btn.stop { color:#fee2e2; background:rgba(127,29,29,.82); border-color:rgba(248,113,113,.28); }
+
+.node-red-action-btn:disabled { opacity:.52; cursor:not-allowed; }
+
+.node-red-empty { grid-column:1/-1; color:var(--text-sub); padding:12px; border:1px dashed rgba(148,163,184,.24); border-radius:10px; background:rgba(15,23,42,.38); }
+
+#view-universal .node-red-device-grid {
+            grid-template-columns:repeat(auto-fill, 260px) !important;
+            justify-content:start !important;
+            align-items:stretch !important;
+        }
+
+#view-universal .protocol-light-card {
+            width:260px !important;
+            max-width:260px !important;
+            min-height:118px !important;
+        }

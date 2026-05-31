@@ -1,0 +1,369 @@
+/* AI_MODULE: css_sequencer_theme
+   AI_PURPOSE: sequencer view styling extracted from smart-center-time-ntp.css for lazy loading. */
+.sequencer-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap:18px; }
+
+.sequencer-card { background:linear-gradient(180deg, rgba(19,27,43,0.98), rgba(13,19,32,0.98)); border:1px solid rgba(71,85,105,0.65); border-radius:16px; padding:18px; box-shadow:0 10px 24px rgba(0,0,0,0.24); }
+
+.sequencer-card.online { border-color:rgba(16,185,129,0.36); }
+
+.sequencer-card.offline { border-color:rgba(100,116,139,0.42); opacity:0.9; }
+
+.sequencer-filter-bar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+
+.sequencer-filter-btn { border:1px solid rgba(148,163,184,0.18); background:rgba(15,23,42,0.45); color:#cbd5e1; border-radius:999px; padding:7px 12px; font-size:12px; font-weight:700; cursor:pointer; transition:all .18s ease; }
+
+.sequencer-filter-btn.active { background:rgba(59,130,246,0.18); color:#dbeafe; border-color:rgba(96,165,250,0.34); }
+
+.sequencer-filter-btn:hover { transform:translateY(-1px); }
+
+.sequencer-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:14px; }
+
+.sequencer-title { font-size:18px; font-weight:700; color:var(--text-main); }
+
+.sequencer-subtitle { margin-top:4px; color:var(--text-sub); font-size:12px; line-height:1.5; }
+
+.sequencer-status-stack { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+
+.sequencer-tag { padding:5px 10px; border-radius:999px; font-size:12px; font-weight:700; border:1px solid rgba(148,163,184,0.16); background:rgba(15,23,42,0.55); color:#e2e8f0; }
+
+.sequencer-tag.online { background:rgba(16,185,129,0.16); color:#86efac; border-color:rgba(16,185,129,0.35); }
+
+.sequencer-tag.locked { background:rgba(245,158,11,0.16); color:#fcd34d; border-color:rgba(245,158,11,0.35); }
+
+.sequencer-tag.error { background:rgba(239,68,68,0.14); color:#fecaca; border-color:rgba(239,68,68,0.3); }
+
+.sequencer-meta { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:10px; margin-bottom:14px; align-items:stretch; }
+
+.sequencer-meta-item { background:rgba(2,6,23,0.36); border:1px solid rgba(148,163,184,0.10); border-radius:12px; padding:10px 12px; min-height:74px; }
+
+.sequencer-meta-item .label { color:var(--text-sub); font-size:12px; margin-bottom:4px; }
+
+.sequencer-meta-item .value { color:var(--text-main); font-size:14px; font-weight:700; word-break:break-all; }
+
+.sequencer-meta-item.log { display:flex; flex-direction:column; min-height:74px; }
+
+.sequencer-meta-item.log .label { margin-bottom:8px; }
+
+.sequencer-summary-text { font-size:12px; color:#cbd5e1; margin-top:-4px; margin-bottom:12px; padding:8px 10px; border-radius:10px; background:rgba(2,6,23,0.28); border:1px solid rgba(148,163,184,0.10); }
+
+.sequencer-mini-log-list { display:flex; flex-direction:column; gap:6px; max-height:86px; overflow:auto; }
+
+.sequencer-mini-log-item { display:flex; gap:6px; font-size:11px; line-height:1.35; }
+
+.sequencer-mini-log-time { color:#93c5fd; flex-shrink:0; font-family:Consolas, monospace; }
+
+.sequencer-mini-log-text { color:var(--text-sub); }
+
+.sequencer-toolbar { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; }
+
+.sequencer-action-btn { border:none; border-radius:10px; padding:10px 14px; cursor:pointer; color:#fff; font-size:13px; font-weight:700; transition:transform .18s ease, filter .18s ease; }
+
+.sequencer-action-btn:hover { transform:translateY(-1px); filter:brightness(1.06); }
+
+.sequencer-action-btn.seq-on { background:linear-gradient(135deg, #10b981, #059669); }
+
+.sequencer-action-btn.seq-off { background:linear-gradient(135deg, #f97316, #ea580c); }
+
+.sequencer-action-btn.all-on { background:linear-gradient(135deg, #22c55e, #16a34a); }
+
+.sequencer-action-btn.all-off { background:linear-gradient(135deg, #ef4444, #dc2626); }
+
+.sequencer-action-btn.lock { background:linear-gradient(135deg, #475569, #334155); }
+
+.sequencer-channel-grid { display:grid; grid-template-columns:repeat(8, minmax(0, 1fr)); gap:8px; margin-bottom:14px; }
+
+.sequencer-channel-btn { min-height:88px; border:none; border-radius:14px; cursor:pointer; padding:8px 4px; transition:transform .18s ease, box-shadow .18s ease; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; }
+
+.sequencer-channel-btn:hover { transform:translateY(-1px); }
+
+.sequencer-channel-btn.on { background:linear-gradient(180deg, rgba(16,185,129,0.96), rgba(5,150,105,0.96)); color:#ecfdf5; box-shadow:0 10px 18px rgba(16,185,129,0.22); }
+
+.sequencer-channel-btn.off { background:linear-gradient(180deg, rgba(51,65,85,0.94), rgba(30,41,59,0.96)); color:#cbd5e1; }
+
+.sequencer-channel-btn .name { font-size:12px; font-weight:700; line-height:1; }
+
+.sequencer-channel-btn .state { font-size:11px; opacity:0.92; line-height:1; }
+
+.sequencer-inline-led { width:12px; height:12px; border-radius:999px; background:#334155; box-shadow: inset 0 1px 2px rgba(255,255,255,0.05); margin-bottom:4px; }
+
+.sequencer-inline-led.on { background:radial-gradient(circle at 45% 40%, #86efac, #16a34a 70%); box-shadow:0 0 10px rgba(34,197,94,0.45); }
+
+.sequencer-diagnostics { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:10px; margin-top:4px; }
+
+.sequencer-diag-item { background:rgba(2,6,23,0.28); border:1px solid rgba(71,85,105,0.25); border-radius:10px; padding:10px 12px; }
+
+.sequencer-diag-item .label { color:var(--text-sub); font-size:11px; margin-bottom:4px; }
+
+.sequencer-diag-item .value { color:#cbd5e1; font-size:12px; font-family:Consolas, monospace; line-height:1.45; word-break:break-all; }
+
+.sequencer-diag-item.error .value { color:#fca5a5; font-family:inherit; }
+
+.sequencer-footer { display:none; }
+
+.sequencer-led-row { display:none; }
+
+.sequencer-led { height:12px; border-radius:999px; background:#334155; box-shadow: inset 0 1px 2px rgba(255,255,255,0.05); }
+
+.sequencer-led.on { background:radial-gradient(circle at 45% 40%, #86efac, #16a34a 70%); box-shadow:0 0 10px rgba(34,197,94,0.45); }
+
+@media screen and (max-width: 1400px) { .sequencer-meta { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+
+@media screen and (max-width: 1200px) { .sequencer-channel-grid { grid-template-columns:repeat(4, minmax(0, 1fr)); } .sequencer-meta { grid-template-columns:repeat(2, minmax(0, 1fr)); } .sequencer-diagnostics { grid-template-columns:1fr; } }
+
+@media screen and (max-width: 900px) { .sequencer-channel-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } .sequencer-meta { grid-template-columns:1fr; } .sequencer-diagnostics { grid-template-columns:1fr; } }
+
+/* Sequencer single-page console: four DS-608 units should fit in one operator view. */
+        #view-sequencer > .card {
+            padding:12px !important;
+        }
+
+#view-sequencer .card-title {
+            margin-bottom:8px !important;
+            padding-bottom:8px !important;
+        }
+
+#view-sequencer .sequencer-filter-bar {
+            margin-bottom:8px !important;
+            gap:6px !important;
+        }
+
+#view-sequencer .sequencer-filter-btn {
+            padding:5px 10px !important;
+            font-size:11px !important;
+            min-height:28px !important;
+        }
+
+#view-sequencer .sequencer-grid {
+            grid-template-columns:repeat(2, minmax(0, 1fr)) !important;
+            gap:8px !important;
+            align-items:start !important;
+        }
+
+#view-sequencer .sequencer-card {
+            padding:9px 10px !important;
+            border-radius:12px !important;
+            display:grid;
+            grid-template-columns:minmax(0, 1fr) auto;
+            grid-template-areas:
+                "head actions"
+                "summary summary"
+                "channels channels"
+                "meta meta"
+                "diag diag"
+                "note note";
+            gap:6px 8px;
+            min-height:0 !important;
+            box-shadow:0 8px 18px rgba(2,6,23,0.16) !important;
+        }
+
+#view-sequencer .sequencer-head {
+            grid-area:head;
+            margin:0 !important;
+            gap:6px !important;
+            min-width:0;
+            align-items:flex-start;
+        }
+
+#view-sequencer .sequencer-head .card-head-kicker {
+            display:none !important;
+        }
+
+#view-sequencer .sequencer-title {
+            font-size:16px !important;
+            line-height:1.08 !important;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+        }
+
+#view-sequencer .sequencer-subtitle {
+            margin-top:2px !important;
+            font-size:10px !important;
+            line-height:1.15 !important;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+        }
+
+#view-sequencer .status-chip-stack {
+            gap:4px !important;
+            justify-content:flex-end;
+            flex-shrink:0;
+        }
+
+#view-sequencer .sequencer-tag {
+            padding:3px 7px !important;
+            font-size:10px !important;
+            line-height:1.1 !important;
+        }
+
+#view-sequencer .sequencer-summary-text {
+            grid-area:summary;
+            margin:0 !important;
+            padding:4px 7px !important;
+            border-radius:8px !important;
+            font-size:10px !important;
+            line-height:1.15 !important;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+        }
+
+#view-sequencer .sequencer-meta {
+            grid-area:meta;
+            grid-template-columns:minmax(72px, .5fr) minmax(120px, .9fr) minmax(0, 1fr) !important;
+            gap:5px !important;
+            margin:0 !important;
+        }
+
+#view-sequencer .sequencer-meta-item {
+            min-height:38px !important;
+            padding:6px 7px !important;
+            border-radius:8px !important;
+        }
+
+#view-sequencer .sequencer-meta-item .label {
+            margin-bottom:2px !important;
+            font-size:8px !important;
+            line-height:1 !important;
+        }
+
+#view-sequencer .sequencer-meta-item .value {
+            font-size:10px !important;
+            line-height:1.15 !important;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+        }
+
+#view-sequencer .sequencer-meta-item.log {
+            display:none !important;
+        }
+
+#view-sequencer .sequencer-toolbar {
+            grid-area:actions;
+            margin:0 !important;
+            display:grid !important;
+            grid-template-columns:repeat(5, minmax(54px, 1fr));
+            gap:4px !important;
+            align-self:start;
+            width:min(100%, 350px);
+        }
+
+#view-sequencer .sequencer-action-btn {
+            min-height:28px !important;
+            padding:0 6px !important;
+            border-radius:8px !important;
+            font-size:10px !important;
+            line-height:1.05 !important;
+            white-space:nowrap;
+        }
+
+#view-sequencer .sequencer-channel-grid {
+            grid-area:channels;
+            grid-template-columns:repeat(8, minmax(0, 1fr)) !important;
+            gap:5px !important;
+            margin:0 !important;
+        }
+
+#view-sequencer .sequencer-channel-btn {
+            min-height:48px !important;
+            border-radius:9px !important;
+            padding:5px 2px !important;
+            gap:3px !important;
+        }
+
+#view-sequencer .sequencer-channel-btn .name {
+            font-size:10px !important;
+            line-height:1 !important;
+        }
+
+#view-sequencer .sequencer-channel-btn .state {
+            font-size:9px !important;
+            line-height:1 !important;
+        }
+
+#view-sequencer .sequencer-inline-led {
+            width:8px !important;
+            height:8px !important;
+            margin-bottom:1px !important;
+        }
+
+#view-sequencer .sequencer-diagnostics {
+            grid-area:diag;
+            grid-template-columns:repeat(4, minmax(0, 1fr)) !important;
+            gap:5px !important;
+            margin:0 !important;
+        }
+
+#view-sequencer .sequencer-diag-item {
+            padding:5px 7px !important;
+            border-radius:8px !important;
+            min-height:32px !important;
+        }
+
+#view-sequencer .sequencer-diag-item .label {
+            margin-bottom:2px !important;
+            font-size:8px !important;
+            line-height:1 !important;
+        }
+
+#view-sequencer .sequencer-diag-item .value {
+            font-size:9px !important;
+            line-height:1.1 !important;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+        }
+
+#view-sequencer .card-inline-note {
+            grid-area:note;
+            margin-top:0 !important;
+            padding:5px 7px !important;
+            font-size:10px !important;
+            line-height:1.2 !important;
+        }
+
+@media screen and (max-width: 1550px) {
+            #view-sequencer .sequencer-grid {
+                grid-template-columns:1fr !important;
+            }
+            #view-sequencer .sequencer-card {
+                grid-template-columns:minmax(190px, .75fr) minmax(0, 1.25fr);
+                grid-template-areas:
+                    "head actions"
+                    "summary summary"
+                    "channels channels"
+                    "meta diag"
+                    "note note";
+            }
+            #view-sequencer .sequencer-toolbar {
+                width:100%;
+            }
+        }
+
+@media screen and (max-width: 900px) {
+            #view-sequencer .sequencer-card {
+                grid-template-columns:1fr;
+                grid-template-areas:
+                    "head"
+                    "actions"
+                    "summary"
+                    "channels"
+                    "meta"
+                    "diag"
+                    "note";
+            }
+            #view-sequencer .sequencer-toolbar {
+                grid-template-columns:repeat(2, minmax(0, 1fr));
+            }
+            #view-sequencer .sequencer-channel-grid {
+                grid-template-columns:repeat(4, minmax(0, 1fr)) !important;
+            }
+            #view-sequencer .sequencer-meta,
+            #view-sequencer .sequencer-diagnostics {
+                grid-template-columns:1fr !important;
+            }
+        }
+
+#view-sequencer .sequencer-grid > * { flex:0 0 520px !important; }

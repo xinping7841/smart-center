@@ -1,0 +1,66 @@
+{
+  "core": {
+    "rules": 464,
+    "bytes": 89871
+  },
+  "dashboard": {
+    "rules": 1232,
+    "bytes": 359413
+  },
+  "hvac": {
+    "rules": 332,
+    "bytes": 45312
+  },
+  "snmp": {
+    "rules": 433,
+    "bytes": 57047
+  },
+  "meter": {
+    "rules": 162,
+    "bytes": 27747
+  },
+  "auto": {
+    "rules": 179,
+    "bytes": 23570
+  },
+  "server": {
+    "rules": 140,
+    "bytes": 20612
+  },
+  "projector": {
+    "rules": 82,
+    "bytes": 11732
+  },
+  "sequencer": {
+    "rules": 89,
+    "bytes": 14343
+  },
+  "ups": {
+    "rules": 41,
+    "bytes": 5460
+  },
+  "apple_audio": {
+    "rules": 91,
+    "bytes": 12062
+  },
+  "power": {
+    "rules": 30,
+    "bytes": 5208
+  },
+  "universal": {
+    "rules": 31,
+    "bytes": 4565
+  },
+  "env": {
+    "rules": 27,
+    "bytes": 3482
+  },
+  "proxy": {
+    "rules": 34,
+    "bytes": 4420
+  },
+  "logs": {
+    "rules": 8,
+    "bytes": 1134
+  }
+}
