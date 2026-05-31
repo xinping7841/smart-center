@@ -1123,92 +1123,14 @@
                         <span style="font-size:12px; color:var(--text-sub);">&#x4fdd;&#x7559;&#x539f;&#x534f;&#x8bae;&#x63a7;&#x5236;&#x4e2d;&#x5fc3;&#x914d;&#x7f6e;&#xff0c;&#x53ef;&#x7ee7;&#x7eed;&#x505a;&#x591a;&#x76ee;&#x6807;&#x5206;&#x53d1;</span>
                     </div>
                     <div class="channel-grid protocol-device-grid" id="control-center-grid" style="margin-bottom:18px;">
-                        {% set has_cc_cmd = namespace(value=false) %}
-                        {% for target in config.control_center.target_groups|default([]) %}
-                            {% set target_controls = namespace(read_do='', read_di='', do_on='', do_off='', info='', pulse='', items=[]) %}
-                            {% for panel in config.control_center.panels|default([]) %}
-                                {% if panel.visible %}
-                                    {% for ctrl in panel.controls|default([])|sort(attribute='sort') %}
-                                        {% if ctrl.visible and ctrl.show_on_home and ctrl.target_group_id == target.id %}
-                                            {% set action_name = ctrl.name|default('执行') %}
-                                            {% if action_name == '读DO' or '读DO' in action_name %}{% set target_controls.read_do = ctrl.id %}
-                                            {% elif action_name == '读DI' or '读DI' in action_name %}{% set target_controls.read_di = ctrl.id %}
-                                            {% elif action_name == 'DO开' or 'DO开' in action_name %}{% set target_controls.do_on = ctrl.id %}
-                                            {% elif action_name == 'DO关' or 'DO关' in action_name %}{% set target_controls.do_off = ctrl.id %}
-                                            {% elif '点动' in action_name %}
-                                                {% if ctrl.command_id|default('') %}{% set target_controls.pulse = ctrl.id %}{% endif %}
-                                            {% elif action_name == '信息' or '信息' in action_name %}{% set target_controls.info = ctrl.id %}
-                                            {% else %}{% set target_controls.items = target_controls.items + [ctrl] %}
-                                            {% endif %}
-                                        {% endif %}
-                                    {% endfor %}
-                                {% endif %}
-                            {% endfor %}
-                            {% if target_controls.read_do or target_controls.read_di or target_controls.do_on or target_controls.do_off or target_controls.info or target_controls.pulse or target_controls.items %}
-                                {% set has_cc_cmd.value = true %}
-                                {% set device_cfg = (config.control_center.devices|default([])|selectattr('target_group_id', 'equalto', target.id)|list|first) %}
-                                {% set display_name = (device_cfg.name|default(target.name|default('协议设备')) if device_cfg else target.name|default('协议设备')) %}
-                                {% set display_name = display_name.replace('泥人继电器 ', '泥人 ') %}
-                                <div class="protocol-device-card" data-protocol-card="1" data-target-id="{{ target.id }}" data-read-do="{{ target_controls.read_do }}" data-read-di="{{ target_controls.read_di }}" data-do-on="{{ target_controls.do_on }}" data-do-off="{{ target_controls.do_off }}" data-info="{{ target_controls.info }}" data-pulse="{{ target_controls.pulse }}" data-info-title="{{ display_name }}" data-info-endpoint="{{ target.host|default('') }}{% if target.port %}:{{ target.port }}{% endif %}" data-info-protocol="{{ target.data_protocol|default(target.protocol|default('')) }}" data-info-model="{{ target.model|default('') }}" data-info-mac="{{ target.mac|default('') }}" data-info-unit="{{ target.unit_id|default('01') }}" data-info-do="{{ target.do_channels|default(device_cfg.do_channels|default('')) if device_cfg else target.do_channels|default('') }}" data-info-di="{{ target.di_channels|default(device_cfg.di_channels|default('')) if device_cfg else target.di_channels|default('') }}">
-                                    <div class="protocol-device-head">
-                                        <div>
-                                            <div class="protocol-device-title">{{ display_name }}</div>
-                                            <div class="protocol-device-meta">{{ target.host|default('') }}{% if target.port %}:{{ target.port }}{% endif %}{% if target.data_protocol %} / {{ target.data_protocol }}{% endif %}</div>
-                                        </div>
-                                        <span class="protocol-device-badge"><span class="protocol-led" data-led="health"></span><span class="protocol-status-value" data-text="health">读取中</span></span>
-                                    </div>
-                                    <div class="protocol-status-row">
-                                        <div class="protocol-status-pill"><div class="protocol-status-label"><span class="protocol-led" data-led="di"></span>输入</div><div class="protocol-status-value" data-text="di">读取中</div></div>
-                                        <div class="protocol-status-pill"><div class="protocol-status-label"><span class="protocol-led" data-led="do"></span>输出</div><div class="protocol-status-value" data-text="do">读取中</div></div>
-                                    </div>
-                                    <div class="protocol-switch-row">
-                                        <div><div class="protocol-switch-title">输出控制</div><div class="protocol-switch-sub" data-text="switch">读取状态后可切换</div></div>
-                                        <label class="protocol-toggle" title="输出开关"><input type="checkbox" data-role="do-toggle" onchange="toggleProtocolDeviceOutput(this)"><span></span></label>
-                                    </div>
-                                    {% if target_controls.info or target_controls.pulse or (target_controls.do_on and target_controls.do_off) or target_controls.items %}
-                                    <div class="protocol-device-actions">
-                                        <button class="protocol-action-btn read" onclick="openProtocolDeviceInfo(this.closest('[data-protocol-card=\'1\']'), '{{target_controls.info}}')">信息</button>
-                                        {% if target_controls.pulse or (target_controls.do_on and target_controls.do_off) %}<button class="protocol-action-btn pulse" onclick="pulseProtocolDevice(this.closest('[data-protocol-card=\'1\']'))">点动1秒</button>{% endif %}
-                                        {% for ctrl in target_controls.items %}<button class="protocol-action-btn" onclick="fireControlCenterControl('{{ctrl.id}}')">{{ ctrl.name|default('执行') }}</button>{% endfor %}
-                                    </div>
-                                    {% endif %}
-                                </div>
-                            {% endif %}
-                        {% endfor %}
-                        {% if not has_cc_cmd.value %}
-                        <div style="color:var(--text-sub); grid-column: 1/-1;">协议控制中心还没有设置主页控件，可在系统配置的“协议控制”中添加目标组、指令和控件。</div>
-                        {% endif %}
+                        <div style="color:var(--text-sub); grid-column: 1/-1;">正在加载协议控件...</div>
                     </div>
                     <div class="card-title" style="margin-top:8px;">
                         <span>历史协议设备</span>
                         <span style="font-size:12px; color:var(--text-sub);">保留尚未迁移的历史协议按钮</span>
                     </div>
                     <div class="channel-grid" id="universal-btn-grid" style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));">
-                        {% set has_cmd = namespace(value=false) %}
-                        {% for dev in config.custom_devices|default([]) %}
-                            {% for cmd in dev.commands|default([]) %}
-                                {% set legacy_cmd_text = ((dev.name|default('')) ~ ' ' ~ (cmd.name|default('')) ~ ' ' ~ (cmd.payload|default(''))) %}
-                                {% set is_node_red_migrated = ('99 03 8D 66 34 58 99' in legacy_cmd_text) or ('99 03 8D 66 32 58 99' in legacy_cmd_text) %}
-                                {% if cmd.show_on_home and not is_node_red_migrated %}
-                                {% set has_cmd.value = true %}
-                                <button class="ch-btn ch-off"
-                                    {% if cmd.type == 'longpress' %}
-                                        onmousedown="handleLongPressStart('{{dev.id}}', '{{cmd.payload}}', '{{cmd.format}}')"
-                                        onmouseup="handleLongPressEnd('{{dev.id}}', '{{cmd.stop_payload}}', '{{cmd.format}}')"
-                                        onmouseleave="handleLongPressEnd('{{dev.id}}', '{{cmd.stop_payload}}', '{{cmd.format}}')"
-                                    {% else %}
-                                        onclick="fireUniversalCommand('{{dev.id}}', '{{cmd.payload}}', '{{cmd.format}}', {{cmd.wait_ms|default(0)}})"
-                                    {% endif %}
-                                >
-                                    <span class="name">{{ dev.name }} - {{ cmd.name }}</span>
-                                    <span class="state">{{ '长按发送 / 松开停止' if cmd.type == 'longpress' else '点击执行' }}</span>
-                                </button>
-                                {% endif %}
-                            {% endfor %}
-                        {% endfor %}
-                        {% if not has_cmd.value %}
-                        <div style="color:var(--text-sub); grid-column: 1/-1;">请先前往系统配置定义快捷指令，并勾选主页显示。</div>
-                        {% endif %}
+                        <div style="color:var(--text-sub); grid-column: 1/-1;">正在加载历史协议按钮...</div>
                     </div>
                 </div>
             </div>
@@ -1504,6 +1426,6 @@
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
     </script>
-    <script src="/static/js/app-runtime.js?v=20260531-auto-template-slim-v1"></script>
+    <script src="/static/js/app-runtime.js?v=20260531-universal-template-slim-v1"></script>
 </body>
 </html>

@@ -10,8 +10,11 @@
     'use strict';
 
     const SmartCenter = global.SmartCenter || (global.SmartCenter = {});
+    const configData = global.configData || {};
+    const utils = SmartCenter.utils || {};
     const nodeRedPending = {};
     const nodeRedCooldownUntil = {};
+    let universalRendered = false;
 
     function nowMs() {
         return Date.now();
@@ -50,6 +53,7 @@
     }
 
     function escapeHtml(value) {
+        if (typeof utils.escapeHtml === 'function') return utils.escapeHtml(value);
         return String(value ?? '').replace(/[&<>"']/g, ch => ({
             '&': '&amp;',
             '<': '&lt;',
@@ -57,6 +61,162 @@
             '"': '&quot;',
             "'": '&#39;',
         }[ch]));
+    }
+
+    function jsArg(value) {
+        return escapeHtml(JSON.stringify(String(value ?? '')));
+    }
+
+    function getControlCenterConfig() {
+        const cc = configData.control_center;
+        return cc && typeof cc === 'object' ? cc : {};
+    }
+
+    function getControlCenterDevices() {
+        const devices = getControlCenterConfig().devices;
+        return Array.isArray(devices) ? devices : [];
+    }
+
+    function getControlCenterTargets() {
+        const targets = getControlCenterConfig().target_groups;
+        return Array.isArray(targets) ? targets : [];
+    }
+
+    function getControlCenterPanels() {
+        const panels = getControlCenterConfig().panels;
+        return Array.isArray(panels) ? panels : [];
+    }
+
+    function normalizeProtocolDisplayName(name) {
+        return String(name || '协议设备').replace('泥人继电器 ', '泥人 ');
+    }
+
+    function getTargetDeviceConfig(targetId) {
+        return getControlCenterDevices().find(item => String(item?.target_group_id || '') === String(targetId || '')) || null;
+    }
+
+    function getVisibleHomeControlsForTarget(targetId) {
+        const rows = [];
+        getControlCenterPanels()
+            .filter(panel => panel && panel.visible !== false)
+            .forEach(panel => {
+                const controls = Array.isArray(panel.controls) ? panel.controls : [];
+                controls
+                    .filter(ctrl => ctrl && ctrl.visible !== false && ctrl.show_on_home && String(ctrl.target_group_id || '') === String(targetId || ''))
+                    .sort((a, b) => Number(a?.sort || 0) - Number(b?.sort || 0))
+                    .forEach(ctrl => rows.push(ctrl));
+            });
+        return rows;
+    }
+
+    function classifyProtocolControls(controls) {
+        const result = { read_do: '', read_di: '', do_on: '', do_off: '', info: '', pulse: '', items: [] };
+        controls.forEach(ctrl => {
+            const actionName = String(ctrl?.name || '执行');
+            if (actionName === '读DO' || actionName.includes('读DO')) result.read_do = ctrl.id || '';
+            else if (actionName === '读DI' || actionName.includes('读DI')) result.read_di = ctrl.id || '';
+            else if (actionName === 'DO开' || actionName.includes('DO开')) result.do_on = ctrl.id || '';
+            else if (actionName === 'DO关' || actionName.includes('DO关')) result.do_off = ctrl.id || '';
+            else if (actionName.includes('点动')) {
+                if (ctrl.command_id) result.pulse = ctrl.id || '';
+            } else if (actionName === '信息' || actionName.includes('信息')) result.info = ctrl.id || '';
+            else result.items.push(ctrl);
+        });
+        return result;
+    }
+
+    function renderProtocolDeviceCard(target, targetControls) {
+        const deviceCfg = getTargetDeviceConfig(target.id);
+        const displayName = normalizeProtocolDisplayName(deviceCfg?.name || target.name || '协议设备');
+        const endpoint = `${target.host || ''}${target.port ? `:${target.port}` : ''}`;
+        const protocol = target.data_protocol || target.protocol || '';
+        const actions = [];
+        actions.push(`<button class="protocol-action-btn read" onclick="openProtocolDeviceInfo(this.closest('[data-protocol-card=&quot;1&quot;]'), ${jsArg(targetControls.info)})">信息</button>`);
+        if (targetControls.pulse || (targetControls.do_on && targetControls.do_off)) {
+            actions.push(`<button class="protocol-action-btn pulse" onclick="pulseProtocolDevice(this.closest('[data-protocol-card=&quot;1&quot;]'))">点动1秒</button>`);
+        }
+        targetControls.items.forEach(ctrl => {
+            actions.push(`<button class="protocol-action-btn" onclick="fireControlCenterControl(${jsArg(ctrl.id || '')})">${escapeHtml(ctrl.name || '执行')}</button>`);
+        });
+        return `
+            <div class="protocol-device-card" data-protocol-card="1" data-target-id="${escapeHtml(target.id || '')}" data-read-do="${escapeHtml(targetControls.read_do)}" data-read-di="${escapeHtml(targetControls.read_di)}" data-do-on="${escapeHtml(targetControls.do_on)}" data-do-off="${escapeHtml(targetControls.do_off)}" data-info="${escapeHtml(targetControls.info)}" data-pulse="${escapeHtml(targetControls.pulse)}" data-info-title="${escapeHtml(displayName)}" data-info-endpoint="${escapeHtml(endpoint)}" data-info-protocol="${escapeHtml(protocol)}" data-info-model="${escapeHtml(target.model || '')}" data-info-mac="${escapeHtml(target.mac || '')}" data-info-unit="${escapeHtml(target.unit_id || '01')}" data-info-do="${escapeHtml(target.do_channels ?? deviceCfg?.do_channels ?? '')}" data-info-di="${escapeHtml(target.di_channels ?? deviceCfg?.di_channels ?? '')}">
+                <div class="protocol-device-head">
+                    <div>
+                        <div class="protocol-device-title">${escapeHtml(displayName)}</div>
+                        <div class="protocol-device-meta">${escapeHtml(endpoint)}${protocol ? ` / ${escapeHtml(protocol)}` : ''}</div>
+                    </div>
+                    <span class="protocol-device-badge"><span class="protocol-led" data-led="health"></span><span class="protocol-status-value" data-text="health">读取中</span></span>
+                </div>
+                <div class="protocol-status-row">
+                    <div class="protocol-status-pill"><div class="protocol-status-label"><span class="protocol-led" data-led="di"></span>输入</div><div class="protocol-status-value" data-text="di">读取中</div></div>
+                    <div class="protocol-status-pill"><div class="protocol-status-label"><span class="protocol-led" data-led="do"></span>输出</div><div class="protocol-status-value" data-text="do">读取中</div></div>
+                </div>
+                <div class="protocol-switch-row">
+                    <div><div class="protocol-switch-title">输出控制</div><div class="protocol-switch-sub" data-text="switch">读取状态后可切换</div></div>
+                    <label class="protocol-toggle" title="输出开关"><input type="checkbox" data-role="do-toggle" onchange="toggleProtocolDeviceOutput(this)"><span></span></label>
+                </div>
+                ${actions.length ? `<div class="protocol-device-actions">${actions.join('')}</div>` : ''}
+            </div>
+        `;
+    }
+
+    function renderProtocolDeviceCards() {
+        const grid = document.getElementById('control-center-grid');
+        if (!grid) return;
+        const cards = [];
+        getControlCenterTargets().forEach(target => {
+            const controls = getVisibleHomeControlsForTarget(target.id);
+            const targetControls = classifyProtocolControls(controls);
+            const hasCard = targetControls.read_do || targetControls.read_di || targetControls.do_on || targetControls.do_off || targetControls.info || targetControls.pulse || targetControls.items.length;
+            if (hasCard) cards.push(renderProtocolDeviceCard(target, targetControls));
+        });
+        grid.innerHTML = cards.length
+            ? cards.join('')
+            : '<div style="color:var(--text-sub); grid-column: 1/-1;">协议控制中心还没有设置主页控件，可在系统配置的“协议控制”中添加目标组、指令和控件。</div>';
+    }
+
+    function isNodeRedMigratedLegacyCommand(dev = {}, cmd = {}) {
+        const text = `${dev.name || ''} ${cmd.name || ''} ${cmd.payload || ''}`;
+        return text.includes('99 03 8D 66 34 58 99') || text.includes('99 03 8D 66 32 58 99');
+    }
+
+    function renderLegacyUniversalButton(dev, cmd) {
+        const devId = escapeHtml(dev.id || '');
+        const payload = escapeHtml(cmd.payload || '');
+        const format = escapeHtml(cmd.format || 'str');
+        const waitMs = Number(cmd.wait_ms || 0);
+        const isLongPress = String(cmd.type || '') === 'longpress';
+        const eventAttrs = isLongPress
+            ? `onmousedown="handleLongPressStart(${jsArg(dev.id || '')}, ${jsArg(cmd.payload || '')}, ${jsArg(cmd.format || 'str')})" onmouseup="handleLongPressEnd(${jsArg(dev.id || '')}, ${jsArg(cmd.stop_payload || '')}, ${jsArg(cmd.format || 'str')})" onmouseleave="handleLongPressEnd(${jsArg(dev.id || '')}, ${jsArg(cmd.stop_payload || '')}, ${jsArg(cmd.format || 'str')})"`
+            : `onclick="fireUniversalCommand(${jsArg(dev.id || '')}, ${jsArg(cmd.payload || '')}, ${jsArg(cmd.format || 'str')}, ${waitMs})"`;
+        return `<button class="ch-btn ch-off" ${eventAttrs}>
+            <span class="name">${escapeHtml(dev.name || '')} - ${escapeHtml(cmd.name || '')}</span>
+            <span class="state">${isLongPress ? '长按发送 / 松开停止' : '点击执行'}</span>
+        </button>`;
+    }
+
+    function renderLegacyUniversalButtons() {
+        const grid = document.getElementById('universal-btn-grid');
+        if (!grid) return;
+        const buttons = [];
+        const devices = Array.isArray(configData.custom_devices) ? configData.custom_devices : [];
+        devices.forEach(dev => {
+            const commands = Array.isArray(dev?.commands) ? dev.commands : [];
+            commands.forEach(cmd => {
+                if (!cmd?.show_on_home || isNodeRedMigratedLegacyCommand(dev, cmd)) return;
+                buttons.push(renderLegacyUniversalButton(dev, cmd));
+            });
+        });
+        grid.innerHTML = buttons.length
+            ? buttons.join('')
+            : '<div style="color:var(--text-sub); grid-column: 1/-1;">请先前往系统配置定义快捷指令，并勾选主页显示。</div>';
+    }
+
+    function renderUniversalControlPage(force = false) {
+        if (universalRendered && !force) return;
+        renderProtocolDeviceCards();
+        renderLegacyUniversalButtons();
+        universalRendered = true;
     }
 
     function installProtocolCardDensityStyle() {
@@ -560,6 +720,7 @@
         toggleProtocolDeviceOutput,
         pulseProtocolDevice,
         openProtocolDeviceInfo,
+        renderUniversalControlPage,
         updateNodeRedDevices,
         controlNodeRedDevice,
     };
@@ -567,6 +728,7 @@
     SmartCenter.universal = Object.assign({}, SmartCenter.universal || {}, api);
     if (typeof SmartCenter.registerModule === 'function') {
         installProtocolCardDensityStyle();
+        renderUniversalControlPage();
         const protocolPollRegister = typeof global.registerPollingTask === 'function' ? global.registerPollingTask : (typeof SmartCenter.registerPollingTask === 'function' ? SmartCenter.registerPollingTask.bind(SmartCenter) : null);
         if (protocolPollRegister) {
             protocolPollRegister('protocol_control', 2500, () => updateProtocolDeviceCards(), () => typeof global.getActiveViewId !== 'function' || global.getActiveViewId() === 'universal');
