@@ -2236,7 +2236,8 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             guardFrontendStep('bootstrap.global_clock', () => updateGlobalClock());
             guardFrontendStep('bootstrap.agent_version', () => refreshLatestAgentVersion());
             guardFrontendStep('bootstrap.server_compact', () => {
-                if (getActiveViewId() === 'dashboard') refreshDashboardServerCompactFallback();
+                const initialView = getInitialViewFromUrl();
+                if (!initialView || initialView === 'dashboard') refreshDashboardServerCompactFallback();
             });
             const userBadge = document.getElementById('top-user-badge');
             if (userBadge) {
