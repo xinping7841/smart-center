@@ -1296,28 +1296,17 @@
                         <span>全场馆自动化规则引擎 (BMS)</span>
                         <span style="font-size:12px; color:var(--text-sub);">依据环境数值变化或计划时间，自动触发预设场景联动</span>
                     </div>
-                    {% set auto_page_stats = namespace(total=0, enabled=0, condition=0, schedule=0, mixed=0, compound=0) %}
-                    {% set hvac_auto_rules = namespace(close=None, low_temp=None, work_on=None, work_off=None, enabled=0, total=0) %}
-                    {% for rule in config.automations|default([]) %}
-                        {% set auto_page_stats.total = auto_page_stats.total + 1 %}
-                        {% if rule.enabled %}{% set auto_page_stats.enabled = auto_page_stats.enabled + 1 %}{% endif %}
-                        {% if rule.trigger_type == 'schedule' %}{% set auto_page_stats.schedule = auto_page_stats.schedule + 1 %}{% elif rule.trigger_type == 'mixed' %}{% set auto_page_stats.mixed = auto_page_stats.mixed + 1 %}{% elif rule.trigger_type == 'compound' %}{% set auto_page_stats.compound = auto_page_stats.compound + 1 %}{% else %}{% set auto_page_stats.condition = auto_page_stats.condition + 1 %}{% endif %}
-                        {% if rule.id == 'auto_machine_room_hvac_auto_off' %}{% set hvac_auto_rules.close = rule %}{% set hvac_auto_rules.total = hvac_auto_rules.total + 1 %}{% if rule.enabled %}{% set hvac_auto_rules.enabled = hvac_auto_rules.enabled + 1 %}{% endif %}{% endif %}
-                        {% if rule.id == 'auto_machine_room_hvac_low_temp_26_off' %}{% set hvac_auto_rules.low_temp = rule %}{% set hvac_auto_rules.total = hvac_auto_rules.total + 1 %}{% if rule.enabled %}{% set hvac_auto_rules.enabled = hvac_auto_rules.enabled + 1 %}{% endif %}{% endif %}
-                        {% if rule.id == 'auto_machine_room_hvac_workday_0830_on' %}{% set hvac_auto_rules.work_on = rule %}{% set hvac_auto_rules.total = hvac_auto_rules.total + 1 %}{% if rule.enabled %}{% set hvac_auto_rules.enabled = hvac_auto_rules.enabled + 1 %}{% endif %}{% endif %}
-                        {% if rule.id == 'auto_machine_room_hvac_workday_1800_off' %}{% set hvac_auto_rules.work_off = rule %}{% set hvac_auto_rules.total = hvac_auto_rules.total + 1 %}{% if rule.enabled %}{% set hvac_auto_rules.enabled = hvac_auto_rules.enabled + 1 %}{% endif %}{% endif %}
-                    {% endfor %}
                     <div class="auto-page-shell">
                         <div class="auto-overview-strip">
                             <div class="auto-kpi-card">
                                 <div class="label">规则总数</div>
-                                <div class="value" id="auto-kpi-total">{{ auto_page_stats.total }}</div>
+                                <div class="value" id="auto-kpi-total">--</div>
                                 <div class="sub">当前配置</div>
                             </div>
                             <div class="auto-kpi-card active">
                                 <div class="label">已启用</div>
-                                <div class="value" id="auto-kpi-enabled">{{ auto_page_stats.enabled }}</div>
-                                <div class="sub">停用 {{ auto_page_stats.total - auto_page_stats.enabled }}</div>
+                                <div class="value" id="auto-kpi-enabled">--</div>
+                                <div class="sub">运行态实时刷新</div>
                             </div>
                             <div class="auto-kpi-card">
                                 <div class="label">实时命中</div>
@@ -1333,35 +1322,32 @@
 
                         <div class="auto-main-layout">
                             <div class="auto-rules-panel">
-                                <div class="auto-focus-panel">
+                                <div class="auto-focus-panel" id="auto-focus-panel">
                                     <div class="auto-focus-head">
                                         <div>
                                             <div class="auto-focus-title">机房空调自动化</div>
-                                            <div class="auto-focus-note">集中显示自动开关空调规则；关闭规则支持任意触发，并要求空调处于开启状态。</div>
+                                            <div class="auto-focus-note">进入自动化页面后实时加载规则细节。</div>
                                         </div>
-                                        <span class="auto-focus-chip">{{ hvac_auto_rules.enabled }}/{{ hvac_auto_rules.total }} 启用</span>
+                                        <span class="auto-focus-chip">加载中</span>
                                     </div>
                                     <div class="auto-focus-grid">
-                                        {% set r = hvac_auto_rules.work_on %}
-                                        <div class="auto-focus-card {% if not r or not r.enabled %}disabled{% endif %}">
-                                            <div class="label">工作日上班</div>
-                                            <div class="value">{{ r.schedule.time if r else '未配置' }} 开启空调</div>
-                                            <div class="sub">{{ r.schedule.time_start if r else '--' }}-{{ r.schedule.time_end if r else '--' }} 补执行窗口，制冷 19°C，最大风量。</div>
-                                            <div class="state">{{ '已启用' if r and r.enabled else '未启用' }}</div>
+                                        <div class="auto-focus-card disabled">
+                                            <div class="label">自动开启</div>
+                                            <div class="value">等待状态</div>
+                                            <div class="sub">正在读取自动化规则和运行态。</div>
+                                            <div class="state">加载中</div>
                                         </div>
-                                        {% set r = hvac_auto_rules.close or hvac_auto_rules.work_off %}
-                                        <div class="auto-focus-card {% if not r or not r.enabled %}disabled{% endif %}">
+                                        <div class="auto-focus-card disabled">
                                             <div class="label">自动关闭</div>
-                                            <div class="value">{% if r and r.trigger_type == 'compound' %}低温或 18:00 关闭{% else %}{{ r.schedule.time if r else '未配置' }} 关闭空调{% endif %}</div>
-                                            <div class="sub">{% if r and r.trigger_type == 'compound' %}前置条件：空调已开启；触发条件：温度低于 26°C 或工作日 18:00。{% else %}{{ r.schedule.time_start if r else '--' }}-{{ r.schedule.time_end if r else '--' }} 补执行窗口，避免下班后持续运行。{% endif %}</div>
-                                            <div class="state">{{ '已启用' if r and r.enabled else '未启用' }}</div>
+                                            <div class="value">等待状态</div>
+                                            <div class="sub">正在读取自动化规则和运行态。</div>
+                                            <div class="state">加载中</div>
                                         </div>
-                                        {% set r = hvac_auto_rules.close or hvac_auto_rules.low_temp %}
-                                        <div class="auto-focus-card {% if not r or not r.enabled %}disabled{% endif %}">
+                                        <div class="auto-focus-card disabled">
                                             <div class="label">低温保护细节</div>
-                                            <div class="value">低于 {{ r.condition.value if r else '--' }}°C 自动关闭</div>
-                                            <div class="sub">连续 {{ r.condition.consecutive_hits if r else '--' }} 次命中，防抖 {{ r.condition.debounce_sec if r else '--' }} 秒，复位 {{ r.condition.rearm_value if r else '--' }}°C。</div>
-                                            <div class="state">{{ '已启用' if r and r.enabled else '未启用' }}</div>
+                                            <div class="value">等待状态</div>
+                                            <div class="sub">正在读取自动化规则和运行态。</div>
+                                            <div class="state">加载中</div>
                                         </div>
                                     </div>
                                 </div>
@@ -1371,168 +1357,11 @@
                                         <div class="title">规则运行状态</div>
                                         <div class="sub">条件、定时、混合规则统一显示；运行态由 120 实时评估结果刷新。</div>
                                     </div>
-                                    <span>{{ auto_page_stats.condition }} 条件 / {{ auto_page_stats.schedule }} 定时 / {{ auto_page_stats.mixed }} 混合 / {{ auto_page_stats.compound }} 组合</span>
+                                    <span id="auto-rule-type-summary">规则加载中</span>
                                 </div>
 
                                 <div class="auto-list" id="automation-rule-list">
-                                    {% for rule in config.automations|default([]) %}
-                                    <div class="auto-item {% if not rule.enabled %}disabled{% endif %}" id="auto-card-{{ rule.id }}" data-auto-rule-id="{{ rule.id }}" data-auto-rule-name="{{ rule.name }}" data-auto-scene-id="{{ rule.action_scene_id or '' }}">
-                                        <div class="auto-main">
-                                            <div class="auto-headline">
-                                                <div style="min-width:0;">
-                                                    <div class="title">{{ rule.name }}</div>
-                                                    <div class="desc">
-                                                        {% if rule.trigger_type == 'schedule' %}
-                                                            定时执行，每日 {{ rule.schedule.time }}
-                                                        {% elif rule.trigger_type == 'condition' %}
-                                                            条件触发，当 {{ rule.condition.source_type or 'env' }} / {{ rule.condition.prop }} {{ rule.condition.op }} {{ rule.condition.value }} 时
-                                                        {% elif rule.trigger_type == 'compound' %}
-                                                            组合触发，{{ '任意一个条件满足即执行' if (rule.trigger_mode or 'any') == 'any' else '全部条件满足才执行' }}
-                                                        {% else %}
-                                                            混合模式，在 {{ rule.schedule.time_start }} - {{ rule.schedule.time_end }} 期间，若 {{ rule.condition.source_type or 'env' }} / {{ rule.condition.prop }} {{ rule.condition.op }} {{ rule.condition.value }} 则触发
-                                                        {% endif %}
-                                                        <span style="color:var(--brand-blue); margin-left: 10px;">触发动作：调用场景联动 [ID: {{ rule.action_scene_id }}]</span>
-                                                    </div>
-                                                </div>
-                                                <div class="auto-actions">
-                                                    <button class="auto-edit-btn auto-node-btn" type="button" onclick="openAutomationNodeCanvas('{{ rule.id }}')" data-auto-node-btn="{{ rule.id }}">节点画布</button>
-                                                    {% if rule.trigger_type == 'compound' %}
-                                                    <span class="auto-edit-btn auto-edit-btn-static">组合规则</span>
-                                                    {% else %}
-                                                    <button class="auto-edit-btn" type="button" onclick="toggleAutomationEditor('{{ rule.id }}')" data-auto-edit-btn="{{ rule.id }}">编辑条件</button>
-                                                    {% endif %}
-                                                </div>
-                                            </div>
-                                            <div class="auto-runtime-row">
-                                                <span class="auto-runtime-chip" id="auto-runtime-state-{{ rule.id }}">等待状态</span>
-                                                <span class="auto-runtime-meta" id="auto-runtime-value-{{ rule.id }}">当前值 --</span>
-                                                <span class="auto-runtime-meta" id="auto-runtime-last-{{ rule.id }}">最近触发 --</span>
-                                                <span class="auto-runtime-meta" id="auto-runtime-scene-{{ rule.id }}">场景 {{ rule.action_scene_id or '--' }}</span>
-                                            </div>
-                                            <div class="auto-condition-row" id="auto-condition-row-{{ rule.id }}">
-                                                <span class="auto-condition-chip unknown">条件读取中</span>
-                                            </div>
-                                            <div class="auto-node-panel" id="auto-node-panel-{{ rule.id }}">
-                                                <div class="auto-node-empty">正在生成节点视图...</div>
-                                            </div>
-                                            {% if rule.trigger_type != 'compound' %}
-                                            <div class="auto-edit-panel" id="auto-edit-panel-{{ rule.id }}">
-                                                <div class="auto-edit-grid">
-                                                    <div class="auto-edit-field">
-                                                        <label>触发模式</label>
-                                                        <select id="auto-field-{{ rule.id }}-trigger_type">
-                                                            <option value="condition" {% if rule.trigger_type == 'condition' %}selected{% endif %}>仅条件</option>
-                                                            <option value="schedule" {% if rule.trigger_type == 'schedule' %}selected{% endif %}>仅定时</option>
-                                                            <option value="mixed" {% if rule.trigger_type == 'mixed' %}selected{% endif %}>混合触发</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="auto-edit-field">
-                                                        <label>数据源类型</label>
-                                                        <select id="auto-field-{{ rule.id }}-source_type">
-                                                            <option value="env" {% if (rule.condition.source_type or 'env') == 'env' %}selected{% endif %}>env</option>
-                                                            <option value="screen" {% if (rule.condition.source_type or '') == 'screen' %}selected{% endif %}>screen</option>
-                                                            <option value="power" {% if (rule.condition.source_type or '') == 'power' %}selected{% endif %}>power</option>
-                                                            <option value="sequencer" {% if (rule.condition.source_type or '') == 'sequencer' %}selected{% endif %}>sequencer</option>
-                                                            <option value="light" {% if (rule.condition.source_type or '') == 'light' %}selected{% endif %}>light</option>
-                                                            <option value="meter" {% if (rule.condition.source_type or '') == 'meter' %}selected{% endif %}>meter</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="auto-edit-field">
-                                                        <label>设备ID</label>
-                                                        <input id="auto-field-{{ rule.id }}-device_id" type="text" value="{{ rule.condition.device_id or '' }}" placeholder="如 env_xxx">
-                                                    </div>
-                                                    <div class="auto-edit-field">
-                                                        <label>属性名</label>
-                                                        <input id="auto-field-{{ rule.id }}-prop" type="text" value="{{ rule.condition.prop or 'lux' }}" placeholder="如 lux / temp / online">
-                                                    </div>
-                                                    <div class="auto-edit-field">
-                                                        <label>比较符</label>
-                                                        <select id="auto-field-{{ rule.id }}-op">
-                                                            {% set _op = rule.condition.op or '<' %}
-                                                            <option value="<" {% if _op == '<' %}selected{% endif %}>&lt;</option>
-                                                            <option value="<=" {% if _op == '<=' %}selected{% endif %}>&lt;=</option>
-                                                            <option value=">" {% if _op == '>' %}selected{% endif %}>&gt;</option>
-                                                            <option value=">=" {% if _op == '>=' %}selected{% endif %}>&gt;=</option>
-                                                            <option value="==" {% if _op == '==' %}selected{% endif %}>==</option>
-                                                            <option value="!=" {% if _op == '!=' %}selected{% endif %}>!=</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="auto-edit-field">
-                                                        <label>阈值</label>
-                                                        <input id="auto-field-{{ rule.id }}-value" type="number" step="0.1" value="{{ rule.condition.value if rule.condition.value is not none else 0 }}">
-                                                    </div>
-                                                    <div class="auto-edit-field">
-                                                        <label>防抖秒数</label>
-                                                        <input id="auto-field-{{ rule.id }}-debounce_sec" type="number" min="0" step="1" value="{{ rule.condition.debounce_sec or 0 }}">
-                                                    </div>
-                                                    <div class="auto-edit-field">
-                                                        <label>迟滞值</label>
-                                                        <input id="auto-field-{{ rule.id }}-hysteresis" type="number" min="0" step="0.1" value="{{ rule.condition.hysteresis or 0 }}">
-                                                    </div>
-                                                    <div class="auto-edit-field">
-                                                        <label>连续命中次数</label>
-                                                        <input id="auto-field-{{ rule.id }}-consecutive_hits" type="number" min="1" step="1" value="{{ rule.condition.consecutive_hits or 1 }}">
-                                                    </div>
-                                                    <div class="auto-edit-field">
-                                                        <label>穿越触发模式</label>
-                                                        {% set _crossing = rule.condition.crossing_mode or 'none' %}
-                                                        <select id="auto-field-{{ rule.id }}-crossing_mode">
-                                                            <option value="none" {% if _crossing == 'none' %}selected{% endif %}>none</option>
-                                                            <option value="cross_down" {% if _crossing == 'cross_down' %}selected{% endif %}>cross_down</option>
-                                                            <option value="cross_up" {% if _crossing == 'cross_up' %}selected{% endif %}>cross_up</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="auto-edit-field">
-                                                        <label>复位阈值（可空）</label>
-                                                        <input id="auto-field-{{ rule.id }}-rearm_value" type="text" value="{{ rule.condition.rearm_value or '' }}" placeholder="如 360">
-                                                    </div>
-                                                    <div class="auto-edit-field">
-                                                        <label>时间窗补触发秒数</label>
-                                                        <input id="auto-field-{{ rule.id }}-window_bootstrap_sec" type="number" min="0" step="1" value="{{ rule.condition.window_bootstrap_sec or 0 }}">
-                                                    </div>
-                                                    <div class="auto-edit-field">
-                                                        <label>定时时间</label>
-                                                        <input id="auto-field-{{ rule.id }}-time" type="time" value="{{ rule.schedule.time or '08:00' }}">
-                                                    </div>
-                                                    <div class="auto-edit-field">
-                                                        <label>起始时间窗</label>
-                                                        <input id="auto-field-{{ rule.id }}-time_start" type="time" value="{{ rule.schedule.time_start or '00:00' }}">
-                                                    </div>
-                                                    <div class="auto-edit-field">
-                                                        <label>结束时间窗</label>
-                                                        <input id="auto-field-{{ rule.id }}-time_end" type="time" value="{{ rule.schedule.time_end or '23:59' }}">
-                                                    </div>
-                                                    <div class="auto-edit-field">
-                                                        <label>日期类型</label>
-                                                        {% set _day = rule.schedule.day_type or 'everyday' %}
-                                                        <select id="auto-field-{{ rule.id }}-day_type">
-                                                            <option value="everyday" {% if _day == 'everyday' %}selected{% endif %}>每天</option>
-                                                            <option value="workday" {% if _day == 'workday' %}selected{% endif %}>工作日</option>
-                                                            <option value="weekend" {% if _day == 'weekend' %}selected{% endif %}>周末</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="auto-edit-field">
-                                                        <label>目标场景ID</label>
-                                                        <input id="auto-field-{{ rule.id }}-action_scene_id" type="text" value="{{ rule.action_scene_id or '' }}">
-                                                    </div>
-                                                </div>
-                                                <div class="auto-edit-actions">
-                                                    <button class="auto-edit-save" type="button" onclick="saveAutomationRule('{{ rule.id }}')" id="auto-save-btn-{{ rule.id }}">保存规则</button>
-                                                    <button class="auto-edit-cancel" type="button" onclick="toggleAutomationEditor('{{ rule.id }}', false)">取消</button>
-                                                </div>
-                                            </div>
-                                            {% endif %}
-                                        </div>
-                                        <div class="auto-actions">
-                                            <label class="toggle-switch" title="开启或挂起该自动化规则">
-                                                <input type="checkbox" onchange="toggleAutomation('{{ rule.id }}', this.checked)" {% if rule.enabled %}checked{% endif %}>
-                                                <span class="slider"></span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    {% else %}
-                                    <div class="auto-empty">暂无自动化规则，请前往系统配置中心添加。</div>
-                                    {% endfor %}
+                                    <div class="auto-empty">正在加载自动化规则...</div>
                                 </div>
                             </div>
 
@@ -1675,6 +1504,6 @@
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
     </script>
-    <script src="/static/js/app-runtime.js?v=20260531-light-log-detail-v1"></script>
+    <script src="/static/js/app-runtime.js?v=20260531-auto-template-slim-v1"></script>
 </body>
 </html>

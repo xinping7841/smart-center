@@ -23,6 +23,7 @@
     const formatAutomationRuleTime = utils.formatAutomationRuleTime || global.formatAutomationRuleTime || (value => value || '未触发');
 
     let automationGroupSignature = '';
+    let automationCardsSignature = '';
     let activeAutomationCanvasRuleId = '';
     let activeAutomationCanvasNodeId = '';
     let automationCanvasZoom = 1;
@@ -63,7 +64,9 @@
     function getActiveAutomationCanvasRule(context = {}) {
         if (!activeAutomationCanvasRuleId) return null;
         const { configData = global.configData || {} } = getContext(context);
-        return getAutomationStatusMapFromContext(context).get(String(activeAutomationCanvasRuleId))
+        return mergeAutomationRules(Array.from(getAutomationStatusMapFromContext(context).values()), { configData })
+                .find(item => String(item?.id || '') === String(activeAutomationCanvasRuleId))
+            || getAutomationStatusMapFromContext(context).get(String(activeAutomationCanvasRuleId))
             || (Array.isArray(configData.automations) ? configData.automations : []).find(item => String(item?.id || '') === String(activeAutomationCanvasRuleId))
             || null;
     }
@@ -264,6 +267,339 @@
                 .replace(/_(low_temp|workday|auto|manual)?_?(on|off|open|close|start|stop)$/i, '')
                 .replace(/[^a-z0-9]+/gi, '_') || 'other';
             return { key: `scene_${sceneRoot}`, title: rule.scene_name || '其他自动化', subtitle: '按目标场景自动归组' };
+        }
+
+        function normalizeAutomationRuleId(rule) {
+            return String(rule?.id || '').trim();
+        }
+
+        function mergeAutomationRules(rulesPayload = [], context = {}) {
+            const { configData = global.configData || {} } = getContext(context);
+            const configRules = Array.isArray(configData.automations) ? configData.automations : [];
+            const runtimeRules = Array.isArray(rulesPayload) ? rulesPayload : [];
+            const runtimeMap = new Map(runtimeRules.map(rule => [normalizeAutomationRuleId(rule), rule]).filter(([id]) => id));
+            const merged = [];
+            configRules.forEach(configRule => {
+                const id = normalizeAutomationRuleId(configRule);
+                if (!id) return;
+                const runtimeRule = runtimeMap.get(id) || {};
+                runtimeMap.delete(id);
+                merged.push({
+                    ...configRule,
+                    ...runtimeRule,
+                    id,
+                    action_scene_id: runtimeRule.action_scene_id || configRule.action_scene_id || runtimeRule.scene_id || '',
+                    scene_id: runtimeRule.scene_id || configRule.action_scene_id || configRule.scene_id || '',
+                    condition: (runtimeRule.condition && typeof runtimeRule.condition === 'object') ? runtimeRule.condition : (configRule.condition || {}),
+                    schedule: (runtimeRule.schedule && typeof runtimeRule.schedule === 'object') ? runtimeRule.schedule : (configRule.schedule || {}),
+                    triggers: Array.isArray(runtimeRule.triggers) && runtimeRule.triggers.length ? runtimeRule.triggers : (Array.isArray(configRule.triggers) ? configRule.triggers : []),
+                    preconditions: Array.isArray(runtimeRule.preconditions) && runtimeRule.preconditions.length ? runtimeRule.preconditions : (Array.isArray(configRule.preconditions) ? configRule.preconditions : []),
+                    state: (runtimeRule.state && typeof runtimeRule.state === 'object') ? runtimeRule.state : (configRule.state || {}),
+                });
+            });
+            runtimeMap.forEach(rule => {
+                const id = normalizeAutomationRuleId(rule);
+                if (!id) return;
+                merged.push({
+                    ...rule,
+                    id,
+                    action_scene_id: rule.action_scene_id || rule.scene_id || '',
+                    scene_id: rule.scene_id || rule.action_scene_id || '',
+                    condition: rule.condition || {},
+                    schedule: rule.schedule || {},
+                    triggers: Array.isArray(rule.triggers) ? rule.triggers : [],
+                    preconditions: Array.isArray(rule.preconditions) ? rule.preconditions : [],
+                    state: rule.state || {},
+                });
+            });
+            return merged;
+        }
+
+        function getAutomationRuleDescription(rule = {}) {
+            const triggerType = String(rule.trigger_type || 'condition');
+            const condition = rule.condition || {};
+            const schedule = rule.schedule || {};
+            if (triggerType === 'schedule') {
+                return `定时执行，每日 ${schedule.time || '--'}`;
+            }
+            if (triggerType === 'condition') {
+                return `条件触发，当 ${condition.source_type || 'env'} / ${condition.prop || 'lux'} ${condition.op || '<'} ${condition.value ?? 0} 时`;
+            }
+            if (triggerType === 'compound') {
+                return `组合触发，${String(rule.trigger_mode || 'any') === 'all' ? '全部条件满足才执行' : '任意一个条件满足即执行'}`;
+            }
+            return `混合模式，在 ${schedule.time_start || '00:00'} - ${schedule.time_end || '23:59'} 期间，若 ${condition.source_type || 'env'} / ${condition.prop || 'lux'} ${condition.op || '<'} ${condition.value ?? 0} 则触发`;
+        }
+
+        function selectedAttr(current, expected) {
+            return String(current ?? '') === String(expected) ? 'selected' : '';
+        }
+
+        function optionHtml(value, label, current) {
+            return `<option value="${escapeHtml(value)}" ${selectedAttr(current, value)}>${escapeHtml(label)}</option>`;
+        }
+
+        function fieldValue(value, fallback = '') {
+            if (value === undefined || value === null) return fallback;
+            return value;
+        }
+
+        function renderAutomationEditor(rule = {}) {
+            const ruleId = escapeHtml(rule.id || '');
+            const condition = rule.condition || {};
+            const schedule = rule.schedule || {};
+            const triggerType = String(rule.trigger_type || 'condition');
+            const sourceType = String(condition.source_type || 'env');
+            const op = String(condition.op || '<');
+            const crossingMode = String(condition.crossing_mode || 'none');
+            const dayType = String(schedule.day_type || 'everyday');
+            return `
+                <div class="auto-edit-panel" id="auto-edit-panel-${ruleId}">
+                    <div class="auto-edit-grid">
+                        <div class="auto-edit-field">
+                            <label>触发模式</label>
+                            <select id="auto-field-${ruleId}-trigger_type">
+                                ${optionHtml('condition', '仅条件', triggerType)}
+                                ${optionHtml('schedule', '仅定时', triggerType)}
+                                ${optionHtml('mixed', '混合触发', triggerType)}
+                            </select>
+                        </div>
+                        <div class="auto-edit-field">
+                            <label>数据源类型</label>
+                            <select id="auto-field-${ruleId}-source_type">
+                                ${['env', 'screen', 'power', 'sequencer', 'light', 'meter', 'hvac'].map(value => optionHtml(value, value, sourceType)).join('')}
+                            </select>
+                        </div>
+                        <div class="auto-edit-field">
+                            <label>设备ID</label>
+                            <input id="auto-field-${ruleId}-device_id" type="text" value="${escapeHtml(fieldValue(condition.device_id, ''))}" placeholder="如 env_xxx">
+                        </div>
+                        <div class="auto-edit-field">
+                            <label>属性名</label>
+                            <input id="auto-field-${ruleId}-prop" type="text" value="${escapeHtml(fieldValue(condition.prop, 'lux'))}" placeholder="如 lux / temp / online">
+                        </div>
+                        <div class="auto-edit-field">
+                            <label>比较符</label>
+                            <select id="auto-field-${ruleId}-op">
+                                ${[
+                                    ['<', '<'],
+                                    ['<=', '<='],
+                                    ['>', '>'],
+                                    ['>=', '>='],
+                                    ['==', '=='],
+                                    ['!=', '!='],
+                                    ['is_true', 'is_true'],
+                                    ['is_false', 'is_false'],
+                                ].map(([value, label]) => optionHtml(value, label, op)).join('')}
+                            </select>
+                        </div>
+                        <div class="auto-edit-field">
+                            <label>阈值</label>
+                            <input id="auto-field-${ruleId}-value" type="number" step="0.1" value="${escapeHtml(fieldValue(condition.value, 0))}">
+                        </div>
+                        <div class="auto-edit-field">
+                            <label>防抖秒数</label>
+                            <input id="auto-field-${ruleId}-debounce_sec" type="number" min="0" step="1" value="${escapeHtml(fieldValue(condition.debounce_sec, 0))}">
+                        </div>
+                        <div class="auto-edit-field">
+                            <label>迟滞值</label>
+                            <input id="auto-field-${ruleId}-hysteresis" type="number" min="0" step="0.1" value="${escapeHtml(fieldValue(condition.hysteresis, 0))}">
+                        </div>
+                        <div class="auto-edit-field">
+                            <label>连续命中次数</label>
+                            <input id="auto-field-${ruleId}-consecutive_hits" type="number" min="1" step="1" value="${escapeHtml(fieldValue(condition.consecutive_hits, 1))}">
+                        </div>
+                        <div class="auto-edit-field">
+                            <label>穿越触发模式</label>
+                            <select id="auto-field-${ruleId}-crossing_mode">
+                                ${optionHtml('none', 'none', crossingMode)}
+                                ${optionHtml('cross_down', 'cross_down', crossingMode)}
+                                ${optionHtml('cross_up', 'cross_up', crossingMode)}
+                            </select>
+                        </div>
+                        <div class="auto-edit-field">
+                            <label>复位阈值（可空）</label>
+                            <input id="auto-field-${ruleId}-rearm_value" type="text" value="${escapeHtml(fieldValue(condition.rearm_value, ''))}" placeholder="如 360">
+                        </div>
+                        <div class="auto-edit-field">
+                            <label>时间窗补触发秒数</label>
+                            <input id="auto-field-${ruleId}-window_bootstrap_sec" type="number" min="0" step="1" value="${escapeHtml(fieldValue(condition.window_bootstrap_sec, 0))}">
+                        </div>
+                        <div class="auto-edit-field">
+                            <label>定时时间</label>
+                            <input id="auto-field-${ruleId}-time" type="time" value="${escapeHtml(fieldValue(schedule.time, '08:00'))}">
+                        </div>
+                        <div class="auto-edit-field">
+                            <label>起始时间窗</label>
+                            <input id="auto-field-${ruleId}-time_start" type="time" value="${escapeHtml(fieldValue(schedule.time_start, '00:00'))}">
+                        </div>
+                        <div class="auto-edit-field">
+                            <label>结束时间窗</label>
+                            <input id="auto-field-${ruleId}-time_end" type="time" value="${escapeHtml(fieldValue(schedule.time_end, '23:59'))}">
+                        </div>
+                        <div class="auto-edit-field">
+                            <label>日期类型</label>
+                            <select id="auto-field-${ruleId}-day_type">
+                                ${optionHtml('everyday', '每天', dayType)}
+                                ${optionHtml('workday', '工作日', dayType)}
+                                ${optionHtml('weekend', '周末', dayType)}
+                            </select>
+                        </div>
+                        <div class="auto-edit-field">
+                            <label>目标场景ID</label>
+                            <input id="auto-field-${ruleId}-action_scene_id" type="text" value="${escapeHtml(rule.action_scene_id || rule.scene_id || '')}">
+                        </div>
+                    </div>
+                    <div class="auto-edit-actions">
+                        <button class="auto-edit-save" type="button" onclick="saveAutomationRule('${ruleId}')" id="auto-save-btn-${ruleId}">保存规则</button>
+                        <button class="auto-edit-cancel" type="button" onclick="toggleAutomationEditor('${ruleId}', false)">取消</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAutomationRuleCard(rule = {}) {
+            const ruleId = escapeHtml(rule.id || '');
+            const triggerType = String(rule.trigger_type || 'condition');
+            const sceneId = rule.action_scene_id || rule.scene_id || '';
+            return `
+                <div class="auto-item ${rule.enabled ? '' : 'disabled'}" id="auto-card-${ruleId}" data-auto-rule-id="${ruleId}" data-auto-rule-name="${escapeHtml(rule.name || '')}" data-auto-scene-id="${escapeHtml(sceneId)}">
+                    <div class="auto-main">
+                        <div class="auto-headline">
+                            <div style="min-width:0;">
+                                <div class="title">${escapeHtml(rule.name || rule.id || '未命名自动化')}</div>
+                                <div class="desc">${escapeHtml(getAutomationRuleDescription(rule))}<span style="color:var(--brand-blue); margin-left:10px;">触发动作：调用场景联动 [ID: ${escapeHtml(sceneId)}]</span></div>
+                            </div>
+                            <div class="auto-actions">
+                                <button class="auto-edit-btn auto-node-btn" type="button" onclick="openAutomationNodeCanvas('${ruleId}')" data-auto-node-btn="${ruleId}">节点画布</button>
+                                ${triggerType === 'compound'
+                                    ? '<span class="auto-edit-btn auto-edit-btn-static">组合规则</span>'
+                                    : `<button class="auto-edit-btn" type="button" onclick="toggleAutomationEditor('${ruleId}')" data-auto-edit-btn="${ruleId}">编辑条件</button>`}
+                            </div>
+                        </div>
+                        <div class="auto-runtime-row">
+                            <span class="auto-runtime-chip" id="auto-runtime-state-${ruleId}">等待状态</span>
+                            <span class="auto-runtime-meta" id="auto-runtime-value-${ruleId}">当前值 --</span>
+                            <span class="auto-runtime-meta" id="auto-runtime-last-${ruleId}">最近触发 --</span>
+                            <span class="auto-runtime-meta" id="auto-runtime-scene-${ruleId}">场景 ${escapeHtml(sceneId || '--')}</span>
+                        </div>
+                        <div class="auto-condition-row" id="auto-condition-row-${ruleId}">
+                            <span class="auto-condition-chip unknown">条件读取中</span>
+                        </div>
+                        <div class="auto-node-panel" id="auto-node-panel-${ruleId}">
+                            <div class="auto-node-empty">正在生成节点视图...</div>
+                        </div>
+                        ${triggerType === 'compound' ? '' : renderAutomationEditor(rule)}
+                    </div>
+                    <div class="auto-actions">
+                        <label class="toggle-switch" title="开启或挂起该自动化规则">
+                            <input type="checkbox" onchange="toggleAutomation('${ruleId}', this.checked)" ${rule.enabled ? 'checked' : ''}>
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+            `;
+        }
+
+        function getAutomationCardsSignature(rules) {
+            return (Array.isArray(rules) ? rules : [])
+                .map(rule => [
+                    normalizeAutomationRuleId(rule),
+                    rule?.name || '',
+                    rule?.trigger_type || '',
+                    rule?.action_scene_id || rule?.scene_id || '',
+                    rule?.enabled ? '1' : '0',
+                    JSON.stringify(rule?.condition || {}),
+                    JSON.stringify(rule?.schedule || {}),
+                ].join('~'))
+                .join('|');
+        }
+
+        function renderAutomationRuleCardsIfNeeded(rules) {
+            const list = document.getElementById('automation-rule-list');
+            if (!list) return;
+            const safeRules = Array.isArray(rules) ? rules : [];
+            const signature = getAutomationCardsSignature(safeRules);
+            const hasCards = !!list.querySelector('[data-auto-rule-id]');
+            if (hasCards && automationCardsSignature === signature) return;
+            automationCardsSignature = signature;
+            automationGroupSignature = '';
+            if (!safeRules.length) {
+                list.innerHTML = '<div class="auto-empty">暂无自动化规则，请前往系统配置中心添加。</div>';
+                return;
+            }
+            list.innerHTML = safeRules.map(rule => renderAutomationRuleCard(rule)).join('');
+        }
+
+        function findAutomationFocusRule(rules, candidates = []) {
+            const ids = candidates.map(item => String(item || ''));
+            return rules.find(rule => ids.includes(String(rule?.id || '')))
+                || rules.find(rule => candidates.some(item => `${rule?.id || ''} ${rule?.name || ''}`.includes(String(item || ''))))
+                || null;
+        }
+
+        function renderAutomationFocusPanel(rules) {
+            const panel = document.getElementById('auto-focus-panel');
+            if (!panel) return;
+            const allRules = Array.isArray(rules) ? rules : [];
+            const hvacRules = allRules.filter(rule => {
+                const text = `${rule?.id || ''} ${rule?.name || ''} ${rule?.group || ''} ${rule?.group_name || ''}`.toLowerCase();
+                return text.includes('machine_room_hvac') || (text.includes('机房') && text.includes('空调'));
+            });
+            const enabled = hvacRules.filter(rule => rule?.enabled).length;
+            const onRule = findAutomationFocusRule(hvacRules, ['auto_machine_room_hvac_auto_on', 'workday_0830_on', '开启']);
+            const offRule = findAutomationFocusRule(hvacRules, ['auto_machine_room_hvac_auto_off', 'workday_1800_off', '关闭']);
+            const lowTempRule = findAutomationFocusRule(hvacRules, ['low_temp', '低温']);
+            const makeCard = ({ label, rule, value, sub }) => `
+                <div class="auto-focus-card ${rule && rule.enabled ? '' : 'disabled'}">
+                    <div class="label">${escapeHtml(label)}</div>
+                    <div class="value">${escapeHtml(value || '未配置')}</div>
+                    <div class="sub">${escapeHtml(sub || '等待配置')}</div>
+                    <div class="state">${rule && rule.enabled ? '已启用' : '未启用'}</div>
+                </div>
+            `;
+            const lowCondition = lowTempRule?.condition || offRule?.condition || {};
+            panel.innerHTML = `
+                <div class="auto-focus-head">
+                    <div>
+                        <div class="auto-focus-title">机房空调自动化</div>
+                        <div class="auto-focus-note">集中显示自动开关空调规则；关闭规则支持任意触发，并要求空调处于开启状态。</div>
+                    </div>
+                    <span class="auto-focus-chip">${enabled}/${hvacRules.length} 启用</span>
+                </div>
+                <div class="auto-focus-grid">
+                    ${makeCard({
+                        label: '自动开启',
+                        rule: onRule,
+                        value: onRule ? getAutomationRuleDescription(onRule) : '未配置',
+                        sub: onRule?.trigger_type === 'compound' ? '温度超限或非工作日设备全开时自动开启。' : '按计划或条件自动开启空调。',
+                    })}
+                    ${makeCard({
+                        label: '自动关闭',
+                        rule: offRule,
+                        value: offRule ? getAutomationRuleDescription(offRule) : '未配置',
+                        sub: offRule?.trigger_type === 'compound' ? '前置条件：空调已开启；低温或下班定时触发关闭。' : '按计划或条件自动关闭空调。',
+                    })}
+                    ${makeCard({
+                        label: '低温保护细节',
+                        rule: lowTempRule || offRule,
+                        value: `低于 ${lowCondition.value ?? '--'}°C 自动关闭`,
+                        sub: `连续 ${lowCondition.consecutive_hits ?? '--'} 次命中，防抖 ${lowCondition.debounce_sec ?? '--'} 秒，复位 ${lowCondition.rearm_value ?? '--'}°C。`,
+                    })}
+                </div>
+            `;
+        }
+
+        function updateAutomationRuleTypeSummary(rules) {
+            const el = document.getElementById('auto-rule-type-summary');
+            if (!el) return;
+            const counts = { condition: 0, schedule: 0, mixed: 0, compound: 0 };
+            (Array.isArray(rules) ? rules : []).forEach(rule => {
+                const type = String(rule?.trigger_type || 'condition');
+                if (Object.prototype.hasOwnProperty.call(counts, type)) counts[type] += 1;
+                else counts.condition += 1;
+            });
+            el.textContent = `${counts.condition} 条件 / ${counts.schedule} 定时 / ${counts.mixed} 混合 / ${counts.compound} 组合`;
         }
 
         function ensureAutomationRuleGroups(rules) {
@@ -948,13 +1284,17 @@
         }
 
         function renderAutomationPageStatus(rulesPayload = null, context = {}) {
-            const rules = Array.isArray(rulesPayload)
-                ? rulesPayload
-                : Array.from(getAutomationStatusMapFromContext(context).values());
+            const rules = mergeAutomationRules(
+                Array.isArray(rulesPayload) ? rulesPayload : Array.from(getAutomationStatusMapFromContext(context).values()),
+                context
+            );
             const getActiveViewId = context.getActiveViewId || global.getActiveViewId || (() => '');
             if (getActiveViewId() !== 'auto') return;
             if (!document.getElementById('view-auto')) return;
+            renderAutomationRuleCardsIfNeeded(rules);
             ensureAutomationRuleGroups(rules);
+            renderAutomationFocusPanel(rules);
+            updateAutomationRuleTypeSummary(rules);
             const enabledCount = rules.filter(rule => rule && rule.enabled).length;
             const matchedCount = rules.filter(rule => {
                 const state = rule?.state || {};
@@ -1022,16 +1362,7 @@
             if (!card) return;
             const descEl = card.querySelector('.desc');
             if (descEl) {
-                let desc = '';
-                if (rule.trigger_type === 'schedule') {
-                    desc = `定时执行，每日 ${rule.schedule?.time || '08:00'}`;
-                } else if (rule.trigger_type === 'condition') {
-                    desc = `条件触发，当 ${rule.condition?.source_type || 'env'} / ${rule.condition?.prop || 'lux'} ${rule.condition?.op || '<'} ${rule.condition?.value ?? 0} 时`;
-                } else if (rule.trigger_type === 'compound') {
-                    desc = `组合触发，${String(rule.trigger_mode || 'any') === 'all' ? '全部条件满足才执行' : '任意一个条件满足即执行'}`;
-                } else {
-                    desc = `混合模式，在 ${rule.schedule?.time_start || '00:00'} - ${rule.schedule?.time_end || '23:59'} 期间，若 ${rule.condition?.source_type || 'env'} / ${rule.condition?.prop || 'lux'} ${rule.condition?.op || '<'} ${rule.condition?.value ?? 0} 则触发`;
-                }
+                const desc = getAutomationRuleDescription(rule);
                 descEl.innerHTML = `${escapeHtml(desc)}<span style="color:var(--brand-blue); margin-left:10px;">触发动作：调用场景联动 [ID: ${escapeHtml(rule.action_scene_id || '')}]</span>`;
             }
         }
@@ -1146,6 +1477,7 @@
         buildAutomationConditionChips,
         getAutomationGroupMeta,
         ensureAutomationRuleGroups,
+        renderAutomationRuleCardsIfNeeded,
         renderAutomationPageStatus,
         renderAutomationCanvasInspector,
         renderAutomationNodeCanvas,
