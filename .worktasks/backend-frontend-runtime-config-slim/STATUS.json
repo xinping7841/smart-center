@@ -1,0 +1,10 @@
+{
+  "task": "backend-frontend-runtime-config-slim",
+  "module": "backend_api",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-backend-frontend-runtime-config-slim-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/backend-frontend-runtime-config-slim",
+  "started_at": "2026-05-31 20:14:57",
+  "status": "in_progress"
+}

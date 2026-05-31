@@ -90,6 +90,36 @@ CONFIG_SAVE_SYNC_STATE = {
     "last_finished_at": "",
     "last_result": None,
 }
+FRONTEND_RUNTIME_CONFIG_KEYS = (
+    "global_text",
+    "sidebar",
+    "dashboard_sections",
+    "cabinets",
+    "meter_statistics",
+    "light_devices",
+    "projectors",
+    "hvac_devices",
+    "ups_devices",
+    "snmp_devices",
+    "nvr_devices",
+    "sequencers",
+    "screens",
+    "scenes",
+    "automations",
+    "control_center",
+    "custom_devices",
+    "env_sensors",
+    "door_config",
+    "server_monitor",
+    "proxy_monitor",
+    "apple_audio",
+)
+
+
+def build_frontend_runtime_config(config):
+    """Return only config fields consumed by the main dashboard runtime."""
+    source = config if isinstance(config, dict) else {}
+    return {key: deepcopy(source[key]) for key in FRONTEND_RUNTIME_CONFIG_KEYS if key in source}
 
 
 def _append_power_control_trace(stage, payload):
@@ -776,7 +806,11 @@ def _remote_meter_cache_state(cache_entry):
 @bp.route("/")
 @require_permission("dashboard.view")
 def index():
-    return render_template("index.html", config=CONFIG)
+    return render_template(
+        "index.html",
+        config=CONFIG,
+        frontend_runtime_config=build_frontend_runtime_config(CONFIG),
+    )
 
 
 @bp.route("/config")

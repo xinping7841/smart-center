@@ -1669,8 +1669,8 @@
 
     <script>
         // AI_MODULE: app_runtime_config
-        // AI_PURPOSE: 注入后续静态运行时需要的模板配置，避免 300KB 运行时继续内联在 HTML。
-        const configData = {{ config | tojson | safe }};
+        // AI_PURPOSE: 只注入主运行时需要的瘦身配置；完整配置只留在后端和配置中心。
+        const configData = {{ frontend_runtime_config | tojson | safe }};
         window.configData = configData;
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
