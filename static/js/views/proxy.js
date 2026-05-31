@@ -99,6 +99,79 @@
         };
     }
 
+    function renderProxyPageShell() {
+        const container = document.getElementById('view-proxy');
+        if (!container || document.getElementById('proxy-client-table-body')) return false;
+        container.innerHTML = `
+            <div class="card proxy-hero-card">
+                <div class="proxy-hero-head">
+                    <div>
+                        <div class="proxy-hero-title">公司代理监控</div>
+                        <div class="proxy-hero-subtitle" id="proxy-detail-subtitle">正在读取 121 Squid 代理状态...</div>
+                    </div>
+                    <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+                        <span class="proxy-pill" id="proxy-detail-status">检测中</span>
+                        <span class="proxy-pill" id="proxy-detail-endpoint">--</span>
+                    </div>
+                </div>
+                <div class="proxy-hero-metrics">
+                    <div class="proxy-hero-metric"><div class="label">站点探活</div><div class="value ok" id="proxy-detail-checks">--</div></div>
+                    <div class="proxy-hero-metric"><div class="label">活跃 IP / 连接</div><div class="value blue" id="proxy-detail-active">--</div></div>
+                    <div class="proxy-hero-metric"><div class="label">实时下行</div><div class="value" id="proxy-detail-rx">--</div></div>
+                    <div class="proxy-hero-metric"><div class="label">实时上行</div><div class="value" id="proxy-detail-tx">--</div></div>
+                </div>
+            </div>
+            <div class="proxy-page-grid" style="margin-top:14px;">
+                <div class="card">
+                    <div class="card-title">
+                        <span>站点连通性</span>
+                        <span style="font-size:12px; color:var(--text-sub);">Google / YouTube / ChatGPT / GitHub</span>
+                    </div>
+                    <div class="proxy-check-grid" id="proxy-check-grid">
+                        <div class="proxy-card-note">正在加载探活结果...</div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-title">
+                        <span>出口流量</span>
+                        <span style="font-size:12px; color:var(--text-sub);" id="proxy-traffic-source">--</span>
+                    </div>
+                    <div class="proxy-hero-metrics" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+                        <div class="proxy-hero-metric"><div class="label">下行</div><div class="value blue" id="proxy-traffic-rx">--</div></div>
+                        <div class="proxy-hero-metric"><div class="label">上行</div><div class="value warn" id="proxy-traffic-tx">--</div></div>
+                    </div>
+                    <div class="proxy-card-note" id="proxy-traffic-note">用于判断代理出口是否真的在跑流量。</div>
+                </div>
+                <div class="card" style="grid-column:1/-1;">
+                    <div class="card-title">
+                        <span>代理客户端</span>
+                        <span style="font-size:12px; color:var(--text-sub);" id="proxy-clients-note">只展示 IP、连接数与流量汇总，不展示访问网址。</span>
+                    </div>
+                    <div class="proxy-table-wrap">
+                        <table class="proxy-client-table">
+                            <thead>
+                                <tr>
+                                    <th>客户端 IP</th>
+                                    <th>状态</th>
+                                    <th>连接数</th>
+                                    <th>实时下行</th>
+                                    <th>实时上行</th>
+                                    <th>近几分钟请求</th>
+                                    <th>累计流量</th>
+                                    <th>最后活跃</th>
+                                </tr>
+                            </thead>
+                            <tbody id="proxy-client-table-body">
+                                <tr><td colspan="8">正在加载代理客户端...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
+        return true;
+    }
+
     function renderDashboardProxySummary(payload = {}) {
         const statusEl = document.getElementById('dash-proxy-status');
         const metaEl = document.getElementById('dash-proxy-meta');
@@ -201,6 +274,7 @@
     }
 
     function renderProxyDetail(payload = {}) {
+        renderProxyPageShell();
         const meta = getStatusMeta(payload);
         const clients = payload.clients || {};
         const traffic = payload.traffic || {};
@@ -271,6 +345,7 @@
         getProxyEndpoint,
         getProxyRequiredCheck,
         getProxyFlowSummary,
+        renderProxyPageShell,
         renderDashboardProxySummary,
         renderProxyChecks,
         renderProxyClients,
