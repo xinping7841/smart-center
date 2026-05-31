@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-server-runtime-split';
+        const lazyModuleVersion = '20260531-light-runtime-split';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -84,6 +84,9 @@
         SmartCenter.registerLazyModule('power-meter-runtime', {
             scripts: [`/static/js/views/power-meter-runtime.js?v=${lazyModuleVersion}`],
         });
+        SmartCenter.registerLazyModule('light-runtime', {
+            scripts: [`/static/js/views/light-runtime.js?v=${lazyModuleVersion}`],
+        });
         SmartCenter.registerLazyModule('ups-view-style', { styles: viewStyleGroups.ups });
         SmartCenter.registerLazyModule('auto-view-style', { styles: viewStyleGroups.auto });
         SmartCenter.registerLazyModule('automation-view', {
@@ -108,6 +111,7 @@
         SmartCenter.registerViewModules('apple_audio', ['apple-audio-view']);
         SmartCenter.registerViewModules('local_model', ['local-model-view']);
         SmartCenter.registerViewModules('power', ['power-view-style', 'power-meter-runtime']);
+        SmartCenter.registerViewModules('light', ['light-runtime']);
         SmartCenter.registerViewModules('meter', ['meter-view-style', 'power-meter-runtime']);
         SmartCenter.registerViewModules('ups', ['ups-view-style']);
         SmartCenter.registerViewModules('auto', ['auto-view-style', 'automation-view']);
@@ -149,6 +153,8 @@
             hvac: { sectionId: 'hvac', modules: ['hvac-summary-view'], label: '空调摘要模块' },
             power_compact: { sectionId: 'power_compact', modules: ['power-meter-runtime'], label: '强电摘要模块' },
             power_quick: { sectionId: 'power_quick', modules: ['power-meter-runtime'], label: '强电总览模块' },
+            light_compact: { sectionId: 'light_compact', modules: ['light-runtime'], label: '灯光摘要模块' },
+            light_quick: { sectionId: 'light_quick', modules: ['light-runtime'], label: '灯光模块' },
             projector: { sectionId: 'projector', modules: ['projector-runtime', 'projector-summary-view'], label: '投影摘要模块' },
             screen: { sectionId: 'screen', modules: ['screen-runtime'], label: '幕布运行时模块' },
         };
@@ -180,6 +186,8 @@
                         updateHvacStatus(false);
                     } else if ((key === 'power_compact' || key === 'power_quick') && getActiveViewId() === 'dashboard') {
                         updatePowerData();
+                    } else if ((key === 'light_compact' || key === 'light_quick') && getActiveViewId() === 'dashboard') {
+                        updateLightData();
                     } else if (key === 'projector' && getActiveViewId() === 'dashboard') {
                         updateProjectorStatus();
                     } else if (key === 'screen' && getActiveViewId() === 'dashboard') {
@@ -433,10 +441,6 @@
             });
             return true;
         }
-        const lightLocks = {};
-        const lightStates = {};
-        const lightInputStates = {};
-        const lightOnlineStates = {};
         const projectorConfigs = configData.projectors || [];
         const upsConfigs = configData.ups_devices || [];
         window.upsConfigs = upsConfigs;
@@ -1961,246 +1965,51 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             window.open('/api/export/energy_30days', '_blank');
         }
 
-        configData.light_devices.forEach(dev => { lightLocks[dev.id] = {}; lightStates[dev.id] = []; lightInputStates[dev.id] = []; lightOnlineStates[dev.id] = false; });
-        function normalizeLightChannelState(status) {
-            if (status === null || status === undefined) return null;
-            if (status === true || status === false) return status;
-            if (status === 1 || status === '1') return true;
-            if (status === 0 || status === '0') return false;
-            if (typeof status === 'string') {
-                const text = status.trim().toLowerCase();
-                if (['true', 'on', 'open', 'opened', 'enabled', 'yes', 'y', 'online', 'running', '已开', '开启', '打开', '开'].includes(text)) return true;
-                if (['false', 'off', 'close', 'closed', 'disabled', 'no', 'n', 'offline', 'stopped', '已关', '关闭', '关'].includes(text)) return false;
-            }
-            return null;
+
+        // AI_BRIDGE: light_runtime
+        // 灯光控制、首页摘要和灯光日志已迁移到 static/js/views/light-runtime.js。
+        function getLightRuntimeContext() {
+            return {
+                configData,
+                fetchJson,
+                postJsonLoose,
+                ensurePermission,
+                showToast,
+                translateApiError,
+                escapeHtml,
+                getDeviceStatusMeta,
+                getCardStateClass,
+                getPermissionDisabledClass,
+                getPermissionDisabledAttrs,
+                scheduleDashboardMasonry,
+            };
         }
-        function getLightChannelStateFromSources(devId, chNum, channelsMap = {}) {
-            const channelNo = Number(chNum);
-            const apiSources = [
-                (channelsMap || {})[devId],
-                (channelsMap || {})[String(devId)],
-            ];
-            for (const source of apiSources) {
-                if (!source) continue;
-                if (Array.isArray(source)) {
-                    const candidates = [source[channelNo - 1], source[channelNo]];
-                    for (const candidate of candidates) {
-                        const normalized = normalizeLightChannelState(candidate);
-                        if (normalized !== null) return normalized;
-                    }
-                    continue;
-                }
-                if (typeof source === 'object') {
-                    const candidates = [
-                        source[channelNo],
-                        source[String(channelNo)],
-                        source[`ch${channelNo}`],
-                        source[`channel_${channelNo}`],
-                    ];
-                    for (const candidate of candidates) {
-                        const normalized = normalizeLightChannelState(candidate);
-                        if (normalized !== null) return normalized;
-                    }
-                }
-            }
-            const cacheSources = [
-                lightStates[devId],
-                lightStates[String(devId)],
-            ];
-            for (const source of cacheSources) {
-                if (!source) continue;
-                if (Array.isArray(source)) {
-                    const candidates = [source[channelNo]];
-                    for (const candidate of candidates) {
-                        const normalized = normalizeLightChannelState(candidate);
-                        if (normalized !== null) return normalized;
-                    }
-                    continue;
-                }
-                if (typeof source === 'object') {
-                    const candidates = [
-                        source[channelNo],
-                        source[String(channelNo)],
-                        source[`ch${channelNo}`],
-                        source[`channel_${channelNo}`],
-                    ];
-                    for (const candidate of candidates) {
-                        const normalized = normalizeLightChannelState(candidate);
-                        if (normalized !== null) return normalized;
-                    }
-                }
-            }
-            return null;
+        window.getLightRuntimeContext = getLightRuntimeContext;
+        function withLightRuntime(callback, contextLabel = '灯光运行时模块') {
+            return ensureModulesReady(['light-runtime'], contextLabel)
+                .then(() => {
+                    const api = window.SmartCenter?.lightRuntime || null;
+                    if (api && typeof callback === 'function') return callback(api, getLightRuntimeContext());
+                    return null;
+                })
+                .catch(() => null);
         }
-        function getLightChannelUiState(devId, chNum) {
-            const status = getLightChannelStateFromSources(devId, chNum, {});
-            const isOnline = !!lightOnlineStates[devId];
-            if (!isOnline) return { cls: 'ch-err', text: '离线', actionable: false };
-            if (status === true) return { cls: 'ch-on', text: '已开启', actionable: true };
-            if (status === false) return { cls: 'ch-off', text: '已关闭', actionable: true };
-            return { cls: 'ch-unknown', text: '待确认', actionable: false };
+        function updateLightData() {
+            return withLightRuntime((api, ctx) => api.updateLightData(ctx), '灯光状态模块');
         }
-        function renderLightChannel(devId, chNum) { const btn = document.getElementById(`lch_${devId}_${chNum}`); if(!btn) return; const uiState = getLightChannelUiState(devId, chNum); const oldClasses = Array.from(btn.classList).filter(c => c.startsWith('ch-span-') || c === 'ch-btn').join(' '); btn.className = `${oldClasses} ${uiState.cls}`; btn.querySelector('.state').innerText = uiState.text; btn.title = uiState.actionable ? '' : (lightOnlineStates[devId] ? '设备在线，但该通道状态暂未确认' : '设备离线，无法读取通道状态'); }
-        function getLightInputState(devId, inputNum, inputsMap = {}) {
-            const list = Array.isArray(inputsMap[devId]) ? inputsMap[devId] : (Array.isArray(inputsMap[String(devId)]) ? inputsMap[String(devId)] : lightInputStates[devId]);
-            if (!Array.isArray(list)) return null;
-            return normalizeLightChannelState(list[Number(inputNum) - 1]);
+        function toggleLight(devId, chNum) {
+            return withLightRuntime((api, ctx) => api.toggleLight(devId, chNum, ctx), '灯光控制模块');
         }
-        function renderLightInput(devId, inputNum) {
-            const chip = document.getElementById(`lin_${devId}_${inputNum}`);
-            if (!chip) return;
-            const state = getLightInputState(devId, inputNum);
-            const isOnline = !!lightOnlineStates[devId];
-            const cls = !isOnline ? 'offline' : (state === true ? 'active' : (state === false ? 'idle' : 'unknown'));
-            const text = !isOnline ? '离线' : (state === true ? '触发' : (state === false ? '未触发' : '待确认'));
-            const oldClasses = Array.from(chip.classList).filter(c => c.startsWith('ch-span-') || c === 'relay-input-chip').join(' ');
-            chip.className = `${oldClasses} ${cls}`;
-            const stateEl = chip.querySelector('.state');
-            if (stateEl) stateEl.innerText = text;
-            chip.title = state === true ? '输入接口检测到有效电平' : (state === false ? '输入接口未检测到有效电平' : '输入接口状态待确认');
+        function triggerLightAction(devId, actionName, label) {
+            return withLightRuntime((api, ctx) => api.triggerLightAction(devId, actionName, label, ctx), '灯光动作模块');
         }
-        function getVisibleLightInputs(device) {
-            return Array.isArray(device.input_channels_config)
-                ? device.input_channels_config.filter(ch => ch && ch.visible !== false).sort((a, b) => Number(a.sort || 999) - Number(b.sort || 999))
-                : [];
+        function executeScene(sceneId, name) {
+            return withLightRuntime((api, ctx) => api.executeScene(sceneId, name, ctx), '灯光场景模块');
         }
-        function renderDashboardInputSummary(device, extraMeta, compact=false) {
-            const inputs = Array.isArray(extraMeta.inputs) ? extraMeta.inputs : [];
-            const visibleInputs = getVisibleLightInputs(device);
-            const count = visibleInputs.length || inputs.length;
-            if (!count) return '';
-            const active = inputs.filter(item => normalizeLightChannelState(item) === true).length;
-            if (compact) return renderHomeCompactMetric('输入触发', `${active} / ${count}`, active > 0 ? 'warn' : '');
-            return `<div class="dashboard-mini-note">输入触发 ${escapeHtml(String(active))} / ${escapeHtml(String(count))}</div>`;
-        }
-        function renderDashboardLightCards(statusData = {}) {
-            const container = document.getElementById('dashboard-light-grid');
-            if (!container) return;
-            const devices = Array.isArray(configData.light_devices) ? configData.light_devices.slice(0, 4) : [];
-            const extras = statusData.extras || {};
-            if (!devices.length) {
-                container.innerHTML = '<div style="color:var(--text-sub); grid-column:1/-1; text-align:center; padding:20px;">未配置灯光模块</div>';
-                return;
-            }
-            container.innerHTML = devices.map(device => {
-                const extraMeta = extras[String(device.id)] || {};
-                const statusMeta = getDeviceStatusMeta({
-                    online: !!((statusData.online || {})[device.id]),
-                    status_level: extraMeta.status_level,
-                    stale: extraMeta.stale,
-                    poll_failures: extraMeta.poll_failures,
-                    last_success_at: extraMeta.last_success_at,
-                    last_checked_at: extraMeta.last_checked_at,
-                    last_error: extraMeta.last_error,
-                }, { staleText: '陈旧', errorText: '异常' });
-                const online = statusMeta.isOnlineLike;
-                const channels = Array.isArray(device.channels_config) ? device.channels_config.filter(ch => ch && ch.visible !== false).sort((a, b) => Number(a.sort || 999) - Number(b.sort || 999)).slice(0, 4) : [];
-                const currentStates = Array.isArray((statusData.channels || {})[device.id]) ? (statusData.channels || {})[device.id] : [];
-                const visibleChannelCount = Array.isArray(device.channels_config) ? device.channels_config.filter(ch => ch && ch.visible !== false).length : currentStates.length;
-                const onCount = currentStates.filter(Boolean).length;
-                const unknownCount = currentStates.filter(st => st === null || st === undefined).length;
-                const actions = channels.map(ch => {
-                    const uiState = getLightChannelUiState(device.id, ch.channel);
-                    const btnClass = uiState.cls === 'ch-on' ? 'success' : (uiState.cls === 'ch-off' ? 'secondary' : (online ? 'warning' : 'danger'));
-                    return `<button class="dashboard-mini-btn ${btnClass}${getPermissionDisabledClass('light.control')}" ${getPermissionDisabledAttrs('light.control', '当前账号无灯光控制权限')} onclick="toggleLight('${escapeHtml(device.id)}', ${Number(ch.channel)})">${escapeHtml(ch.name || ('CH' + ch.channel))}</button>`;
-                }).join('');
-                const extraButtons = (((extras[String(device.id)] || {}).dashboard_action_buttons) || []).filter(item => item && item.visible !== false).map(item => {
-                    return `<button class="dashboard-mini-btn secondary${getPermissionDisabledClass('light.control')}" ${getPermissionDisabledAttrs('light.control', '当前账号无灯光控制权限')} onclick="triggerLightAction('${escapeHtml(device.id)}', '${escapeHtml(item.action || '')}', '${escapeHtml(item.label || item.action || '')}')">${escapeHtml(item.label || item.action || '动作')}</button>`;
-                }).join('');
-                return `<div class="dashboard-mini-card ${getCardStateClass(statusMeta)}">
-                    <div class="dashboard-mini-head">
-                        <div>
-                            <div class="dashboard-mini-title">${escapeHtml(device.name || device.id)}</div>
-                            <div class="dashboard-mini-subtitle">${escapeHtml(device.ip || device.id || '--')}</div>
-                        </div>
-                        <div class="dashboard-mini-chip-row">
-                            <span class="ups-chip ${statusMeta.chipClass}">${statusMeta.text}</span>
-                        </div>
-                    </div>
-                    <div class="dashboard-mini-light-summary">
-                        <div class="dashboard-mini-light-count">已开 ${escapeHtml(String(onCount))} / ${escapeHtml(String(visibleChannelCount || currentStates.length || 0))}</div>
-                        <div class="dashboard-mini-note">${online ? (unknownCount > 0 ? `${unknownCount} 路状态待确认` : statusMeta.note) : statusMeta.note}</div>
-                    </div>
-                    ${renderDashboardInputSummary(device, extraMeta)}
-                    <div class="dashboard-mini-actions">${actions || '<span class="dashboard-mini-note">暂无可用通道</span>'}${extraButtons}</div>
-                </div>`;
-            }).join('');
-        }
-        function renderDashboardLightCompact(statusData = {}) {
-            const container = document.getElementById('dashboard-light-compact-grid');
-            if (!container) return;
-            const devices = Array.isArray(configData.light_devices) ? configData.light_devices : [];
-            const onlineMap = statusData.online || {};
-            const channelsMap = statusData.channels || {};
-            const extras = statusData.extras || {};
-            if (!devices.length) {
-                container.innerHTML = '<div style="color:var(--text-sub); grid-column:1/-1; text-align:center; padding:14px;">未配置灯光模块</div>';
-                return;
-            }
-            container.classList.remove('home-status-list');
-            container.innerHTML = devices.map(device => {
-                const extraMeta = extras[String(device.id)] || {};
-                const statusMeta = getDeviceStatusMeta({
-                    online: !!onlineMap[device.id],
-                    status_level: extraMeta.status_level,
-                    stale: extraMeta.stale,
-                    poll_failures: extraMeta.poll_failures,
-                    last_success_at: extraMeta.last_success_at,
-                    last_checked_at: extraMeta.last_checked_at,
-                    last_error: extraMeta.last_error,
-                }, { staleText: '陈旧', errorText: '异常' });
-                const online = statusMeta.isOnlineLike;
-                const rawStates = Array.isArray(channelsMap[device.id]) ? channelsMap[device.id] : (Array.isArray(channelsMap[String(device.id)]) ? channelsMap[String(device.id)] : []);
-                const visibleChannels = Array.isArray(device.channels_config)
-                    ? device.channels_config.filter(ch => ch && ch.visible !== false).sort((a, b) => Number(a.sort || 999) - Number(b.sort || 999))
-                    : [];
-                const total = visibleChannels.length || rawStates.length || 0;
-                const knownVisibleStates = visibleChannels.length
-                    ? visibleChannels.map(ch => getLightChannelStateFromSources(device.id, ch.channel, channelsMap))
-                    : rawStates.map(st => normalizeLightChannelState(st));
-                const onCount = knownVisibleStates.filter(st => st === true).length;
-                const unknownCount = knownVisibleStates.filter(st => st === null).length;
-                const actionChannels = visibleChannels.length
-                    ? visibleChannels
-                    : rawStates.map((_, idx) => ({ channel: idx + 1, name: `CH${idx + 1}` }));
-                const actionNameCounts = actionChannels.reduce((acc, ch) => {
-                    const chNum = Number(ch.channel);
-                    const name = String(ch.name || `CH${chNum}`);
-                    acc.set(name, (acc.get(name) || 0) + 1);
-                    return acc;
-                }, new Map());
-                const actions = actionChannels.slice(0, 8).map(ch => {
-                    const chNum = Number(ch.channel);
-                    const state = getLightChannelStateFromSources(device.id, chNum, channelsMap);
-                    const cls = state === true ? 'on' : (state === false ? 'off' : 'warning');
-                    const stateText = state === true ? '开' : (state === false ? '关' : '?');
-                    const baseName = String(ch.name || `CH${chNum}`);
-                    const displayName = actionNameCounts.get(baseName) > 1 ? `${baseName} ${chNum}` : baseName;
-                    return `<button class="home-compact-action ${cls}${getPermissionDisabledClass('light.control')}" ${getPermissionDisabledAttrs('light.control', '当前账号无灯光控制权限')} onclick="toggleLight('${escapeHtml(device.id)}', ${chNum})"><span class="label">${escapeHtml(displayName)}</span><span class="home-action-state">${escapeHtml(stateText)}</span></button>`;
-                }).join('');
-                const extraButtons = ((extraMeta.dashboard_action_buttons || [])).filter(item => item && item.visible !== false).slice(0, 2).map(item => {
-                    return `<button class="home-compact-action success${getPermissionDisabledClass('light.control')}" ${getPermissionDisabledAttrs('light.control', '当前账号无灯光控制权限')} onclick="triggerLightAction('${escapeHtml(device.id)}', '${escapeHtml(item.action || '')}', '${escapeHtml(item.label || item.action || '')}')">${escapeHtml(item.label || item.action || '动作')}</button>`;
-                }).join('');
-                return `<div class="home-compact-card ${online ? '' : 'offline'}">
-                    <div class="home-compact-head">
-                        <div style="min-width:0;">
-                            <div class="home-compact-title">${escapeHtml(device.name || device.id)}</div>
-                            <div class="home-compact-subtitle">${escapeHtml(device.ip || device.id || '--')}</div>
-                        </div>
-                        <div class="home-compact-chip-row">
-                            <span class="ups-chip ${statusMeta.chipClass}">${escapeHtml(statusMeta.text)}</span>
-                        </div>
-                    </div>
-                    <div class="home-compact-metrics">
-                        ${renderHomeCompactMetric('已开路数', `${onCount} / ${total || '--'}`, onCount > 0 ? 'ok' : '')}
-                        ${renderHomeCompactMetric('状态待确认', String(unknownCount || 0), unknownCount > 0 ? 'warn' : '')}
-                        ${renderDashboardInputSummary(device, extraMeta, true)}
-                    </div>
-                    <div class="home-compact-actions">${actions || '<span class="home-compact-note">暂无可用通道</span>'}${extraButtons}</div>
-                    <div class="home-compact-note">${escapeHtml(statusMeta.note || '--')}</div>
-                </div>`;
-            }).join('');
-        }
+        window.updateLightData = updateLightData;
+        window.toggleLight = toggleLight;
+        window.triggerLightAction = triggerLightAction;
+        window.executeScene = executeScene;
 
         // 服务器面板控制
         function getColor(p) { return p > 90 ? 'bg-red' : (p > 70 ? 'bg-yellow' : 'bg-green'); }
@@ -2535,7 +2344,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             const modules = getActiveViewId() === 'hvac' ? ['hvac-view'] : ['hvac-summary-view'];
             return ensureModulesReady(modules, '空调模块').then(() => updateHvacStatus());
         }, () => getActiveViewId() === 'hvac' || (getActiveViewId() === 'dashboard' && isDashboardSectionNearViewport('hvac')));
-        registerPollingTask('light', 2200, () => updateLightData(), () => ['dashboard', 'light'].includes(getActiveViewId()) || isDashboardSectionVisible('light_compact') || isDashboardSectionVisible('light'));
+        registerPollingTask('light', 2200, () => ensureModulesReady(['light-runtime'], '灯光状态模块').then(() => updateLightData()), () => getActiveViewId() === 'light' || (getActiveViewId() === 'dashboard' && (isDashboardSectionNearViewport('light_compact') || isDashboardSectionNearViewport('light_quick'))));
         registerPollingTask('node_red', 5000, () => ensureViewReady('universal').then(() => updateNodeRedDevices()), () => getActiveViewId() === 'universal');
         registerPollingTask('server', 5000, () => ensureViewReady('server').then(() => updateServerData()), () => getActiveViewId() === 'server');
         registerPollingTask('door', 1200, () => updateDoorStatus(), () => ['dashboard', 'door'].includes(getActiveViewId()) || isDashboardSectionVisible('door'));
@@ -2778,139 +2587,6 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                     setTimeout(() => { delete pwrLocks[cabId][chNum]; }, POWER_CHANNEL_LOCK_MS);
                 });
         };
-
-        toggleLight = function(devId, chNum) {
-            if (!ensurePermission('light.control', '切换灯光通道')) return;
-            if (!lightOnlineStates[devId]) {
-                showToast('设备离线，无法控制通道', true);
-                return;
-            }
-            const rawStatus = getLightChannelStateFromSources(devId, chNum, {});
-            const status = getLightChannelStateFromSources(devId, chNum, {});
-            if (status === null || status === undefined) {
-                showToast('设备在线，但该通道状态待确认，请稍后再试或使用动作按钮', true);
-                return;
-            }
-            const targetState = !status;
-            lightLocks[devId][chNum] = Date.now();
-            lightStates[devId][chNum] = targetState;
-            renderLightChannel(devId, chNum);
-            postJsonLoose('/api/light/control', { type: 'single', device_id: devId, channel: chNum, is_open: targetState }, '灯光控制请求失败')
-                .then(data => {
-                    if (!data.success) {
-                        lightStates[devId][chNum] = rawStatus;
-                        renderLightChannel(devId, chNum);
-                        showToast(data.msg || '灯光控制失败', true);
-                        return;
-                    }
-                    if (Array.isArray(data.channels)) {
-                        data.channels.forEach((st, idx) => {
-                            lightStates[devId][idx + 1] = st;
-                            renderLightChannel(devId, idx + 1);
-                        });
-                    }
-                    showToast(data.verified === false ? '灯光指令已发送，等待状态确认' : '灯光控制成功');
-                    setTimeout(() => updateLightData(), 600);
-                })
-                .catch(() => {
-                    lightStates[devId][chNum] = rawStatus;
-                    renderLightChannel(devId, chNum);
-                    showToast('灯光控制请求失败', true);
-                })
-                .finally(() => {
-                    setTimeout(() => { delete lightLocks[devId][chNum]; }, 1200);
-                });
-        };
-
-        triggerLightAction = function(devId, actionName, label) {
-            if (!ensurePermission('light.control', `执行灯光动作 ${label || actionName}`)) return;
-            postJsonLoose('/api/light/control', { type: 'action', device_id: devId, action: actionName }, `${label || actionName} 请求失败`)
-                .then(data => {
-                    if (!data.success) {
-                        showToast(data.msg || `${label || actionName} 执行失败`, true);
-                        return;
-                    }
-                    if (Array.isArray(data.channels)) {
-                        data.channels.forEach((st, idx) => {
-                            lightStates[devId][idx + 1] = st;
-                            renderLightChannel(devId, idx + 1);
-                        });
-                    }
-                    showToast(data.verified === false ? `${label || actionName} 已下发，等待状态确认` : `${label || actionName} 已执行`);
-                    setTimeout(() => updateLightData(), 700);
-                })
-                .catch(() => showToast(`${label || actionName} 请求失败`, true));
-        };
-
-        executeScene = function(sceneId, name) {
-            if (!ensurePermission('light.control', '执行场景联动')) return;
-            if (!confirm(`确定要触发全局联动场景 [${name}] 吗？`)) return;
-            postJsonLoose('/api/light/control', { type: 'scene', scene_id: sceneId }, `场景联动 [${name}] 请求失败`)
-                .then(data => {
-                    if (!data.success) {
-                        showToast(data.msg || `场景联动 [${name}] 执行失败`, true);
-                        return;
-                    }
-                    showToast(`场景联动 [${name}] 触发成功`);
-                    setTimeout(() => updateLightData(), 800);
-                })
-                .catch(() => showToast(`场景联动 [${name}] 请求失败`, true));
-        };
-
-        updateLightData = function() {
-            fetchJson('/api/light/status', {}, '灯光状态读取失败')
-                .then(d => {
-                    let onlineCount = 0;
-                    for (const devId in (d.online || {})) {
-                        const extraMeta = (d.extras || {})[devId] || {};
-                        const statusMeta = getDeviceStatusMeta({
-                            online: !!d.online[devId],
-                            status_level: extraMeta.status_level,
-                            stale: extraMeta.stale,
-                            poll_failures: extraMeta.poll_failures,
-                            last_success_at: extraMeta.last_success_at,
-                            last_checked_at: extraMeta.last_checked_at,
-                            last_error: extraMeta.last_error,
-                        }, { staleText: '陈旧', errorText: '异常' });
-                        lightOnlineStates[devId] = statusMeta.isOnlineLike;
-                        if (statusMeta.isOnlineLike) onlineCount++;
-                        const tag = document.getElementById(`light-status-${devId}`);
-                        if (tag) {
-                            tag.className = statusMeta.chipClass === 'online' ? 'tag normal' : (statusMeta.chipClass === 'warning' ? 'tag warn' : 'tag error');
-                            tag.innerText = statusMeta.text;
-                            tag.title = statusMeta.note;
-                        }
-                        (d.channels?.[devId] || []).forEach((st, idx) => {
-                            const chNum = idx + 1;
-                            if (lightLocks[devId][chNum] && (Date.now() - lightLocks[devId][chNum] < 2000)) return;
-                            lightStates[devId][chNum] = st;
-                            renderLightChannel(devId, chNum);
-                        });
-                        const inputStates = Array.isArray(extraMeta.inputs) ? extraMeta.inputs : [];
-                        lightInputStates[devId] = inputStates;
-                        inputStates.forEach((st, idx) => {
-                            renderLightInput(devId, idx + 1);
-                        });
-                    }
-                    const lOnline = document.getElementById('dash-light-online');
-                    if (lOnline) lOnline.innerText = onlineCount;
-                    renderDashboardLightCards(d);
-                    renderDashboardLightCompact(d);
-                })
-                .catch(err => console.error('灯光状态更新失败', err));
-            fetchJson('/api/light/logs', {}, '灯光日志读取失败')
-                .then(logs => {
-                    const logBox = document.getElementById('light-global-log');
-                    if (!logBox) return;
-                    let html = '';
-                    (logs || []).forEach(log => {
-                        html += `<div class="log-item"><span class="time">[${new Date(log.time).toLocaleTimeString('zh-CN',{hour12:false})}]</span><span class="msg">${log.operation.replace(/\[.*?\]\s*/,'')}</span></div>`;
-                    });
-                    if (logBox.innerHTML !== html) logBox.innerHTML = html;
-                })
-                .catch(err => console.error('灯光日志更新失败', err));
-        };
-
 
         wakeServer = function(mac) {
             return withServerRuntime(
