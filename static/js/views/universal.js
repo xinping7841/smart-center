@@ -212,7 +212,50 @@
             : '<div style="color:var(--text-sub); grid-column: 1/-1;">请先前往系统配置定义快捷指令，并勾选主页显示。</div>';
     }
 
+    function renderUniversalPageShell() {
+        const root = document.getElementById('view-universal');
+        if (!root) return null;
+        const shellReady = root.dataset.universalShellReady === '1'
+            && document.getElementById('node-red-device-grid')
+            && document.getElementById('control-center-grid')
+            && document.getElementById('universal-btn-grid');
+        if (shellReady) return root;
+        root.innerHTML = `
+            <div class="card">
+                <div class="card-title">
+                    <span>协议控制中心</span>
+                    <span style="font-size:12px; color:var(--text-sub);">支持 TCP / UDP / 串口 / OSC / Art-Net / MIDI 配置与多目标分发</span>
+                </div>
+                <div class="card-title" style="margin-top:8px;">
+                    <span>灯具开关</span>
+                    <span style="font-size:12px; color:var(--text-sub);">单灯控制 / 网关确认亮暗状态</span>
+                </div>
+                <div class="node-red-device-grid" id="node-red-device-grid">
+                    <div class="node-red-empty">正在加载灯具状态...</div>
+                </div>
+                <div class="card-title" style="margin-top:8px;">
+                    <span>协议控件</span>
+                    <span style="font-size:12px; color:var(--text-sub);">保留原协议控制中心配置，可继续做多目标分发</span>
+                </div>
+                <div class="channel-grid protocol-device-grid" id="control-center-grid" style="margin-bottom:18px;">
+                    <div style="color:var(--text-sub); grid-column: 1/-1;">正在加载协议控件...</div>
+                </div>
+                <div class="card-title" style="margin-top:8px;">
+                    <span>历史协议设备</span>
+                    <span style="font-size:12px; color:var(--text-sub);">保留尚未迁移的历史协议按钮</span>
+                </div>
+                <div class="channel-grid" id="universal-btn-grid" style="grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));">
+                    <div style="color:var(--text-sub); grid-column: 1/-1;">正在加载历史协议按钮...</div>
+                </div>
+            </div>
+        `;
+        root.dataset.universalShellReady = '1';
+        universalRendered = false;
+        return root;
+    }
+
     function renderUniversalControlPage(force = false) {
+        renderUniversalPageShell();
         if (universalRendered && !force) return;
         renderProtocolDeviceCards();
         renderLegacyUniversalButtons();
@@ -649,11 +692,12 @@
     }
 
     function updateNodeRedDevices(force = false) {
-        const grid = document.getElementById('node-red-device-grid');
-        if (!grid) return Promise.resolve({});
         if (!force && typeof global.getActiveViewId === 'function' && global.getActiveViewId() !== 'universal') {
             return Promise.resolve({});
         }
+        renderUniversalPageShell();
+        const grid = document.getElementById('node-red-device-grid');
+        if (!grid) return Promise.resolve({});
         return fetchJsonLoose('/api/node-red/devices', {}, 'Node-RED \u8bbe\u5907\u72b6\u6001\u8bfb\u53d6\u5931\u8d25')
             .then(data => {
                 const devices = Array.isArray(data.devices) ? data.devices : [];
@@ -720,6 +764,7 @@
         toggleProtocolDeviceOutput,
         pulseProtocolDevice,
         openProtocolDeviceInfo,
+        renderUniversalPageShell,
         renderUniversalControlPage,
         updateNodeRedDevices,
         controlNodeRedDevice,
@@ -728,13 +773,16 @@
     SmartCenter.universal = Object.assign({}, SmartCenter.universal || {}, api);
     if (typeof SmartCenter.registerModule === 'function') {
         installProtocolCardDensityStyle();
-        renderUniversalControlPage();
+        const isUniversalActive = typeof global.getActiveViewId !== 'function' || global.getActiveViewId() === 'universal';
+        if (isUniversalActive) renderUniversalControlPage();
         const protocolPollRegister = typeof global.registerPollingTask === 'function' ? global.registerPollingTask : (typeof SmartCenter.registerPollingTask === 'function' ? SmartCenter.registerPollingTask.bind(SmartCenter) : null);
         if (protocolPollRegister) {
             protocolPollRegister('protocol_control', 2500, () => updateProtocolDeviceCards(), () => typeof global.getActiveViewId !== 'function' || global.getActiveViewId() === 'universal');
         }
-        setTimeout(() => updateProtocolDeviceCards(true), 120);
-        setTimeout(() => updateProtocolDeviceCards(true), 1100);
+        if (isUniversalActive) {
+            setTimeout(() => updateProtocolDeviceCards(true), 120);
+            setTimeout(() => updateProtocolDeviceCards(true), 1100);
+        }
 
         SmartCenter.registerModule('universal', {
             kind: 'view',
