@@ -591,12 +591,94 @@
             .then(() => renderDashboardPowerCards(ctx))
             .finally(() => {
                 delete state.powerSupplementInFlight[cabId];
-            });
+        });
         return state.powerSupplementInFlight[cabId];
+    }
+
+    function renderMeterCenterShell() {
+        const container = document.getElementById('view-meter');
+        if (!container || document.getElementById('meter-center-grid')) return false;
+        container.innerHTML = `
+            <div class="card" id="meter-center-shell">
+                <div class="card-title">
+                    <span>电表中心</span>
+                    <span style="font-size:12px; color:var(--text-sub);">先统一接入现有 5 个电柜电表，后续可继续扩展独立电表、互感器电表和不同品牌协议</span>
+                </div>
+                <div class="meter-summary-grid">
+                    <div class="meter-summary-card">
+                        <div class="label">在线电表</div>
+                        <div class="value"><span id="meter-summary-online">0</span> / <span id="meter-summary-total">0</span></div>
+                        <div class="sub">当前纳入统一展示的电表总数</div>
+                    </div>
+                    <div class="meter-summary-card">
+                        <div class="label">总实时功率</div>
+                        <div class="value" style="color:var(--warning);" id="meter-summary-power">0.00</div>
+                        <div class="sub">单位 kW</div>
+                        <div class="meta" id="meter-summary-power-meta">卡片合计计算值</div>
+                    </div>
+                    <div class="meter-summary-card">
+                        <div class="label">今日总用电</div>
+                        <div class="value" style="color:var(--success);" id="meter-summary-daily">0.0</div>
+                        <div class="sub">单位 kWh，按 0 点口径</div>
+                        <div class="meta" id="meter-summary-daily-meta">参考总表 <strong>--</strong></div>
+                    </div>
+                    <div class="meter-summary-card">
+                        <div class="label">本月总用电</div>
+                        <div class="value" style="color:#93c5fd;" id="meter-summary-monthly">0.0</div>
+                        <div class="sub">统一统计口径下的本月累计，单位 kWh</div>
+                        <div class="meta" id="meter-summary-monthly-meta">参考总表 <strong>--</strong></div>
+                    </div>
+                </div>
+                <div class="meter-summary-badgebar">
+                    <span class="meter-summary-badge">显示口径 <strong id="meter-summary-badge-display">运行口径</strong></span>
+                    <span class="meter-summary-badge">趋势目标 <strong id="meter-summary-badge-target">全部统计电表</strong></span>
+                    <span class="meter-summary-badge">统计范围 <strong id="meter-summary-badge-scope">0 / 0 在线</strong></span>
+                    <span class="meter-summary-badge">数据来源 <strong id="meter-summary-badge-source">电表服务</strong></span>
+                </div>
+                <div class="meter-type-chip-row" id="meter-type-chip-row">
+                    <span class="meter-type-chip">正在统计电表型号...</span>
+                </div>
+                <div class="meter-center-grid" id="meter-center-grid" style="margin-top:16px;">
+                    <div style="color:var(--text-sub); grid-column:1/-1; text-align:center; padding:20px;">正在加载电表数据...</div>
+                </div>
+                <div class="meter-trend-layout">
+                    <div class="meter-chart-shell">
+                        <div class="card-title" style="border:none; padding:0 0 10px 0; margin:0;">
+                            <span>电量趋势</span>
+                            <span style="font-size:12px; color:var(--text-sub);">支持总表、区域、单表切换，并可按日/周/月查看</span>
+                        </div>
+                        <div class="meter-chart-toolbar">
+                            <select id="meter-trend-target" onchange="changeMeterTrendTarget(this.value)" style="padding:8px 10px; border-radius:8px; background:#0f172a; color:#e2e8f0; border:1px solid rgba(148,163,184,0.24); min-width:240px;"></select>
+                            <select id="meter-trend-period" onchange="changeMeterTrendPeriod(this.value)" style="padding:8px 10px; border-radius:8px; background:#0f172a; color:#e2e8f0; border:1px solid rgba(148,163,184,0.24); min-width:140px;">
+                                <option value="day">按日</option>
+                                <option value="week">按周</option>
+                                <option value="month">按月</option>
+                            </select>
+                        </div>
+                        <div class="meter-chart-box" id="meterTrendChart"></div>
+                    </div>
+                    <div class="meter-side-note">
+                        <div class="meter-side-note-title">统计摘要</div>
+                        <div class="meter-side-note-list">
+                            <div class="meter-side-note-item">
+                                <div class="label">当前目标</div>
+                                <div class="value" id="meter-trend-target-label">全部统计电表</div>
+                            </div>
+                            <div class="meter-side-note-item">
+                                <div class="label">趋势周期</div>
+                                <div class="value" id="meter-trend-period-label">按日</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        return true;
     }
 
     function updateMeterCenter(context = {}, options = {}) {
         const ctx = getContext(context);
+        renderMeterCenterShell();
         const requestSeq = ++state.meterCenterRequestSeq;
         const requestTarget = state.meterTrendTarget;
         const requestPeriod = state.meterTrendPeriod;
@@ -775,6 +857,7 @@
         renderDashboardPowerCompact,
         renderMeterTrendChart,
         renderDashboardEnergyTrend,
+        renderMeterCenterShell,
         refreshPowerSupplement,
         updateMeterCenter,
         updatePowerData,
