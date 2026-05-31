@@ -329,68 +329,11 @@
             </div>
 
             <div id="view-power" class="view-section">
-                {% for cab in config.cabinets %}
-                {% set idx = loop.index0 %}
-                <div class="card">
-                    <div class="cab-header">
-                        <h3>{{ cab.cabinet_name }}</h3>
-                        <span class="tag error" id="commStatus_{{ idx }}">检测中</span>
-                    </div>
-                    <div class="info-bar">
-                        <div>模式:<span class="tag info" id="workMode_{{ idx }}" style="margin-left:8px;">未知</span></div>
-                        <div>协议:<span>{{ cab.plc_type }}</span></div>
-                        <div>站号:<span>{{ cab.station_id }}</span></div>
-                        <div>来源:<span id="sourceLabel_{{ idx }}">电表服务</span></div>
-                        <div>通讯:<span id="displayAddress_{{ idx }}">{{ cab.ip }}:{{ cab.port }}</span></div>
-                        <div>设备:<span id="deviceAddress_{{ idx }}">{{ cab.ip }}:{{ cab.port }}</span></div>
-                    </div>
-                    <div class="btn-group">
-                        <button class="btn-base btn-start" onclick="doPowerStart({{ idx }})">一键启动</button>
-                        <button class="btn-base btn-stop" onclick="doPowerStop({{ idx }}, '{{ cab.ui_text.confirm_stop }}')">一键停止</button>
-                        <button class="btn-base" style="background:#2563eb;" onclick="exportEnergyHistory()">导出30天电量</button>
-                    </div>
-                    <div class="panel-grid">
-                        <div class="left-col">
-                            <div class="param-box">
-                                <div style="color:var(--text-sub); margin-bottom:10px; font-weight:bold;">三相电实时参数</div>
-                                <div class="param-row"><span>A 相</span><span class="val"><span id="va_{{ idx }}">0.0</span> V / <span id="ia_{{ idx }}">0.0</span> A</span></div>
-                                <div class="param-row"><span>B 相</span><span class="val"><span id="vb_{{ idx }}">0.0</span> V / <span id="ib_{{ idx }}">0.0</span> A</span></div>
-                                <div class="param-row"><span>C 相</span><span class="val"><span id="vc_{{ idx }}">0.0</span> V / <span id="ic_{{ idx }}">0.0</span> A</span></div>
-                            </div>
-                            <div class="param-box">
-                                <div style="color:var(--text-sub); margin-bottom:10px; font-weight:bold;">用电统计与环境</div>
-                                <div class="param-row"><span>累计电能</span><span class="val"><span id="energy_{{ idx }}">0.0</span> kWh</span></div>
-                                <div class="param-row"><span>今日用电</span><span class="val" style="color:var(--success);"><span id="dailyEnergy_{{ idx }}">0.0</span> kWh</span></div>
-                                <div class="param-row"><span>本月用电</span><span class="val" style="color:var(--brand-blue);"><span id="monthEnergy_{{ idx }}">0.0</span> kWh</span></div>
-                                <div class="param-row" style="margin-top:15px; border-top:1px dashed rgba(255,255,255,0.1); padding-top:10px;">
-                                    <span>实时功率</span><span class="val highlight"><span id="realtimePower_{{ idx }}">0.00</span> kW</span>
-                                </div>
-                                <div class="param-row" style="margin-top:10px;"><span>温度/湿度</span><span class="val"><span id="temp_{{ idx }}">0.0</span> °C / <span id="humi_{{ idx }}">0.0</span>%</span></div>
-                            </div>
-                        </div>
-                        <div class="center-col">
-                            <div class="channel-grid" id="channels_{{ idx }}">
-                                {% for ch in cab.channels_config|default([])|sort(attribute='sort') %}
-                                {% if ch.visible %}
-                                <button class="ch-btn power-channel-btn ch-err ch-span-{{ ch.span | default(1) }}" id="pch_{{ idx }}_{{ ch.channel }}" onclick="togglePower({{ idx }}, {{ ch.channel }})">
-                                    <span class="name">{{ ch.name }}</span>
-                                    {% if ch.remark|default('') %}
-                                    <span class="remark" title="{{ ch.remark }}">{{ ch.remark }}</span>
-                                    {% endif %}
-                                    <span class="state state-pill">离线</span>
-                                </button>
-                                {% endif %}
-                                {% endfor %}
-                            </div>
-                            <div class="chart-box" id="energyChart_{{ idx }}"></div>
-                        </div>
-                        <div class="right-col">
-                            <div style="color:var(--text-sub); margin-bottom:10px; font-weight:bold;">电柜操作日志</div>
-                            <div class="log-list" id="logs_{{ idx }}"></div>
-                        </div>
+                <div id="power-page-grid">
+                    <div class="card">
+                        <div style="color:var(--text-sub); text-align:center; padding:20px;">正在加载强电柜...</div>
                     </div>
                 </div>
-                {% endfor %}
             </div>
 
             <div id="view-meter" class="view-section">
@@ -1315,6 +1258,6 @@
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
     </script>
-    <script src="/static/js/app-runtime.js?v=20260531-light-scene-template-slim-v1"></script>
+    <script src="/static/js/app-runtime.js?v=20260531-power-template-slim-v1"></script>
 </body>
 </html>

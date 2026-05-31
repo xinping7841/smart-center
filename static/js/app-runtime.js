@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-light-scene-template-slim-v1';
+        const lazyModuleVersion = '20260531-power-template-slim-v1';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -104,6 +104,9 @@
                 `/static/js/views/power-meter-runtime.js?v=${lazyModuleVersion}`,
             ],
         });
+        SmartCenter.registerLazyModule('power-page-view', {
+            scripts: [`/static/js/views/power-page-view.js?v=${lazyModuleVersion}`],
+        });
         SmartCenter.registerLazyModule('light-runtime', {
             scripts: [`/static/js/views/light-runtime.js?v=${lazyModuleVersion}`],
         });
@@ -139,7 +142,7 @@
         SmartCenter.registerViewModules('universal', ['universal-view']);
         SmartCenter.registerViewModules('apple_audio', ['apple-audio-view']);
         SmartCenter.registerViewModules('local_model', ['local-model-view']);
-        SmartCenter.registerViewModules('power', ['power-view-style', 'power-meter-runtime']);
+        SmartCenter.registerViewModules('power', ['power-view-style', 'power-meter-runtime', 'power-page-view']);
         SmartCenter.registerViewModules('light', ['light-runtime', 'light-scene-view']);
         SmartCenter.registerViewModules('scene', ['light-runtime', 'light-scene-view']);
         SmartCenter.registerViewModules('door', ['door-runtime']);
@@ -1607,6 +1610,7 @@
             if (viewId === 'power') setTimeout(() => {
                 ensureViewReady('power')
                     .then(() => {
+                        renderPowerPage();
                         resizePowerCharts();
                         updatePowerData();
                     })
@@ -2350,7 +2354,16 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             guardFrontendStep('bootstrap.start_polling', () => startAppPolling(), '页面轮询启动失败，请查看系统日志');
         });
 
-        registerPollingTask('power', 3500, () => updatePowerData(), () => getActiveViewId() === 'power' || (getActiveViewId() === 'dashboard' && (isDashboardSectionNearViewport('power_compact') || isDashboardSectionNearViewport('power_quick'))));
+        registerPollingTask('power', 3500, () => {
+            if (getActiveViewId() === 'power') {
+                return ensureViewReady('power')
+                    .then(() => {
+                        renderPowerPage();
+                        return updatePowerData();
+                    });
+            }
+            return updatePowerData();
+        }, () => getActiveViewId() === 'power' || (getActiveViewId() === 'dashboard' && (isDashboardSectionNearViewport('power_compact') || isDashboardSectionNearViewport('power_quick'))));
         registerPollingTask('meter', 4500, () => updateMeterCenter(), () => getActiveViewId() === 'meter');
         registerPollingTask('ups', 4500, () => ensureViewReady('ups').then(() => updateUpsStatus()), () => getActiveViewId() === 'ups' || (getActiveViewId() === 'dashboard' && (isDashboardSectionNearViewport('ups_compact') || isDashboardSectionNearViewport('ups'))));
         registerPollingTask('hy_edge', 6000, () => window.updateHyEdgeStatus(), () => ['dashboard'].includes(getActiveViewId()) || isDashboardSectionVisible('hy_edge'));
