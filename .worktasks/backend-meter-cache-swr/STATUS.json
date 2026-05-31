@@ -1,0 +1,10 @@
+{
+  "task": "backend-meter-cache-swr",
+  "module": "backend_api",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-backend-meter-cache-swr-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/backend-meter-cache-swr",
+  "started_at": "2026-05-31 19:15:52",
+  "status": "in_progress"
+}

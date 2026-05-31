@@ -76,6 +76,8 @@ REMOTE_METER_PAYLOAD_CACHE = {}
 REMOTE_METER_PAYLOAD_CACHE_TTL_SEC = 8.0
 REMOTE_METER_DISK_CACHE_MAX_AGE_SEC = 12 * 60 * 60
 REMOTE_METER_PAYLOAD_CACHE_FILE = RUNTIME_DIR / "remote_meter_payload_cache.json"
+REMOTE_METER_PAYLOAD_CACHE_LOCK = threading.RLock()
+REMOTE_METER_REFRESH_STATE = {}
 METER_ALERT_LOG_CACHE = {}
 METER_ALERT_LOG_TTL_SEC = 12 * 60 * 60
 GARBLED_TOKENS = ("锛", "馃", "寮€", "闂", "鎿", "鍚", "鏂", "鐏", "绯荤粺", "涓€", "閫氶亾")
@@ -546,6 +548,13 @@ def _remote_meter_cache_key(target, period, days):
     return f"{str(target or 'total').strip()}|{str(period or 'day').strip()}|{int(days or 7)}"
 
 
+def _coerce_remote_meter_days(days):
+    try:
+        return int(days or 7)
+    except Exception:
+        return 7
+
+
 def _ensure_meter_payload_status(payload, *, default_ok=True):
     if not isinstance(payload, dict):
         return payload
@@ -584,12 +593,20 @@ def _write_remote_meter_disk_cache(cache_map):
 
 def _get_cached_remote_meter_payload(target, period, days):
     cache_key = _remote_meter_cache_key(target, period, days)
-    cached = REMOTE_METER_PAYLOAD_CACHE.get(cache_key)
+    cache_entry = _get_remote_meter_cache_entry(cache_key)
+    payload = cache_entry.get("payload") if isinstance(cache_entry, dict) else None
+    return deepcopy(payload) if isinstance(payload, dict) else None
+
+
+def _get_remote_meter_cache_entry(cache_key):
+    with REMOTE_METER_PAYLOAD_CACHE_LOCK:
+        cached = REMOTE_METER_PAYLOAD_CACHE.get(cache_key)
     if not isinstance(cached, dict):
         disk_cache = _read_remote_meter_disk_cache()
         cached = disk_cache.get(cache_key)
         if isinstance(cached, dict):
-            REMOTE_METER_PAYLOAD_CACHE[cache_key] = deepcopy(cached)
+            with REMOTE_METER_PAYLOAD_CACHE_LOCK:
+                REMOTE_METER_PAYLOAD_CACHE[cache_key] = deepcopy(cached)
     if not isinstance(cached, dict):
         return None
 
@@ -602,15 +619,19 @@ def _get_cached_remote_meter_payload(target, period, days):
     is_memory_hit = expires_at > now_ts
     is_disk_hit = cached_at > 0 and (now_ts - cached_at) <= REMOTE_METER_DISK_CACHE_MAX_AGE_SEC
     if not is_memory_hit and not is_disk_hit:
-        REMOTE_METER_PAYLOAD_CACHE.pop(cache_key, None)
+        with REMOTE_METER_PAYLOAD_CACHE_LOCK:
+            REMOTE_METER_PAYLOAD_CACHE.pop(cache_key, None)
         disk_cache = _read_remote_meter_disk_cache()
         if cache_key in disk_cache:
             disk_cache.pop(cache_key, None)
             _write_remote_meter_disk_cache(disk_cache)
         return None
 
-    payload = cached.get("payload")
-    return deepcopy(payload) if isinstance(payload, dict) else None
+    cache_entry = deepcopy(cached)
+    cache_entry["cache_key"] = cache_key
+    cache_entry["cached_at"] = cached_at
+    cache_entry["expires_at"] = expires_at
+    return cache_entry
 
 
 def _store_cached_remote_meter_payload(target, period, days, payload):
@@ -623,23 +644,133 @@ def _store_cached_remote_meter_payload(target, period, days, payload):
         "cached_at": now_ts,
         "payload": deepcopy(payload),
     }
-    REMOTE_METER_PAYLOAD_CACHE[cache_key] = cache_entry
+    with REMOTE_METER_PAYLOAD_CACHE_LOCK:
+        REMOTE_METER_PAYLOAD_CACHE[cache_key] = cache_entry
     disk_cache = _read_remote_meter_disk_cache()
     disk_cache[cache_key] = deepcopy(cache_entry)
     _write_remote_meter_disk_cache(disk_cache)
 
 
-def _mark_remote_payload_as_cache(payload, remote_base, mode, remote_error=""):
+def _mark_remote_payload_as_cache(
+    payload,
+    remote_base,
+    mode,
+    remote_error="",
+    *,
+    stale=True,
+    refreshing=False,
+    cache_age_sec=None,
+):
     cached_payload = deepcopy(payload) if isinstance(payload, dict) else {}
     _ensure_meter_payload_status(cached_payload, default_ok=True)
-    cached_payload["data_source"] = "remote_meter_service_cache"
+    cached_payload["data_source"] = "remote_meter_service_cache" if stale or remote_error else "remote_meter_service"
     cached_payload["remote_service_url"] = remote_base
     cached_payload["remote_service_mode"] = mode
     cached_payload["remote_error"] = str(remote_error or "")
-    cached_payload["stale"] = True
+    cached_payload["stale"] = bool(stale)
     cached_payload["cache_hit"] = True
-    cached_payload["msg"] = "Remote meter service timeout, showing latest cached payload"
+    cached_payload["refreshing"] = bool(refreshing)
+    if cache_age_sec is not None:
+        cached_payload["cache_age_sec"] = round(max(0.0, float(cache_age_sec or 0.0)), 1)
+    if stale:
+        cached_payload["msg"] = "Remote meter service is slow, showing latest cached payload"
+    else:
+        cached_payload["msg"] = "Remote meter service cache hit"
     return cached_payload
+
+
+def _prepare_remote_meter_payload(raw_payload, *, remote_base, mode):
+    if not isinstance(raw_payload, dict):
+        return None
+    remote_payload = deepcopy(raw_payload)
+    _ensure_meter_payload_status(remote_payload, default_ok=True)
+    remote_payload["meters"] = stabilize_remote_meter_rows(remote_payload.get("meters", []) or [])
+    remote_payload["remote_service_url"] = remote_base
+    remote_payload["remote_service_mode"] = mode
+    if not isinstance(remote_payload.get("summary"), dict):
+        remote_payload = apply_reference_comparison(remote_payload)
+    _log_remote_meter_alerts_once(remote_payload)
+    remote_payload["data_source"] = "remote_meter_service"
+    remote_payload["stale"] = False
+    remote_payload["cache_hit"] = False
+    remote_payload["refreshing"] = False
+    return remote_payload
+
+
+def _refresh_remote_meter_payload(target, period, days, remote_base, mode):
+    raw_payload = fetch_remote_meter_payload(target_source_key=target, period=period, days=days)
+    remote_payload = _prepare_remote_meter_payload(raw_payload, remote_base=remote_base, mode=mode)
+    if not isinstance(remote_payload, dict):
+        raise RuntimeError("NAS meter service returned empty payload")
+    _store_cached_remote_meter_payload(target, period, days, remote_payload)
+    return remote_payload
+
+
+def _remote_meter_refresh_running(cache_key):
+    with REMOTE_METER_PAYLOAD_CACHE_LOCK:
+        return bool((REMOTE_METER_REFRESH_STATE.get(cache_key) or {}).get("running"))
+
+
+def _start_remote_meter_refresh_background(target, period, days, remote_base, mode):
+    cache_key = _remote_meter_cache_key(target, period, days)
+    with REMOTE_METER_PAYLOAD_CACHE_LOCK:
+        state = REMOTE_METER_REFRESH_STATE.get(cache_key) or {}
+        if state.get("running"):
+            return True
+        REMOTE_METER_REFRESH_STATE[cache_key] = {
+            "running": True,
+            "last_started_at": datetime.now().isoformat(timespec="seconds"),
+            "last_finished_at": state.get("last_finished_at", ""),
+            "last_result": state.get("last_result"),
+        }
+
+    def worker():
+        result = {"ok": 0}
+        try:
+            payload = _refresh_remote_meter_payload(target, period, days, remote_base, mode)
+            result = {
+                "ok": 1,
+                "meter_count": len(payload.get("meters", []) or []),
+                "refreshed_at": datetime.now().isoformat(timespec="seconds"),
+            }
+        except Exception as exc:
+            result = {
+                "ok": 0,
+                "error": str(exc),
+                "failed_at": datetime.now().isoformat(timespec="seconds"),
+            }
+        finally:
+            with REMOTE_METER_PAYLOAD_CACHE_LOCK:
+                REMOTE_METER_REFRESH_STATE[cache_key] = {
+                    "running": False,
+                    "last_started_at": (REMOTE_METER_REFRESH_STATE.get(cache_key) or {}).get("last_started_at", ""),
+                    "last_finished_at": datetime.now().isoformat(timespec="seconds"),
+                    "last_result": result,
+                }
+
+    thread = threading.Thread(
+        target=worker,
+        name=f"remote-meter-refresh-{str(target or 'total')[:24]}",
+        daemon=True,
+    )
+    thread.start()
+    return True
+
+
+def _remote_meter_cache_state(cache_entry):
+    if not isinstance(cache_entry, dict):
+        return {"has_cache": False}
+    now_ts = time.time()
+    cached_at = float(cache_entry.get("cached_at", 0.0) or 0.0)
+    expires_at = float(cache_entry.get("expires_at", 0.0) or 0.0)
+    age_sec = max(0.0, now_ts - cached_at) if cached_at > 0 else None
+    return {
+        "has_cache": isinstance(cache_entry.get("payload"), dict),
+        "age_sec": age_sec,
+        "is_fresh": bool(expires_at > now_ts),
+        "is_usable": bool(cached_at > 0 and age_sec is not None and age_sec <= REMOTE_METER_DISK_CACHE_MAX_AGE_SEC),
+        "should_refresh": bool(cached_at <= 0 or age_sec is None or age_sec >= REMOTE_METER_PAYLOAD_CACHE_TTL_SEC),
+    }
 
 
 @bp.route("/")
@@ -800,7 +931,7 @@ def api_meters():
     # remote reads are cached so UI refreshes do not overload the NAS service.
     target = request.args.get("target", "total")
     period = request.args.get("period", "day")
-    days = request.args.get("days", 7, type=int)
+    days = _coerce_remote_meter_days(request.args.get("days", 7, type=int))
     remote_base = get_remote_meter_service_base()
     mode = get_remote_meter_service_mode()
 
@@ -819,25 +950,42 @@ def api_meters():
             "remote_service_mode": mode,
         }), 503
 
+    cache_key = _remote_meter_cache_key(target, period, days)
+    cache_entry = _get_remote_meter_cache_entry(cache_key)
+    cache_state = _remote_meter_cache_state(cache_entry)
+    cached_payload = cache_entry.get("payload") if isinstance(cache_entry, dict) else None
+    if cache_state.get("has_cache") and cache_state.get("is_usable") and isinstance(cached_payload, dict):
+        should_refresh = bool(cache_state.get("should_refresh"))
+        refreshing = _remote_meter_refresh_running(cache_key)
+        if should_refresh:
+            refreshing = _start_remote_meter_refresh_background(target, period, days, remote_base, mode)
+        return jsonify(_mark_remote_payload_as_cache(
+            cached_payload,
+            remote_base,
+            mode,
+            remote_error="",
+            stale=not bool(cache_state.get("is_fresh")),
+            refreshing=refreshing,
+            cache_age_sec=cache_state.get("age_sec"),
+        ))
+
     try:
-        remote_payload = fetch_remote_meter_payload(target_source_key=target, period=period, days=days)
-        if isinstance(remote_payload, dict):
-            _ensure_meter_payload_status(remote_payload, default_ok=True)
-            remote_payload["meters"] = stabilize_remote_meter_rows(remote_payload.get("meters", []) or [])
-            remote_payload["remote_service_url"] = remote_base
-            remote_payload["remote_service_mode"] = mode
-            if not isinstance(remote_payload.get("summary"), dict):
-                remote_payload = apply_reference_comparison(remote_payload)
-            _log_remote_meter_alerts_once(remote_payload)
-            remote_payload["data_source"] = "remote_meter_service"
-            remote_payload["stale"] = False
-            remote_payload["cache_hit"] = False
-            _store_cached_remote_meter_payload(target, period, days, remote_payload)
-            return jsonify(remote_payload)
+        remote_payload = _refresh_remote_meter_payload(target, period, days, remote_base, mode)
+        return jsonify(remote_payload)
     except Exception as remote_error:
-        cached_payload = _get_cached_remote_meter_payload(target, period, days)
-        if cached_payload:
-            return jsonify(_mark_remote_payload_as_cache(cached_payload, remote_base, mode, remote_error=str(remote_error)))
+        cache_entry = _get_remote_meter_cache_entry(cache_key)
+        cache_state = _remote_meter_cache_state(cache_entry)
+        cached_payload = cache_entry.get("payload") if isinstance(cache_entry, dict) else None
+        if cache_state.get("has_cache") and cache_state.get("is_usable") and isinstance(cached_payload, dict):
+            return jsonify(_mark_remote_payload_as_cache(
+                cached_payload,
+                remote_base,
+                mode,
+                remote_error=str(remote_error),
+                stale=True,
+                refreshing=False,
+                cache_age_sec=cache_state.get("age_sec"),
+            ))
         return jsonify({
             "ok": 0,
             "success": False,
@@ -847,19 +995,6 @@ def api_meters():
             "remote_error": str(remote_error),
             "remote_service_mode": mode,
         }), 503
-
-    cached_payload = _get_cached_remote_meter_payload(target, period, days)
-    if cached_payload:
-        return jsonify(_mark_remote_payload_as_cache(cached_payload, remote_base, mode, remote_error="empty payload"))
-
-    return jsonify({
-        "ok": 0,
-        "success": False,
-        "msg": "NAS meter service returned empty payload",
-        "data_source": "remote_meter_service_error",
-        "remote_service_url": remote_base,
-        "remote_service_mode": mode,
-    }), 503
 
 
 @bp.route("/api/meter_service/test")
