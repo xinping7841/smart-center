@@ -1,0 +1,10 @@
+{
+  "task": "frontend-snmp-runtime-slim",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-frontend-snmp-runtime-slim-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-snmp-runtime-slim",
+  "started_at": "2026-05-31 16:21:12",
+  "status": "local_validated"
+}

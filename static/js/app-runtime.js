@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-power-meter-runtime-split';
+        const lazyModuleVersion = '20260531-snmp-runtime-slim';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -50,9 +50,15 @@
         SmartCenter.registerLazyModule('screen-runtime', {
             scripts: [`/static/js/views/screen-runtime.js?v=${lazyModuleVersion}`],
         });
+        SmartCenter.registerLazyModule('snmp-runtime', {
+            scripts: [`/static/js/views/snmp-runtime.js?v=${lazyModuleVersion}`],
+        });
         SmartCenter.registerLazyModule('snmp-full', {
             styles: viewStyleGroups.snmp,
-            scripts: [`/static/js/views/snmp.js?v=${lazyModuleVersion}`],
+            scripts: [
+                `/static/js/views/snmp-runtime.js?v=${lazyModuleVersion}`,
+                `/static/js/views/snmp.js?v=${lazyModuleVersion}`,
+            ],
         });
         SmartCenter.registerLazyModule('proxy-view', {
             styles: viewStyleGroups.proxy,
@@ -347,31 +353,8 @@
         const powerStatusCache = {};
         window.powerStatusCache = powerStatusCache;
         window.pwrPending = pwrPending;
-        let snmpStatusCache = {};
-        let nvrStatusCache = {};
-        let snmpCardFilter = 'all';
-        let snmpStatusSignature = '';
-        let snmpLastSuccessAt = 0;
-        let snmpFetchFailureCount = 0;
-        let snmpLastToastAt = 0;
-        let snmpFetchInFlight = null;
-        let snmpFetchMode = '';
-        let snmpStatusMode = '';
-        let snmpLastRenderAt = 0;
-        let snmpSelectedDeviceId = '';
-        let nvrSelectedDeviceId = '';
-        let nvrSelectedChannelId = '';
-        let nvrPreviewMode = 'smart';
-        let nvrPreviewGrid = 16;
-        let nvrPreviewPage = 0;
-        const NVR_STREAM_CONCURRENCY_LIMIT = 8;
-        const NVR_STREAM_STAGGER_MS = 520;
-        const NVR_WALL_SNAPSHOT_REFRESH_MS = 10000;
-        const nvrWallFrameTimers = [];
-        let nvrWallSnapshotRefreshTimer = null;
         let automationStatusCache = { server_time: '', rules: [] };
         let automationStatusLoading = false;
-        const snmpOpenDetailsState = {};
         let dashboardSummaryCache = null;
         let dashboardSummaryInFlight = null;
 
@@ -1482,678 +1465,94 @@
         function updatePowerData() {
             return withPowerMeterRuntime((api, ctx) => api.updatePowerData(ctx), '强电状态模块');
         }
-        function formatSnmpMetricValue(metric) {
-            return SmartCenter.snmp.formatSnmpMetricValue(metric);
+        function getSnmpRuntimeContext() {
+            return {
+                configData,
+                snmpConfigs,
+                nvrConfigs,
+                fetchJson,
+                showToast,
+                translateApiError,
+                escapeHtml,
+                getDeviceStatusMeta,
+                getActiveViewId,
+                isDashboardSectionVisible,
+                ensureViewReady,
+                guardFrontendStep,
+            };
         }
-        function formatSnmpSummaryValue(value, suffix = '') {
-            return SmartCenter.snmp.formatSnmpSummaryValue(value, suffix);
+        window.getSnmpRuntimeContext = getSnmpRuntimeContext;
+        function getSnmpRuntimeApi() {
+            return window.SmartCenter?.snmpRuntime || null;
         }
-        function snmpProvidedText(value, fallback = '设备未提供') {
-            return SmartCenter.snmp.snmpProvidedText(value, fallback);
+        function ensureSnmpRuntimeReady(contextLabel = '网络监控运行时模块') {
+            return ensureModulesReady(['snmp-runtime'], contextLabel)
+                .then(() => getSnmpRuntimeApi());
         }
-        function compactSnmpText(value, maxLen = 88) {
-            return SmartCenter.snmp.compactSnmpText(value, maxLen);
-        }
-        function getSnmpInterfaceKindText(kind) {
-            return SmartCenter.snmp.getSnmpInterfaceKindText(kind);
-        }
-        function hasSnmpUsableRate(row) {
-            return SmartCenter.snmp.hasSnmpUsableRate(row);
-        }
-        function getSnmpUsefulTrafficRows(summary, interfaceSummary, options = {}) {
-            return SmartCenter.snmp.getSnmpUsefulTrafficRows(summary, interfaceSummary, options);
-        }
-        function getSnmpInterfaceCountText(interfaceSummary, status = {}) {
-            return SmartCenter.snmp.getSnmpInterfaceCountText(interfaceSummary, status);
-        }
-        function getSnmpInterfaceRoleText(interfaceSummary) {
-            return SmartCenter.snmp.getSnmpInterfaceRoleText(interfaceSummary);
-        }
-        function getSnmpBestThroughputText(interfaceSummary) {
-            return SmartCenter.snmp.getSnmpBestThroughputText(interfaceSummary);
-        }
-        function getSnmpBestThroughputDisplay(interfaceSummary) {
-            return SmartCenter.snmp.getSnmpBestThroughputDisplay(interfaceSummary);
-        }
-        function getSnmpBestThroughputPair(interfaceSummary) {
-            return SmartCenter.snmp.getSnmpBestThroughputPair(interfaceSummary);
-        }
-        function getSnmpCapacityDisplay(summary) {
-            return SmartCenter.snmp.getSnmpCapacityDisplay.apply(SmartCenter.snmp, arguments);
-        }
-        function getSnmpPrimaryStorageDisplay(summary) {
-            return SmartCenter.snmp.getSnmpPrimaryStorageDisplay.apply(SmartCenter.snmp, arguments);
-        }
-        function getSnmpDeviceTypeLabel(deviceType) {
-            return SmartCenter.snmp.getSnmpDeviceTypeLabel(deviceType);
-        }
-        function normalizeSnmpDeviceName(cfg, status) {
-            return SmartCenter.snmp.normalizeSnmpDeviceName(cfg, status);
-        }
-        function getSnmpFilterMeta(filterKey) {
-            return SmartCenter.snmp.getSnmpFilterMeta(filterKey);
-        }
-        function getSnmpSummaryCards(summaries) {
-            return SmartCenter.snmp.getSnmpSummaryCards(summaries);
-        }
-        function filterSnmpConfigs(configs, cache, filterKey) {
-            return SmartCenter.snmp.filterSnmpConfigs(configs, cache, filterKey);
-        }
-        function renderSnmpOverviewBar(configs, cache, filterKey = 'all', viewMode = 'page') {
-            return SmartCenter.snmp.renderSnmpOverviewBar.apply(SmartCenter.snmp, arguments);
-        }
-        function getSnmpMetricLabel(metricName) {
-            return SmartCenter.snmp.getSnmpMetricLabel(metricName);
-        }
-        function getSnmpMetricValue(customMetrics, metricName) {
-            return SmartCenter.snmp.getSnmpMetricValue(customMetrics, metricName);
-        }
-        function getSnmpMetricValueWithFallback(customMetrics, metricNames = [], summary = null) {
-            return SmartCenter.snmp.getSnmpMetricValueWithFallback(customMetrics, metricNames, summary);
-        }
-        function normalizeSnmpSwitchPortRow(row) {
-            return SmartCenter.snmp.normalizeSnmpSwitchPortRow(row);
-        }
-        function getSnmpSwitchPortRows(summary, interfaceSummary) {
-            return SmartCenter.snmp.getSnmpSwitchPortRows(summary, interfaceSummary);
-        }
-        function getSnmpSwitchPortState(row) {
-            return SmartCenter.snmp.getSnmpSwitchPortState(row);
-        }
-        function getSnmpSwitchDerivedStats(summary, interfaceSummary) {
-            return SmartCenter.snmp.getSnmpSwitchDerivedStats(summary, interfaceSummary);
-        }
-        function buildSnmpSwitchVlanPortHighlights(summary, interfaceSummary, maxCount = 4) {
-            return SmartCenter.snmp.buildSnmpSwitchVlanPortHighlights(summary, interfaceSummary, maxCount);
-        }
-        function renderSnmpMetricChips(customMetrics, summary) {
-            return SmartCenter.snmp.renderSnmpMetricChips.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpInlineMetrics(items, emptyText = '当前无可展示指标') {
-            return SmartCenter.snmp.renderSnmpInlineMetrics.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpMiniList(items, options = {}) {
-            return SmartCenter.snmp.renderSnmpMiniList.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpFocusPanel(title, note, bodyHtml, options = {}) {
-            return SmartCenter.snmp.renderSnmpFocusPanel.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpInlineDetails(title, meta, bodyHtml, open = false) {
-            return SmartCenter.snmp.renderSnmpInlineDetails.apply(SmartCenter.snmp, arguments);
-        }
-        function buildSnmpDetailStateKey(deviceId, sectionKey) {
-            return SmartCenter.snmp.buildSnmpDetailStateKey.apply(SmartCenter.snmp, arguments);
-        }
-        function renderPersistedSnmpDetails(deviceId, sectionKey, title, meta, bodyHtml, open = false, className = 'snmp-inline-details') {
-            return SmartCenter.snmp.renderPersistedSnmpDetails.apply(SmartCenter.snmp, arguments);
-        }
-        function bindSnmpDetailToggles(scopeEl) {
-            return SmartCenter.snmp.bindSnmpDetailToggles.apply(SmartCenter.snmp, arguments);
-        }
-        function syncSnmpSelectedDeviceToUrl(deviceId = '') {
-            try {
-                const url = new URL(window.location.href);
-                const safeDeviceId = String(deviceId || '').trim();
-                if (safeDeviceId) {
-                    url.searchParams.set('snmp_device', safeDeviceId);
-                } else {
-                    url.searchParams.delete('snmp_device');
-                }
-                window.history.replaceState(null, '', url.toString());
-            } catch (_) {}
-        }
-        function restoreSnmpSelectedDeviceFromUrl() {
-            try {
-                const params = new URLSearchParams(window.location.search || '');
-                snmpSelectedDeviceId = String(params.get('snmp_device') || params.get('device') || '').trim();
-            } catch (_) {
-                snmpSelectedDeviceId = '';
-            }
-        }
-        function openSnmpDeviceDetail(deviceId) {
-            const safeDeviceId = String(deviceId || '').trim();
-            if (!safeDeviceId) return;
-            snmpSelectedDeviceId = safeDeviceId;
-            syncSnmpSelectedDeviceToUrl(safeDeviceId);
-            ensureViewReady('snmp').then(() => renderSnmpCards({ mode: 'full', renderDetailPage: true })).catch(() => {});
-        }
-        function closeSnmpDeviceDetail() {
-            snmpSelectedDeviceId = '';
-            syncSnmpSelectedDeviceToUrl('');
-            ensureViewReady('snmp').then(() => renderSnmpCards({ mode: 'full', renderDetailPage: true })).catch(() => {});
-        }
-        function bindSnmpOverviewCardActions(scopeEl) {
-            const root = scopeEl || document;
-            root.querySelectorAll('[data-snmp-device-card]').forEach(card => {
-                if (card.dataset.snmpOpenBound === '1') return;
-                card.dataset.snmpOpenBound = '1';
-                const open = () => openSnmpDeviceDetail(card.getAttribute('data-snmp-device-id'));
-                card.addEventListener('click', event => {
-                    if (event.target && event.target.closest && event.target.closest('button[data-snmp-filter]')) return;
-                    open();
-                });
-                card.addEventListener('keydown', event => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        open();
-                    }
-                });
-            });
-            root.querySelectorAll('[data-snmp-back-overview]').forEach(btn => {
-                if (btn.dataset.snmpBackBound === '1') return;
-                btn.dataset.snmpBackBound = '1';
-                btn.addEventListener('click', closeSnmpDeviceDetail);
-            });
-        }
-        function summarizeSnmpPayload(payload) {
-            const configs = getNetworkMonitorConfigs();
-            return configs.map(cfg => {
-                const status = (payload || {})[cfg.id] || {};
-                const statusMeta = getDeviceStatusMeta(status, { staleText: '陈旧', errorText: '异常' });
-                const summary = status.summary || {};
-                const interfaceSummary = summary.interface_summary || {};
-                return [
-                    cfg.id,
-                    statusMeta.level,
-                    statusMeta.isOnlineLike ? 1 : 0,
-                    status.updated_at || '',
-                    status.error || '',
-                    summary.risk_level || '',
-                    summary.health_score ?? '',
-                    (summary.alert_counts || {}).warning ?? 0,
-                    (summary.alert_counts || {}).critical ?? 0,
-                    interfaceSummary.physical_up_count ?? '',
-                    interfaceSummary.physical_down_count ?? '',
-                    interfaceSummary.aggregate_total_rate_text || '',
-                    summary.cpu_avg_percent ?? '',
-                    summary.memory_usage_percent ?? '',
-                    summary.channel_online ?? '',
-                    summary.channel_total ?? '',
-                    summary.hdd_error_count ?? ''
-                ].join('|');
-            }).join('~');
-        }
-        function getNetworkMonitorConfigs() {
-            return [
-                ...(Array.isArray(snmpConfigs) ? snmpConfigs : []).map(cfg => Object.assign({ monitor_kind: 'snmp' }, cfg)),
-                ...(Array.isArray(nvrConfigs) ? nvrConfigs : []).map(cfg => Object.assign({ monitor_kind: 'nvr', device_type: 'nvr' }, cfg))
-            ].filter(cfg => cfg && cfg.visible !== false);
-        }
-        function getNetworkStatusCache() {
-            return Object.assign({}, snmpStatusCache || {}, nvrStatusCache || {});
-        }
-        function getNvrPreviewChannels(deviceId = '') {
-            const cfg = nvrConfigs.find(item => String(item.id) === String(deviceId)) || nvrConfigs.find(item => item && item.visible !== false) || null;
-            if (!cfg) return { cfg: null, status: {}, channels: [] };
-            const status = nvrStatusCache[cfg.id] || {};
-            const channels = Array.isArray(status.channels)
-                ? status.channels.slice().sort((a, b) => Number(a?.id || 9999) - Number(b?.id || 9999))
-                : [];
-            return { cfg, status, channels };
-        }
-        function applyNvrPreviewUrlParams() {
-            const params = new URLSearchParams(window.location.search || '');
-            const mode = params.get('nvr_mode') || params.get('preview_mode') || '';
-            const grid = params.get('nvr_grid') || params.get('preview_grid') || '';
-            const page = params.get('nvr_page') || params.get('preview_page') || '';
-            if (mode) nvrPreviewMode = getNvrPreviewMode(mode);
-            if (grid) nvrPreviewGrid = getNvrPreviewGrid(grid);
-            if (nvrPreviewMode === 'stream4') nvrPreviewGrid = 4;
-            if (nvrPreviewMode === 'stream8') nvrPreviewGrid = 8;
-            if (nvrPreviewMode === 'stream') nvrPreviewGrid = 1;
-            if (page !== '') nvrPreviewPage = Math.max(0, Number(page) || 0);
-        }
-        function selectNvrPreview(deviceId, channelId, options = {}) {
-            nvrSelectedDeviceId = String(deviceId || '').trim();
-            nvrSelectedChannelId = String(channelId || '').trim();
-            if (options.mode) nvrPreviewMode = getNvrPreviewMode(options.mode);
-            if (options.grid) nvrPreviewGrid = getNvrPreviewGrid(options.grid);
-            if (options.page !== undefined) nvrPreviewPage = Math.max(0, Number(options.page) || 0);
-            if (options.live) {
-                nvrPreviewGrid = 1;
-                nvrPreviewMode = 'stream';
-                nvrPreviewPage = 0;
-            }
-            renderNvrPreviewPanel({ refresh: !!options.refresh });
-        }
-        function setNvrPreviewMode(mode) {
-            nvrPreviewMode = getNvrPreviewMode(mode);
-            if (nvrPreviewMode === 'stream') nvrPreviewGrid = 1;
-            if (nvrPreviewMode === 'stream4') nvrPreviewGrid = 4;
-            if (nvrPreviewMode === 'stream8') nvrPreviewGrid = 8;
-            nvrPreviewPage = 0;
-            renderNvrPreviewPanel({ refresh: true });
-        }
-        function setNvrPreviewGrid(grid) {
-            nvrPreviewGrid = getNvrPreviewGrid(grid);
-            if (nvrPreviewGrid > 1 && nvrPreviewMode === 'stream') nvrPreviewMode = nvrPreviewGrid > 4 ? 'stream8' : 'stream4';
-            if (nvrPreviewMode === 'stream4' && nvrPreviewGrid !== 4) nvrPreviewMode = 'smart';
-            if (nvrPreviewMode === 'stream8' && nvrPreviewGrid !== 8) nvrPreviewMode = 'smart';
-            nvrPreviewPage = 0;
-            renderNvrPreviewPanel({ refresh: true });
-        }
-        function setNvrPreviewPage(delta) {
-            nvrPreviewPage = Math.max(0, Number(nvrPreviewPage || 0) + Number(delta || 0));
-            renderNvrPreviewPanel({ refresh: true });
-        }
-        function activateNvrWallFrame(frame) {
-            if (!frame || !frame.isConnected || frame.dataset.loaded === '1') return;
-            const src = frame.dataset.src;
-            if (!src) return;
-            frame.dataset.loaded = '1';
-            const cell = frame.closest('.nvr-wall-cell');
-            if (cell) cell.classList.add('loading');
-            frame.src = src;
-        }
-        function scheduleNvrWallFrames() {
-            while (nvrWallFrameTimers.length) window.clearTimeout(nvrWallFrameTimers.pop());
-            const frames = Array.from(document.querySelectorAll('#nvr-preview-panel iframe[data-nvr-lazy="1"]'));
-            frames.forEach((frame, index) => {
-                const timer = window.setTimeout(() => activateNvrWallFrame(frame), index * NVR_STREAM_STAGGER_MS);
-                nvrWallFrameTimers.push(timer);
-            });
-        }
-        function stopNvrWallSnapshotRefresh() {
-            if (nvrWallSnapshotRefreshTimer) {
-                window.clearTimeout(nvrWallSnapshotRefreshTimer);
-                nvrWallSnapshotRefreshTimer = null;
-            }
-        }
-        function scheduleNvrWallSnapshotRefresh() {
-            stopNvrWallSnapshotRefresh();
-            if (getActiveViewId() !== 'camera_preview') return;
-            if (document.hidden || getNvrPreviewGrid(nvrPreviewGrid) <= 1) return;
-            const mode = getNvrPreviewMode(nvrPreviewMode);
-            if (!['smart', 'snapshot'].includes(mode)) return;
-            nvrWallSnapshotRefreshTimer = window.setTimeout(() => {
-                renderNvrPreviewPanel({ refresh: true, autoRefresh: true });
-            }, NVR_WALL_SNAPSHOT_REFRESH_MS);
+        function withSnmpRuntime(callback, contextLabel = '网络监控运行时模块') {
+            return ensureSnmpRuntimeReady(contextLabel)
+                .then(api => {
+                    if (api && typeof callback === 'function') return callback(api, getSnmpRuntimeContext());
+                    return null;
+                })
+                .catch(() => null);
         }
         function stopNvrPreviewStreams() {
-            while (nvrWallFrameTimers.length) window.clearTimeout(nvrWallFrameTimers.pop());
-            stopNvrWallSnapshotRefresh();
+            const api = getSnmpRuntimeApi();
+            if (api?.stopNvrPreviewStreams) return api.stopNvrPreviewStreams();
             const panel = document.getElementById('nvr-preview-panel');
-            if (!panel) return;
+            if (!panel) return null;
             panel.querySelectorAll('iframe').forEach(frame => {
-                try { frame.src = 'about:blank'; } catch (err) {}
-                try { frame.removeAttribute('src'); } catch (err) {}
+                try { frame.src = 'about:blank'; } catch (_) {}
+                try { frame.removeAttribute('src'); } catch (_) {}
             });
             panel.querySelectorAll('.nvr-wall-cell.loading, .nvr-preview-frame.loading').forEach(el => el.classList.remove('loading'));
+            return null;
         }
-        function renderNvrPreviewPanel(options = {}) {
-            const panel = document.getElementById('nvr-preview-panel');
-            if (!panel) return;
-            stopNvrPreviewStreams();
-            const visibleNvrConfigs = (Array.isArray(nvrConfigs) ? nvrConfigs : []).filter(cfg => cfg && cfg.visible !== false);
-            if (!visibleNvrConfigs.length) {
-                panel.innerHTML = '<div class="nvr-preview-empty">未配置录像机设备。</div>';
-                return;
-            }
-            const selectedExists = visibleNvrConfigs.some(cfg => String(cfg.id) === String(nvrSelectedDeviceId));
-            if (!nvrSelectedDeviceId || !selectedExists) {
-                nvrSelectedDeviceId = String(visibleNvrConfigs[0].id || '');
-            }
-            let { cfg, status, channels } = getNvrPreviewChannels(nvrSelectedDeviceId);
-            if (!cfg) {
-                panel.innerHTML = '<div class="nvr-preview-empty">未找到可预览的录像机。</div>';
-                return;
-            }
-            if (!channels.length) {
-                const expected = Number(cfg.expected_channel_count || 0);
-                channels = Array.from({ length: expected || 32 }, (_, index) => ({
-                    id: String(index + 1),
-                    name: `D${index + 1}`,
-                    online: false
-                }));
-            }
-            const channelExists = channels.some(item => String(item.id) === String(nvrSelectedChannelId));
-            if (!nvrSelectedChannelId || !channelExists) {
-                const firstOnline = channels.find(item => item && item.online);
-                nvrSelectedChannelId = String((firstOnline || channels[0] || {}).id || '');
-            }
-            const selected = channels.find(item => String(item.id) === String(nvrSelectedChannelId)) || channels[0] || {};
-            const preview = buildNvrPreviewPanelHtml({
-                cfg,
-                status,
-                channels,
-                selected,
-                selectedChannelId: nvrSelectedChannelId,
-                previewMode: nvrPreviewMode,
-                previewGrid: nvrPreviewGrid,
-                previewPage: nvrPreviewPage,
-                streamLimit: NVR_STREAM_CONCURRENCY_LIMIT,
-                snapshotRefreshMs: NVR_WALL_SNAPSHOT_REFRESH_MS,
-                options,
-            });
-            nvrPreviewPage = preview.currentPage;
-            panel.innerHTML = preview.html;
-            scheduleNvrWallFrames();
-            scheduleNvrWallSnapshotRefresh();
+        function clearSnmpSelectedDevice() {
+            const api = getSnmpRuntimeApi();
+            if (api?.clearSnmpSelectedDevice) return api.clearSnmpSelectedDevice();
+            try {
+                const url = new URL(window.location.href);
+                url.searchParams.delete('snmp_device');
+                window.history.replaceState(null, '', url.toString());
+            } catch (_) {}
+            return null;
         }
-        function normalizeNvrStatusForSnmp(cfg, status) {
-            const source = status && typeof status === 'object' ? status : {};
-            if (SmartCenter.snmp && typeof SmartCenter.snmp.normalizeNvrStatusForSnmp === 'function') {
-                return SmartCenter.snmp.normalizeNvrStatusForSnmp.apply(SmartCenter.snmp, arguments);
-            }
-            const channels = Array.isArray(source.channels) ? source.channels : [];
-            const onlineChannels = channels.filter(item => item && item.online !== false).length;
-            const expectedCount = Number(cfg?.expected_channel_count || cfg?.channel_count || channels.length || 0);
-            const online = source.online !== undefined ? !!source.online : !source.error;
-            return Object.assign({}, source, {
-                id: source.id || cfg?.id,
-                host: source.host || cfg?.host,
-                online,
-                summary: Object.assign({
-                    device_type: 'nvr',
-                    risk_level: online ? 'normal' : 'warning',
-                    health_score: online ? 92 : 0,
-                    channel_online: onlineChannels,
-                    channel_total: expectedCount || channels.length,
-                    alert_counts: {
-                        critical: online ? 0 : 1,
-                        warning: online && expectedCount && onlineChannels < expectedCount ? 1 : 0,
-                        info: 0,
-                    },
-                }, source.summary || {}),
-            });
-        }
-        function getSnmpStorageRows(summary) {
-            return SmartCenter.snmp.getSnmpStorageRows.apply(SmartCenter.snmp, arguments);
-        }
-        function getSnmpStorageDisplayRows(summary, limit = 8) {
-            return SmartCenter.snmp.getSnmpStorageDisplayRows.apply(SmartCenter.snmp, arguments);
-        }
-        function getSnmpPrimaryStorageRow(summary) {
-            return SmartCenter.snmp.getSnmpPrimaryStorageRow.apply(SmartCenter.snmp, arguments);
-        }
-        function summarizeSnmpStorageCapacity(summary) {
-            return SmartCenter.snmp.summarizeSnmpStorageCapacity.apply(SmartCenter.snmp, arguments);
-        }
-        function formatSnmpBytesText(bytes) {
-            return SmartCenter.snmp.formatSnmpBytesText.apply(SmartCenter.snmp, arguments);
-        }
-        function getSnmpDiskSummary(summary) {
-            return SmartCenter.snmp.getSnmpDiskSummary.apply(SmartCenter.snmp, arguments);
-        }
-        function getSnmpProtocolProfile(cfg, status, summary) {
-            return SmartCenter.snmp.getSnmpProtocolProfile.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpHealthPill(summary) {
-            return SmartCenter.snmp.renderSnmpHealthPill.apply(SmartCenter.snmp, arguments);
-        }
-        function buildSnmpDeviceFactItems(deviceType, summary, status) {
-            return SmartCenter.snmp.buildSnmpDeviceFactItems.apply(SmartCenter.snmp, arguments);
-        }
-        function buildSnmpPrimaryMetricItems(deviceType, summary, status, customMetrics = []) {
-            return SmartCenter.snmp.buildSnmpPrimaryMetricItems.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpDevicePrimaryPanels(deviceId, deviceType, summary, status, customMetrics = []) {
-            return SmartCenter.snmp.renderSnmpDevicePrimaryPanels.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpAdvancedDetails(deviceId, deviceType, summary, status, customMetrics = []) {
-            return SmartCenter.snmp.renderSnmpAdvancedDetails.apply(SmartCenter.snmp, arguments);
-        }
-        function buildSnmpMetricRows(customMetrics, excludeNames = [], maxCount = 8) {
-            return SmartCenter.snmp.buildSnmpMetricRows.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpInterfaceChips(interfaceSummary, deviceType) {
-            return SmartCenter.snmp.renderSnmpInterfaceChips.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpPortPreview(interfaceSummary, deviceType) {
-            return SmartCenter.snmp.renderSnmpPortPreview.apply(SmartCenter.snmp, arguments);
-        }
-        function getSnmpAlertLevel(level) {
-            return SmartCenter.snmp.getSnmpAlertLevel.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpFlowList(rows, emptyText = '当前无流量数据') {
-            return SmartCenter.snmp.renderSnmpFlowList.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpStorageList(rows) {
-            return SmartCenter.snmp.renderSnmpStorageList.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpCapacityHero(summary, options = {}) {
-            return SmartCenter.snmp.renderSnmpCapacityHero.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpDiskHealthList(rows) {
-            return SmartCenter.snmp.renderSnmpDiskHealthList.apply(SmartCenter.snmp, arguments);
-        }
-        function renderQnapDriveBayPanel(summary) {
-            return SmartCenter.snmp.renderQnapDriveBayPanel.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpFanList(rows) {
-            return SmartCenter.snmp.renderSnmpFanList.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpDiskIoList(rows) {
-            return SmartCenter.snmp.renderSnmpDiskIoList.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpHighlightPanel(title, note, chips, level = '') {
-            return SmartCenter.snmp.renderSnmpHighlightPanel.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpSpotlightCards(items) {
-            return SmartCenter.snmp.renderSnmpSpotlightCards.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpSwitchSegments(summary, portRows) {
-            return SmartCenter.snmp.renderSnmpSwitchSegments.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpVendorCards(items) {
-            return SmartCenter.snmp.renderSnmpVendorCards.apply(SmartCenter.snmp, arguments);
-        }
-        function getSnmpPortPanelSortValue(row, mode) {
-            return SmartCenter.snmp.getSnmpPortPanelSortValue.apply(SmartCenter.snmp, arguments);
-        }
-        function sortSnmpPortRows(rows, mode = 'index') {
-            return SmartCenter.snmp.sortSnmpPortRows.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpSwitchPortPanels(deviceId, portRows) {
-            return SmartCenter.snmp.renderSnmpSwitchPortPanels.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpHealthBanner(summary) {
-            return SmartCenter.snmp.renderSnmpHealthBanner.apply(SmartCenter.snmp, arguments);
-        }
-        function getSnmpDeviceIcon(deviceType) {
-            return SmartCenter.snmp.getSnmpDeviceIcon.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpSwitchSection(summary) {
-            return SmartCenter.snmp.renderSnmpSwitchSection.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpKpiCards(deviceType, summary, status) {
-            return SmartCenter.snmp.renderSnmpKpiCards.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpNasSection(summary, customMetrics = []) {
-            return SmartCenter.snmp.renderSnmpNasSection.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpRouterSection(summary, customMetrics = []) {
-            return SmartCenter.snmp.renderSnmpRouterSection.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpRoleSection(deviceType, summary, status) {
-            return SmartCenter.snmp.renderSnmpRoleSection.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpCompactCard(cfg, status, summary, deviceType, interfaceSummary, options = {}) {
-            return SmartCenter.snmp.renderSnmpCompactCard.apply(SmartCenter.snmp, arguments);
-        }
-        function buildDashboardSnmpMetricItems(deviceType, summary, status, interfaceSummary, customMetrics = []) {
-            return SmartCenter.snmp.buildDashboardSnmpMetricItems.apply(SmartCenter.snmp, arguments);
-        }
-        function renderDashboardSnmpCard(cfg, status) {
-            return SmartCenter.snmp.renderDashboardSnmpCard.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpCard(cfg, status) {
-            return SmartCenter.snmp.renderSnmpCard.apply(SmartCenter.snmp, arguments);
-        }
-        function renderSnmpDeviceDetailPage(cfg, status) {
-            return SmartCenter.snmp.renderSnmpDeviceDetailPage.apply(SmartCenter.snmp, arguments);
+        function restoreSnmpSelectedDeviceFromUrl() {
+            return withSnmpRuntime((api) => api.restoreSnmpSelectedDeviceFromUrl(), 'SNMP 详情状态模块');
         }
         function renderSnmpCards(options = {}) {
-            const renderMode = String(options.mode || snmpStatusMode || '').trim().toLowerCase();
-            const renderDetailPage = options.renderDetailPage !== undefined
-                ? !!options.renderDetailPage
-                : renderMode === 'full';
-            if (renderDetailPage && !(SmartCenter.snmp && typeof SmartCenter.snmp.renderSnmpCompactCard === 'function')) {
-                ensureViewReady('snmp').then(() => renderSnmpCards(options)).catch(() => {});
-                return;
-            }
-            const dashboardGrid = document.getElementById('dashboard-snmp-grid');
-            const pageGrid = document.getElementById('snmp-page-grid');
-            const statusCache = getNetworkStatusCache();
-            const visibleConfigs = getNetworkMonitorConfigs();
-            visibleConfigs.sort((a, b) => {
-                const sa = (statusCache[a.id] || {}).summary || {};
-                const sb = (statusCache[b.id] || {}).summary || {};
-                const riskRank = value => {
-                    const normalized = String(value || '').trim().toLowerCase();
-                    if (normalized === 'critical') return 0;
-                    if (normalized === 'warning') return 1;
-                    return 2;
-                };
-                const rankDiff = riskRank(sa.risk_level) - riskRank(sb.risk_level);
-                if (rankDiff !== 0) return rankDiff;
-                const scoreA = Number(sa.health_score ?? 100);
-                const scoreB = Number(sb.health_score ?? 100);
-                if (scoreA !== scoreB) return scoreA - scoreB;
-                return normalizeSnmpDeviceName(a, statusCache[a.id] || {}).localeCompare(normalizeSnmpDeviceName(b, statusCache[b.id] || {}), 'zh-CN');
-            });
-            const filteredConfigs = filterSnmpConfigs(visibleConfigs, statusCache, snmpCardFilter);
-            const filterMeta = getSnmpFilterMeta(snmpCardFilter);
-            const onlineCount = visibleConfigs.filter(cfg => getDeviceStatusMeta(statusCache[cfg.id] || {}).isOnlineLike).length;
-            const criticalCount = visibleConfigs.filter(cfg => String(((statusCache[cfg.id] || {}).summary || {}).risk_level || '').toLowerCase() === 'critical').length;
-            const warningCount = visibleConfigs.filter(cfg => String(((statusCache[cfg.id] || {}).summary || {}).risk_level || '').toLowerCase() === 'warning').length;
-            const dashboardCardsHtml = filteredConfigs.length
-                ? `<div class="snmp-dashboard-grid">${filteredConfigs.map(cfg => renderDashboardSnmpCard(cfg, statusCache[cfg.id] || {})).join('')}</div>`
-                : `<div class="snmp-filter-empty"><strong>${escapeHtml(filterMeta.label)} 暂无设备</strong>当前没有匹配该筛选条件的网络监控卡片。</div>`;
-            const dashboardHtml = visibleConfigs.length
-                ? `${dashboardCardsHtml}`
-                : '<div style="color:var(--text-sub); grid-column:1/-1; text-align:center; padding:20px;">未配置网络监控设备</div>';
-            if (dashboardGrid) dashboardGrid.innerHTML = dashboardHtml;
-            if (pageGrid && renderDetailPage) {
-                const pageOverviewHtml = renderSnmpOverviewBar(visibleConfigs, statusCache, snmpCardFilter);
-                const selectedConfig = snmpSelectedDeviceId
-                    ? visibleConfigs.find(cfg => String(cfg.id || '') === snmpSelectedDeviceId)
-                    : null;
-                if (snmpSelectedDeviceId && !selectedConfig) {
-                    snmpSelectedDeviceId = '';
-                    syncSnmpSelectedDeviceToUrl('');
-                }
-                const pageCardsHtml = selectedConfig
-                    ? renderSnmpDeviceDetailPage(selectedConfig, statusCache[selectedConfig.id] || {})
-                    : (filteredConfigs.length
-                        ? `<div class="snmp-device-grid snmp-onepage-grid">${filteredConfigs.map(cfg => {
-                            const status = statusCache[cfg.id] || {};
-                            const summary = status.summary || {};
-                            const deviceType = String(summary.device_type || cfg.device_type || 'network').trim().toLowerCase() || 'network';
-                            return renderSnmpCompactCard(cfg, status, summary, deviceType, summary.interface_summary || {}, { interactive: true });
-                        }).join('')}</div>`
-                        : `<div class="snmp-filter-empty"><strong>${escapeHtml(filterMeta.label)} 暂无设备</strong>当前没有匹配该筛选条件的网络监控卡片，可切换上方统计卡查看其他设备。</div>`);
-                const pageHtml = visibleConfigs.length
-                    ? `${pageOverviewHtml}${pageCardsHtml}`
-                    : '<div style="color:var(--text-sub); grid-column:1/-1; text-align:center; padding:20px;">未配置网络监控设备</div>';
-                pageGrid.innerHTML = pageHtml;
-            }
-            const dashSnmpOnline = document.getElementById('dash-snmp-online');
-            const dashSnmpTotal = document.getElementById('dash-snmp-total');
-            const dashSnmpCritical = document.getElementById('dash-snmp-critical');
-            const dashSnmpWarning = document.getElementById('dash-snmp-warning');
-            const dashSnmpAlert = document.getElementById('dash-snmp-alert');
-            if (dashSnmpOnline) dashSnmpOnline.innerText = String(onlineCount);
-            if (dashSnmpTotal) dashSnmpTotal.innerText = String(visibleConfigs.length);
-            if (dashSnmpCritical) dashSnmpCritical.innerText = String(criticalCount);
-            if (dashSnmpWarning) dashSnmpWarning.innerText = String(warningCount);
-            if (dashSnmpAlert) dashSnmpAlert.innerText = String(criticalCount + warningCount);
-            [dashboardGrid, renderDetailPage ? pageGrid : null].filter(Boolean).forEach(grid => {
-	            grid.querySelectorAll('[data-snmp-filter]').forEach(btn => {
-	                btn.addEventListener('click', () => {
-	                    const nextFilter = String(btn.getAttribute('data-snmp-filter') || 'all').trim().toLowerCase() || 'all';
-	                    snmpCardFilter = nextFilter === snmpCardFilter ? 'all' : nextFilter;
-                        snmpSelectedDeviceId = '';
-                        syncSnmpSelectedDeviceToUrl('');
-	                    renderSnmpCards();
-	                });
-	            });
-                bindSnmpDetailToggles(grid);
-                bindSnmpOverviewCardActions(grid);
-            });
+            return withSnmpRuntime((api, ctx) => api.renderSnmpCards(options, ctx), 'SNMP 渲染模块');
         }
         function updateSnmpStatus(options = {}) {
-            const forceFull = !!options.full || getActiveViewId() === 'snmp';
-            const mode = forceFull ? 'full' : 'compact';
-            if (mode === 'full' && !(SmartCenter.snmp && typeof SmartCenter.snmp.renderSnmpCompactCard === 'function')) {
-                return ensureViewReady('snmp').then(() => updateSnmpStatus(options));
-            }
-            if (snmpFetchInFlight) {
-                if (snmpFetchMode === mode || (mode === 'compact' && snmpFetchMode === 'full')) return snmpFetchInFlight;
-                if (mode === 'full') return snmpFetchInFlight.then(() => updateSnmpStatus({ full: true }));
-                return snmpFetchInFlight;
-            }
-            const snmpUrl = mode === 'full' ? '/api/snmp/status' : '/api/snmp/status?compact=1';
-            const nvrUrl = mode === 'full' ? '/api/nvr/status' : '/api/nvr/status?compact=1';
-            const safeRenderSnmpCards = () => guardFrontendStep('snmp.render_cards', () => renderSnmpCards({
-                mode,
-                renderDetailPage: mode === 'full'
-            }), '网络监控卡片渲染异常，请稍后重试');
-            snmpFetchMode = mode;
-            snmpFetchInFlight = Promise.allSettled([
-                fetchJson(snmpUrl, {}, 'SNMP 状态读取失败'),
-                nvrConfigs.length ? fetchJson(nvrUrl, {}, '录像机状态读取失败') : Promise.resolve({})
-            ])
-                .then(results => {
-                    const [snmpResult, nvrResult] = results;
-                    const snmpFailed = snmpResult.status === 'rejected';
-                    const nvrFailed = nvrResult.status === 'rejected';
-                    if (snmpFailed && nvrFailed) {
-                        throw snmpResult.reason || nvrResult.reason || new Error('网络监控状态读取失败');
-                    }
-                    if (snmpFailed) console.error('SNMP 状态更新失败', snmpResult.reason);
-                    if (nvrFailed) console.error('录像机状态更新失败', nvrResult.reason);
-                    const nextSnmpData = snmpResult.status === 'fulfilled' ? (snmpResult.value || {}) : (snmpStatusCache || {});
-                    const rawNvrData = nvrResult.status === 'fulfilled' ? (nvrResult.value || {}) : (nvrStatusCache || {});
-                    const nextNvrData = {};
-                    (Array.isArray(nvrConfigs) ? nvrConfigs : []).forEach(cfg => {
-                        if (!cfg || !cfg.id) return;
-                        nextNvrData[cfg.id] = normalizeNvrStatusForSnmp(cfg, rawNvrData[cfg.id] || {});
-                    });
-                    snmpStatusCache = nextSnmpData;
-                    nvrStatusCache = nextNvrData;
-                    const mergedData = getNetworkStatusCache();
-                    const nextSignature = `${mode}:${summarizeSnmpPayload(mergedData)}`;
-                    const shouldRender = nextSignature !== snmpStatusSignature;
-                    snmpLastSuccessAt = Date.now();
-                    snmpFetchFailureCount = 0;
-                    snmpStatusMode = mode;
-                    if (shouldRender) {
-                        snmpStatusSignature = nextSignature;
-                        const now = Date.now();
-                        const elapsed = now - snmpLastRenderAt;
-                        if (elapsed >= 300) {
-                            snmpLastRenderAt = now;
-                            safeRenderSnmpCards();
-                        } else {
-                            setTimeout(() => {
-                                snmpLastRenderAt = Date.now();
-                                safeRenderSnmpCards();
-                            }, 300 - elapsed);
-                        }
-                    }
-                })
-                .catch(err => {
-                    console.error('网络监控状态更新失败', err);
-                    snmpFetchFailureCount += 1;
-                    const now = Date.now();
-                    const hasCache = Object.keys(getNetworkStatusCache() || {}).length > 0;
-                    const cacheStillWarm = hasCache && snmpLastSuccessAt && (now - snmpLastSuccessAt) < 45000;
-                    const shouldToast = !cacheStillWarm && (
-                        !hasCache
-                        || snmpFetchFailureCount >= 2
-                    ) && (now - snmpLastToastAt) > 15000;
-                    if (shouldToast) {
-                        snmpLastToastAt = now;
-                        showToast(translateApiError(err?.message, '网络监控状态读取失败，请稍后重试'), true);
-                    }
-                })
-                .finally(() => {
-                    snmpFetchInFlight = null;
-                    snmpFetchMode = '';
-                });
-            return snmpFetchInFlight;
+            return withSnmpRuntime((api, ctx) => api.updateSnmpStatus(options, ctx), '网络监控状态模块');
         }
+        function applyNvrPreviewUrlParams() {
+            return withSnmpRuntime((api) => api.applyNvrPreviewUrlParams(), '监控预览参数模块');
+        }
+        function renderNvrPreviewPanel(options = {}) {
+            return withSnmpRuntime((api, ctx) => api.renderNvrPreviewPanel(options, ctx), '监控预览模块');
+        }
+        function selectNvrPreview(deviceId, channelId, options = {}) {
+            return withSnmpRuntime((api, ctx) => api.selectNvrPreview(deviceId, channelId, options, ctx), '监控预览模块');
+        }
+        function setNvrPreviewMode(mode) {
+            return withSnmpRuntime((api, ctx) => api.setNvrPreviewMode(mode, ctx), '监控预览模块');
+        }
+        function setNvrPreviewGrid(grid) {
+            return withSnmpRuntime((api, ctx) => api.setNvrPreviewGrid(grid, ctx), '监控预览模块');
+        }
+        function setNvrPreviewPage(delta) {
+            return withSnmpRuntime((api, ctx) => api.setNvrPreviewPage(delta, ctx), '监控预览模块');
+        }
+        window.selectNvrPreview = selectNvrPreview;
+        window.setNvrPreviewMode = setNvrPreviewMode;
+        window.setNvrPreviewGrid = setNvrPreviewGrid;
+        window.setNvrPreviewPage = setNvrPreviewPage;
+        window.renderNvrPreviewPanel = renderNvrPreviewPanel;
+        window.updateSnmpStatus = updateSnmpStatus;
+        window.renderSnmpCards = renderSnmpCards;
         // Runtime viewport helpers now live in static/js/core/viewport-layout.js.
         // Keep these names available for older inline callers and future modules.
         const applyAdaptiveDensity = window.applyAdaptiveDensity || (() => {});
@@ -2191,10 +1590,7 @@
         function switchTab(viewId, title, navEl) {
             const previousView = getActiveViewId();
             if (previousView === 'camera_preview' && viewId !== 'camera_preview') stopNvrPreviewStreams();
-            if (viewId !== 'snmp' && snmpSelectedDeviceId) {
-                snmpSelectedDeviceId = '';
-                syncSnmpSelectedDeviceToUrl('');
-            }
+            if (viewId !== 'snmp') clearSnmpSelectedDevice();
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             const targetView = document.getElementById('view-' + viewId);
             if (targetView) targetView.classList.add('active');
@@ -2221,8 +1617,11 @@
             if (viewId === 'auto') setTimeout(() => { loadAutomationStatus(true); loadAutomationLogs(); }, 80);
             if (viewId === 'camera_preview') {
                 setTimeout(() => {
-                    applyNvrPreviewUrlParams();
-                    ensureViewReady('camera_preview')
+                    ensureSnmpRuntimeReady('监控预览模块')
+                        .then(api => {
+                            api?.applyNvrPreviewUrlParams?.();
+                            return ensureViewReady('camera_preview');
+                        })
                         .then(() => updateSnmpStatus({ full: true }))
                         .finally(() => renderNvrPreviewPanel({ refresh: true }));
                 }, 80);

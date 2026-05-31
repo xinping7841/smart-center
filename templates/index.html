@@ -1670,7 +1670,7 @@
     <script src="/static/js/views/ups.js?v=20260522-stage2-ups-view"></script>
     <script src="/static/js/views/hy-edge.js?v=20260522-stage2-hy-edge-view"></script>
     <script src="/static/js/views/env.js?v=20260522-stage2-env-view"></script>
-    <script src="/static/js/views/snmp-summary.js?v=20260530-dashboard-snmp-summary"></script>
+    <script src="/static/js/views/snmp-summary.js?v=20260531-snmp-runtime-slim"></script>
     <script src="/static/js/views/power-meter.js?v=20260531-power-meter-runtime-split"></script>
     <script src="/static/js/views/dashboard-summary.js?v=20260522-stage8-dashboard-summary"></script>
 
@@ -1682,6 +1682,6 @@
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
     </script>
-    <script src="/static/js/app-runtime.js?v=20260531-power-meter-runtime-split"></script>
+    <script src="/static/js/app-runtime.js?v=20260531-snmp-runtime-slim"></script>
 </body>
 </html>
