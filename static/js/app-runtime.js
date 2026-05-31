@@ -3,30 +3,38 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260530-firstpaint-slim';
+        const lazyModuleVersion = '20260531-css-lazy-split';
+        const fullThemeCss = `/static/smart-center-time-ntp.css?v=${lazyModuleVersion}`;
         SmartCenter.registerLazyModule('server-monitor-view', {
+            styles: [fullThemeCss],
             scripts: [`/static/js/views/server-monitor.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('hvac-view', {
+            styles: [fullThemeCss],
             scripts: [`/static/js/views/hvac-view.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('projector-view', {
+            styles: [fullThemeCss],
             scripts: [`/static/js/views/projector.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('snmp-full', {
+            styles: [fullThemeCss],
             scripts: [`/static/js/views/snmp.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('proxy-view', {
+            styles: [fullThemeCss],
             scripts: [`/static/js/views/proxy.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('universal-view', {
+            styles: [fullThemeCss],
             scripts: [`/static/js/views/universal.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('apple-audio-view', {
+            styles: [fullThemeCss],
             scripts: [`/static/js/views/apple-audio.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('local-model-view', {
-            styles: [`/static/css/views/local-model.css?v=${lazyModuleVersion}`],
+            styles: [fullThemeCss, `/static/css/views/local-model.css?v=${lazyModuleVersion}`],
             scripts: [`/static/js/views/local-model.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerViewModules('server', ['server-monitor-view']);
