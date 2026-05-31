@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="/static/js/core/viewport-layout.js?v=20260530-inline-phase2"></script>
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
-    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260529-dashboard-fluid-wall">
+    <link rel="stylesheet" href="/static/css/core/critical.css?v=20260531-css-lazy-split">
+    <link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260531-css-lazy-split" media="print" onload="this.onload=null;this.media='all';this.dataset.smartLazyHref=this.getAttribute('href')">
+    <noscript><link rel="stylesheet" href="/static/smart-center-time-ntp.css?v=20260531-css-lazy-split"></noscript>
     <link rel="stylesheet" href="/static/css/views/dashboard-inline.css?v=20260522-stage6-inline-css">
     <link rel="stylesheet" href="/static/css/views/hotfix-overrides.css?v=20260531-deep-split">
 </head>
