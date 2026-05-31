@@ -34,6 +34,151 @@
     let automationCanvasDragState = null;
     let automationCanvasSuppressClickUntil = 0;
 
+    function renderAutomationPageShell() {
+        const root = document.getElementById('view-auto');
+        if (!root || root.querySelector('.auto-page-shell')) return;
+        root.innerHTML = `
+            <div class="card">
+                <div class="card-title">
+                    <span>全场馆自动化规则引擎 (BMS)</span>
+                    <span style="font-size:12px; color:var(--text-sub);">依据环境数值变化或计划时间，自动触发预设场景联动</span>
+                </div>
+                <div class="auto-page-shell">
+                    <div class="auto-overview-strip">
+                        <div class="auto-kpi-card">
+                            <div class="label">规则总数</div>
+                            <div class="value" id="auto-kpi-total">--</div>
+                            <div class="sub">当前配置</div>
+                        </div>
+                        <div class="auto-kpi-card active">
+                            <div class="label">已启用</div>
+                            <div class="value" id="auto-kpi-enabled">--</div>
+                            <div class="sub">运行态实时刷新</div>
+                        </div>
+                        <div class="auto-kpi-card">
+                            <div class="label">实时命中</div>
+                            <div class="value" id="auto-kpi-matched">--</div>
+                            <div class="sub" id="auto-kpi-running">执行中 --</div>
+                        </div>
+                        <div class="auto-kpi-card">
+                            <div class="label">最近触发</div>
+                            <div class="value small" id="auto-kpi-last-rule">暂无</div>
+                            <div class="sub" id="auto-kpi-last-time">等待运行记录</div>
+                        </div>
+                    </div>
+                    <div class="auto-main-layout">
+                        <div class="auto-rules-panel">
+                            <div class="auto-focus-panel" id="auto-focus-panel">
+                                <div class="auto-focus-head">
+                                    <div>
+                                        <div class="auto-focus-title">机房空调自动化</div>
+                                        <div class="auto-focus-note">进入自动化页面后实时加载规则细节。</div>
+                                    </div>
+                                    <span class="auto-focus-chip">加载中</span>
+                                </div>
+                                <div class="auto-focus-grid">
+                                    <div class="auto-focus-card disabled">
+                                        <div class="label">自动开启</div>
+                                        <div class="value">等待状态</div>
+                                        <div class="sub">正在读取自动化规则和运行态。</div>
+                                        <div class="state">加载中</div>
+                                    </div>
+                                    <div class="auto-focus-card disabled">
+                                        <div class="label">自动关闭</div>
+                                        <div class="value">等待状态</div>
+                                        <div class="sub">正在读取自动化规则和运行态。</div>
+                                        <div class="state">加载中</div>
+                                    </div>
+                                    <div class="auto-focus-card disabled">
+                                        <div class="label">低温保护细节</div>
+                                        <div class="value">等待状态</div>
+                                        <div class="sub">正在读取自动化规则和运行态。</div>
+                                        <div class="state">加载中</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="auto-panel-title">
+                                <div>
+                                    <div class="title">规则运行状态</div>
+                                    <div class="sub">条件、定时、混合规则统一显示；运行态由 120 实时评估结果刷新。</div>
+                                </div>
+                                <span id="auto-rule-type-summary">规则加载中</span>
+                            </div>
+                            <div class="auto-list" id="automation-rule-list">
+                                <div class="auto-empty">正在加载自动化规则...</div>
+                            </div>
+                        </div>
+                        <aside class="auto-runtime-panel">
+                            <div class="auto-runtime-head">
+                                <div>
+                                    <div class="title">自动化执行日志</div>
+                                    <div class="sub" id="auto-log-summary">显示最近自动化和场景联动记录</div>
+                                </div>
+                                <button class="auto-log-refresh" type="button" onclick="loadAutomationLogs(true)">刷新</button>
+                            </div>
+                            <div class="auto-log-window" id="automation-runtime-log-list">
+                                <div class="auto-log-empty">正在加载自动化运行记录...</div>
+                            </div>
+                        </aside>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    function ensureAutomationNodeModal() {
+        if (document.getElementById('automationNodeModal')) return;
+        document.body.insertAdjacentHTML('beforeend', `
+            <div id="automationNodeModal" class="auto-node-modal" aria-hidden="true">
+                <div class="auto-node-modal-backdrop" onclick="closeAutomationNodeCanvas()"></div>
+                <div class="auto-node-modal-shell" role="dialog" aria-modal="true" aria-labelledby="automationNodeModalTitle">
+                    <div class="auto-node-modal-head">
+                        <div>
+                            <div class="auto-node-modal-kicker">自动化节点画布</div>
+                            <div class="auto-node-modal-title" id="automationNodeModalTitle">选择一条自动化规则</div>
+                            <div class="auto-node-modal-sub" id="automationNodeModalSub">按触发、条件、场景、执行顺序展示，点击节点查看配置和运行状态。</div>
+                        </div>
+                        <div class="auto-node-modal-actions">
+                            <button class="auto-node-modal-btn secondary" type="button" id="auto-node-inline-toggle" onclick="toggleAutomationNodeView()">卡片内预览</button>
+                            <button class="auto-node-modal-btn" type="button" id="auto-node-edit-shortcut" onclick="openAutomationCanvasEditor()">编辑此规则</button>
+                            <button class="auto-node-modal-close" type="button" onclick="closeAutomationNodeCanvas()" aria-label="关闭节点画布">×</button>
+                        </div>
+                    </div>
+                    <div class="auto-node-modal-body">
+                        <div class="auto-node-workspace">
+                            <div class="auto-node-workspace-head">
+                                <div class="auto-node-legend">
+                                    <span class="pass">满足/已执行</span>
+                                    <span class="running">执行中/确认中</span>
+                                    <span class="wait">等待</span>
+                                    <span class="error">异常</span>
+                                </div>
+                                <div class="auto-node-head-right">
+                                    <div class="auto-node-zoom-tools" aria-label="节点画布缩放">
+                                        <button class="auto-node-zoom-btn" type="button" onclick="zoomAutomationNodeCanvas(-0.1)" title="缩小">－</button>
+                                        <span class="auto-node-zoom-value" id="auto-node-zoom-value">100%</span>
+                                        <button class="auto-node-zoom-btn" type="button" onclick="zoomAutomationNodeCanvas(0.1)" title="放大">＋</button>
+                                        <button class="auto-node-zoom-btn" type="button" onclick="fitAutomationNodeCanvas()" title="自动居中缩放">适配</button>
+                                    </div>
+                                    <div class="auto-node-tip">节点从左到右执行；延时节点会插入在两个动作之间。</div>
+                                </div>
+                            </div>
+                            <div class="auto-flow-canvas auto-flow-canvas-large" id="automation-node-canvas">
+                                <div class="auto-node-empty">请选择规则生成节点画布。</div>
+                            </div>
+                        </div>
+                        <aside class="auto-node-inspector" id="automation-node-inspector">
+                            <div class="auto-node-inspector-empty">点击任意节点，查看当前值、判断条件、执行目标和可编辑入口。</div>
+                        </aside>
+                    </div>
+                </div>
+            </div>`);
+    }
+
+    function renderAutomationViewShell() {
+        renderAutomationPageShell();
+        ensureAutomationNodeModal();
+    }
+
     function getContext(maybeContext) {
         return maybeContext && typeof maybeContext === 'object' ? maybeContext : {};
     }
@@ -1284,6 +1429,7 @@
         }
 
         function renderAutomationPageStatus(rulesPayload = null, context = {}) {
+            renderAutomationViewShell();
             const rules = mergeAutomationRules(
                 Array.isArray(rulesPayload) ? rulesPayload : Array.from(getAutomationStatusMapFromContext(context).values()),
                 context
@@ -1478,6 +1624,9 @@
         getAutomationGroupMeta,
         ensureAutomationRuleGroups,
         renderAutomationRuleCardsIfNeeded,
+        renderAutomationPageShell,
+        ensureAutomationNodeModal,
+        renderAutomationViewShell,
         renderAutomationPageStatus,
         renderAutomationCanvasInspector,
         renderAutomationNodeCanvas,

@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-local-model-template-slim-v1';
+        const lazyModuleVersion = '20260531-auto-template-slim-v1';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -1054,7 +1054,10 @@
             if (getActiveViewId() !== 'auto') return;
             if (!document.getElementById('view-auto')) return;
             ensureAutomationViewReady('自动化运行页面模块')
-                .then(api => api?.renderAutomationPageStatus?.(rules, getAutomationRuntimeContext()))
+                .then(api => {
+                    api?.renderAutomationPageStatus?.(rules, getAutomationRuntimeContext());
+                    applyPermissionUI();
+                })
                 .catch(() => {});
         }
         function getEnvConfigById(deviceId) {
@@ -1623,6 +1626,8 @@
             if (viewId === 'auto') setTimeout(() => {
                 ensureViewReady('auto')
                     .then(() => {
+                        window.SmartCenter?.automationView?.renderAutomationViewShell?.();
+                        applyPermissionUI();
                         loadAutomationStatus(true);
                         return window.loadAutomationLogs();
                     })
