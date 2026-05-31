@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260601-dashboard-shell-v1';
+        const lazyModuleVersion = '20260601-page-shells-v1';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -96,6 +96,9 @@
         });
         SmartCenter.registerLazyModule('dashboard-shell-runtime', {
             scripts: [`/static/js/views/dashboard-shell.js?v=${lazyModuleVersion}`],
+        });
+        SmartCenter.registerLazyModule('page-shells-runtime', {
+            scripts: [`/static/js/views/page-shells.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('dashboard-summary-runtime', {
             scripts: [`/static/js/views/dashboard-summary.js?v=${lazyModuleVersion}`],
@@ -222,6 +225,23 @@
             const api = window.SmartCenter?.dashboardShell || null;
             if (api?.renderDashboardShell) return api.renderDashboardShell(configData);
             if (typeof window.renderDashboardShell === 'function') return window.renderDashboardShell(configData);
+            return false;
+        }
+        function ensurePageShellRendered(viewId) {
+            const key = String(viewId || '').replace(/^view-/, '').trim();
+            if (!key || key === 'dashboard') return true;
+            const root = document.getElementById(`view-${key}`);
+            if (!root) return false;
+            if (root.dataset.pageShellRendered === '1') return true;
+            const api = window.SmartCenter?.pageShells || null;
+            if (api?.renderPageShell) return api.renderPageShell(key);
+            if (typeof window.renderPageShell === 'function') return window.renderPageShell(key);
+            return false;
+        }
+        function ensureAllPageShellsRendered() {
+            if (typeof window.renderAllPageShells === 'function') return window.renderAllPageShells();
+            const api = window.SmartCenter?.pageShells || null;
+            if (api?.renderAllPageShells) return api.renderAllPageShells();
             return false;
         }
         window.loadAutomationLogs = (showError = false) => withLogsRuntime(api => api.loadAutomationLogs?.(showError), '自动化日志模块');
@@ -1679,6 +1699,7 @@
         function switchTab(viewId, title, navEl) {
             const previousView = getActiveViewId();
             if (viewId === 'dashboard') ensureDashboardShellRendered();
+            else ensurePageShellRendered(viewId);
             if (previousView === 'camera_preview' && viewId !== 'camera_preview') stopNvrPreviewStreams();
             if (viewId !== 'snmp') clearSnmpSelectedDevice();
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
@@ -2489,6 +2510,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         document.addEventListener('DOMContentLoaded', () => {
             applyAdaptiveDensity();
             guardFrontendStep('bootstrap.dashboard_shell', () => ensureDashboardShellRendered());
+            guardFrontendStep('bootstrap.page_shells', () => ensureAllPageShellsRendered());
             guardFrontendStep('bootstrap.permission_ui', () => applyPermissionUI());
             guardFrontendStep('bootstrap.dashboard_order', () => applyDashboardSectionOrder());
             guardFrontendStep('bootstrap.dashboard_masonry_observer', () => initDashboardMasonryObservers());

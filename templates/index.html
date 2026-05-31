@@ -98,192 +98,43 @@
         <div class="view-container">
             <div id="view-dashboard" class="view-section active" data-dashboard-shell="pending"></div>
 
-            <div id="view-power" class="view-section">
-                <div id="power-page-grid">
-                    <div class="card">
-                        <div style="color:var(--text-sub); text-align:center; padding:20px;">正在加载强电柜...</div>
-                    </div>
-                </div>
-            </div>
+            <div id="view-power" class="view-section" data-page-shell="pending"></div>
 
-            <div id="view-meter" class="view-section" data-lazy-view="meter">
-                <div class="card lazy-view-placeholder">正在加载电表中心...</div>
-            </div>
+            <div id="view-meter" class="view-section" data-lazy-view="meter" data-page-shell="pending"></div>
 
-            <div id="view-light" class="view-section">
-                <div id="light-page-grid">
-                    <div class="card">
-                        <div style="color:var(--text-sub); text-align:center; padding:20px;">正在加载灯光设备...</div>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-title">场馆灯光日志</div>
-                    <div class="log-list" id="light-global-log" style="height:250px;"></div>
-                </div>
-            </div>
+            <div id="view-light" class="view-section" data-page-shell="pending"></div>
 
-            <div id="view-ups" class="view-section">
-                <div class="card">
-                    <div class="card-title">
-                        <span>UPS 监测中心</span>
-                        <span style="font-size:12px; color:var(--text-sub);">状态查询命令 Q1 / Q6 / WA，关机命令 S&lt;n&gt;</span>
-                    </div>
-                    <div class="ups-grid" id="ups-page-grid">
-                        <div style="color:var(--text-sub); grid-column:1/-1; text-align:center; padding:20px;">正在加载 UPS 设备...</div>
-                    </div>
-                </div>
-            </div>
+            <div id="view-ups" class="view-section" data-page-shell="pending"></div>
 
-            <div id="view-snmp" class="view-section">
-                <div class="card snmp-page-card">
-                    <div class="card-title">
-                        <span>网络与录像机监测中心</span>
-                        <span style="font-size:12px; color:var(--text-sub);">SNMP 设备与录像机 ISAPI 状态统一展示，点击卡片查看完整详情</span>
-                        <button class="nvr-preview-btn" type="button" onclick="switchTab('camera_preview', '监控预览', findNavElementByView('camera_preview'))">打开监控预览</button>
-                    </div>
-                    <div class="ups-grid snmp-page-grid" id="snmp-page-grid">
-                        <div style="color:var(--text-sub); grid-column:1/-1; text-align:center; padding:20px;">正在加载网络与录像机设备...</div>
-                    </div>
-                </div>
-            </div>
+            <div id="view-snmp" class="view-section" data-page-shell="pending"></div>
 
-            <div id="view-proxy" class="view-section" data-lazy-view="proxy">
-                <div class="card lazy-view-placeholder">正在加载代理监控...</div>
-            </div>
+            <div id="view-proxy" class="view-section" data-lazy-view="proxy" data-page-shell="pending"></div>
 
-            <div id="view-camera_preview" class="view-section">
-                <div class="card">
-                    <div class="card-title">
-                        <span>监控画面预览</span>
-                        <span style="font-size:12px; color:var(--text-sub);">默认 16 路快照墙，4 路稳定直播分页，点击画面切换单路低延迟</span>
-                    </div>
-                    <div class="nvr-preview-card standalone">
-                        <div id="nvr-preview-panel">
-                            <div class="nvr-preview-empty">正在加载录像机通道...</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <div id="view-camera_preview" class="view-section" data-page-shell="pending"></div>
 
-            <div id="view-sequencer" class="view-section">
-                <div class="card">
-                    <div class="card-title">
-                        <span>DS-608 时序电源控制台</span>
-                        <span style="font-size:12px; color:var(--text-sub);">模拟官方上位机的 8 路控制逻辑，展示产品信息、通讯参数和当前指令码</span>
-                    </div>
-                    <div class="sequencer-filter-bar" id="page-sequencer-filters">
-                        <button class="sequencer-filter-btn active" onclick="setSequencerFilter('all', 'page')">全部</button>
-                        <button class="sequencer-filter-btn" onclick="setSequencerFilter('online', 'page')">在线</button>
-                        <button class="sequencer-filter-btn" onclick="setSequencerFilter('offline', 'page')">离线/异常</button>
-                    </div>
-                    <div class="sequencer-grid" id="sequencer-page-grid">
-                        <div style="color:var(--text-sub); grid-column:1/-1; text-align:center; padding:20px;">正在加载时序电源设备...</div>
-                    </div>
-                </div>
-            </div>
+            <div id="view-sequencer" class="view-section" data-page-shell="pending"></div>
 
-            <div id="view-door" class="view-section" data-lazy-view="door">
-                <div class="card lazy-view-placeholder">正在加载门禁状态与视觉辅助...</div>
-            </div>
+            <div id="view-door" class="view-section" data-lazy-view="door" data-page-shell="pending"></div>
 
-            <div id="view-scene" class="view-section">
-                <div class="card">
-                    <div class="card-title">快捷全局指令</div>
-                    <div class="scene-grid scene-quick-grid" id="scene-quick-grid">
-                        <div class="scene-empty">正在加载快捷场景...</div>
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-title">
-                        <span>自动化引用场景</span>
-                        <span style="font-size:12px; color:var(--text-sub);">这些场景由自动化规则调用，默认不作为手动快捷按钮展示</span>
-                    </div>
-                    <div class="automation-scene-grid" id="automation-scene-grid">
-                        <div class="scene-empty">正在加载自动化场景...</div>
-                    </div>
-                </div>
-            </div>
+            <div id="view-scene" class="view-section" data-page-shell="pending"></div>
 
-            <div id="view-server" class="view-section">
-                <div class="card">
-                    <div class="card-title" style="margin-bottom: 20px;">
-                        <span>物理服务器与工作站节点大屏</span>
-                        <div class="server-toolbar" aria-label="服务器看板工具">
-                            <div class="server-toolbar-group server-mode-control">
-                                <span class="server-mode-current" id="server-mode-current">简洁模式</span>
-                                <div class="server-view-toggle" role="group" aria-label="服务器显示模式">
-                                    <button class="active" type="button" data-server-view-mode="compact" onclick="setServerViewMode('compact')"><span>简洁</span></button>
-                                    <button type="button" data-server-view-mode="detail" onclick="setServerViewMode('detail')"><span>详细</span></button>
-                                </div>
-                            </div>
-                            <div class="server-toolbar-actions">
-                                <button class="btn-base server-tool-btn server-export-btn" type="button" onclick="exportServerDeviceInfoCsv()">导出设备信息</button>
-                                <button class="btn-base server-tool-btn server-agent-btn" type="button" onclick="openDeployModal()">Agent 部署命令</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="server-grid" id="server-grid-container"></div>
-                </div>
-            </div>
+            <div id="view-server" class="view-section" data-page-shell="pending"></div>
 
-            <div id="view-local_model" class="view-section" data-lazy-view="local_model">
-                <div class="card lazy-view-placeholder">正在加载本地模型页面...</div>
-            </div>
+            <div id="view-local_model" class="view-section" data-lazy-view="local_model" data-page-shell="pending"></div>
 
-            <div id="view-projector" class="view-section">
-                <div class="card">
-                    <div class="card-title">
-                        <span>投影机控制面板</span>
-                        <span style="font-size:12px; color:var(--text-sub);">常用功能直接点击，完整指令在遥控器弹窗中操作</span>
-                    </div>
-                    <div class="projector-card-grid" id="projector-page-grid">
-                        <div style="color:var(--text-sub); grid-column: 1/-1; text-align:center; padding:20px;">正在加载投影机卡片...</div>
-                    </div>
-                </div>
-            </div>
+            <div id="view-projector" class="view-section" data-page-shell="pending"></div>
 
-            <div id="view-apple_audio" class="view-section">
-                <div id="apple-audio-page-root">
-                    <div class="card">
-                        <div style="color:var(--text-sub); text-align:center; padding:20px;">正在加载音乐播放器...</div>
-                    </div>
-                </div>
-            </div>
+            <div id="view-apple_audio" class="view-section" data-page-shell="pending"></div>
             
-            <div id="view-universal" class="view-section" data-lazy-view="universal">
-                <div class="card lazy-view-placeholder">正在加载协议控制中心...</div>
-            </div>
+            <div id="view-universal" class="view-section" data-lazy-view="universal" data-page-shell="pending"></div>
 
+            <div id="view-logs" class="view-section" data-lazy-view="logs" data-page-shell="pending"></div>
 
+            <div id="view-env" class="view-section" data-page-shell="pending"></div>
 
-            <div id="view-logs" class="view-section" data-lazy-view="logs">
-                <div class="card lazy-view-placeholder">正在加载日志中心...</div>
-            </div>
+            <div id="view-hvac" class="view-section" data-page-shell="pending"></div>
 
-            <div id="view-env" class="view-section">
-                <div class="card">
-                    <div class="card-title">环境传感器实时监控大屏</div>
-                    <div class="env-stat-grid" id="env-grid-container">
-                        <div style="color:var(--text-sub); grid-column:1/-1;">正在连接环境传感器...</div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="view-hvac" class="view-section">
-                <div class="card">
-                    <div class="card-title">
-                        <span>空调设备监控与控制</span>
-                        <span style="font-size:12px; color:var(--text-sub);">当前接入来源：Home Assistant</span>
-                    </div>
-                    <div class="hvac-grid" id="hvac-grid-container">
-                        <div class="hvac-empty">正在加载空调状态...</div>
-                    </div>
-                </div>
-            </div>
-
-            <div id="view-auto" class="view-section" data-lazy-view="auto">
-                <div class="card lazy-view-placeholder">正在加载自动化运行页面...</div>
-            </div>
+            <div id="view-auto" class="view-section" data-lazy-view="auto" data-page-shell="pending"></div>
 
         </div>
     </div>
@@ -299,10 +150,12 @@
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
     </script>
-    <script src="/static/js/views/dashboard-shell.js?v=20260601-dashboard-shell-v1"></script>
+    <script src="/static/js/views/dashboard-shell.js?v=20260601-page-shells-v1"></script>
+    <script src="/static/js/views/page-shells.js?v=20260601-page-shells-v1"></script>
     <script>
         window.renderDashboardShell?.(window.configData || {});
+        window.renderAllPageShells?.();
     </script>
-    <script src="/static/js/app-runtime.js?v=20260601-dashboard-shell-v1"></script>
+    <script src="/static/js/app-runtime.js?v=20260601-page-shells-v1"></script>
 </body>
 </html>
