@@ -110,11 +110,37 @@
         const existingGlobal = options.globalName ? global[options.globalName] : null;
         if (existingGlobal) return Promise.resolve(existingGlobal);
         if (scriptLoads.has(url)) return scriptLoads.get(url);
+        const resolveScriptResult = () => (options.globalName ? global[options.globalName] : true);
         const promise = new Promise((resolve, reject) => {
             const existingTag = Array.from(document.scripts || []).find(item => item.dataset.smartLazySrc === url || item.getAttribute('src') === url);
             if (existingTag) {
-                existingTag.addEventListener('load', () => resolve(options.globalName ? global[options.globalName] : true), { once: true });
-                existingTag.addEventListener('error', () => reject(new Error(`script_load_failed:${url}`)), { once: true });
+                if (existingTag.dataset.smartLazyLoaded === '1') {
+                    resolve(resolveScriptResult());
+                    return;
+                }
+                if (existingTag.dataset.smartLazyError === '1') {
+                    reject(new Error(`script_load_failed:${url}`));
+                    return;
+                }
+                existingTag.addEventListener('load', () => {
+                    existingTag.dataset.smartLazyLoaded = '1';
+                    resolve(resolveScriptResult());
+                }, { once: true });
+                existingTag.addEventListener('error', () => {
+                    existingTag.dataset.smartLazyError = '1';
+                    reject(new Error(`script_load_failed:${url}`));
+                }, { once: true });
+                // If a script tag was already loaded before this listener was attached,
+                // no second load event will fire. Resolve on the next tick when the module
+                // has registered or the browser reports the script as complete.
+                window.setTimeout(() => {
+                    if (options.globalName && !global[options.globalName]) return;
+                    if (existingTag.dataset.smartLazyError === '1') return;
+                    if (existingTag.dataset.smartLazyLoaded === '1' || existingTag.readyState === 'complete' || !options.globalName) {
+                        existingTag.dataset.smartLazyLoaded = '1';
+                        resolve(resolveScriptResult());
+                    }
+                }, 0);
                 return;
             }
             const script = document.createElement('script');
@@ -122,8 +148,14 @@
             script.async = true;
             script.defer = true;
             script.dataset.smartLazySrc = url;
-            script.onload = () => resolve(options.globalName ? global[options.globalName] : true);
-            script.onerror = () => reject(new Error(`script_load_failed:${url}`));
+            script.onload = () => {
+                script.dataset.smartLazyLoaded = '1';
+                resolve(resolveScriptResult());
+            };
+            script.onerror = () => {
+                script.dataset.smartLazyError = '1';
+                reject(new Error(`script_load_failed:${url}`));
+            };
             document.head.appendChild(script);
         }).catch(err => {
             scriptLoads.delete(url);
@@ -143,16 +175,43 @@
         const promise = new Promise((resolve, reject) => {
             const existingTag = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).find(item => item.dataset.smartLazyHref === url || item.getAttribute('href') === url);
             if (existingTag) {
-                existingTag.addEventListener('load', () => resolve(true), { once: true });
-                existingTag.addEventListener('error', () => reject(new Error(`stylesheet_load_failed:${url}`)), { once: true });
+                if (existingTag.dataset.smartLazyLoaded === '1') {
+                    resolve(true);
+                    return;
+                }
+                if (existingTag.dataset.smartLazyError === '1') {
+                    reject(new Error(`stylesheet_load_failed:${url}`));
+                    return;
+                }
+                existingTag.addEventListener('load', () => {
+                    existingTag.dataset.smartLazyLoaded = '1';
+                    resolve(true);
+                }, { once: true });
+                existingTag.addEventListener('error', () => {
+                    existingTag.dataset.smartLazyError = '1';
+                    reject(new Error(`stylesheet_load_failed:${url}`));
+                }, { once: true });
+                window.setTimeout(() => {
+                    if (existingTag.dataset.smartLazyError === '1') return;
+                    if (existingTag.sheet || existingTag.dataset.smartLazyLoaded === '1') {
+                        existingTag.dataset.smartLazyLoaded = '1';
+                        resolve(true);
+                    }
+                }, 0);
                 return;
             }
             const link = document.createElement('link');
             link.rel = 'stylesheet';
             link.href = url;
             link.dataset.smartLazyHref = url;
-            link.onload = () => resolve(true);
-            link.onerror = () => reject(new Error(`stylesheet_load_failed:${url}`));
+            link.onload = () => {
+                link.dataset.smartLazyLoaded = '1';
+                resolve(true);
+            };
+            link.onerror = () => {
+                link.dataset.smartLazyError = '1';
+                reject(new Error(`stylesheet_load_failed:${url}`));
+            };
             document.head.appendChild(link);
         }).catch(err => {
             stylesheetLoads.delete(url);

@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-auto-template-slim-v1';
+        const lazyModuleVersion = '20260531-auto-template-slim-v2';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -1060,6 +1060,31 @@
                 })
                 .catch(() => {});
         }
+        function renderAutomationLazyPage() {
+            return ensureViewReady('auto')
+                .then(() => {
+                    const api = getAutomationViewApi();
+                    if (!api?.renderAutomationViewShell) throw new Error('automation_view_api_unavailable');
+                    api.renderAutomationViewShell();
+                    applyPermissionUI();
+                    return loadAutomationStatus(true);
+                })
+                .then(() => window.loadAutomationLogs())
+                .catch(err => {
+                    console.error('自动化运行页面初始化失败', err);
+                    const container = document.getElementById('view-auto');
+                    if (container) {
+                        container.innerHTML = `
+                            <div class="card lazy-view-placeholder">
+                                <div style="font-weight:800;margin-bottom:8px;">自动化运行页面加载失败</div>
+                                <div style="color:var(--muted);font-size:13px;">请刷新页面重试；若持续出现，请检查 automation-view 模块加载状态。</div>
+                            </div>
+                        `;
+                    }
+                    if (typeof showToast === 'function') showToast('自动化运行页面加载失败，请刷新后重试', true);
+                    return null;
+                });
+        }
         function getEnvConfigById(deviceId) {
             const targetId = String(deviceId || '').trim();
             if (!targetId) return null;
@@ -1609,7 +1634,7 @@
             syncCurrentViewToUrl(viewId);
             if (window.innerWidth <= 760) closeSidebar();
             if (viewId !== 'door') stopDoorVideoStream();
-            ensureViewReady(viewId).catch(() => {});
+            if (viewId !== 'auto') ensureViewReady(viewId).catch(() => {});
             if (viewId === 'power') setTimeout(() => {
                 ensureViewReady('power')
                     .then(() => {
@@ -1623,16 +1648,7 @@
             if (viewId === 'ups') setTimeout(() => { ensureViewReady('ups').then(() => updateUpsStatus()).catch(() => {}); }, 80);
             if (viewId === 'snmp') setTimeout(() => { ensureViewReady('snmp').then(() => updateSnmpStatus({ full: true })).catch(() => {}); }, 80);
             if (viewId === 'proxy') setTimeout(() => { ensureViewReady('proxy').then(() => updateProxyStatus()).catch(() => {}); }, 80);
-            if (viewId === 'auto') setTimeout(() => {
-                ensureViewReady('auto')
-                    .then(() => {
-                        window.SmartCenter?.automationView?.renderAutomationViewShell?.();
-                        applyPermissionUI();
-                        loadAutomationStatus(true);
-                        return window.loadAutomationLogs();
-                    })
-                    .catch(() => {});
-            }, 80);
+            if (viewId === 'auto') setTimeout(() => { renderAutomationLazyPage(); }, 80);
             if (viewId === 'camera_preview') {
                 setTimeout(() => {
                     ensureSnmpRuntimeReady('监控预览模块')
