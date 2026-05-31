@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260531-js-dashboard-defer';
+        const lazyModuleVersion = '20260531-runtime-domain-split';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -68,6 +68,9 @@
         SmartCenter.registerLazyModule('meter-view-style', { styles: viewStyleGroups.meter });
         SmartCenter.registerLazyModule('ups-view-style', { styles: viewStyleGroups.ups });
         SmartCenter.registerLazyModule('auto-view-style', { styles: viewStyleGroups.auto });
+        SmartCenter.registerLazyModule('automation-view', {
+            scripts: [`/static/js/views/automation-view.js?v=${lazyModuleVersion}`],
+        });
         SmartCenter.registerLazyModule('sequencer-view-style', { styles: viewStyleGroups.sequencer });
         SmartCenter.registerLazyModule('env-view-style', { styles: viewStyleGroups.env });
         SmartCenter.registerLazyModule('logs-view-style', { styles: viewStyleGroups.logs });
@@ -85,7 +88,7 @@
         SmartCenter.registerViewModules('power', ['power-view-style']);
         SmartCenter.registerViewModules('meter', ['meter-view-style']);
         SmartCenter.registerViewModules('ups', ['ups-view-style']);
-        SmartCenter.registerViewModules('auto', ['auto-view-style']);
+        SmartCenter.registerViewModules('auto', ['auto-view-style', 'automation-view']);
         SmartCenter.registerViewModules('sequencer', ['sequencer-view-style']);
         SmartCenter.registerViewModules('env', ['env-view-style']);
         SmartCenter.registerViewModules('logs', ['logs-view-style']);
@@ -1036,8 +1039,31 @@
         function getAutomationStatusMap() {
             return new Map((Array.isArray(automationStatusCache.rules) ? automationStatusCache.rules : []).map(item => [String(item.id), item]));
         }
+        function getAutomationViewApi() {
+            return window.SmartCenter?.automationView || null;
+        }
+        function ensureAutomationViewReady(contextLabel = '自动化详情模块') {
+            if (getAutomationViewApi()) return Promise.resolve(getAutomationViewApi());
+            return ensureModulesReady(['automation-view'], contextLabel).then(() => getAutomationViewApi());
+        }
+        function getFallbackAutomationRuleRuntimeMeta(rule) {
+            const state = rule?.state || {};
+            const triggerType = String(rule?.trigger_type || 'condition');
+            if (!rule?.enabled) return { cls: 'waiting', cardClass: '', text: '已停用' };
+            if (String(state.last_error || '').trim()) return { cls: 'error', cardClass: 'runtime-error', text: '异常' };
+            if (state.scene_running) return { cls: 'running', cardClass: 'runtime-running', text: '执行中' };
+            if (state.last_trigger_matched || state.last_condition_stable) return { cls: 'matched', cardClass: 'runtime-matched', text: triggerType === 'schedule' ? '今日已执行' : '条件命中' };
+            if (state.last_condition_raw) return { cls: 'waiting', cardClass: '', text: '防抖中' };
+            if (triggerType === 'compound') return { cls: 'waiting', cardClass: '', text: state.preconditions_met === false ? '前置未满足' : '组合监测' };
+            if (triggerType === 'schedule') return { cls: 'waiting', cardClass: '', text: '等待定时' };
+            return { cls: 'waiting', cardClass: '', text: '监测中' };
+        }
         function getAutomationRuleRuntimeMeta(rule) {
-            return SmartCenter.automationView.getAutomationRuleRuntimeMeta.apply(SmartCenter.automationView, Array.from(arguments));
+            const api = getAutomationViewApi();
+            if (api && typeof api.getAutomationRuleRuntimeMeta === 'function') {
+                return api.getAutomationRuleRuntimeMeta.apply(api, Array.from(arguments));
+            }
+            return getFallbackAutomationRuleRuntimeMeta(rule);
         }
         function getAutomationGroupMeta(rule = {}) {
             const explicitName = String(rule.group_name || rule.group_title || rule.display_group || '').trim();
@@ -1128,44 +1154,54 @@
             return String(triggerState.last_schedule_day || '') === today || String(triggerState.last_schedule_key || '').startsWith(today);
         }
         function buildAutomationConditionStateChips(condition = {}, state = {}, labelPrefix = '') {
-            return SmartCenter.automationView.buildAutomationConditionStateChips.apply(SmartCenter.automationView, Array.from(arguments));
+            const api = getAutomationViewApi();
+            return api?.buildAutomationConditionStateChips ? api.buildAutomationConditionStateChips.apply(api, Array.from(arguments)) : [];
         }
         function findAutomationScene(sceneId) {
-            return SmartCenter.automationView.findAutomationScene(sceneId, { configData });
-        }
-        function findAutomationScene(sceneId) {
+            const api = getAutomationViewApi();
+            if (api?.findAutomationScene) return api.findAutomationScene(sceneId, { configData });
             const id = String(sceneId || '').trim();
             return (Array.isArray(configData.scenes) ? configData.scenes : []).find(scene => String(scene?.id || '') === id) || null;
         }
         function formatAutomationConditionSummary(condition = {}, state = {}) {
-            return SmartCenter.automationView.formatAutomationConditionSummary.apply(SmartCenter.automationView, Array.from(arguments));
+            const api = getAutomationViewApi();
+            return api?.formatAutomationConditionSummary ? api.formatAutomationConditionSummary.apply(api, Array.from(arguments)) : [];
         }
         function getAutomationConditionNodeClass(condition = {}, state = {}) {
-            return SmartCenter.automationView.getAutomationConditionNodeClass.apply(SmartCenter.automationView, Array.from(arguments));
+            const api = getAutomationViewApi();
+            return api?.getAutomationConditionNodeClass ? api.getAutomationConditionNodeClass.apply(api, Array.from(arguments)) : 'wait';
         }
         function formatAutomationScheduleSummary(schedule = {}, state = {}) {
-            return SmartCenter.automationView.formatAutomationScheduleSummary.apply(SmartCenter.automationView, Array.from(arguments));
+            const api = getAutomationViewApi();
+            return api?.formatAutomationScheduleSummary ? api.formatAutomationScheduleSummary.apply(api, Array.from(arguments)) : [];
         }
         function getAutomationScheduleNodeClass(state = {}) {
-            return SmartCenter.automationView.getAutomationScheduleNodeClass.apply(SmartCenter.automationView, Array.from(arguments));
+            const api = getAutomationViewApi();
+            return api?.getAutomationScheduleNodeClass ? api.getAutomationScheduleNodeClass.apply(api, Array.from(arguments)) : 'wait';
         }
         function formatAutomationActionLabel(action = {}, index = 0) {
-            return SmartCenter.automationView.formatAutomationActionLabel.apply(SmartCenter.automationView, Array.from(arguments));
+            const api = getAutomationViewApi();
+            return api?.formatAutomationActionLabel ? api.formatAutomationActionLabel.apply(api, Array.from(arguments)) : (action.action_type || action.action || `动作 ${index + 1}`);
         }
         function formatAutomationActionDetails(action = {}) {
-            return SmartCenter.automationView.formatAutomationActionDetails(action, { getHvacModeText });
+            const api = getAutomationViewApi();
+            return api?.formatAutomationActionDetails ? api.formatAutomationActionDetails(action, { getHvacModeText }) : [];
         }
         function makeAutomationNodeId(kind, index, extra = '') {
-            return SmartCenter.automationView.makeAutomationNodeId.apply(SmartCenter.automationView, Array.from(arguments));
+            const api = getAutomationViewApi();
+            return api?.makeAutomationNodeId ? api.makeAutomationNodeId.apply(api, Array.from(arguments)) : `${kind}-${index}${extra ? `-${extra}` : ''}`.replace(/[^a-zA-Z0-9_-]+/g, '-');
         }
         function formatAutomationNodeDetails(node = {}) {
-            return SmartCenter.automationView.formatAutomationNodeDetails.apply(SmartCenter.automationView, Array.from(arguments));
+            const api = getAutomationViewApi();
+            return api?.formatAutomationNodeDetails ? api.formatAutomationNodeDetails.apply(api, Array.from(arguments)) : (Array.isArray(node.details) ? node.details : []);
         }
         function renderAutomationFlowNode(node) {
-            return SmartCenter.automationView.renderAutomationFlowNode.apply(SmartCenter.automationView, Array.from(arguments));
+            const api = getAutomationViewApi();
+            return api?.renderAutomationFlowNode ? api.renderAutomationFlowNode.apply(api, Array.from(arguments)) : '';
         }
         function buildAutomationFlowNodes(rule = {}) {
-            return SmartCenter.automationView.buildAutomationFlowNodes(rule, { configData, getHvacModeText });
+            const api = getAutomationViewApi();
+            return api?.buildAutomationFlowNodes ? api.buildAutomationFlowNodes(rule, { configData, getHvacModeText }) : [];
         }
         function getActiveAutomationCanvasRule() {
             if (!activeAutomationCanvasRuleId) return null;
@@ -1367,6 +1403,12 @@
             renderAutomationCanvasInspector(rule, selected);
         }
         function openAutomationNodeCanvas(ruleId) {
+            if (!getAutomationViewApi()) {
+                ensureAutomationViewReady('自动化节点画布模块')
+                    .then(() => openAutomationNodeCanvas(ruleId))
+                    .catch(() => {});
+                return;
+            }
             const modal = document.getElementById('automationNodeModal');
             if (!modal) return;
             activeAutomationCanvasRuleId = String(ruleId || '');
@@ -1446,6 +1488,12 @@
             `;
         }
         function toggleAutomationNodeView(ruleId, forceOpen = null) {
+            if (!getAutomationViewApi()) {
+                ensureAutomationViewReady('自动化节点视图模块')
+                    .then(() => toggleAutomationNodeView(ruleId, forceOpen))
+                    .catch(() => {});
+                return;
+            }
             const panel = document.getElementById(`auto-node-panel-${ruleId}`);
             const btn = document.querySelector(`[data-auto-node-btn="${ruleId}"]`);
             if (!panel) return;
@@ -1458,10 +1506,12 @@
             }
         }
         function buildAutomationScheduleStateChips(schedule = {}, state = {}, labelPrefix = '定时') {
-            return SmartCenter.automationView.buildAutomationScheduleStateChips.apply(SmartCenter.automationView, Array.from(arguments));
+            const api = getAutomationViewApi();
+            return api?.buildAutomationScheduleStateChips ? api.buildAutomationScheduleStateChips.apply(api, Array.from(arguments)) : [];
         }
         function buildAutomationConditionChips(rule) {
-            return SmartCenter.automationView.buildAutomationConditionChips.apply(SmartCenter.automationView, Array.from(arguments));
+            const api = getAutomationViewApi();
+            return api?.buildAutomationConditionChips ? api.buildAutomationConditionChips.apply(api, Array.from(arguments)) : [];
         }
         function renderAutomationConditionChips(rule) {
             if (!rule || !rule.id) return;
@@ -1496,7 +1546,14 @@
         }
         function renderAutomationPageStatus() {
             const rules = Array.isArray(automationStatusCache.rules) ? automationStatusCache.rules : [];
+            if (getActiveViewId() !== 'auto') return;
             if (!document.getElementById('view-auto')) return;
+            if (!getAutomationViewApi()) {
+                ensureAutomationViewReady('自动化运行页面模块')
+                    .then(() => renderAutomationPageStatus())
+                    .catch(() => {});
+                return;
+            }
             ensureAutomationRuleGroups(rules);
             const enabledCount = rules.filter(rule => rule && rule.enabled).length;
             const matchedCount = rules.filter(rule => {

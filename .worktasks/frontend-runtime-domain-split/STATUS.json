@@ -1,0 +1,10 @@
+{
+  "task": "frontend-runtime-domain-split",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-frontend-runtime-domain-split-20260531",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-runtime-domain-split",
+  "started_at": "2026-05-31 11:32:05",
+  "status": "validated_local"
+}
