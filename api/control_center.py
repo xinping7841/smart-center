@@ -14,6 +14,7 @@ from auth.operation_lock import acquire_operation_lock, release_operation_lock
 from auth.session import get_current_user
 from config import CONFIG, save_config
 from control_center_core import (
+    apply_niren_protocol_mode,
     apply_command_pack,
     execute_control,
     execute_control_center_command,
@@ -95,6 +96,32 @@ def api_control_center_save():
     saved = _save_control_center_config(control_center)
     add_log(-1, "[协议控制中心] 配置已单独保存")
     return jsonify({"ok": 1, "msg": "协议控制中心配置已保存", "control_center": saved})
+
+
+@bp.route("/api/control_center/niren/mode", methods=["POST"])
+@require_permission("control_center.config")
+def api_control_center_niren_mode():
+    payload = request.json or {}
+    target_group_id = str(payload.get("target_group_id") or "").strip()
+    mode = str(payload.get("mode") or "").strip()
+    if not target_group_id or not mode:
+        return jsonify({"ok": 0, "msg": "缺少 target_group_id 或 mode"}), 400
+    try:
+        result = apply_niren_protocol_mode(_resolved_config(), target_group_id, mode)
+    except ValueError as exc:
+        return jsonify({"ok": 0, "msg": str(exc)}), 400
+    saved = _save_control_center_config(result.get("control_center"))
+    add_log(-1, f"[协议控制中心] 泥人目标组 {target_group_id} 已切换为 {result.get('mode')}")
+    return jsonify(
+        {
+            "ok": 1,
+            "msg": "泥人协议模式已更新",
+            "mode": result.get("mode"),
+            "target_group_id": target_group_id,
+            "changed_controls": result.get("changed_controls", 0),
+            "control_center": saved,
+        }
+    )
 
 
 @bp.route("/api/control_center/packs", methods=["GET"])

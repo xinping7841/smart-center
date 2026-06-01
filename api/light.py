@@ -35,6 +35,15 @@ LIGHT_LOG_KEYWORDS = (
 )
 
 
+def _channel_display_name(channel_cfg, fallback):
+    row = channel_cfg if isinstance(channel_cfg, dict) else {}
+    name = str(row.get("name") or "").strip()
+    remark = str(row.get("remark") or row.get("usage") or row.get("description") or "").strip()
+    if name and remark and remark not in name:
+        return f"{name}({remark})"
+    return name or remark or fallback
+
+
 def _json_keyed_status_map(status_map):
     return {str(key): value for key, value in dict(status_map or {}).items()}
 
@@ -293,8 +302,18 @@ def api_light_status():
     for cfg in CONFIG.get("light_devices", []):
         dev_id = cfg.get("id")
         meta = dict((LIGHT_META.get(dev_id) or LIGHT_META.get(str(dev_id)) or {}))
+        channel_config = list(cfg.get("channels_config", []) or [])
+        channel_labels = {
+            str(item.get("channel")): _channel_display_name(item, f"第{item.get('channel')}路")
+            for item in channel_config
+            if isinstance(item, dict) and item.get("channel") is not None
+        }
+        protocol_mode = str(cfg.get("relay_protocol") or cfg.get("protocol_variant") or cfg.get("data_protocol") or cfg.get("status_read_mode") or "").strip()
         extras[str(dev_id)] = {
             "brand": cfg.get("brand"),
+            "protocol_mode": protocol_mode,
+            "relay_protocol": cfg.get("relay_protocol"),
+            "channel_labels": channel_labels,
             "dashboard_action_buttons": list(cfg.get("dashboard_action_buttons", []) or []),
             "inputs": list(meta.get("inputs", []) or []),
             "input_count": int(cfg.get("input_count", 0) or 0),

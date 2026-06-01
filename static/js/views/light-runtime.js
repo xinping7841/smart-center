@@ -231,6 +231,13 @@
         </div>`;
     }
 
+    function getLightChannelDisplayName(channel = {}, fallback = '') {
+        const name = String(channel?.name || '').trim();
+        const remark = String(channel?.remark || channel?.usage || channel?.description || '').trim();
+        if (name && remark && !name.includes(remark)) return `${name}(${remark})`;
+        return name || remark || fallback;
+    }
+
     function renderDashboardInputSummary(device, extraMeta, compact = false, context = {}) {
         const inputs = Array.isArray(extraMeta?.inputs) ? extraMeta.inputs : [];
         const visibleInputs = getVisibleLightInputs(device);
@@ -272,7 +279,7 @@
             const actions = channels.map(ch => {
                 const uiState = getLightChannelUiState(devKey, ch.channel);
                 const btnClass = uiState.cls === 'ch-on' ? 'success' : (uiState.cls === 'ch-off' ? 'secondary' : (online ? 'warning' : 'danger'));
-                return `<button class="dashboard-mini-btn ${btnClass}${ctx.getPermissionDisabledClass('light.control')}" ${ctx.getPermissionDisabledAttrs('light.control', '当前账号无灯光控制权限')} onclick="toggleLight('${ctx.escapeHtml(devKey)}', ${Number(ch.channel)})">${ctx.escapeHtml(ch.name || ('CH' + ch.channel))}</button>`;
+                return `<button class="dashboard-mini-btn ${btnClass}${ctx.getPermissionDisabledClass('light.control')}" ${ctx.getPermissionDisabledAttrs('light.control', '当前账号无灯光控制权限')} onclick="toggleLight('${ctx.escapeHtml(devKey)}', ${Number(ch.channel)})">${ctx.escapeHtml(getLightChannelDisplayName(ch, 'CH' + ch.channel))}</button>`;
             }).join('');
             const extraButtons = (((extras[devKey] || {}).dashboard_action_buttons) || []).filter(item => item && item.visible !== false).map(item => {
                 return `<button class="dashboard-mini-btn secondary${ctx.getPermissionDisabledClass('light.control')}" ${ctx.getPermissionDisabledAttrs('light.control', '当前账号无灯光控制权限')} onclick="triggerLightAction('${ctx.escapeHtml(devKey)}', '${ctx.escapeHtml(item.action || '')}', '${ctx.escapeHtml(item.label || item.action || '')}')">${ctx.escapeHtml(item.label || item.action || '动作')}</button>`;
@@ -338,7 +345,7 @@
                 : rawStates.map((_, idx) => ({ channel: idx + 1, name: `CH${idx + 1}` }));
             const actionNameCounts = actionChannels.reduce((acc, ch) => {
                 const chNum = Number(ch.channel);
-                const name = String(ch.name || `CH${chNum}`);
+                const name = getLightChannelDisplayName(ch, `CH${chNum}`);
                 acc.set(name, (acc.get(name) || 0) + 1);
                 return acc;
             }, new Map());
@@ -347,7 +354,7 @@
                 const channelState = getLightChannelStateFromSources(devKey, chNum, channelsMap);
                 const cls = channelState === true ? 'on' : (channelState === false ? 'off' : 'warning');
                 const stateText = channelState === true ? '开' : (channelState === false ? '关' : '?');
-                const baseName = String(ch.name || `CH${chNum}`);
+                const baseName = getLightChannelDisplayName(ch, `CH${chNum}`);
                 const displayName = actionNameCounts.get(baseName) > 1 ? `${baseName} ${chNum}` : baseName;
                 return `<button class="home-compact-action ${cls}${ctx.getPermissionDisabledClass('light.control')}" ${ctx.getPermissionDisabledAttrs('light.control', '当前账号无灯光控制权限')} onclick="toggleLight('${ctx.escapeHtml(devKey)}', ${chNum})"><span class="label">${ctx.escapeHtml(displayName)}</span><span class="home-action-state">${ctx.escapeHtml(stateText)}</span></button>`;
             }).join('');

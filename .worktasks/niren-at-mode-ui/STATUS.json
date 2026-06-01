@@ -1,0 +1,10 @@
+{
+  "task": "niren-at-mode-ui",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-niren-at-mode-ui-20260601",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/niren-at-mode-ui",
+  "started_at": "2026-06-01 15:12:41",
+  "status": "in_progress"
+}

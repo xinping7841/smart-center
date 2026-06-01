@@ -45,12 +45,22 @@
             .sort(bySort);
     }
 
+    function channelDisplayName(channel = {}, fallback = '') {
+        const name = String(channel.name || '').trim();
+        const remark = String(channel.remark || channel.usage || channel.description || '').trim();
+        if (name && remark && !name.includes(remark)) return `${name}(${remark})`;
+        return name || remark || fallback;
+    }
+
     function renderLightChannelButton(deviceId, channel = {}) {
         const channelNo = Number(channel.channel || 0);
         if (!channelNo) return '';
         const span = Math.max(1, Math.min(4, Number(channel.span || 1)));
+        const displayName = channelDisplayName(channel, `第${channelNo}路`);
+        const remark = String(channel.remark || channel.usage || channel.description || '').trim();
         return `<button class="ch-btn ch-err ch-span-${span}" id="lch_${escapeHtml(deviceId)}_${channelNo}" onclick="toggleLight(${jsArg(String(deviceId))}, ${channelNo})">
-            <span class="name">${escapeHtml(channel.name || `第${channelNo}路`)}</span>
+            <span class="name">${escapeHtml(displayName)}</span>
+            ${remark ? `<span class="remark">${escapeHtml(remark)}</span>` : ''}
             <span class="state">离线</span>
         </button>`;
     }
@@ -59,8 +69,9 @@
         const channelNo = Number(channel.channel || 0);
         if (!channelNo) return '';
         const span = Math.max(1, Math.min(4, Number(channel.span || 1)));
+        const displayName = channelDisplayName(channel, `输入${channelNo}`);
         return `<div class="relay-input-chip unknown ch-span-${span}" id="lin_${escapeHtml(deviceId)}_${channelNo}">
-            <span class="name">${escapeHtml(channel.name || `输入${channelNo}`)}</span>
+            <span class="name">${escapeHtml(displayName)}</span>
             <span class="state">待确认</span>
         </div>`;
     }
