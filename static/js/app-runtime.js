@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260601-hvac-env-server-speed-v3';
+        const lazyModuleVersion = '20260601-hvac-env-server-speed-v4';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -2564,6 +2564,15 @@
             if (!text) return '';
             const match = text.match(/\b(?:[0-9A-F]{2}:){5}[0-9A-F]{2}\b/i);
             return match ? match[0].toUpperCase() : '';
+        }
+
+        function formatCompactAgeFromSec(ageSec) {
+            const value = Number(ageSec);
+            if (!Number.isFinite(value)) return '';
+            if (value < 60) return `${Math.round(value)}秒前`;
+            if (value < 3600) return `${Math.round(value / 60)}分钟前`;
+            if (value < 86400) return `${Math.round(value / 3600)}小时前`;
+            return `${Math.round(value / 86400)}天前`;
         }
 
         function buildEnvDeviceInfo(cfg, st) {
