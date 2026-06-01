@@ -22,20 +22,24 @@ bp = Blueprint("env", __name__)
 
 @bp.route("/api/env/status")
 def api_env_status():
+    include_history = str(request.args.get("history") or request.args.get("include_history") or "").strip().lower() in {"1", "true", "yes", "on"}
+    include_trend = include_history or str(request.args.get("trend") or request.args.get("include_trend") or "").strip().lower() in {"1", "true", "yes", "on"}
     payload = {}
     for device_id, state in (ENV_STATUS or {}).items():
         item = dict(state or {})
-        trend = build_env_lux_trend(
-            device_id,
-            current_lux=item.get("lux"),
-            threshold=None,
-            op="<",
-        )
-        if trend.get("available") or trend.get("estimate_to_threshold_sec") is not None:
-            item["lux_trend"] = trend
-        history = get_env_lux_history(device_id, limit=12)
-        if history:
-            item["lux_history"] = history
+        if include_trend:
+            trend = build_env_lux_trend(
+                device_id,
+                current_lux=item.get("lux"),
+                threshold=None,
+                op="<",
+            )
+            if trend.get("available") or trend.get("estimate_to_threshold_sec") is not None:
+                item["lux_trend"] = trend
+        if include_history:
+            history = get_env_lux_history(device_id, limit=12)
+            if history:
+                item["lux_history"] = history
         payload[str(device_id)] = item
     return jsonify(payload)
 

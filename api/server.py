@@ -30,7 +30,7 @@ REPORT_MAX_BYTES = 8 * 1024 * 1024
 REPORT_MIN_INTERVAL_SEC = 2.0
 REPORT_CACHE = {}
 REPORT_CACHE_LOCK = threading.Lock()
-MACHINES_CACHE = {"expires_at": 0.0, "payload": None}
+MACHINES_CACHE = {}
 MACHINES_CACHE_TTL_SEC = 2.5
 MACHINE_STATE_LOG_CACHE = {}
 PING_CACHE = {}
@@ -7058,18 +7058,173 @@ def serialize_machine_rows(rows):
     return machines
 
 
+def _compact_machine_agent_status(agent_status):
+    agent = agent_status if isinstance(agent_status, dict) else {}
+    keys = (
+        "version",
+        "task_exists",
+        "task_state",
+        "current_server_url",
+        "report_interval_sec",
+        "updated_at",
+        "ntp_enabled",
+        "last_ntp_check_at",
+        "ntp_last_result",
+        "self_update",
+    )
+    return {key: agent.get(key) for key in keys if key in agent}
+
+
+def _compact_codemeter_status(codemeter):
+    if not isinstance(codemeter, dict):
+        return {}
+    keys = (
+        "installed",
+        "running",
+        "level",
+        "validity",
+        "summary",
+        "license_code",
+        "license_name",
+        "runtime_outdated",
+        "runtime_version",
+        "checked_at",
+        "serials",
+        "licenses",
+        "license_identity",
+    )
+    return {key: codemeter.get(key) for key in keys if key in codemeter}
+
+
+def _compact_gpu_rows(gpu_list):
+    rows = _sanitize_gpu_list(gpu_list)
+    compact_rows = []
+    for item in rows[:4]:
+        if not isinstance(item, dict):
+            continue
+        compact_rows.append({
+            key: item.get(key)
+            for key in ("index", "name", "temp", "util_percent", "memory_used_mb", "memory_total_mb", "memory_util_percent", "source")
+            if key in item
+        })
+    return compact_rows
+
+
+def _compact_storage_filesystems(filesystems, fallback_status):
+    rows = filesystems if isinstance(filesystems, list) else []
+    compact = []
+    for item in rows[:6]:
+        if not isinstance(item, dict):
+            continue
+        compact.append({
+            key: item.get(key)
+            for key in ("name", "mountpoints", "percent", "used_bytes", "size_bytes", "free_bytes", "is_system", "is_network", "is_removable")
+            if key in item
+        })
+    if compact:
+        return compact
+    return []
+
+
+def _compact_machine_status(status_data):
+    st = status_data if isinstance(status_data, dict) else {}
+    keys = (
+        "cpu_name",
+        "cpu_percent",
+        "motherboard",
+        "mem_total",
+        "mem_used",
+        "mem_percent",
+        "disk_total",
+        "disk_used",
+        "disk_percent",
+        "net_sent_kb_s",
+        "net_recv_kb_s",
+        "network_primary",
+        "physical_mac",
+        "display_mac",
+        "hardware_refreshed_at",
+        "server_received_at",
+        "client_reported_at",
+        "clock_offset_sec",
+        "last_report_kind",
+        "last_full_report_at",
+        "last_bootstrap_report_at",
+        "host_type",
+        "command_result",
+    )
+    payload = {key: st.get(key) for key in keys if key in st}
+    payload["gpu_list"] = _compact_gpu_rows(st.get("gpu_list"))
+    payload["storage_filesystems"] = _compact_storage_filesystems(st.get("storage_filesystems"), st)
+    payload["storage_summary"] = st.get("storage_summary") if isinstance(st.get("storage_summary"), dict) else {}
+    payload["network_summary"] = st.get("network_summary") if isinstance(st.get("network_summary"), dict) else {}
+    payload["codemeter"] = _compact_codemeter_status(st.get("codemeter"))
+    return payload
+
+
+def compact_machine_payload(machines):
+    compact_rows = []
+    for machine in machines if isinstance(machines, list) else []:
+        if not isinstance(machine, dict):
+            continue
+        row = {
+            key: machine.get(key)
+            for key in (
+                "mac",
+                "hostname",
+                "ip",
+                "is_online",
+                "report_online",
+                "agent_heartbeat_online",
+                "runtime_fresh",
+                "runtime_age_sec",
+                "last_report_kind",
+                "ping_online",
+                "ping_state",
+                "ping_age_sec",
+                "ping_refreshing",
+                "network_reachable",
+                "offline_reason",
+                "pending_power_command",
+                "claimed_power_command",
+                "last_online",
+                "server_received_at",
+                "client_reported_at",
+                "clock_offset_sec",
+                "is_manual",
+                "custom_name",
+                "sort_order",
+                "remark",
+                "card_size",
+                "asset_group",
+                "diagnostic",
+            )
+            if key in machine
+        }
+        row["status"] = _compact_machine_status(machine.get("status"))
+        row["agent_status"] = _compact_machine_agent_status(machine.get("agent_status"))
+        compact_rows.append(row)
+    return compact_rows
+
+
 def invalidate_machines_cache():
-    MACHINES_CACHE["expires_at"] = 0.0
-    MACHINES_CACHE["payload"] = None
+    MACHINES_CACHE.clear()
 
 
-def get_cached_machine_payload(force=False):
+def get_cached_machine_payload(force=False, detail="full"):
+    detail_key = "full" if str(detail or "").strip().lower() in {"full", "detail", "1", "true"} else "compact"
     now_ts = time.time()
-    if (not force) and MACHINES_CACHE["payload"] is not None and now_ts < float(MACHINES_CACHE["expires_at"] or 0.0):
-        return MACHINES_CACHE["payload"]
-    payload = serialize_machine_rows(load_machine_rows())
-    MACHINES_CACHE["payload"] = payload
-    MACHINES_CACHE["expires_at"] = now_ts + MACHINES_CACHE_TTL_SEC
+    cached = MACHINES_CACHE.get(detail_key)
+    if (not force) and cached and cached.get("payload") is not None and now_ts < float(cached.get("expires_at") or 0.0):
+        return cached["payload"]
+    full_cached = MACHINES_CACHE.get("full")
+    if full_cached and full_cached.get("payload") is not None and now_ts < float(full_cached.get("expires_at") or 0.0):
+        full_payload = full_cached["payload"]
+    else:
+        full_payload = serialize_machine_rows(load_machine_rows())
+        MACHINES_CACHE["full"] = {"payload": full_payload, "expires_at": now_ts + MACHINES_CACHE_TTL_SEC}
+    payload = full_payload if detail_key == "full" else compact_machine_payload(full_payload)
+    MACHINES_CACHE[detail_key] = {"payload": payload, "expires_at": now_ts + MACHINES_CACHE_TTL_SEC}
     return payload
 
 def parse_arp_table():
@@ -7610,7 +7765,8 @@ def batch_save_machines():
 @bp.route('/api/machines')
 @require_permission("server.view")
 def get_machines():
-    return jsonify(get_cached_machine_payload())
+    detail = str(request.args.get("detail") or "full").strip().lower()
+    return jsonify(get_cached_machine_payload(detail=detail))
 
 @bp.route('/api/machines/discover/start', methods=['POST'])
 @require_permission("server.control")

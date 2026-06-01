@@ -27,11 +27,18 @@
         return Array.isArray(global.__envConfigsCache) ? global.__envConfigsCache : [];
     }
 
-    function fetchEnvStatus() {
+    function fetchEnvStatus(options = {}) {
+        const query = options.history || options.trend
+            ? `?${new URLSearchParams({
+                ...(options.history ? { history: '1' } : {}),
+                ...(options.trend ? { trend: '1' } : {}),
+            }).toString()}`
+            : '';
+        const url = `/api/env/status${query}`;
         if (typeof global.fetchJson === 'function') {
-            return global.fetchJson('/api/env/status', {}, '环境状态读取失败');
+            return global.fetchJson(url, {}, '环境状态读取失败');
         }
-        return fetch('/api/env/status').then(response => response.json());
+        return fetch(url).then(response => response.json());
     }
 
     function setText(id, value) {
@@ -101,8 +108,13 @@
         }).join('');
     }
 
-    function updateEnvData() {
-        return fetchEnvStatus()
+    function updateEnvData(options = {}) {
+        const activeView = typeof global.getActiveViewId === 'function' ? global.getActiveViewId() : '';
+        const requestOptions = Object.assign({
+            history: activeView === 'env',
+            trend: activeView === 'env',
+        }, options || {});
+        return fetchEnvStatus(requestOptions)
             .then(data => {
                 const payload = data || {};
                 global.__envStatusCache = payload;
@@ -125,6 +137,7 @@
 
     const api = {
         updateEnvData,
+        fetchEnvStatus,
         renderEnvSensorCards,
         updateTopEnvSummary,
     };

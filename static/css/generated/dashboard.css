@@ -7094,17 +7094,24 @@ body.dashboard-compact-mode #dashboard-section-hvac .hvac-group-machine::before 
             display:inline-flex;
             align-items:center;
             justify-content:center;
-            border-radius:8px;
+            border-radius:999px;
             border:1px solid rgba(148,163,184,0.18);
-            color:#cbd5e1;
-            background:rgba(15,23,42,0.72);
+            color:#fff;
+            background:linear-gradient(180deg, #94a3b8 0%, #475569 100%);
             cursor:pointer;
+            box-shadow:0 0 0 2px rgba(100,116,139,0.12), 0 7px 14px rgba(2,6,23,0.20);
         }
 
 #dashboard-section-hvac .dashboard-hvac-power.on {
-            color:#fef3c7;
-            border-color:rgba(245,158,11,0.35);
-            background:rgba(120,53,15,0.28);
+            border-color:rgba(134,239,172,0.40);
+            background:linear-gradient(180deg, #34d399 0%, #059669 100%);
+            box-shadow:0 0 0 2px rgba(16,185,129,0.15), 0 7px 14px rgba(16,185,129,0.22);
+        }
+
+#dashboard-section-hvac .dashboard-hvac-power.off {
+            border-color:rgba(254,202,202,0.34);
+            background:linear-gradient(180deg, #fb7185 0%, #dc2626 100%);
+            box-shadow:0 0 0 2px rgba(239,68,68,0.14), 0 7px 14px rgba(239,68,68,0.20);
         }
 
 #dashboard-section-hvac .dashboard-hvac-power svg {

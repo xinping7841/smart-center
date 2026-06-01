@@ -8,7 +8,10 @@
 # AI_SEARCH_KEYWORDS: home assistant, ha, xiaomi, climate, entity_id, sensor, token.
 
 import json
+import hashlib
 import ssl
+import threading
+import time
 import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
@@ -17,6 +20,10 @@ from urllib.error import HTTPError
 
 DEFAULT_BASE_URL = "http://192.168.50.121:8123"
 UNAVAILABLE_STATES = {"", "unknown", "unavailable", "none", "null"}
+_STATE_CACHE_TTL_SEC = 1.2
+_STATE_CACHE_LOCK = threading.Lock()
+_STATE_MAP_CACHE = {}
+_ENTITY_STATE_CACHE = {}
 
 
 def _now_iso():
@@ -131,6 +138,85 @@ def _request_json(ha_cfg, path, method="GET", payload=None):
         return json.loads(body) if body else None
 
 
+def _ha_cache_key(ha_cfg):
+    token = str((ha_cfg or {}).get("token") or "").strip()
+    token_hash = hashlib.sha1(token.encode("utf-8", errors="ignore")).hexdigest()[:12] if token else ""
+    return (
+        str((ha_cfg or {}).get("base_url") or DEFAULT_BASE_URL).strip().rstrip("/"),
+        token_hash,
+        bool((ha_cfg or {}).get("verify_ssl", True)),
+    )
+
+
+def _get_cached_state_map(ha_cfg):
+    key = _ha_cache_key(ha_cfg)
+    now = time.monotonic()
+    with _STATE_CACHE_LOCK:
+        cached = _STATE_MAP_CACHE.get(key)
+        if cached and now < float(cached.get("expires_at") or 0):
+            return cached.get("payload") or {}
+    states = fetch_states(ha_cfg)
+    mapping = {
+        str(item.get("entity_id") or "").strip(): item
+        for item in (states if isinstance(states, list) else [])
+        if isinstance(item, dict) and str(item.get("entity_id") or "").strip()
+    }
+    with _STATE_CACHE_LOCK:
+        _STATE_MAP_CACHE[key] = {"expires_at": now + _STATE_CACHE_TTL_SEC, "payload": mapping}
+    return mapping
+
+
+def _get_cached_entity_state(entity_id, ha_cfg):
+    entity_id = str(entity_id or "").strip()
+    if not entity_id:
+        raise ValueError("missing Home Assistant entity_id")
+    key = (*_ha_cache_key(ha_cfg), entity_id)
+    now = time.monotonic()
+    with _STATE_CACHE_LOCK:
+        cached = _ENTITY_STATE_CACHE.get(key)
+        if cached and now < float(cached.get("expires_at") or 0):
+            return cached.get("payload")
+    payload = fetch_state(entity_id, ha_cfg)
+    with _STATE_CACHE_LOCK:
+        _ENTITY_STATE_CACHE[key] = {"expires_at": now + _STATE_CACHE_TTL_SEC, "payload": payload}
+    return payload
+
+
+def invalidate_ha_state_cache(ha_cfg, entity_ids=None):
+    key = _ha_cache_key(ha_cfg)
+    entity_set = {
+        str(item or "").strip()
+        for item in (entity_ids if isinstance(entity_ids, (list, tuple, set)) else [entity_ids])
+        if str(item or "").strip()
+    }
+    with _STATE_CACHE_LOCK:
+        _STATE_MAP_CACHE.pop(key, None)
+        if not entity_set:
+            stale_keys = [cache_key for cache_key in _ENTITY_STATE_CACHE if cache_key[:3] == key]
+        else:
+            stale_keys = [
+                cache_key
+                for cache_key in _ENTITY_STATE_CACHE
+                if cache_key[:3] == key and cache_key[3] in entity_set
+            ]
+        for cache_key in stale_keys:
+            _ENTITY_STATE_CACHE.pop(cache_key, None)
+
+
+def get_cached_state(entity_id, ha_cfg, prefer_state_map=True):
+    entity_id = str(entity_id or "").strip()
+    if not entity_id:
+        raise ValueError("missing Home Assistant entity_id")
+    if prefer_state_map:
+        try:
+            state_map = _get_cached_state_map(ha_cfg)
+            if entity_id in state_map:
+                return state_map[entity_id]
+        except Exception:
+            pass
+    return _get_cached_entity_state(entity_id, ha_cfg)
+
+
 def fetch_state(entity_id, ha_cfg):
     entity_id = str(entity_id or "").strip()
     if not entity_id:
@@ -148,7 +234,9 @@ def call_service(ha_cfg, domain, service, service_data):
     service = str(service or "").strip().lower()
     if not domain or not service:
         raise ValueError("missing Home Assistant service domain or service")
-    return _request_json(ha_cfg, f"/api/services/{domain}/{service}", method="POST", payload=service_data or {})
+    result = _request_json(ha_cfg, f"/api/services/{domain}/{service}", method="POST", payload=service_data or {})
+    invalidate_ha_state_cache(ha_cfg, (service_data or {}).get("entity_id"))
+    return result
 
 
 def _state_is_online(state):
@@ -260,7 +348,7 @@ def get_env_state(sensor_cfg, config=None):
                 status_key = str(status_key or "").strip()
                 if not status_key:
                     continue
-                ha_state = fetch_state(entity_id, ha_cfg)
+                ha_state = get_cached_state(entity_id, ha_cfg)
                 online = _state_is_online(ha_state)
                 any_online = any_online or online
                 updated_iso = _state_updated_iso(ha_state)
@@ -298,7 +386,7 @@ def get_env_state(sensor_cfg, config=None):
                     if voltage is not None and "voltage" not in state:
                         state["voltage"] = voltage
         else:
-            ha_state = fetch_state(ha_cfg.get("entity_id"), ha_cfg)
+            ha_state = get_cached_state(ha_cfg.get("entity_id"), ha_cfg)
             any_online = _state_is_online(ha_state)
             age = _state_age_sec(ha_state)
             updated_iso = _state_updated_iso(ha_state)
@@ -401,7 +489,7 @@ def get_hvac_status(device_cfg, config=None):
         "updated_at": _now_iso(),
     }
     try:
-        ha_state = fetch_state(entity_id, ha_cfg)
+        ha_state = get_cached_state(entity_id, ha_cfg)
         attrs = (ha_state or {}).get("attributes") or {}
         state_value = str((ha_state or {}).get("state") or "").strip().lower()
         hvac_modes = attrs.get("hvac_modes")
@@ -427,7 +515,7 @@ def get_hvac_status(device_cfg, config=None):
         )
         power_entity = str((device_cfg or {}).get("power_sensor_entity_id") or "").strip()
         if power_entity:
-            power_state = fetch_state(power_entity, ha_cfg)
+            power_state = get_cached_state(power_entity, ha_cfg)
             power_w = _safe_float((power_state or {}).get("state"))
             if power_w is not None:
                 payload["electric_power_w"] = power_w
