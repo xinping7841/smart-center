@@ -13,6 +13,15 @@
 
     const SHELLS = {
         power: `
+                <div class="card power-log-summary-card">
+                    <div class="card-title">
+                        <span>强电操作日志汇总</span>
+                        <span style="font-size:12px; color:var(--text-sub);">最新操作、外部网关、自动化触发统一显示</span>
+                    </div>
+                    <div class="power-log-summary-grid" id="power-log-summary-grid">
+                        <div class="power-log-summary-empty">正在加载强电日志...</div>
+                    </div>
+                </div>
                 <div id="power-page-grid">
                     <div class="card">
                         <div style="color:var(--text-sub); text-align:center; padding:20px;">正在加载强电柜...</div>

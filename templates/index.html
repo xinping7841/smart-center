@@ -150,8 +150,8 @@
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
     </script>
-    <script src="/static/js/views/dashboard-shell.js?v=20260601-page-shells-hotfix-v5"></script>
-    <script src="/static/js/views/page-shells.js?v=20260601-page-shells-hotfix-v5"></script>
+    <script src="/static/js/views/dashboard-shell.js?v=20260601-page-shells-hotfix-v6"></script>
+    <script src="/static/js/views/page-shells.js?v=20260601-page-shells-hotfix-v6"></script>
     <script>
         window.renderDashboardShell?.(window.configData || {});
         try {
@@ -160,8 +160,8 @@
             if (initialView && initialView !== 'dashboard') window.renderPageShell?.(initialView);
         } catch (_) {}
     </script>
-    <script src="/static/js/app-runtime.js?v=20260601-page-shells-hotfix-v5"></script>
-    <style id="lazy-shell-critical-hotfix-v5">
+    <script src="/static/js/app-runtime.js?v=20260601-page-shells-hotfix-v6"></script>
+    <style id="lazy-shell-critical-hotfix-v6">
         /* Production guard: keep lazy shell dashboard on measured masonry even if cached fixed-canvas CSS wins. */
         html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .view-container {
             overflow:auto !important;

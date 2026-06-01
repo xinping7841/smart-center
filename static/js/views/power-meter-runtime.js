@@ -569,6 +569,35 @@
         state.charts.dashboardEnergyTrend.resize();
     }
 
+    function renderPowerLogSummary(context = {}) {
+        const ctx = getContext(context);
+        const container = document.getElementById('power-log-summary-grid');
+        if (!container) return;
+        const cabinets = Array.isArray(ctx.configData.cabinets) ? ctx.configData.cabinets : [];
+        if (!cabinets.length) {
+            container.innerHTML = '<div class="power-log-summary-empty">未配置强电柜</div>';
+            return;
+        }
+        container.innerHTML = cabinets.map((cab, cabId) => {
+            const logs = Array.isArray(state.powerLogCache[cabId]) ? state.powerLogCache[cabId].slice(0, 6) : [];
+            const itemsHtml = logs.length ? logs.map(log => {
+                const timeText = log.time ? new Date(log.time).toLocaleTimeString('zh-CN', { hour12: false }) : '--:--:--';
+                return `<div class="log-item">
+                    <span class="time">[${timeText}]</span>
+                    ${ctx.renderPowerLogSourceTag(log)}
+                    <span class="msg">${ctx.escapeHtml(ctx.normalizeLogOperationText(log))}</span>
+                </div>`;
+            }).join('') : '<div class="power-log-summary-empty compact">暂无操作日志</div>';
+            return `<div class="power-log-summary-panel">
+                <div class="power-log-summary-head">
+                    <strong>${ctx.escapeHtml(getCabinetDisplayName(cab, cabId))}</strong>
+                    <span>${ctx.escapeHtml(getCabinetSubtitle(cab))}</span>
+                </div>
+                <div class="log-list power-log-summary-list">${itemsHtml}</div>
+            </div>`;
+        }).join('');
+    }
+
     function refreshPowerSupplement(cabId, force = false, context = {}) {
         const ctx = getContext(context);
         const now = Date.now();
@@ -581,6 +610,7 @@
             .then(logs => {
                 state.powerLogCache[cabId] = Array.isArray(logs) ? logs : [];
                 ctx.renderPowerDetailLogs(cabId, state.powerLogCache[cabId]);
+                renderPowerLogSummary(ctx);
             })
             .catch(err => console.error('强电日志更新失败', cabId, err));
         const historyReq = ctx.fetchJson(`/api/7days_energy?cab=${cabId}`, {}, '强电图表读取失败')
@@ -590,7 +620,10 @@
             })
             .catch(err => console.error('强电图表更新失败', cabId, err));
         state.powerSupplementInFlight[cabId] = Promise.allSettled([logsReq, historyReq])
-            .then(() => renderDashboardPowerCards(ctx))
+            .then(() => {
+                renderPowerLogSummary(ctx);
+                renderDashboardPowerCards(ctx);
+            })
             .finally(() => {
                 delete state.powerSupplementInFlight[cabId];
         });
@@ -859,6 +892,7 @@
         renderDashboardPowerCompact,
         renderMeterTrendChart,
         renderDashboardEnergyTrend,
+        renderPowerLogSummary,
         renderMeterCenterShell,
         refreshPowerSupplement,
         updateMeterCenter,

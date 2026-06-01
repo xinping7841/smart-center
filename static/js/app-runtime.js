@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260601-page-shells-hotfix-v5';
+        const lazyModuleVersion = '20260601-page-shells-hotfix-v6';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -149,7 +149,7 @@
         SmartCenter.registerViewModules('apple_audio', ['apple-audio-view']);
         SmartCenter.registerViewModules('local_model', ['local-model-view']);
         SmartCenter.registerViewModules('power', ['power-view-style', 'logs-view-style', 'logs-runtime', 'power-meter-runtime', 'power-page-view']);
-        SmartCenter.registerViewModules('light', ['light-runtime', 'light-scene-view']);
+        SmartCenter.registerViewModules('light', ['logs-view-style', 'light-runtime', 'light-scene-view']);
         SmartCenter.registerViewModules('scene', ['light-runtime', 'light-scene-view']);
         SmartCenter.registerViewModules('door', ['door-runtime']);
         SmartCenter.registerViewModules('meter', ['meter-view-style', 'power-meter-runtime']);

@@ -75,6 +75,32 @@ def _filter_light_logs(rows, limit=120):
         limit = 120
     return filtered[:limit]
 
+
+def _build_light_diagnostic_logs(limit=120):
+    rows = []
+    now_iso = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+    for cfg in CONFIG.get("light_devices", []) or []:
+        dev_id = cfg.get("id")
+        meta = dict((LIGHT_META.get(dev_id) or LIGHT_META.get(str(dev_id)) or {}))
+        last_error = str(meta.get("last_error") or meta.get("error") or "").strip()
+        online = bool(LIGHT_ONLINE.get(dev_id) or LIGHT_ONLINE.get(str(dev_id)))
+        if online and not last_error:
+            continue
+        device_name = str(cfg.get("name") or dev_id or "灯光设备")
+        checked_at = meta.get("last_checked_at") or meta.get("last_error_at") or now_iso
+        failures = int(meta.get("poll_failures", 0) or 0)
+        status_label = str(meta.get("status_label") or meta.get("status_text") or "离线")
+        rows.append(
+            {
+                "time": checked_at,
+                "operation": f"[灯光诊断] {device_name} {status_label}，连续失败 {failures} 次，原因：{last_error or '暂无详细错误'}",
+                "status": "error" if not online else "warning",
+                "device_id": str(dev_id),
+                "data_source": "light_poller",
+            }
+        )
+    return rows[:limit]
+
 LIGHT_DEBUG_HTML = """
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -438,7 +464,9 @@ def api_light_logs():
     if now_ts < float(LIGHT_LOGS_CACHE.get("expires_at", 0.0) or 0.0):
         return jsonify(LIGHT_LOGS_CACHE.get("payload", []))
     limit = request.args.get("limit", default=120, type=int)
-    payload = _filter_light_logs(load_logs(-1), limit=limit)
+    diagnostics = _build_light_diagnostic_logs(limit=limit)
+    payload = diagnostics + _filter_light_logs(load_logs(-1), limit=limit)
+    payload = payload[:limit]
     LIGHT_LOGS_CACHE["payload"] = payload
     LIGHT_LOGS_CACHE["expires_at"] = now_ts + LIGHT_LOGS_TTL_SEC
     return jsonify(payload)

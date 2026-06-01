@@ -184,6 +184,39 @@
         chip.title = inputState === true ? '输入接口检测到有效电平' : (inputState === false ? '输入接口未检测到有效电平' : '输入接口状态待确认');
     }
 
+    function formatLightTime(value) {
+        if (!value) return '--';
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return String(value);
+        return parsed.toLocaleString('zh-CN', { hour12: false });
+    }
+
+    function renderLightDiagnostics(statusData = {}, context = {}) {
+        const ctx = getContext(context);
+        const devices = ensureDeviceState(ctx);
+        devices.forEach(device => {
+            const devKey = String(device?.id ?? '');
+            if (!devKey) return;
+            const extraMeta = (statusData.extras || {})[devKey] || {};
+            const diagEl = document.getElementById(`light-diagnostic-${devKey}`);
+            if (!diagEl) return;
+            const online = !!((statusData.online || {})[device.id] ?? (statusData.online || {})[devKey]);
+            const lastError = String(extraMeta.last_error || '').trim();
+            const checkedAt = extraMeta.last_checked_at || extraMeta.last_error_at || '';
+            const successAt = extraMeta.last_success_at || '';
+            const failures = Number(extraMeta.poll_failures || 0);
+            const statusLabel = String(extraMeta.status_label || extraMeta.status_text || (online ? '在线' : '离线')).trim();
+            diagEl.className = `light-diagnostic-panel ${online ? 'online' : 'offline'}`;
+            diagEl.innerHTML = `
+                <div class="light-diagnostic-item"><span>状态</span><strong>${ctx.escapeHtml(statusLabel || '--')}</strong></div>
+                <div class="light-diagnostic-item"><span>连续失败</span><strong>${ctx.escapeHtml(String(failures))}</strong></div>
+                <div class="light-diagnostic-item"><span>最近检查</span><strong>${ctx.escapeHtml(formatLightTime(checkedAt))}</strong></div>
+                <div class="light-diagnostic-item"><span>最近成功</span><strong>${ctx.escapeHtml(formatLightTime(successAt))}</strong></div>
+                <div class="light-diagnostic-reason">${ctx.escapeHtml(lastError || (online ? '通讯正常' : '暂无详细错误，等待下一次轮询'))}</div>
+            `;
+        });
+    }
+
     function getVisibleLightInputs(device) {
         return Array.isArray(device?.input_channels_config)
             ? device.input_channels_config.filter(ch => ch && ch.visible !== false).sort((a, b) => Number(a.sort || 999) - Number(b.sort || 999))
@@ -465,7 +498,7 @@
                     const timeText = new Date(log.time).toLocaleTimeString('zh-CN', { hour12: false });
                     const operation = String(log.operation || '').replace(/\[.*?\]\s*/, '');
                     return `<div class="log-item"><span class="time">[${timeText}]</span><span class="msg">${ctx.escapeHtml(operation)}</span></div>`;
-                }).join('');
+                }).join('') || '<div class="log-item"><span class="time">[--:--:--]</span><span class="msg">暂无灯光操作或诊断日志</span></div>';
                 if (logBox.innerHTML !== html) logBox.innerHTML = html;
                 return logs;
             })
@@ -523,6 +556,7 @@
                 if (onlineEl) onlineEl.innerText = String(onlineCount);
                 renderDashboardLightCards(data, ctx);
                 renderDashboardLightCompact(data, ctx);
+                renderLightDiagnostics(data, ctx);
                 ctx.scheduleDashboardMasonry(120);
                 return data;
             })
@@ -547,6 +581,7 @@
         getLightChannelUiState,
         renderLightChannel,
         renderLightInput,
+        renderLightDiagnostics,
         renderDashboardLightCards,
         renderDashboardLightCompact,
         updateLightLogs,
