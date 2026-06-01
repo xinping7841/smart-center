@@ -2,19 +2,19 @@
    AI_PURPOSE: power view styling extracted from smart-center-time-ntp.css for lazy loading. */
 .power-log-summary-card { border-color:rgba(96,165,250,0.18); background:linear-gradient(180deg, rgba(13,27,47,0.98), rgba(10,20,35,0.96)); }
 
-.power-log-summary-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; }
+.power-log-summary-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:10px; }
 
-.power-log-summary-panel { min-width:0; border:1px solid rgba(148,163,184,0.14); border-radius:14px; background:rgba(2,6,23,0.22); overflow:hidden; }
+.power-log-summary-panel { min-width:0; border:1px solid rgba(148,163,184,0.14); border-radius:12px; background:rgba(2,6,23,0.22); overflow:hidden; }
 
-.power-log-summary-head { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; border-bottom:1px solid rgba(148,163,184,0.10); color:#f8fafc; }
+.power-log-summary-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-bottom:1px solid rgba(148,163,184,0.10); color:#f8fafc; }
 
 .power-log-summary-head strong { font-size:13px; font-weight:900; }
 
 .power-log-summary-head span { min-width:0; color:#94a3b8; font-size:11px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
 
-.power-log-summary-list { height:168px; border-radius:0; background:transparent; padding:7px; }
+.power-log-summary-list { height:118px !important; max-height:118px !important; min-height:0 !important; border-radius:0; background:transparent; padding:6px; overflow:auto; }
 
-.power-log-summary-list .log-item { padding:5px 6px; gap:7px; font-size:11px; line-height:1.35; }
+.power-log-summary-list .log-item { min-height:0 !important; padding:4px 5px; gap:6px; font-size:11px; line-height:1.25; }
 
 .power-log-summary-list .log-item .msg { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 

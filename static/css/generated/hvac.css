@@ -1142,3 +1142,22 @@
             display:block !important;
             pointer-events:none !important;
         }
+
+/* Final loaded rule: override generic button/background resets after lazy CSS order changes. */
+html body #view-hvac button.projector-power-key.on,
+html body #view-hvac .hvac-card button.projector-power-key.on {
+            background:radial-gradient(circle at 35% 30%, #34d399, #059669 72%) !important;
+            box-shadow:0 0 0 3px rgba(16,185,129,0.15), 0 8px 18px rgba(16,185,129,0.24) !important;
+        }
+
+html body #view-hvac button.projector-power-key.off,
+html body #view-hvac .hvac-card button.projector-power-key.off {
+            background:radial-gradient(circle at 35% 30%, #f87171, #dc2626 72%) !important;
+            box-shadow:0 0 0 3px rgba(239,68,68,0.15), 0 8px 18px rgba(239,68,68,0.22) !important;
+        }
+
+html body #view-hvac button.projector-power-key.unknown,
+html body #view-hvac .hvac-card button.projector-power-key.unknown {
+            background:radial-gradient(circle at 35% 30%, #94a3b8, #475569 72%) !important;
+            box-shadow:0 0 0 3px rgba(100,116,139,0.15), 0 8px 18px rgba(71,85,105,0.22) !important;
+        }

@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260601-universal-status-v3';
+        const lazyModuleVersion = '20260601-page-regression-hotfix-v1';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -1997,13 +1997,15 @@
         function findNavElementByView(viewId) {
             return Array.from(document.querySelectorAll('.nav-menu li')).find(el => String(el.getAttribute('onclick') || '').includes(`switchTab('${viewId}'`)) || null;
         }
+        function normalizeViewIdCandidate(value) {
+            const safeView = String(value || '').replace(/^#?view-/, '').replace(/[^a-zA-Z0-9_-]/g, '');
+            return safeView && document.getElementById('view-' + safeView) ? safeView : null;
+        }
         function getInitialViewFromUrl() {
             const params = new URLSearchParams(window.location.search || '');
-            const requested = String(params.get('view') || params.get('tab') || '').trim();
-            if (!requested) return null;
-            const safeView = requested.replace(/[^a-zA-Z0-9_-]/g, '');
-            if (!safeView || !document.getElementById('view-' + safeView)) return null;
-            return safeView;
+            const hashView = normalizeViewIdCandidate(String(window.location.hash || '').trim());
+            if (hashView) return hashView;
+            return normalizeViewIdCandidate(String(params.get('view') || params.get('tab') || '').trim());
         }
         function getViewTitleFromNav(navEl, fallback = '') {
             const onclickText = String(navEl?.getAttribute('onclick') || '');
@@ -2614,6 +2616,14 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
                 }
                 switchTab('dashboard', '场馆总览', initialNav);
             }, '默认页面初始化异常，已切换为降级启动');
+            window.addEventListener('hashchange', () => {
+                guardFrontendStep('route.hashchange', () => {
+                    const nextView = getInitialViewFromUrl();
+                    if (!nextView || nextView === getActiveViewId()) return;
+                    const targetNav = findNavElementByView(nextView);
+                    switchTab(nextView, getViewTitleFromNav(targetNav, '中控系统'), targetNav);
+                }, '页面锚点切换异常');
+            });
             if (getActiveViewId() === 'door') {
                 setTimeout(() => {
                     guardFrontendStep('bootstrap.door_init', () => {
