@@ -118,19 +118,40 @@
             .then(data => {
                 const payload = data || {};
                 global.__envStatusCache = payload;
-                if (typeof global.updateHvacRoomEnvSlots === 'function') global.updateHvacRoomEnvSlots();
-                const screenEnvColumn = document.getElementById('screen-env-column');
-                const screenUpsColumn = document.getElementById('screen-ups-column');
-                const screenAutomationColumn = document.getElementById('screen-automation-column');
-                if (screenEnvColumn && typeof global.buildScreenEnvCards === 'function') screenEnvColumn.innerHTML = global.buildScreenEnvCards();
-                if (screenUpsColumn && typeof global.buildScreenUpsCards === 'function') screenUpsColumn.innerHTML = global.buildScreenUpsCards();
-                if (screenAutomationColumn && typeof global.buildScreenAutomationCards === 'function') screenAutomationColumn.innerHTML = global.buildScreenAutomationCards();
-                const sensor = typeof global.pickDashboardEnvSensor === 'function' ? global.pickDashboardEnvSensor(payload) : null;
-                updateTopEnvSummary(sensor);
-                if (typeof global.updateDashboardDoorStatusFromEnv === 'function') global.updateDashboardDoorStatusFromEnv(payload);
-                if (typeof global.renderOutdoorAutomationDashboardCard === 'function') global.renderOutdoorAutomationDashboardCard();
                 const container = document.getElementById('env-grid-container');
                 if (container) container.innerHTML = renderEnvSensorCards(payload);
+                try {
+                    if (typeof global.updateHvacRoomEnvSlots === 'function') global.updateHvacRoomEnvSlots();
+                } catch (err) {
+                    console.warn('环境数据 HVAC 联动刷新失败', err);
+                }
+                try {
+                    const screenEnvColumn = document.getElementById('screen-env-column');
+                    const screenUpsColumn = document.getElementById('screen-ups-column');
+                    const screenAutomationColumn = document.getElementById('screen-automation-column');
+                    if (screenEnvColumn && typeof global.buildScreenEnvCards === 'function') screenEnvColumn.innerHTML = global.buildScreenEnvCards();
+                    if (screenUpsColumn && typeof global.buildScreenUpsCards === 'function') screenUpsColumn.innerHTML = global.buildScreenUpsCards();
+                    if (screenAutomationColumn && typeof global.buildScreenAutomationCards === 'function') screenAutomationColumn.innerHTML = global.buildScreenAutomationCards();
+                } catch (err) {
+                    console.warn('环境数据幕布联动刷新失败', err);
+                }
+                let sensor = null;
+                try {
+                    sensor = typeof global.pickDashboardEnvSensor === 'function' ? global.pickDashboardEnvSensor(payload) : null;
+                } catch (err) {
+                    console.warn('环境顶部摘要传感器选择失败', err);
+                }
+                updateTopEnvSummary(sensor);
+                try {
+                    if (typeof global.updateDashboardDoorStatusFromEnv === 'function') global.updateDashboardDoorStatusFromEnv(payload);
+                } catch (err) {
+                    console.warn('环境数据门磁联动刷新失败', err);
+                }
+                try {
+                    if (typeof global.renderOutdoorAutomationDashboardCard === 'function') global.renderOutdoorAutomationDashboardCard();
+                } catch (err) {
+                    console.warn('环境数据自动化联动刷新失败', err);
+                }
             })
             .catch(err => console.error('环境数据更新失败', err));
     }
