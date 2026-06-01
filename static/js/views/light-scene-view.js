@@ -114,8 +114,9 @@
             </div>
             <div class="light-diagnostic-panel offline" id="light-diagnostic-${escapeHtml(deviceId)}">
                 <div class="light-diagnostic-item"><span>状态</span><strong>检测中</strong></div>
-                <div class="light-diagnostic-item"><span>连续失败</span><strong>--</strong></div>
-                <div class="light-diagnostic-item"><span>最近检查</span><strong>--</strong></div>
+                <div class="light-diagnostic-item"><span>失败</span><strong>--</strong></div>
+                <div class="light-diagnostic-item"><span>检查</span><strong>--</strong></div>
+                <div class="light-diagnostic-item"><span>成功</span><strong>--</strong></div>
                 <div class="light-diagnostic-reason">正在读取灯光控制器状态...</div>
             </div>
             <div class="channel-grid" id="light-channels-${escapeHtml(deviceId)}">

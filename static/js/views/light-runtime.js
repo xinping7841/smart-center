@@ -209,9 +209,9 @@
             diagEl.className = `light-diagnostic-panel ${online ? 'online' : 'offline'}`;
             diagEl.innerHTML = `
                 <div class="light-diagnostic-item"><span>状态</span><strong>${ctx.escapeHtml(statusLabel || '--')}</strong></div>
-                <div class="light-diagnostic-item"><span>连续失败</span><strong>${ctx.escapeHtml(String(failures))}</strong></div>
-                <div class="light-diagnostic-item"><span>最近检查</span><strong>${ctx.escapeHtml(formatLightTime(checkedAt))}</strong></div>
-                <div class="light-diagnostic-item"><span>最近成功</span><strong>${ctx.escapeHtml(formatLightTime(successAt))}</strong></div>
+                <div class="light-diagnostic-item"><span>失败</span><strong>${ctx.escapeHtml(String(failures))}</strong></div>
+                <div class="light-diagnostic-item"><span>检查</span><strong>${ctx.escapeHtml(formatLightTime(checkedAt))}</strong></div>
+                <div class="light-diagnostic-item"><span>成功</span><strong>${ctx.escapeHtml(formatLightTime(successAt))}</strong></div>
                 <div class="light-diagnostic-reason">${ctx.escapeHtml(lastError || (online ? '通讯正常' : '暂无详细错误，等待下一次轮询'))}</div>
             `;
         });
