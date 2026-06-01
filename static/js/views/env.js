@@ -153,4 +153,11 @@
     }
 
     Object.assign(global, api);
+    global.setTimeout(() => {
+        const activeView = typeof global.getActiveViewId === 'function' ? global.getActiveViewId() : '';
+        const container = global.document ? document.getElementById('env-grid-container') : null;
+        if (activeView !== 'env' || !container) return;
+        if (!String(container.textContent || '').includes('正在连接环境传感器')) return;
+        updateEnvData({ history: true, trend: true });
+    }, 0);
 })(window);
