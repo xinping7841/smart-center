@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260601-page-shells-v1';
+        const lazyModuleVersion = '20260601-page-shells-hotfix-v2';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -148,7 +148,7 @@
         SmartCenter.registerViewModules('universal', ['universal-view']);
         SmartCenter.registerViewModules('apple_audio', ['apple-audio-view']);
         SmartCenter.registerViewModules('local_model', ['local-model-view']);
-        SmartCenter.registerViewModules('power', ['power-view-style', 'power-meter-runtime', 'power-page-view']);
+        SmartCenter.registerViewModules('power', ['power-view-style', 'logs-view-style', 'logs-runtime', 'power-meter-runtime', 'power-page-view']);
         SmartCenter.registerViewModules('light', ['light-runtime', 'light-scene-view']);
         SmartCenter.registerViewModules('scene', ['light-runtime', 'light-scene-view']);
         SmartCenter.registerViewModules('door', ['door-runtime']);
@@ -1483,6 +1483,7 @@
                 chipEl.textContent = chipText;
                 chipEl.className = chipClass;
             }
+            scheduleDashboardMasonry(80);
         }
         async function loadAutomationStatus(showError=false) {
             if (automationStatusLoading) return;
@@ -1669,6 +1670,7 @@
         const updateLayoutDebugPanel = window.updateLayoutDebugPanel || (() => {});
         function syncDashboardCompactMode(viewId = getActiveViewId()) {
             document.body.classList.toggle('dashboard-compact-mode', viewId === 'dashboard');
+            document.body.classList.toggle('dashboard-masonry-mode', viewId === 'dashboard');
             applyDashboardBrowserFit();
             scheduleDashboardMasonry();
         }
@@ -1677,10 +1679,11 @@
             if (!safeView) return;
             try {
                 const url = new URL(window.location.href);
+                if (/^#view-[a-zA-Z0-9_-]+$/.test(url.hash || '')) url.hash = '';
                 if (url.searchParams.get('view') !== safeView) {
                     url.searchParams.set('view', safeView);
-                    window.history.replaceState(null, '', url.toString());
                 }
+                window.history.replaceState(null, '', url.toString());
                 if (window.parent && window.parent !== window) {
                     window.parent.postMessage({
                         source: 'smart-center',
@@ -1744,6 +1747,11 @@
                         updateHvacStatus(true);
                         return window.updateEnvData();
                     })
+                    .catch(() => {});
+            }, 80);
+            if (viewId === 'env') setTimeout(() => {
+                ensureViewReady('env')
+                    .then(() => window.updateEnvData())
                     .catch(() => {});
             }, 80);
             if (viewId === 'door') setTimeout(() => {
@@ -1861,10 +1869,19 @@
         function applyDashboardMasonry() {
             const dashboard = document.getElementById('view-dashboard');
             if (!dashboard || getActiveViewId() !== 'dashboard') return;
-            // Keep the monitoring wall deterministic across browsers: no masonry reflow.
-            document.body.classList.remove('dashboard-masonry-mode');
+            const style = window.getComputedStyle ? window.getComputedStyle(dashboard) : null;
+            const rowHeight = style ? parseFloat(style.gridAutoRows || '0') : 0;
+            const rowGap = style ? parseFloat(style.rowGap || style.gap || '0') : 0;
             const sections = Array.from(dashboard.querySelectorAll('[data-section-id]'));
-            sections.forEach(section => { section.style.gridRowEnd = ''; });
+            sections.forEach(section => {
+                section.style.gridRowEnd = '';
+                if (!document.body.classList.contains('dashboard-compact-mode') || !rowHeight) return;
+                if (section.style.display === 'none') return;
+                const rect = section.getBoundingClientRect();
+                if (!rect.height) return;
+                const span = Math.max(1, Math.ceil((rect.height + rowGap) / (rowHeight + rowGap)));
+                section.style.gridRowEnd = `span ${span}`;
+            });
         }
         function scheduleDashboardMasonry(delay = 80) {
             window.clearTimeout(dashboardMasonryTimer);
@@ -1872,6 +1889,11 @@
         }
         function initDashboardMasonryObservers() {
             applyDashboardMasonry();
+            if (dashboardResizeObserver || typeof ResizeObserver !== 'function') return;
+            const dashboard = document.getElementById('view-dashboard');
+            if (!dashboard) return;
+            dashboardResizeObserver = new ResizeObserver(() => scheduleDashboardMasonry(80));
+            Array.from(dashboard.querySelectorAll('[data-section-id]')).forEach(section => dashboardResizeObserver.observe(section));
         }
         function getHvacViewContext() {
             return { statusMap: hvacStatusCache };
@@ -1965,6 +1987,7 @@
             }
             const dashHvacOnline = document.getElementById('dash-hvac-online');
             if (dashHvacOnline) dashHvacOnline.innerText = visibleConfigs.filter(cfg => (hvacStatusCache[cfg.id] || {}).online).length;
+            scheduleDashboardMasonry(80);
         }
         function findNavElementByView(viewId) {
             return Array.from(document.querySelectorAll('.nav-menu li')).find(el => String(el.getAttribute('onclick') || '').includes(`switchTab('${viewId}'`)) || null;
@@ -2510,7 +2533,6 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         document.addEventListener('DOMContentLoaded', () => {
             applyAdaptiveDensity();
             guardFrontendStep('bootstrap.dashboard_shell', () => ensureDashboardShellRendered());
-            guardFrontendStep('bootstrap.page_shells', () => ensureAllPageShellsRendered());
             guardFrontendStep('bootstrap.permission_ui', () => applyPermissionUI());
             guardFrontendStep('bootstrap.dashboard_order', () => applyDashboardSectionOrder());
             guardFrontendStep('bootstrap.dashboard_masonry_observer', () => initDashboardMasonryObservers());
@@ -2568,13 +2590,13 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             const firstNav = document.querySelector('.nav-menu li.active');
             guardFrontendStep('bootstrap.first_nav', () => {
                 const navItems = Array.from(document.querySelectorAll('.nav-menu li'));
-	                const initialView = getInitialViewFromUrl();
-	                if (initialView) {
+                const initialView = getInitialViewFromUrl();
+                if (initialView) {
                         if (initialView === 'snmp') restoreSnmpSelectedDeviceFromUrl();
-	                    const targetNav = findNavElementByView(initialView);
-	                    switchTab(initialView, getViewTitleFromNav(targetNav, '中控系统'), targetNav);
-	                    return;
-	                }
+                    const targetNav = findNavElementByView(initialView);
+                    switchTab(initialView, getViewTitleFromNav(targetNav, '中控系统'), targetNav);
+                    return;
+                }
                 const dashboardNav = navItems.find(el => String(el.getAttribute('onclick') || '').includes("switchTab('dashboard'"));
                 const initialNav = dashboardNav || firstNav || null;
                 if (initialNav) {

@@ -325,6 +325,7 @@
                 </div>
             </div>`;
         }).join('');
+        if (typeof global.scheduleDashboardMasonry === 'function') global.scheduleDashboardMasonry(80);
     }
 
     function renderDashboardPowerCompact(context = {}) {
@@ -381,6 +382,7 @@
                 ${channelHtml ? `<div class="home-power-channel-strip">${channelHtml}</div>` : ''}
             </div>`;
         }).join('');
+        if (typeof global.scheduleDashboardMasonry === 'function') global.scheduleDashboardMasonry(80);
     }
 
     function renderMeterTrendChart(rows, context = {}) {

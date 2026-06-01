@@ -69,3 +69,108 @@
             max-width:260px !important;
             min-height:118px !important;
         }
+
+/* Node-RED unified light switch card. Keep this in universal.css so the
+   protocol page still looks correct when hotfix-overrides.css is removed. */
+#view-universal .node-red-device-grid {
+            display:grid !important;
+            grid-template-columns:repeat(auto-fill, 280px) !important;
+            gap:12px !important;
+            justify-content:start !important;
+            align-items:start !important;
+        }
+
+#view-universal .protocol-light-switch-card {
+            width:280px !important;
+            min-height:122px !important;
+            padding:14px !important;
+            border-radius:10px !important;
+            border:1px solid rgba(71,85,105,.55) !important;
+            border-top:4px solid #64748b !important;
+            background:linear-gradient(180deg, rgba(15,23,42,.96), rgba(8,15,28,.96)) !important;
+            color:#e5eefb !important;
+            display:flex !important;
+            flex-direction:column !important;
+            gap:12px !important;
+        }
+
+#view-universal .protocol-light-switch-card.is-on {
+            border-top-color:#10b981 !important;
+            box-shadow:0 12px 28px rgba(16,185,129,.12) !important;
+        }
+
+#view-universal .protocol-light-switch-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+
+#view-universal .protocol-light-switch-title { font-size:16px; font-weight:900; color:#f8fafc; line-height:1.2; }
+
+#view-universal .protocol-light-switch-subtitle { margin-top:4px; font-size:11px; color:#9fb0c9; }
+
+#view-universal .protocol-light-switch-state {
+            flex:none;
+            border-radius:999px;
+            padding:4px 9px;
+            font-size:11px;
+            font-weight:900;
+            background:rgba(100,116,139,.18);
+            border:1px solid rgba(148,163,184,.22);
+            color:#cbd5e1;
+        }
+
+#view-universal .protocol-light-switch-card.is-on .protocol-light-switch-state {
+            background:rgba(16,185,129,.14);
+            border-color:rgba(16,185,129,.34);
+            color:#86efac;
+        }
+
+#view-universal .protocol-light-switch-row { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+
+#view-universal .protocol-light-switch-meta {
+            min-width:0;
+            color:#9fb0c9;
+            font-size:11px;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+        }
+
+#view-universal .protocol-light-toggle { position:relative; width:58px; height:32px; flex:none; display:inline-block; }
+
+#view-universal .protocol-light-toggle input { position:absolute; opacity:0; width:0; height:0; }
+
+#view-universal .protocol-light-toggle span {
+            position:absolute;
+            inset:0;
+            border-radius:999px;
+            background:#475569;
+            border:1px solid rgba(148,163,184,.25);
+            transition:.18s ease;
+            box-shadow:inset 0 1px 3px rgba(0,0,0,.35);
+        }
+
+#view-universal .protocol-light-toggle span::before {
+            content:'';
+            position:absolute;
+            width:24px;
+            height:24px;
+            left:4px;
+            top:3px;
+            border-radius:50%;
+            background:#e2e8f0;
+            transition:.18s ease;
+            box-shadow:0 2px 8px rgba(0,0,0,.30);
+        }
+
+#view-universal .protocol-light-toggle input:checked + span {
+            background:#10b981;
+            border-color:rgba(52,211,153,.50);
+        }
+
+#view-universal .protocol-light-toggle input:checked + span::before {
+            transform:translateX(25px);
+            background:#ecfdf5;
+        }
+
+@media screen and (max-width:760px) {
+            #view-universal .node-red-device-grid { grid-template-columns:1fr !important; }
+            #view-universal .protocol-light-switch-card { width:100% !important; max-width:none !important; }
+        }

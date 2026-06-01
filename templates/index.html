@@ -150,12 +150,16 @@
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
     </script>
-    <script src="/static/js/views/dashboard-shell.js?v=20260601-page-shells-v1"></script>
-    <script src="/static/js/views/page-shells.js?v=20260601-page-shells-v1"></script>
+    <script src="/static/js/views/dashboard-shell.js?v=20260601-page-shells-hotfix-v2"></script>
+    <script src="/static/js/views/page-shells.js?v=20260601-page-shells-hotfix-v2"></script>
     <script>
         window.renderDashboardShell?.(window.configData || {});
-        window.renderAllPageShells?.();
+        try {
+            const initialParams = new URLSearchParams(window.location.search || '');
+            const initialView = String(initialParams.get('view') || initialParams.get('tab') || '').replace(/[^a-zA-Z0-9_-]/g, '');
+            if (initialView && initialView !== 'dashboard') window.renderPageShell?.(initialView);
+        } catch (_) {}
     </script>
-    <script src="/static/js/app-runtime.js?v=20260601-page-shells-v1"></script>
+    <script src="/static/js/app-runtime.js?v=20260601-page-shells-hotfix-v2"></script>
 </body>
 </html>

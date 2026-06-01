@@ -821,6 +821,34 @@
 
 #view-hvac .projector-power-key svg { width:14px; height:14px; }
 
+/* HVAC cards reuse the compact power-key markup but must not depend on projector.css. */
+#view-hvac .projector-power-key {
+            border:none;
+            border-radius:50%;
+            cursor:pointer;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:#fff;
+            font-size:14px;
+            transition:transform .18s ease, box-shadow .18s ease, opacity .18s ease;
+        }
+
+#view-hvac .projector-power-key:hover { transform:translateY(-1px); }
+
+#view-hvac .projector-power-key.on { background:radial-gradient(circle at 35% 30%, #34d399, #059669 72%); box-shadow:0 0 0 3px rgba(16,185,129,0.15), 0 8px 18px rgba(16,185,129,0.24); }
+
+#view-hvac .projector-power-key.off { background:radial-gradient(circle at 35% 30%, #f87171, #dc2626 72%); box-shadow:0 0 0 3px rgba(239,68,68,0.15), 0 8px 18px rgba(239,68,68,0.22); }
+
+#view-hvac .projector-power-key.unknown { background:radial-gradient(circle at 35% 30%, #94a3b8, #475569 72%); box-shadow:0 0 0 3px rgba(100,116,139,0.15), 0 8px 18px rgba(71,85,105,0.22); }
+
+#view-hvac .projector-power-key:disabled,
+        #view-hvac .projector-power-key.permission-disabled {
+            cursor:not-allowed;
+            opacity:.52;
+            transform:none;
+        }
+
 #view-hvac .hvac-body { grid-template-columns:minmax(92px, .58fr) minmax(0, 1fr); gap:7px; }
 
 #view-hvac .hvac-temp-panel { min-height:78px; padding:7px 32px 7px 7px; border-radius:9px; }
