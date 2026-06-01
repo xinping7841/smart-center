@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260601-hvac-env-server-speed-v1';
+        const lazyModuleVersion = '20260601-hvac-env-server-speed-v2';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -205,6 +205,20 @@
                     console.error(`${contextLabel}调用失败`, err);
                     return null;
                 });
+        }
+        function refreshEnvViewNow(contextLabel = '环境数据模块') {
+            return ensureViewReady('env')
+                .then(() => {
+                    if (getActiveViewId() !== 'env') return null;
+                    return withEnvRuntime(api => api.updateEnvData?.({ history: true, trend: true }), contextLabel);
+                });
+        }
+        function recoverEnvViewIfStillLoading() {
+            if (getActiveViewId() !== 'env') return;
+            const container = document.getElementById('env-grid-container');
+            const text = String(container?.textContent || '');
+            if (!container || !text.includes('正在连接环境传感器')) return;
+            refreshEnvViewNow('环境页面恢复刷新').catch(err => console.error('环境页面恢复刷新失败', err));
         }
         function ensureHyEdgeReady(contextLabel = 'HY 异地状态模块') {
             const api = window.SmartCenter?.hyEdge || null;
@@ -1471,8 +1485,8 @@
                     .catch(() => {});
             }, 80);
             if (viewId === 'env') setTimeout(() => {
-                ensureViewReady('env')
-                    .then(() => window.updateEnvData())
+                refreshEnvViewNow('环境页面加载')
+                    .then(() => setTimeout(recoverEnvViewIfStillLoading, 900))
                     .catch(() => {});
             }, 80);
             if (viewId === 'door') setTimeout(() => {
