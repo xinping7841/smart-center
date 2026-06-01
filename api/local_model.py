@@ -68,9 +68,17 @@ DEFAULT_LOCAL_MODEL = {
     "max_tokens": 512,
     "max_model_len": 32768,
     "system_prompt": "你是演播中控系统的本地助手，回答要基于中控设备、协议、日志和运行状态。允许识别和发起受控控制意图；涉及强电、时序电源、服务器关机等高风险动作时，必须说明风险并走二次确认。",
-    "training_export": {"enabled": True, "include_logs": True, "recent_log_limit": 500},
+    "training_export": {
+        "enabled": True,
+        "include_logs": True,
+        "recent_log_limit": 500,
+        "include_code_knowledge": True,
+        "include_full_code_context": True,
+        "refresh_strategy": "rag_first_high_context_summary",
+        "recommended_context_len": 131072,
+    },
     "natural_language": {
-        "feishu_control_enabled": False,
+        "feishu_control_enabled": True,
         "feishu_control_require_confirmation": True,
         "record_process_enabled": True,
         "process_log_limit": 200,
@@ -185,10 +193,17 @@ def normalize_local_model_config(raw_config=None, *, keep_secret=True):
     merged_export.update(export_cfg)
     merged_export["enabled"] = bool(merged_export.get("enabled", True))
     merged_export["include_logs"] = bool(merged_export.get("include_logs", True))
+    merged_export["include_code_knowledge"] = bool(merged_export.get("include_code_knowledge", True))
+    merged_export["include_full_code_context"] = bool(merged_export.get("include_full_code_context", True))
+    merged_export["refresh_strategy"] = str(merged_export.get("refresh_strategy") or "rag_first_high_context_summary").strip() or "rag_first_high_context_summary"
     try:
         merged_export["recent_log_limit"] = max(0, min(int(merged_export.get("recent_log_limit", 500) or 0), 5000))
     except Exception:
         merged_export["recent_log_limit"] = 500
+    try:
+        merged_export["recommended_context_len"] = max(32768, min(int(merged_export.get("recommended_context_len", 131072) or 131072), 262144))
+    except Exception:
+        merged_export["recommended_context_len"] = 131072
     merged["training_export"] = merged_export
     merged["natural_language"] = normalize_natural_language_policy(merged.get("natural_language"))
     if not keep_secret:
@@ -203,6 +218,9 @@ def _save_local_model_config(payload):
     if "api_key" not in incoming or str(incoming.get("api_key") or "").strip() in {"", "******"}:
         incoming = dict(incoming)
         incoming["api_key"] = current.get("api_key", "")
+    if "training_export" not in incoming:
+        incoming = dict(incoming)
+        incoming["training_export"] = current.get("training_export", {})
     next_config = normalize_local_model_config(incoming)
     CONFIG["local_model"] = next_config
     save_config(CONFIG)
@@ -296,8 +314,8 @@ def _jsonl_write(path, rows):
             handle.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 
-def _read_control_intent_rows():
-    path = Path(__file__).resolve().parents[1] / "docs" / "LOCAL_MODEL_CONTROL_INTENTS.jsonl"
+def _read_intent_rows(filename):
+    path = Path(__file__).resolve().parents[1] / "docs" / filename
     rows = []
     if not path.is_file():
         return rows
@@ -311,6 +329,48 @@ def _read_control_intent_rows():
             continue
         if isinstance(row, dict):
             rows.append(row)
+    return rows
+
+
+def _read_query_intent_rows():
+    return _read_intent_rows("LOCAL_MODEL_QUERY_INTENTS.jsonl")
+
+
+def _read_control_intent_rows():
+    return _read_intent_rows("LOCAL_MODEL_CONTROL_INTENTS.jsonl")
+
+
+def _build_nl_intent_example_rows(query_intent_rows, control_intent_rows):
+    rows = []
+    for source, intent_type, read_only in (
+        (query_intent_rows, "query", True),
+        (control_intent_rows, "control", False),
+    ):
+        for row in source:
+            if not isinstance(row, dict):
+                continue
+            examples = row.get("examples") if isinstance(row.get("examples"), list) else []
+            rows.append({
+                "schema": "smart_center.nl_intent_example.v1",
+                "kind": "nl_intent_example",
+                "intent_type": intent_type,
+                "source_schema": row.get("schema") or "",
+                "intent": row.get("intent") or "",
+                "allowed": bool(row.get("allowed", True)),
+                "read_only": bool(row.get("read_only", read_only)),
+                "risk": row.get("risk") or ("low" if read_only else "normal"),
+                "requires_confirmation": bool(row.get("requires_confirmation", not read_only)),
+                "examples": examples,
+                "api": row.get("api") if isinstance(row.get("api"), list) else [],
+                "expected": row.get("expected") if isinstance(row.get("expected"), dict) else {},
+                "answer": row.get("answer") or "",
+                "guidance": row.get("guidance") or "",
+                "routing_contract": (
+                    "查询类进入只读 API/RAG，不受飞书控制开关限制。"
+                    if read_only
+                    else "控制类先生成受控提案，再走飞书控制开关、权限、确认、审计和中控 API 执行链路。"
+                ),
+            })
     return rows
 
 
@@ -946,6 +1006,175 @@ def _build_qa_insights(device_rows):
     ]
 
 
+def _infer_control_actions(alias_row):
+    hint = str(alias_row.get("action_hint") or "").strip().lower()
+    module = str(alias_row.get("module") or "").strip()
+    device_type = str(alias_row.get("device_type") or "").strip()
+    if hint:
+        return [part for part in hint.replace(",", "/").split("/") if part]
+    if module in {"power", "light", "sequencer", "hvac", "projector"}:
+        return ["on", "off"]
+    if module == "screen":
+        return ["up", "down", "stop"]
+    if module == "door":
+        return ["open", "close", "stop"]
+    if module == "server":
+        return ["wake", "shutdown", "restart"]
+    if device_type == "custom_device" or module == "custom":
+        return ["execute_configured_command"]
+    return []
+
+
+def _control_risk(alias_row):
+    risk = str(alias_row.get("risk") or "normal").strip().lower()
+    module = str(alias_row.get("module") or "").strip()
+    device_type = str(alias_row.get("device_type") or "").strip()
+    if risk in {"high", "高"} or module in {"power", "sequencer"} or device_type in {"cabinet", "cabinet_channel"}:
+        return "high"
+    if module in {"server", "ups"}:
+        return "high"
+    if module in {"projector", "screen", "hvac", "door", "custom"}:
+        return "medium"
+    return "normal"
+
+
+def _build_device_inventory_rows(device_rows, alias_rows):
+    aliases_by_id = {}
+    for row in alias_rows:
+        row_id = str(row.get("device_id") or "")
+        if not row_id:
+            continue
+        aliases_by_id.setdefault(row_id, set()).update(str(item) for item in (row.get("aliases") or []) if item)
+    inventory = []
+    for row in device_rows:
+        row_id = str(row.get("device_id") or "")
+        inventory.append({
+            "schema": "smart_center.device_inventory.v1",
+            "kind": "device_inventory",
+            "device_id": row_id,
+            "name": row.get("name") or row_id,
+            "source_section": row.get("source_section") or "",
+            "device_type": row.get("device_type") or "",
+            "protocol": row.get("protocol") or "",
+            "host": row.get("host") or "",
+            "port": row.get("port") or "",
+            "enabled": row.get("enabled"),
+            "is_online": row.get("is_online"),
+            "aliases": sorted(aliases_by_id.get(row_id, set()))[:80],
+            "capabilities": _device_capabilities(row),
+            "dependencies": _device_dependencies(row),
+            "model_use": "自然语言查询先按 aliases/name/source_section/device_type 匹配，再读取实时 API 或运行快照；不要仅凭名称执行控制。",
+        })
+    return inventory
+
+
+def _build_control_capability_rows(alias_rows):
+    rows = []
+    for alias in alias_rows:
+        if not alias.get("control_capability"):
+            continue
+        module = str(alias.get("module") or "").strip()
+        device_type = str(alias.get("device_type") or "").strip()
+        risk = _control_risk(alias)
+        rows.append({
+            "schema": "smart_center.control_capability.v1",
+            "kind": "control_capability",
+            "module": module,
+            "device_type": device_type,
+            "device_id": alias.get("device_id") or "",
+            "name": alias.get("name") or alias.get("device_id") or "",
+            "aliases": alias.get("aliases") or [],
+            "actions": _infer_control_actions(alias),
+            "risk": risk,
+            "requires_confirmation": True,
+            "query_allowed_when_feishu_control_disabled": True,
+            "control_blocked_when_feishu_control_disabled": True,
+            "safety_chain": [
+                "natural_language_parse",
+                "alias_match",
+                "deterministic_router",
+                "permission_check",
+                "audit_trace",
+                "confirmation",
+                "smart_center_api_execute",
+                "state_readback_when_available",
+            ],
+            "model_use": "模型只能输出控制提案 JSON；后端必须重新按该能力记录和确定性路由校验后才可进入确认/执行。",
+        })
+    return rows
+
+
+def _build_runtime_system_map(config, device_rows, alias_rows, protocol_rows, log_rows, insight_rows, control_capability_rows, files, code_knowledge=None):
+    sections = _count_by(device_rows, "source_section")
+    control_by_module = _count_by(control_capability_rows, "module")
+    query_only_modules = sorted(
+        {
+            str(row.get("module") or "")
+            for row in alias_rows
+            if row.get("query_capability") and not row.get("control_capability")
+        }
+    )
+    code_counts = {}
+    code_files = {}
+    if isinstance(code_knowledge, dict):
+        code_counts = code_knowledge.get("counts") if isinstance(code_knowledge.get("counts"), dict) else {}
+        code_files = code_knowledge.get("files") if isinstance(code_knowledge.get("files"), dict) else {}
+    return {
+        "schema": "smart_center.system_map.v1",
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "project": "Smart Center 演播中控",
+        "purpose": "给本地模型和飞书自然语言提供稳定的系统目录：模块、设备、查询能力、控制能力、风险边界和知识文件入口。",
+        "counts": {
+            "devices": len(device_rows),
+            "aliases": len(alias_rows),
+            "protocol_records": len(protocol_rows),
+            "logs": len(log_rows),
+            "insights": len(insight_rows),
+            "control_capabilities": len(control_capability_rows),
+            **{f"code_{key}": value for key, value in code_counts.items()},
+        },
+        "device_sections": sections,
+        "control_modules": control_by_module,
+        "query_only_modules": query_only_modules,
+        "natural_language_contract": {
+            "query": "查询类指令始终允许进入只读 API 或 RAG 检索，不受飞书控制开关限制。",
+            "control": "控制类指令必须受飞书控制开关、权限、确认策略和审计链路约束；关闭时只解析不执行。",
+            "model_output": {
+                "intent": "query | control_request | clarify",
+                "module": "power/light/hvac/projector/screen/sequencer/server/custom/door/ups/env/snmp/...",
+                "target": "用户提到或别名匹配出的设备/通道",
+                "action": "只允许后端白名单动作",
+                "confidence": "0-1",
+                "evidence": "引用 device_inventory/control_capabilities/nl_intent_examples/insights/code_system_map",
+            },
+        },
+        "recommended_learning_order": [
+            "system_map_*.json",
+            "device_inventory_*.jsonl",
+            "control_capabilities_*.jsonl",
+            "nl_intent_examples_*.jsonl",
+            "device_aliases_*.jsonl",
+            "insights_*.jsonl",
+            "code_system_map_*.json",
+            "module_cards_*.jsonl",
+            "code_knowledge_*.jsonl",
+            "full_code_context_*.jsonl",
+        ],
+        "high_context_policy": {
+            "enabled": True,
+            "target_machine": "3090 本地模型机器",
+            "recommended_context_len": 131072,
+            "max_supported_config": 262144,
+            "refresh_mode": "定期读取脱敏 full_code_context，生成系统摘要/索引；不直接记忆密钥、不直接执行控制。",
+        },
+        "files": {name: str(path) for name, path in files.items()},
+        "code_files": code_files,
+        "config_source": str(CONFIG_FILE),
+        "safety_boundary": "模型理解和检索不是执行权限。所有真实设备动作必须回到 Smart Center 后端执行链路。",
+        "config_modules": sorted(str(key) for key in config.keys() if isinstance(key, str))[:300],
+    }
+
+
 def build_insights(config, device_rows, protocol_rows, log_rows):
     insight_rows = []
     insight_rows.extend(_build_device_insights(device_rows))
@@ -992,7 +1221,11 @@ def build_training_export():
     protocol_rows = _extract_protocol_records(config)
     log_rows = _extract_log_records(int(export_cfg.get("recent_log_limit", 500))) if export_cfg.get("include_logs", True) else []
     insight_rows, daily_summary = build_insights(config, device_rows, protocol_rows, log_rows)
+    query_intent_rows = _read_query_intent_rows()
     control_intent_rows = _read_control_intent_rows()
+    nl_intent_example_rows = _build_nl_intent_example_rows(query_intent_rows, control_intent_rows)
+    device_inventory_rows = _build_device_inventory_rows(device_rows, device_alias_rows)
+    control_capability_rows = _build_control_capability_rows(device_alias_rows)
     instruction_rows = [
         {
             "schema": "smart_center.training.v1",
@@ -1032,23 +1265,43 @@ def build_training_export():
     ]
     files = {
         "devices": out_dir / f"devices_{stamp}.jsonl",
+        "device_inventory": out_dir / f"device_inventory_{stamp}.jsonl",
         "device_aliases": out_dir / f"device_aliases_{stamp}.jsonl",
+        "control_capabilities": out_dir / f"control_capabilities_{stamp}.jsonl",
         "protocols": out_dir / f"protocols_{stamp}.jsonl",
         "logs": out_dir / f"logs_{stamp}.jsonl",
         "instructions": out_dir / f"instructions_{stamp}.jsonl",
+        "query_intents": out_dir / f"query_intents_{stamp}.jsonl",
         "control_intents": out_dir / f"control_intents_{stamp}.jsonl",
+        "nl_intent_examples": out_dir / f"nl_intent_examples_{stamp}.jsonl",
         "insights": out_dir / f"insights_{stamp}.jsonl",
         "daily_summary": out_dir / f"daily_summary_{stamp}.json",
+        "system_map": out_dir / f"system_map_{stamp}.json",
         "knowledge": out_dir / f"knowledge_{stamp}.json",
     }
     _jsonl_write(files["devices"], device_rows)
+    _jsonl_write(files["device_inventory"], device_inventory_rows)
     _jsonl_write(files["device_aliases"], device_alias_rows)
+    _jsonl_write(files["control_capabilities"], control_capability_rows)
     _jsonl_write(files["protocols"], protocol_rows)
     _jsonl_write(files["logs"], log_rows)
     _jsonl_write(files["instructions"], instruction_rows)
+    _jsonl_write(files["query_intents"], query_intent_rows)
     _jsonl_write(files["control_intents"], control_intent_rows)
+    _jsonl_write(files["nl_intent_examples"], nl_intent_example_rows)
     _jsonl_write(files["insights"], insight_rows)
     files["daily_summary"].write_text(json.dumps(daily_summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    system_map = _build_runtime_system_map(
+        config,
+        device_rows,
+        device_alias_rows,
+        protocol_rows,
+        log_rows,
+        insight_rows,
+        control_capability_rows,
+        files,
+    )
+    files["system_map"].write_text(json.dumps(system_map, ensure_ascii=False, indent=2), encoding="utf-8")
     knowledge = {
         "schema": "smart_center.training.v1",
         "generated_at": datetime.now().isoformat(timespec="seconds"),
@@ -1056,20 +1309,26 @@ def build_training_export():
         "model_target": {k: v for k, v in model_cfg.items() if k != "api_key"},
         "counts": {
             "devices": len(device_rows),
+            "device_inventory": len(device_inventory_rows),
             "device_aliases": len(device_alias_rows),
             "server_machines": len(server_machine_rows),
+            "control_capabilities": len(control_capability_rows),
             "protocol_records": len(protocol_rows),
             "logs": len(log_rows),
             "instructions": len(instruction_rows),
+            "query_intents": len(query_intent_rows),
             "control_intents": len(control_intent_rows),
+            "nl_intent_examples": len(nl_intent_example_rows),
             "insights": len(insight_rows),
         },
         "device_sections": DEVICE_SECTIONS,
         "server_machine_groups": _count_by(server_machine_rows, "asset_group"),
         "alias_modules": _count_by(device_alias_rows, "module"),
         "alias_device_types": _count_by(device_alias_rows, "device_type"),
+        "control_modules": _count_by(control_capability_rows, "module"),
         "insight_types": _count_by(insight_rows, "insight_type"),
         "daily_summary": daily_summary,
+        "system_map": system_map,
         "config_snapshot": _redact(config),
         "files": {name: str(path) for name, path in files.items()},
     }
@@ -1089,6 +1348,98 @@ def _list_training_files():
                 "updated_at": datetime.fromtimestamp(path.stat().st_mtime).isoformat(timespec="seconds"),
             })
     return rows[:100]
+
+
+def _latest_training_file(prefix, suffix=""):
+    matches = [
+        path for path in _training_dir().glob(f"{prefix}_*{suffix}")
+        if path.is_file()
+    ]
+    if not matches:
+        return None
+    return sorted(matches, key=lambda p: p.stat().st_mtime, reverse=True)[0]
+
+
+def _count_jsonl_rows(path):
+    if not path or not path.is_file():
+        return 0
+    count = 0
+    try:
+        with path.open("r", encoding="utf-8", errors="ignore") as handle:
+            for line in handle:
+                if line.strip():
+                    count += 1
+    except Exception:
+        return 0
+    return count
+
+
+def _file_status_payload(prefix, label, suffix="", *, count_jsonl=False):
+    path = _latest_training_file(prefix, suffix)
+    if not path:
+        return {"label": label, "prefix": prefix, "exists": False, "name": "", "updated_at": "", "size": 0, "count": None}
+    count = _count_jsonl_rows(path) if count_jsonl else None
+    return {
+        "label": label,
+        "prefix": prefix,
+        "exists": True,
+        "name": path.name,
+        "path": str(path),
+        "updated_at": datetime.fromtimestamp(path.stat().st_mtime).isoformat(timespec="seconds"),
+        "size": path.stat().st_size,
+        "count": count,
+    }
+
+
+def _read_latest_json(prefix):
+    path = _latest_training_file(prefix, ".json")
+    if not path:
+        return {}
+    payload = _read_json_file(path, {})
+    return payload if isinstance(payload, dict) else {}
+
+
+def build_knowledge_status():
+    cfg = normalize_local_model_config(CONFIG.get("local_model"), keep_secret=False)
+    system_map = _read_latest_json("system_map")
+    code_map = _read_latest_json("code_system_map")
+    summary = _read_latest_json("system_summary")
+    items = [
+        _file_status_payload("system_map", "系统地图", ".json"),
+        _file_status_payload("device_inventory", "设备清单", ".jsonl", count_jsonl=True),
+        _file_status_payload("control_capabilities", "控制能力", ".jsonl", count_jsonl=True),
+        _file_status_payload("nl_intent_examples", "自然语言意图样例", ".jsonl", count_jsonl=True),
+        _file_status_payload("device_aliases", "自然语言别名", ".jsonl", count_jsonl=True),
+        _file_status_payload("insights", "运行洞察", ".jsonl", count_jsonl=True),
+        _file_status_payload("code_system_map", "代码系统地图", ".json"),
+        _file_status_payload("module_cards", "模块卡片", ".jsonl", count_jsonl=True),
+        _file_status_payload("code_knowledge", "代码知识", ".jsonl", count_jsonl=True),
+        _file_status_payload("full_code_context", "高上下文源码", ".jsonl", count_jsonl=True),
+        _file_status_payload("system_summary", "模型系统摘要", ".json"),
+    ]
+    latest_times = [item["updated_at"] for item in items if item.get("updated_at")]
+    export_cfg = cfg.get("training_export") if isinstance(cfg.get("training_export"), dict) else {}
+    return {
+        "ok": True,
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "latest_updated_at": max(latest_times) if latest_times else "",
+        "model": cfg.get("model"),
+        "max_model_len": cfg.get("max_model_len"),
+        "recommended_context_len": export_cfg.get("recommended_context_len"),
+        "refresh_strategy": export_cfg.get("refresh_strategy"),
+        "include_full_code_context": export_cfg.get("include_full_code_context", True),
+        "items": items,
+        "system_counts": system_map.get("counts") if isinstance(system_map.get("counts"), dict) else {},
+        "code_counts": code_map.get("counts") if isinstance(code_map.get("counts"), dict) else {},
+        "last_summary": {
+            "generated_at": summary.get("generated_at") or "",
+            "model": summary.get("model") or "",
+            "prompt_chars": summary.get("prompt_chars") or 0,
+            "elapsed_ms": summary.get("elapsed_ms") or 0,
+        },
+        "learning_order": system_map.get("recommended_learning_order") if isinstance(system_map.get("recommended_learning_order"), list) else [],
+        "safety_boundary": "知识刷新和高上下文阅读只生成摘要/索引；飞书或本地模型控制仍受开关、权限、确认和审计链路约束。",
+    }
 
 
 @bp.route("/local-model")
@@ -1365,10 +1716,14 @@ def api_local_model_nl_process_log():
 @require_permission("system.config")
 def api_local_model_export_training():
     payload = build_training_export()
+    cfg = normalize_local_model_config(CONFIG.get("local_model"))
+    export_cfg = cfg.get("training_export") if isinstance(cfg.get("training_export"), dict) else {}
+    if not export_cfg.get("include_code_knowledge", True):
+        return jsonify(payload)
     try:
-        from scripts.export_code_knowledge import build_code_knowledge_export
+        from scripts.export_code_knowledge import build_code_knowledge_export_with_options
 
-        payload["code_knowledge"] = build_code_knowledge_export()
+        payload["code_knowledge"] = build_code_knowledge_export_with_options(include_full_context=export_cfg.get("include_full_code_context", True))
     except Exception as exc:
         payload["code_knowledge"] = {"ok": False, "error": str(exc)}
     return jsonify(payload)
@@ -1378,6 +1733,29 @@ def api_local_model_export_training():
 @require_permission("local_model.view")
 def api_local_model_training_files():
     return jsonify({"ok": True, "files": _list_training_files()})
+
+
+@bp.route("/api/local-model/knowledge-status")
+@require_permission("local_model.view")
+def api_local_model_knowledge_status():
+    return jsonify(build_knowledge_status())
+
+
+@bp.route("/api/local-model/refresh-system-summary", methods=["POST"])
+@require_permission("system.config")
+def api_local_model_refresh_system_summary():
+    try:
+        payload = request.get_json(silent=True) if request.is_json else {}
+        max_input_chars = int((payload or {}).get("max_input_chars") or 160000)
+    except Exception:
+        max_input_chars = 160000
+    try:
+        from scripts.refresh_local_model_system_summary import build_system_summary
+
+        summary = build_system_summary(max_input_chars=max(20000, min(max_input_chars, 240000)))
+        return jsonify({"ok": True, "summary": summary})
+    except Exception as exc:
+        return jsonify({"ok": False, "error": "summary_failed", "msg": str(exc)}), 502
 
 
 @bp.route("/api/local-model/training-files/<path:filename>")

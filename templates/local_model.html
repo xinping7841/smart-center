@@ -56,6 +56,15 @@
     .file-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px; background:#0b1424; border:1px solid rgba(148,163,184,.10); border-radius:7px; }
     .file-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:Consolas,monospace; font-size:12px; color:#dbeafe; }
     .file-meta { color:#94a3b8; font-size:12px; }
+    .local-model-knowledge-grid { padding:10px 12px 0; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+    .local-model-knowledge-item { min-width:0; padding:8px; border-radius:8px; border:1px solid rgba(148,163,184,.12); background:rgba(2,6,23,.24); }
+    .local-model-knowledge-item.is-ready { border-color:rgba(34,197,94,.22); background:rgba(20,83,45,.12); }
+    .local-model-knowledge-item.is-missing { border-color:rgba(245,158,11,.20); background:rgba(120,53,15,.10); }
+    .local-model-knowledge-title { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+    .local-model-knowledge-title strong { min-width:0; color:#dbeafe; font-size:12px; line-height:1.2; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .local-model-knowledge-title span { flex:0 0 auto; color:#86efac; font-size:10px; font-weight:900; }
+    .local-model-knowledge-item.is-missing .local-model-knowledge-title span { color:#fbbf24; }
+    .local-model-knowledge-item small,.local-model-knowledge-item em { display:block; min-width:0; margin-top:5px; color:#94a3b8; font-size:11px; font-style:normal; line-height:1.35; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .local-model-switch-row { margin:0; padding:10px; min-height:58px; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; border:1px solid rgba(148,163,184,.14); border-radius:8px; background:rgba(2,6,23,.24); }
     .local-model-switch-row strong,.local-model-switch-row small { display:block; }
     .local-model-switch-row strong { color:#e5edf8; font-size:13px; line-height:1.25; }
@@ -99,7 +108,7 @@
     .local-model-file-name {}
     .local-model-file-meta {}
     @media (max-width: 980px) { main { grid-template-columns:1fr; } .messages { max-height:none; } }
-    @media (max-width: 760px) { body { height:auto; overflow:auto; } .layout { display:block; } .sidebar { display:none; } header { align-items:flex-start; flex-direction:column; } main { padding:10px; } .row2 { grid-template-columns:1fr; } }
+    @media (max-width: 760px) { body { height:auto; overflow:auto; } .layout { display:block; } .sidebar { display:none; } header { align-items:flex-start; flex-direction:column; } main { padding:10px; } .row2,.local-model-knowledge-grid { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -154,6 +163,11 @@
             </div>
           </section>
           <section class="panel">
+            <div class="panel-head"><div><div class="panel-title">知识库状态</div><div class="hint" id="knowledgeFreshness">等待读取</div></div><button class="secondary" onclick="loadKnowledgeStatus()">刷新</button></div>
+            <div class="local-model-knowledge-grid" id="knowledgeStatusGrid"></div>
+            <div class="form"><div class="hint local-model-hint" id="knowledgeSummaryHint">系统地图、设备清单、控制能力、代码地图和高上下文源码包会一起服务自然语言查询与受控控制。</div><button class="warning" id="summaryBtn" onclick="refreshSystemSummary()">刷新模型摘要</button></div>
+          </section>
+          <section class="panel">
             <div class="panel-head"><div><div class="panel-title">自然语言处理记录</div><div class="hint">模型理解、安全路由与实际执行过程</div></div><button class="secondary" onclick="loadProcessLog()">刷新</button></div>
             <div class="local-model-process-list" id="processLog"></div>
           </section>
@@ -166,6 +180,6 @@
       </main>
     </div>
   </div>
-<script src="/static/js/views/local-model.js?v=20260601-feishu-local-model-ui-v2"></script>
+<script src="/static/js/views/local-model.js?v=20260602-local-model-nl-intents-v1"></script>
 </body>
 </html>

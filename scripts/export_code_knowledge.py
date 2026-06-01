@@ -39,6 +39,11 @@ DEFAULT_EXCLUDES = (
     "reports/**",
     "training/**",
     "backups/**",
+    "config.json",
+    "*.env",
+    "*.pem",
+    "*.key",
+    "auth_users.json",
     "*.db",
     "*.sqlite",
     "*.sqlite3",
@@ -69,6 +74,22 @@ INCLUDE_SUFFIXES = {
     ".bat",
     ".cmd",
 }
+FULL_CONTEXT_SUFFIXES = {
+    ".py",
+    ".js",
+    ".html",
+    ".css",
+    ".md",
+    ".yaml",
+    ".yml",
+    ".txt",
+    ".ps1",
+    ".sh",
+}
+FULL_CONTEXT_JSON_ALLOWLIST = (
+    "docs/LOCAL_MODEL_CONTROL_INTENTS.jsonl",
+    "docs/LOCAL_MODEL_QUERY_INTENTS.jsonl",
+)
 AI_KEYS = (
     "AI_MODULE",
     "AI_PURPOSE",
@@ -83,6 +104,12 @@ ROUTE_DECORATOR_RE = re.compile(r"@(?:\w+\.)?route\((?P<args>.*)\)")
 PERMISSION_RE = re.compile(r"@require_permission\((?P<args>[^)]*)\)")
 JS_API_RE = re.compile(r"['\"](?P<path>/api/[A-Za-z0-9_./<>{}:?=&%~+*\\-]+)['\"]")
 CONFIG_KEY_RE = re.compile(r"(?:CONFIG|get\()\s*(?:\[|\()\s*['\"](?P<key>[A-Za-z0-9_\\-]+)['\"]")
+SECRET_ASSIGNMENT_RE = re.compile(
+    r"(?i)(?P<prefix>['\"]?(?:password|passwd|token|secret|api_key|apikey|authorization|access_key|private_key|community)['\"]?\s*[:=]\s*)"
+    r"(?P<quote>['\"]?)(?P<value>[^'\"\\s,}\\]]+)(?P=quote)"
+)
+RTSP_AUTH_RE = re.compile(r"(?i)(rtsp://)([^:@/\\s]+):([^@/\\s]+)@")
+BEARER_RE = re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._~+/=-]+")
 
 
 def _training_dir() -> Path:
@@ -137,6 +164,48 @@ def _shorten(text: Any, limit: int = 420) -> str:
     if len(value) <= limit:
         return value
     return value[: limit - 3].rstrip() + "..."
+
+
+def _redact_source_text(text: str) -> str:
+    redacted = RTSP_AUTH_RE.sub(r"\1***:***@", text)
+    redacted = BEARER_RE.sub(r"\1***REDACTED***", redacted)
+    return SECRET_ASSIGNMENT_RE.sub(r"\g<prefix>\g<quote>***REDACTED***\g<quote>", redacted)
+
+
+def _full_context_allowed(path: Path) -> bool:
+    rel_path = _rel(path)
+    lower = rel_path.lower()
+    if rel_path in FULL_CONTEXT_JSON_ALLOWLIST:
+        return True
+    if path.suffix.lower() not in FULL_CONTEXT_SUFFIXES:
+        return False
+    if any(token in lower for token in ("/.env", "secret", "private", "credential", "auth_users", "config.json")):
+        return False
+    if any(token in lower for token in ("/static/vendor/", ".min.js", ".min.css", "/node_modules/", "/dist/")):
+        return False
+    if path.stat().st_size > 1_200_000:
+        return False
+    return True
+
+
+def _chunk_source_text(text: str, *, max_chars: int = 12000, max_lines: int = 260) -> list[tuple[int, int, str]]:
+    chunks: list[tuple[int, int, str]] = []
+    lines = text.splitlines()
+    current: list[str] = []
+    current_chars = 0
+    start_line = 1
+    for index, line in enumerate(lines, 1):
+        line_size = len(line) + 1
+        if current and (current_chars + line_size > max_chars or len(current) >= max_lines):
+            chunks.append((start_line, index - 1, "\n".join(current)))
+            current = []
+            current_chars = 0
+            start_line = index
+        current.append(line)
+        current_chars += line_size
+    if current:
+        chunks.append((start_line, start_line + len(current) - 1, "\n".join(current)))
+    return chunks
 
 
 def _extract_ai_markers(text: str) -> dict[str, str]:
@@ -456,6 +525,155 @@ def build_module_records(file_rows: list[dict[str, Any]], route_rows: list[dict[
     return results
 
 
+def build_module_cards(module_rows: list[dict[str, Any]], file_rows: list[dict[str, Any]], route_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    file_by_module: dict[str, list[dict[str, Any]]] = {}
+    route_by_module: dict[str, list[dict[str, Any]]] = {}
+    for row in file_rows:
+        file_by_module.setdefault(str(row.get("module") or "unknown"), []).append(row)
+    for route in route_rows:
+        source_file = str(route.get("source_file") or "")
+        module = next((str(row.get("module") or "unknown") for row in file_rows if row.get("source_file") == source_file), Path(source_file).stem)
+        route_by_module.setdefault(module, []).append(route)
+    cards: list[dict[str, Any]] = []
+    for module in sorted({str(row.get("module") or "unknown") for row in module_rows}):
+        module_file_rows = file_by_module.get(module, [])
+        module_route_rows = route_by_module.get(module, [])
+        purposes = []
+        boundaries = []
+        for row in module_file_rows:
+            purpose = str(row.get("purpose") or "").strip()
+            boundary = str(row.get("boundary") or "").strip()
+            if purpose and purpose not in purposes:
+                purposes.append(purpose)
+            if boundary and boundary not in boundaries:
+                boundaries.append(boundary)
+        risks = sorted({str(row.get("risk") or "") for row in module_file_rows + module_route_rows if row.get("risk")})
+        control_paths = sorted({path for row in module_file_rows for path in (row.get("control_paths") or [])})
+        cards.append(
+            {
+                "schema": "smart_center.module_card.v1",
+                "kind": "module_card",
+                "module": module,
+                "purpose": _shorten(" ".join(purposes[:3]), 900),
+                "boundary": _shorten(" ".join(boundaries[:3]), 700),
+                "files": sorted(str(row.get("source_file") or "") for row in module_file_rows),
+                "routes": sorted(str(row.get("route") or "") for row in module_route_rows if row.get("route")),
+                "permissions": sorted({str(row.get("permission") or "") for row in module_route_rows if row.get("permission")}),
+                "risk": risks[-1] if risks else "",
+                "risk_notes": risks,
+                "control_paths": control_paths,
+                "search_keywords": sorted({tag for row in module_file_rows for tag in (row.get("tags") or [])})[:40],
+                "model_use": "用于让本地模型快速定位模块边界、关键文件、API 路由和真实控制风险；不能作为直接执行依据。",
+            }
+        )
+    return cards
+
+
+def build_code_system_map(
+    file_rows: list[dict[str, Any]],
+    route_rows: list[dict[str, Any]],
+    module_rows: list[dict[str, Any]],
+    design_rows: list[dict[str, Any]],
+    module_cards: list[dict[str, Any]],
+) -> dict[str, Any]:
+    api_routes = [row for row in route_rows if row.get("kind") == "api_route"]
+    frontend_refs = [row for row in route_rows if row.get("kind") == "frontend_api_reference"]
+    high_risk_routes = [row for row in api_routes if row.get("risk") == "high"]
+    medium_risk_routes = [row for row in api_routes if row.get("risk") == "medium"]
+    control_modules = sorted(
+        {
+            str(row.get("module") or "")
+            for row in module_cards
+            if row.get("control_paths") or row.get("risk") in {"high", "medium", "高", "中"}
+        }
+    )
+    return {
+        "schema": "smart_center.code_system_map.v1",
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "project_root": str(PROJECT_ROOT),
+        "counts": {
+            "source_files": len(file_rows),
+            "api_routes": len(api_routes),
+            "frontend_api_references": len(frontend_refs),
+            "modules": len(module_rows),
+            "module_cards": len(module_cards),
+            "design_notes": len(design_rows),
+            "high_risk_routes": len(high_risk_routes),
+            "medium_risk_routes": len(medium_risk_routes),
+        },
+        "entrypoints": {
+            "flask_app": "app.py",
+            "main_template": "templates/index.html",
+            "local_model_api": "api/local_model.py",
+            "feishu_adapter": "services/feishu_bot.py",
+            "control_router": "services/control_intent_router.py",
+            "training_export": "scripts/export_local_model_training.py",
+        },
+        "module_index": [
+            {
+                "module": row.get("module"),
+                "file_count": len(row.get("files") or []),
+                "route_count": len(row.get("routes") or []),
+                "risk": row.get("risk") or "",
+                "purpose": row.get("purpose") or "",
+                "top_files": (row.get("files") or [])[:8],
+            }
+            for row in module_cards
+        ],
+        "control_boundary": {
+            "model_role": "本地模型只能做意图理解、代码/运行知识检索、模糊文本改写和摘要。",
+            "execution_role": "真实控制必须回到 Smart Center API、权限、操作锁、审计和确认策略。",
+            "high_risk_route_samples": [
+                {"route": row.get("route"), "source_file": row.get("source_file"), "permission": row.get("permission")}
+                for row in high_risk_routes[:80]
+            ],
+            "medium_risk_route_samples": [
+                {"route": row.get("route"), "source_file": row.get("source_file"), "permission": row.get("permission")}
+                for row in medium_risk_routes[:80]
+            ],
+            "control_modules": control_modules,
+        },
+        "knowledge_strategy": {
+            "primary": "结构化 RAG 知识包，适合快速变化的设备、状态、日志和代码边界。",
+            "high_context_refresh": "定期生成 full_code_context_*.jsonl，让 128K/256K 上下文本地模型周期性阅读脱敏源码上下文并生成更完整的系统理解。",
+            "fine_tuning": "只用于人工审核后的 query/control 示例，不用于原始源码、密钥、配置快照或未审核日志。",
+        },
+    }
+
+
+def build_full_code_context(files: list[Path], file_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    meta_by_file = {str(row.get("source_file") or ""): row for row in file_rows}
+    rows: list[dict[str, Any]] = []
+    for path in files:
+        if not _full_context_allowed(path):
+            continue
+        rel_path = _rel(path)
+        text = _redact_source_text(_read_text(path))
+        if not text.strip():
+            continue
+        file_meta = meta_by_file.get(rel_path, {})
+        for chunk_index, (start_line, end_line, chunk_text) in enumerate(_chunk_source_text(text), 1):
+            rows.append(
+                {
+                    "schema": "smart_center.full_code_context.v1",
+                    "kind": "source_chunk",
+                    "source_file": rel_path,
+                    "module": file_meta.get("module") or _module_from_path(rel_path, file_meta.get("ai_markers") or {}),
+                    "suffix": path.suffix.lower(),
+                    "chunk_index": chunk_index,
+                    "line_start": start_line,
+                    "line_end": end_line,
+                    "sha256": _sha256_text(chunk_text),
+                    "purpose": file_meta.get("purpose") or "",
+                    "risk": file_meta.get("risk") or "",
+                    "tags": file_meta.get("tags") or [],
+                    "content": chunk_text,
+                    "safety_note": "已排除运行配置和常见密钥文件，并对源码中的 token/password/RTSP 凭据做基础脱敏；该内容只用于高上下文理解和 RAG，不可直接执行控制。",
+                }
+            )
+    return rows
+
+
 def build_design_records(file_rows: list[dict[str, Any]], route_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     control_routes = [row for row in route_rows if row.get("risk") in {"high", "medium"} and row.get("kind") == "api_route"]
     feishu_files = [row for row in file_rows if "feishu" in (row.get("tags") or [])]
@@ -480,7 +698,8 @@ def build_design_records(file_rows: list[dict[str, Any]], route_rows: list[dict[
             "title": "本地模型知识库流水线",
             "summary": (
                 "模型学习应分成运行知识和代码知识两类。运行知识来自配置、设备、日志和 insights；"
-                "代码知识来自 AI 标记、路由、权限、模块索引和设计文档。高频变化状态用 RAG，不宜固化到微调。"
+                "代码知识来自 AI 标记、路由、权限、模块索引和设计文档。高频变化状态用 RAG；"
+                "3090 高显存机器可周期性读取脱敏 full_code_context，但不宜把原始全量源码固化到微调。"
             ),
             "evidence_files": sorted(row["source_file"] for row in model_files[:16]),
             "related_routes": sorted(row["route"] for row in route_rows if str(row.get("route") or "").startswith("/api/local-model")),
@@ -507,6 +726,10 @@ def _jsonl_write(path: Path, rows: list[dict[str, Any]]) -> None:
 
 
 def build_code_knowledge_export(out_dir: Path | None = None) -> dict[str, Any]:
+    return build_code_knowledge_export_with_options(out_dir=out_dir, include_full_context=True)
+
+
+def build_code_knowledge_export_with_options(out_dir: Path | None = None, *, include_full_context: bool = True) -> dict[str, Any]:
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_dir = ensure_directory(out_dir or _training_dir())
     files = iter_source_files()
@@ -514,20 +737,31 @@ def build_code_knowledge_export(out_dir: Path | None = None) -> dict[str, Any]:
     route_rows = build_route_records(files)
     module_rows = build_module_records(file_rows, route_rows)
     design_rows = build_design_records(file_rows, route_rows)
-    all_rows = file_rows + route_rows + module_rows + design_rows
+    module_card_rows = build_module_cards(module_rows, file_rows, route_rows)
+    system_map = build_code_system_map(file_rows, route_rows, module_rows, design_rows, module_card_rows)
+    full_context_rows = build_full_code_context(files, file_rows) if include_full_context else []
+    all_rows = file_rows + route_rows + module_rows + design_rows + module_card_rows
     output_files = {
         "code_files": out_dir / f"code_files_{stamp}.jsonl",
         "code_routes": out_dir / f"code_routes_{stamp}.jsonl",
         "code_modules": out_dir / f"code_modules_{stamp}.jsonl",
+        "module_cards": out_dir / f"module_cards_{stamp}.jsonl",
         "code_design": out_dir / f"code_design_{stamp}.jsonl",
         "code_knowledge": out_dir / f"code_knowledge_{stamp}.jsonl",
+        "code_system_map": out_dir / f"code_system_map_{stamp}.json",
         "code_manifest": out_dir / f"code_manifest_{stamp}.json",
     }
+    if include_full_context:
+        output_files["full_code_context"] = out_dir / f"full_code_context_{stamp}.jsonl"
     _jsonl_write(output_files["code_files"], file_rows)
     _jsonl_write(output_files["code_routes"], route_rows)
     _jsonl_write(output_files["code_modules"], module_rows)
+    _jsonl_write(output_files["module_cards"], module_card_rows)
     _jsonl_write(output_files["code_design"], design_rows)
     _jsonl_write(output_files["code_knowledge"], all_rows)
+    output_files["code_system_map"].write_text(json.dumps(system_map, ensure_ascii=False, indent=2), encoding="utf-8")
+    if include_full_context:
+        _jsonl_write(output_files["full_code_context"], full_context_rows)
     manifest = {
         "schema": "smart_center.code_knowledge_export.v1",
         "generated_at": datetime.now().isoformat(timespec="seconds"),
@@ -536,12 +770,16 @@ def build_code_knowledge_export(out_dir: Path | None = None) -> dict[str, Any]:
             "source_files": len(file_rows),
             "routes": len(route_rows),
             "modules": len(module_rows),
+            "module_cards": len(module_card_rows),
             "design_notes": len(design_rows),
+            "full_code_context_chunks": len(full_context_rows),
             "all_rows": len(all_rows),
         },
         "files": {name: str(path) for name, path in output_files.items()},
         "recommended_use": [
             "Feed code_knowledge_*.jsonl to the local-model knowledge proxy as source-code navigation context.",
+            "Feed module_cards_*.jsonl and code_system_map_*.json before full_code_context_*.jsonl so the model sees module boundaries first.",
+            "Use full_code_context_*.jsonl only for high-context periodic refresh or RAG indexing; it is redacted source context, not a control executor.",
             "Use runtime devices/logs/insights from export_local_model_training.py for changing production facts.",
             "Do not let the model execute route paths directly; route execution must stay inside Smart Center permission and confirmation APIs.",
         ],
@@ -553,9 +791,10 @@ def build_code_knowledge_export(out_dir: Path | None = None) -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Export structured Smart Center source-code knowledge for local-model RAG.")
     parser.add_argument("--out-dir", default="", help="output directory; defaults to SMART_CENTER_DATA_DIR/training/local_model")
+    parser.add_argument("--skip-full-code-context", action="store_true", help="skip redacted source chunks for high-context model refresh")
     args = parser.parse_args()
     out_dir = Path(args.out_dir).expanduser().resolve() if args.out_dir else None
-    result = build_code_knowledge_export(out_dir)
+    result = build_code_knowledge_export_with_options(out_dir, include_full_context=not args.skip_full_code_context)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
