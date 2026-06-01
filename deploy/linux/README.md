@@ -27,6 +27,11 @@ print(urllib.request.urlopen('http://127.0.0.1:6899/config').status)
 PY
 ```
 
+Release 元数据：
+- 每个 release 应包含 `REVISION`、`.codex_deploy_ts.txt` 和 `RELEASE_INFO.json`。
+- `.codex_deploy_ts.txt` 只记录当前 release 目录名里的时间戳，不要把它作为仓库根文件提交。
+- 如果现有 release 的时间戳标记缺失或陈旧，使用 `scripts/remote/stamp_active_release_metadata.sh` 通过脚本上传 runner 修复。
+
 句柄上限与资源检查（建议在更新后执行）：
 
 ```bash

@@ -56,6 +56,25 @@ bash scripts/ssh_exec_windows.sh \
   --script scripts/remote/quote_smoke_windows.ps1
 ```
 
+## Release metadata
+
+Use these through `scripts/ssh_exec.sh` on node-120:
+
+```bash
+bash scripts/ssh_exec.sh \
+  --host node-120-ts \
+  --script scripts/remote/check_active_release.sh
+
+bash scripts/ssh_exec.sh \
+  --host node-120-ts \
+  --script scripts/remote/stamp_active_release_metadata.sh
+```
+
+`check_active_release.sh` is read-only. `stamp_active_release_metadata.sh`
+writes only metadata files in the current release target: `REVISION`,
+`.codex_deploy_ts.txt`, and `RELEASE_INFO.json`; it does not restart the
+service or switch `/srv/smart-center/current`.
+
 ## Notes
 
 - Put complex remote operations in `*.sh` files under this folder.

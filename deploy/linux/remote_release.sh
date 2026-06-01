@@ -6,9 +6,31 @@ APP_ROOT="${APP_ROOT:-/srv/smart-center}"
 DATA_ROOT="${DATA_ROOT:-/srv/smart-center-data}"
 CURRENT_LINK="${CURRENT_LINK:-$APP_ROOT/current}"
 ENV_FILE="${ENV_FILE:-/etc/smart-center.env}"
+RELEASE_NAME="$(basename "$RELEASE_DIR")"
 
 mkdir -p "$APP_ROOT/releases" "$APP_ROOT/backups" "$DATA_ROOT/runtime" "$DATA_ROOT/reports"
 ln -sfn "$RELEASE_DIR" "$CURRENT_LINK"
+
+if [ -f "$CURRENT_LINK/REVISION" ]; then
+  REVISION="$(tr -d '\r\n' < "$CURRENT_LINK/REVISION")"
+else
+  REVISION=""
+fi
+if echo "$RELEASE_NAME" | grep -Eq '^smart-center-release-[0-9]{8}_[0-9]{6}-'; then
+  RELEASE_TS="$(printf '%s\n' "$RELEASE_NAME" | sed -E 's/^smart-center-release-([0-9]{8}_[0-9]{6})-.*/\1/')"
+else
+  RELEASE_TS="$(date +%Y%m%d_%H%M%S)"
+fi
+printf '%s\n' "$RELEASE_TS" > "$CURRENT_LINK/.codex_deploy_ts.txt"
+cat > "$CURRENT_LINK/RELEASE_INFO.json" <<EOF_RELEASE_INFO
+{
+  "release": "$RELEASE_NAME",
+  "release_dir": "$RELEASE_DIR",
+  "revision": "$REVISION",
+  "created_at": "$(date -Iseconds)",
+  "created_by": "deploy/linux/remote_release.sh"
+}
+EOF_RELEASE_INFO
 
 if [ ! -f "$ENV_FILE" ]; then
   cp "$CURRENT_LINK/deploy/linux/.env.example" "$ENV_FILE"
