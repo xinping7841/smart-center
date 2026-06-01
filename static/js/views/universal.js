@@ -96,6 +96,20 @@
         return getControlCenterDevices().find(item => String(item?.target_group_id || '') === String(targetId || '')) || null;
     }
 
+    function getProtocolDisplayName(target = {}, deviceCfg = null) {
+        const targetName = String(target?.name || '').trim();
+        const deviceName = String(deviceCfg?.display_name || deviceCfg?.alias || deviceCfg?.name || '').trim();
+        return normalizeProtocolDisplayName(targetName || deviceName || '协议设备');
+    }
+
+    function protocolModeLabel(value) {
+        const text = String(value || '').trim().toLowerCase();
+        if (text.includes('at')) return 'AT';
+        if (text.includes('modbus_tcp')) return 'Modbus TCP';
+        if (text.includes('rtu')) return 'RTU透传';
+        return text || '';
+    }
+
     function getProtocolReadCache(card, kind) {
         const targetId = String(card?.dataset?.targetId || card?.dataset?.infoEndpoint || 'unknown');
         if (!protocolReadCache[targetId]) protocolReadCache[targetId] = { do: {}, di: {} };
@@ -135,9 +149,10 @@
 
     function renderProtocolDeviceCard(target, targetControls) {
         const deviceCfg = getTargetDeviceConfig(target.id);
-        const displayName = normalizeProtocolDisplayName(deviceCfg?.name || target.name || '协议设备');
+        const displayName = getProtocolDisplayName(target, deviceCfg);
         const endpoint = `${target.host || ''}${target.port ? `:${target.port}` : ''}`;
-        const protocol = target.data_protocol || target.protocol || '';
+        const protocol = target.data_protocol || deviceCfg?.protocol || target.protocol || '';
+        const protocolLabel = protocolModeLabel(protocol);
         const actions = [];
         actions.push(`<button class="protocol-action-btn read" onclick="openProtocolDeviceInfo(this.closest('[data-protocol-card=&quot;1&quot;]'), ${jsArg(targetControls.info)})">信息</button>`);
         if (targetControls.pulse || (targetControls.do_on && targetControls.do_off)) {
@@ -147,11 +162,11 @@
             actions.push(`<button class="protocol-action-btn" onclick="fireControlCenterControl(${jsArg(ctrl.id || '')})">${escapeHtml(ctrl.name || '执行')}</button>`);
         });
         return `
-            <div class="protocol-device-card" data-protocol-card="1" data-target-id="${escapeHtml(target.id || '')}" data-read-do="${escapeHtml(targetControls.read_do)}" data-read-di="${escapeHtml(targetControls.read_di)}" data-do-on="${escapeHtml(targetControls.do_on)}" data-do-off="${escapeHtml(targetControls.do_off)}" data-info="${escapeHtml(targetControls.info)}" data-pulse="${escapeHtml(targetControls.pulse)}" data-info-title="${escapeHtml(displayName)}" data-info-endpoint="${escapeHtml(endpoint)}" data-info-protocol="${escapeHtml(protocol)}" data-info-model="${escapeHtml(target.model || '')}" data-info-mac="${escapeHtml(target.mac || '')}" data-info-unit="${escapeHtml(target.unit_id || '01')}" data-info-do="${escapeHtml(target.do_channels ?? deviceCfg?.do_channels ?? '')}" data-info-di="${escapeHtml(target.di_channels ?? deviceCfg?.di_channels ?? '')}">
+            <div class="protocol-device-card" data-protocol-card="1" data-target-id="${escapeHtml(target.id || '')}" data-read-do="${escapeHtml(targetControls.read_do)}" data-read-di="${escapeHtml(targetControls.read_di)}" data-do-on="${escapeHtml(targetControls.do_on)}" data-do-off="${escapeHtml(targetControls.do_off)}" data-info="${escapeHtml(targetControls.info)}" data-pulse="${escapeHtml(targetControls.pulse)}" data-info-title="${escapeHtml(displayName)}" data-info-endpoint="${escapeHtml(endpoint)}" data-info-protocol="${escapeHtml(protocolLabel || protocol)}" data-info-model="${escapeHtml(target.model || '')}" data-info-mac="${escapeHtml(target.mac || '')}" data-info-unit="${escapeHtml(target.unit_id || '01')}" data-info-do="${escapeHtml(target.do_channels ?? deviceCfg?.do_channels ?? '')}" data-info-di="${escapeHtml(target.di_channels ?? deviceCfg?.di_channels ?? '')}">
                 <div class="protocol-device-head">
                     <div>
                         <div class="protocol-device-title">${escapeHtml(displayName)}</div>
-                        <div class="protocol-device-meta">${escapeHtml(endpoint)}${protocol ? ` / ${escapeHtml(protocol)}` : ''}</div>
+                        <div class="protocol-device-meta">${escapeHtml(endpoint)}${protocolLabel ? ` / ${escapeHtml(protocolLabel)}` : ''}</div>
                     </div>
                     <span class="protocol-device-badge"><span class="protocol-led" data-led="health"></span><span class="protocol-status-value" data-text="health">读取中</span></span>
                 </div>

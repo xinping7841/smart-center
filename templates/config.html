@@ -3024,6 +3024,78 @@
             conf.control_center.target_groups[idx].hosts = parseCcListInput(val);
             renderAll();
         }
+        function normalizeNirenMode(value) {
+            const text = String(value || '').toLowerCase();
+            if (text.includes('at')) return 'at_over_tcp';
+            if (text.includes('modbus_tcp')) return 'modbus_tcp';
+            if (text.includes('rtu')) return 'modbus_rtu_over_tcp';
+            return 'modbus_rtu_over_tcp';
+        }
+        function isNirenTarget(target) {
+            const text = `${target?.id || ''} ${target?.name || ''} ${target?.vendor || ''} ${target?.brand || ''} ${target?.model || ''} ${target?.data_protocol || ''}`.toLowerCase();
+            return text.includes('niren') || text.includes('泥人') || text.includes('poe-kp');
+        }
+        function setLocalNirenTargetMode(targetIndex, mode) {
+            const target = conf.control_center.target_groups[targetIndex];
+            if (!target) return;
+            const nextMode = normalizeNirenMode(mode);
+            const map = {
+                at_over_tcp: { read_do:'niren_at_do_read', read_di:'niren_at_di_read', do_on:'niren_at_do_on', do_off:'niren_at_do_off', pulse:'niren_at_do_pulse', info:'niren_at_device_info', params:{channel:1}, pulseParams:{channel:1, seconds:1} },
+                modbus_rtu_over_tcp: { read_do:'niren_modbus_rtu_read_do', read_di:'niren_modbus_rtu_read_di', do_on:'niren_modbus_rtu_do_on', do_off:'niren_modbus_rtu_do_off', pulse:'', info:'', params:{unit_id: target.unit_id || '01'}, pulseParams:{unit_id: target.unit_id || '01'} },
+                modbus_tcp: { read_do:'niren_modbus_tcp_read_do', read_di:'niren_modbus_tcp_read_di', do_on:'niren_modbus_tcp_do_on', do_off:'niren_modbus_tcp_do_off', pulse:'', info:'', params:{unit_id: target.unit_id || '01'}, pulseParams:{unit_id: target.unit_id || '01'} }
+            }[nextMode];
+            target.data_protocol = nextMode;
+            target.send_strategy = 'serial';
+            target.max_workers = 1;
+            const targetId = String(target.id || '');
+            (conf.control_center.panels || []).forEach(panel => (panel.controls || []).forEach(ctrl => {
+                if (String(ctrl.target_group_id || '') !== targetId) return;
+                const text = `${ctrl.id || ''} ${ctrl.command_id || ''} ${ctrl.name || ''}`.toLowerCase();
+                let role = '';
+                if (text.includes('read_do') || text.includes('读do')) role = 'read_do';
+                else if (text.includes('read_di') || text.includes('读di')) role = 'read_di';
+                else if (text.includes('do_on') || text.includes('do开') || text.includes('吸合')) role = 'do_on';
+                else if (text.includes('do_off') || text.includes('do关') || text.includes('断开')) role = 'do_off';
+                else if (text.includes('pulse') || text.includes('点动')) role = 'pulse';
+                else if (text.includes('info') || text.includes('信息')) role = 'info';
+                if (!role) return;
+                ctrl.command_id = map[role] || '';
+                ctrl.params = Object.assign({}, role === 'pulse' ? map.pulseParams : map.params);
+                if (role === 'pulse' && !ctrl.command_id) {
+                    ctrl.visible = false;
+                    ctrl.show_on_home = false;
+                } else if (role === 'pulse' && ctrl.command_id) {
+                    ctrl.visible = true;
+                }
+            }));
+            (conf.control_center.devices || []).forEach(dev => {
+                if (String(dev.target_group_id || '') !== targetId) return;
+                dev.protocol = nextMode;
+                dev.host = target.host;
+                dev.port = target.port;
+            });
+            renderAll();
+        }
+        function saveNirenTargetMode(targetIndex, mode) {
+            if (!ensurePermission('control_center.config', '切换泥人协议模式')) return;
+            setLocalNirenTargetMode(targetIndex, mode);
+            const target = conf.control_center.target_groups[targetIndex];
+            setSaveFeedback('loading', `正在保存泥人协议模式：${target?.name || target?.id || ''}`);
+            postJsonLoose('/api/control_center/niren/mode', {
+                target_group_id: target?.id || '',
+                mode: normalizeNirenMode(mode)
+            }, '泥人协议模式保存失败')
+                .then(data => {
+                    if (!data.ok) throw new Error(data.msg || '保存失败');
+                    if (data.control_center) conf.control_center = data.control_center;
+                    setSaveFeedback('success', `泥人协议模式已切换为 ${data.mode || mode}，同步控件 ${data.changed_controls || 0} 个`);
+                    renderAll();
+                })
+                .catch(err => {
+                    setSaveFeedback('error', err.message || '保存失败');
+                    alert('保存失败：' + (err.message || err));
+                });
+        }
         function updateCcParams(idx, val) {
             const raw = String(val || '').split(/[\n,;]/).map(v => v.trim()).filter(Boolean);
             conf.control_center.command_library[idx].params = raw.map(item => ({ id: item, label: item, default: '' }));
@@ -4172,7 +4244,7 @@
                             <div class="item"><label>名称</label><input value="${escapeHtml(cmd.name || '')}" onchange="updCcCommand(${i},'name',this.value)"></div>
                             <div class="item"><label>分类</label><input value="${escapeHtml(cmd.category || '')}" onchange="updCcCommand(${i},'category',this.value)"></div>
                             <div class="item"><label>协议覆盖</label><select onchange="updCcCommand(${i},'protocol',this.value)"><option value="" ${protocol===''?'selected':''}>跟随目标组</option><option value="tcp" ${protocol==='tcp'?'selected':''}>TCP</option><option value="udp" ${protocol==='udp'?'selected':''}>UDP</option><option value="com" ${protocol==='com'?'selected':''}>串口</option><option value="osc" ${protocol==='osc'?'selected':''}>OSC</option><option value="artnet" ${protocol==='artnet'?'selected':''}>Art-Net</option><option value="midi" ${protocol==='midi'?'selected':''}>MIDI</option></select></div>
-                            <div class="item"><label>数据格式</label><select onchange="updCcCommand(${i},'format',this.value)"><option value="str" ${String(cmd.format||'str')==='str'?'selected':''}>字符串</option><option value="hex" ${String(cmd.format||'str')==='hex'?'selected':''}>Hex</option><option value="json" ${String(cmd.format||'str')==='json'?'selected':''}>JSON</option></select></div>
+                            <div class="item"><label>数据格式</label><select onchange="updCcCommand(${i},'format',this.value)"><option value="str" ${String(cmd.format||'str')==='str'?'selected':''}>字符串</option><option value="hex" ${String(cmd.format||'str')==='hex'?'selected':''}>Hex</option><option value="json" ${String(cmd.format||'str')==='json'?'selected':''}>JSON</option><option value="modbus_rtu" ${String(cmd.format||'str')==='modbus_rtu'?'selected':''}>Modbus RTU</option><option value="modbus_tcp" ${String(cmd.format||'str')==='modbus_tcp'?'selected':''}>Modbus TCP</option></select></div>
                             <div class="item"><label>换行</label><select onchange="updCcCommand(${i},'line_ending',this.value)"><option value="none" ${String(cmd.line_ending||'none')==='none'?'selected':''}>无</option><option value="lf" ${String(cmd.line_ending||'none')==='lf'?'selected':''}>LF</option><option value="crlf" ${String(cmd.line_ending||'none')==='crlf'?'selected':''}>CRLF</option><option value="cr" ${String(cmd.line_ending||'none')==='cr'?'selected':''}>CR</option></select></div>
                             <div class="item"><label>等待(ms)</label><input type="number" value="${cmd.wait_ms || 0}" onchange="updCcCommand(${i},'wait_ms',this.value,true)"></div>
                             <div class="item"><label>启用</label><select onchange="conf.control_center.command_library[${i}].enabled=this.value==='true'; renderAll()"><option value="true" ${cmd.enabled!==false?'selected':''}>启用</option><option value="false" ${cmd.enabled===false?'selected':''}>停用</option></select></div>
@@ -4217,6 +4289,25 @@
                     </div>`;
                 });
                 const availablePackCount = (controlCenterPackCatalog || []).filter(item => !item.error).length;
+                const nirenTargetHtml = ccTargets
+                    .map((target, idx) => ({ target, idx }))
+                    .filter(item => isNirenTarget(item.target))
+                    .map(({ target, idx }) => {
+                        const mode = normalizeNirenMode(target.data_protocol || target.protocol_variant || target.protocol_mode || target.protocol);
+                        return `<div class="action-row" style="background:#f0fdf4; border:1px solid #bbf7d0; align-items:end;">
+                            <div class="item"><label>泥人设备</label><input value="${escapeHtml(target.name || target.id || '')}" disabled style="background:#dcfce7;"></div>
+                            <div class="item"><label>地址</label><input value="${escapeHtml((target.host || '') + (target.port ? ':' + target.port : ''))}" disabled style="background:#dcfce7;"></div>
+                            <div class="item"><label>设备模式</label><select onchange="setLocalNirenTargetMode(${idx}, this.value)">
+                                <option value="at_over_tcp" ${mode==='at_over_tcp'?'selected':''}>AT 指令</option>
+                                <option value="modbus_rtu_over_tcp" ${mode==='modbus_rtu_over_tcp'?'selected':''}>RTU 透传 TCP</option>
+                                <option value="modbus_tcp" ${mode==='modbus_tcp'?'selected':''}>标准 Modbus TCP</option>
+                            </select></div>
+                            <button class="btn btn-green" type="button" onclick="saveNirenTargetMode(${idx}, '${mode}')">保存并同步控件</button>
+                            <div style="grid-column:1 / -1; color:#166534; font-size:12px; line-height:1.7;">
+                                AT 模式会使用 AT+STACH / AT+OCCH 文本指令；RTU/Modbus 模式会自动切换到对应读写 DO/DI 指令。50.35 已改 AT 时，把这里切到 AT 并保存。
+                            </div>
+                        </div>`;
+                    }).join('');
                 const packCardsHtml = availablePackCount
                     ? `<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-top:12px;">
                         ${controlCenterPackCatalog.filter(item => !item.error).slice(0, 6).map(pack => `
@@ -4248,6 +4339,7 @@
                         <button class="btn btn-green" onclick="saveControlCenterOnly()">单独保存协议控制中心</button>
                         <button class="btn btn-blue" onclick="loadControlCenterPacks()">刷新样板库</button>
                     </div>
+                    ${nirenTargetHtml ? `<div style="margin-top:16px; border-top:1px dashed #fed7aa; padding-top:12px;"><h4 style="color:#166534; margin-bottom:10px;">泥人 POE-KP-I101 模式切换</h4>${nirenTargetHtml}</div>` : ''}
                     <div style="margin-top:12px; padding:12px 14px; border-radius:12px; background:#fffbeb; border:1px dashed #fdba74; color:#7c2d12; line-height:1.8;">
                         当前已发现 <strong>${availablePackCount}</strong> 个内置协议样板，可作为后续接入其他品牌、矩阵、播控、串口服务器的起点。
                     </div>

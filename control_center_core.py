@@ -47,6 +47,173 @@ _TARGET_GROUP_LOCKS_GUARD = threading.Lock()
 CONTROL_PACKS_DIR = Path(__file__).resolve().parent / "control_packs"
 
 
+def _is_niren_target(payload):
+    if not isinstance(payload, dict):
+        return False
+    text = " ".join(
+        str(payload.get(key) or "")
+        for key in ("id", "name", "vendor", "brand", "model", "data_protocol", "protocol_variant")
+    ).lower()
+    return "niren" in text or "泥人" in text or "poe-kp" in text
+
+
+def _normalize_niren_mode(value):
+    text = str(value or "").strip().lower()
+    if "at" in text:
+        return "at_over_tcp"
+    if "modbus_tcp" in text or text in {"tcp", "standard_tcp", "mbap"}:
+        return "modbus_tcp"
+    if "rtu" in text:
+        return "modbus_rtu_over_tcp"
+    return ""
+
+
+def _apply_niren_target_compat(target):
+    if not _is_niren_target(target):
+        return target
+    current = (
+        _normalize_niren_mode(target.get("data_protocol"))
+        or _normalize_niren_mode(target.get("protocol_variant"))
+        or _normalize_niren_mode(target.get("protocol_mode"))
+    )
+    target["vendor"] = str(target.get("vendor") or "Niren").strip() or "Niren"
+    target["model"] = str(target.get("model") or "POE-KP-I101").strip() or "POE-KP-I101"
+    target["data_protocol"] = current or "modbus_rtu_over_tcp"
+    target["send_strategy"] = "serial"
+    target["wait_ms"] = _safe_int(target.get("wait_ms"), 700, 0, 60000)
+    target["timeout_ms"] = _safe_int(target.get("timeout_ms"), 2000, 100, 60000)
+    target["max_workers"] = 1
+    return target
+
+
+def _apply_niren_command_compat(command):
+    if not isinstance(command, dict):
+        return command
+    command_id = str(command.get("id") or "").strip().lower()
+    category = str(command.get("category") or "").strip().lower()
+    payload = str(command.get("payload_template") or command.get("payload") or "").strip().upper()
+    is_niren = command_id.startswith("niren_") or "niren" in category or "泥人" in category or payload.startswith("AT+STACH")
+    if not is_niren:
+        return command
+    if command_id.startswith("niren_at_") or payload.startswith("AT"):
+        command["format"] = "str"
+        command["line_ending"] = "crlf"
+    elif command_id.startswith("niren_modbus_rtu_"):
+        command["format"] = "modbus_rtu"
+        command["line_ending"] = "none"
+    elif command_id.startswith("niren_modbus_tcp_"):
+        command["format"] = "modbus_tcp"
+        command["line_ending"] = "none"
+    return command
+
+
+NIREN_PROTOCOL_COMMAND_MAP = {
+    "at_over_tcp": {
+        "read_do": "niren_at_do_read",
+        "read_di": "niren_at_di_read",
+        "do_on": "niren_at_do_on",
+        "do_off": "niren_at_do_off",
+        "pulse": "niren_at_do_pulse",
+        "info": "niren_at_device_info",
+        "params": {"channel": 1},
+        "pulse_params": {"channel": 1, "seconds": 1},
+    },
+    "modbus_rtu_over_tcp": {
+        "read_do": "niren_modbus_rtu_read_do",
+        "read_di": "niren_modbus_rtu_read_di",
+        "do_on": "niren_modbus_rtu_do_on",
+        "do_off": "niren_modbus_rtu_do_off",
+        "pulse": "",
+        "info": "",
+        "params": {"unit_id": "01"},
+        "pulse_params": {"unit_id": "01"},
+    },
+    "modbus_tcp": {
+        "read_do": "niren_modbus_tcp_read_do",
+        "read_di": "niren_modbus_tcp_read_di",
+        "do_on": "niren_modbus_tcp_do_on",
+        "do_off": "niren_modbus_tcp_do_off",
+        "pulse": "",
+        "info": "",
+        "params": {"unit_id": "01"},
+        "pulse_params": {"unit_id": "01"},
+    },
+}
+
+
+def infer_niren_control_role(control):
+    if not isinstance(control, dict):
+        return ""
+    control_id = str(control.get("id") or "").strip().lower()
+    command_id = str(control.get("command_id") or "").strip().lower()
+    name = str(control.get("name") or "").strip().lower()
+    text = f"{control_id} {command_id} {name}"
+    if "read_do" in text or "读do" in text or "读取 do" in text:
+        return "read_do"
+    if "read_di" in text or "读di" in text or "读取 di" in text:
+        return "read_di"
+    if "do_on" in text or "do开" in text or "吸合" in text:
+        return "do_on"
+    if "do_off" in text or "do关" in text or "断开" in text:
+        return "do_off"
+    if "pulse" in text or "点动" in text:
+        return "pulse"
+    if "info" in text or "device_info" in text or "信息" in text:
+        return "info"
+    return ""
+
+
+def apply_niren_protocol_mode(control_center_config, target_group_id, mode):
+    config = normalize_control_center(control_center_config)
+    target_id = str(target_group_id or "").strip()
+    next_mode = _normalize_niren_mode(mode)
+    if next_mode not in NIREN_PROTOCOL_COMMAND_MAP:
+        raise ValueError("不支持的泥人协议模式")
+    target = _find_by_id(config.get("target_groups"), target_id)
+    if not target:
+        raise ValueError(f"找不到目标组: {target_group_id}")
+    if not _is_niren_target(target):
+        raise ValueError("该目标组不是泥人 POE-KP-I101 设备")
+
+    command_map = NIREN_PROTOCOL_COMMAND_MAP[next_mode]
+    target["data_protocol"] = next_mode
+    target["send_strategy"] = "serial"
+    target["max_workers"] = 1
+
+    changed_controls = 0
+    for panel in _safe_list(config.get("panels")):
+        controls = _safe_list(panel.get("controls"))
+        for control in controls:
+            if str(control.get("target_group_id") or "").strip() != target_id:
+                continue
+            role = infer_niren_control_role(control)
+            if not role:
+                continue
+            next_command = command_map.get(role, "")
+            control["command_id"] = next_command
+            control["params"] = dict(command_map.get("pulse_params" if role == "pulse" else "params") or {})
+            if role == "pulse" and not next_command:
+                control["visible"] = False
+                control["show_on_home"] = False
+            elif role == "pulse":
+                control["visible"] = True
+            changed_controls += 1
+
+    for device in _safe_list(config.get("devices")):
+        if str(device.get("target_group_id") or "").strip() != target_id:
+            continue
+        device["protocol"] = next_mode
+        device["port"] = target.get("port")
+        device["host"] = target.get("host")
+
+    return {
+        "control_center": normalize_control_center(config),
+        "target_group_id": target_id,
+        "mode": next_mode,
+        "changed_controls": changed_controls,
+    }
+
+
 def _stable_id(prefix, *parts):
     raw = "_".join(str(part or "").strip() for part in parts if str(part or "").strip())
     ascii_part = re.sub(r"[^a-zA-Z0-9_]+", "_", raw).strip("_").lower()
@@ -204,6 +371,7 @@ def normalize_control_center(raw_config, custom_devices=None):
         )
         if target["send_strategy"] not in {"parallel", "serial"}:
             target["send_strategy"] = "parallel"
+        target = _apply_niren_target_compat(target)
         target_groups.append(target)
     config["target_groups"] = target_groups
 
@@ -237,6 +405,7 @@ def normalize_control_center(raw_config, custom_devices=None):
                 "enabled": bool(command.get("enabled", True)),
             }
         )
+        command = _apply_niren_command_compat(command)
         commands.append(command)
     config["command_library"] = commands
 
