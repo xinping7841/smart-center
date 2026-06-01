@@ -1,0 +1,10 @@
+{
+  "task": "venue-light-physical-switch",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-venue-light-physical-switch-20260601",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/venue-light-physical-switch",
+  "started_at": "2026-06-01 17:27:49",
+  "status": "in_progress"
+}
