@@ -150,8 +150,8 @@
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
     </script>
-    <script src="/static/js/views/dashboard-shell.js?v=20260601-page-shells-hotfix-v4"></script>
-    <script src="/static/js/views/page-shells.js?v=20260601-page-shells-hotfix-v4"></script>
+    <script src="/static/js/views/dashboard-shell.js?v=20260601-page-shells-hotfix-v5"></script>
+    <script src="/static/js/views/page-shells.js?v=20260601-page-shells-hotfix-v5"></script>
     <script>
         window.renderDashboardShell?.(window.configData || {});
         try {
@@ -160,6 +160,91 @@
             if (initialView && initialView !== 'dashboard') window.renderPageShell?.(initialView);
         } catch (_) {}
     </script>
-    <script src="/static/js/app-runtime.js?v=20260601-page-shells-hotfix-v4"></script>
+    <script src="/static/js/app-runtime.js?v=20260601-page-shells-hotfix-v5"></script>
+    <style id="lazy-shell-critical-hotfix-v5">
+        /* Production guard: keep lazy shell dashboard on measured masonry even if cached fixed-canvas CSS wins. */
+        html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .view-container {
+            overflow:auto !important;
+            scrollbar-gutter:stable;
+        }
+        html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active,
+        html body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active {
+            grid-template-columns:repeat(24, minmax(0, 1fr)) !important;
+            grid-auto-flow:dense !important;
+            grid-auto-rows:8px !important;
+            gap:10px !important;
+            align-items:flex-start !important;
+            align-content:flex-start !important;
+            justify-content:flex-start !important;
+            height:auto !important;
+            min-height:0 !important;
+            overflow:visible !important;
+        }
+        html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active > [data-section-id],
+        html body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active > [data-section-id] {
+            grid-row:auto / var(--smart-dashboard-row-span, auto) !important;
+            height:auto !important;
+            min-height:0 !important;
+            overflow:visible !important;
+        }
+        html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active > #dashboard-section-stats { grid-column:auto / span 18 !important; }
+        html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active > #dashboard-section-projector,
+        html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active > #dashboard-section-hy_edge,
+        html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active > #dashboard-section-ups_compact,
+        html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active > #dashboard-section-screen { grid-column:auto / span 4 !important; }
+        html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active > #dashboard-section-hvac,
+        html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active > #dashboard-section-sequencer,
+        html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active > #dashboard-section-light_compact,
+        html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active > #dashboard-section-power_compact,
+        html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active > #dashboard-section-snmp { grid-column:auto / span 8 !important; }
+        html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active > #dashboard-section-server_compact { grid-column:auto / span 12 !important; }
+        html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active > #dashboard-section-energy_trend { grid-column:auto / span 6 !important; }
+        html body #view-hvac button.projector-power-key,
+        html body #view-hvac .projector-power-key {
+            -webkit-appearance:none !important;
+            appearance:none !important;
+            width:30px !important;
+            height:30px !important;
+            min-width:30px !important;
+            border:0 !important;
+            border-radius:999px !important;
+            cursor:pointer !important;
+            display:inline-flex !important;
+            align-items:center !important;
+            justify-content:center !important;
+            color:#fff !important;
+            font-size:0 !important;
+            line-height:1 !important;
+            padding:0 !important;
+            text-indent:-999px !important;
+            overflow:hidden !important;
+            transition:transform .18s ease, box-shadow .18s ease, opacity .18s ease !important;
+        }
+        html body #view-hvac button.projector-power-key::before,
+        html body #view-hvac .projector-power-key::before {
+            content:'';
+            width:14px;
+            height:14px;
+            display:block;
+            background:currentColor;
+            -webkit-mask:url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12 2v10'/%3E%3Cpath d='M18.4 6.6a8 8 0 1 1-12.8 0'/%3E%3C/svg%3E") center / contain no-repeat;
+            mask:url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12 2v10'/%3E%3Cpath d='M18.4 6.6a8 8 0 1 1-12.8 0'/%3E%3C/svg%3E") center / contain no-repeat;
+        }
+        html body #view-hvac button.projector-power-key.on,
+        html body #view-hvac .projector-power-key.on {
+            background:radial-gradient(circle at 35% 30%, #34d399, #059669 72%) !important;
+            box-shadow:0 0 0 3px rgba(16,185,129,0.15), 0 8px 18px rgba(16,185,129,0.24) !important;
+        }
+        html body #view-hvac button.projector-power-key.off,
+        html body #view-hvac .projector-power-key.off {
+            background:radial-gradient(circle at 35% 30%, #f87171, #dc2626 72%) !important;
+            box-shadow:0 0 0 3px rgba(239,68,68,0.15), 0 8px 18px rgba(239,68,68,0.22) !important;
+        }
+        html body #view-hvac button.projector-power-key.unknown,
+        html body #view-hvac .projector-power-key.unknown {
+            background:radial-gradient(circle at 35% 30%, #94a3b8, #475569 72%) !important;
+            box-shadow:0 0 0 3px rgba(100,116,139,0.15), 0 8px 18px rgba(71,85,105,0.22) !important;
+        }
+    </style>
 </body>
 </html>
