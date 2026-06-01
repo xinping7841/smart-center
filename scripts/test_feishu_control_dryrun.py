@@ -31,6 +31,7 @@ from services.feishu_bot import (  # noqa: E402
     _is_control_request,
 )
 from services.control_model_translator import LocalModelControlTranslator  # noqa: E402
+from services.natural_language_orchestrator import describe_control_policy, load_runtime_natural_language_policy  # noqa: E402
 
 
 DEFAULT_CASES = [
@@ -105,17 +106,26 @@ def _safe_payload(command: dict[str, Any] | None) -> dict[str, Any]:
     }
 
 
-def _dry_run_case(client: LocalSmartCenterClient, text: str, translator: LocalModelControlTranslator | None = None) -> dict[str, Any]:
+def _dry_run_case(
+    client: LocalSmartCenterClient,
+    text: str,
+    translator: LocalModelControlTranslator | None = None,
+    *,
+    require_confirmation: bool = True,
+) -> dict[str, Any]:
     normalized = " ".join(str(text or "").split())
     action = _control_action_from_text(normalized)
     is_control = _is_control_request(normalized)
     command = client.resolve_control_command_with_translator(normalized, translator=translator) if is_control else None
     safe = _safe_payload(command)
     command_type = str(safe.get("type") or "")
-    confidence = str(safe.get("confidence") or "high")
-    high_risk = command_type in HIGH_RISK_CONTROL_TYPES or str(safe.get("risk") or "") == "high"
-    inferred = confidence in INFERRED_CONTROL_CONFIDENCE
-    executable = bool(command and command_type != "error" and not high_risk and not inferred)
+    policy = describe_control_policy(
+        command,
+        high_risk_types=HIGH_RISK_CONTROL_TYPES,
+        inferred_confidences=INFERRED_CONTROL_CONFIDENCE,
+        require_confirmation=require_confirmation,
+    )
+    executable = bool(command and command_type != "error" and not policy.get("requires_confirmation"))
     model_rewritten_text = str(safe.get("model_rewritten_text") or "")
     return {
         "schema": "smart_center.feishu_control_dryrun.v1",
@@ -123,11 +133,12 @@ def _dry_run_case(client: LocalSmartCenterClient, text: str, translator: LocalMo
         "is_control_request": is_control,
         "recognized_action": action,
         "command": safe,
-        "requires_confirmation": bool(command and command_type != "error" and (high_risk or inferred)),
+        "requires_confirmation": bool(command and command_type != "error" and policy.get("requires_confirmation")),
+        "confirmation_reason": policy.get("reason"),
         "would_execute_without_confirmation": executable,
         "dry_run": True,
         "model_rewritten_text": model_rewritten_text,
-        "note": "未调用真实控制接口；would_execute_without_confirmation 仅表示生产聊天中该命令当前会直接执行。",
+        "note": "未调用真实控制接口；would_execute_without_confirmation 按当前飞书确认策略计算。",
     }
 
 
@@ -145,7 +156,16 @@ def main() -> int:
     if args.use_model:
         cfg = load_config(None)
         translator = LocalModelControlTranslator(cfg.nl_model_url, cfg.nl_model_name, cfg.nl_model_timeout_sec)
-    rows = [_dry_run_case(client, text, translator=translator) for text in _load_cases(args.cases)]
+    nl_policy = load_runtime_natural_language_policy()
+    rows = [
+        _dry_run_case(
+            client,
+            text,
+            translator=translator,
+            require_confirmation=bool(nl_policy.get("feishu_control_require_confirmation", True)),
+        )
+        for text in _load_cases(args.cases)
+    ]
     result = {
         "schema": "smart_center.feishu_control_dryrun_summary.v1",
         "generated_at": datetime.now().isoformat(timespec="seconds"),
@@ -154,6 +174,8 @@ def main() -> int:
         "recognized": sum(1 for row in rows if row["is_control_request"] and row["command"].get("type")),
         "needs_confirmation": sum(1 for row in rows if row["requires_confirmation"]),
         "would_execute_without_confirmation": sum(1 for row in rows if row["would_execute_without_confirmation"]),
+        "feishu_control_enabled": bool(nl_policy.get("feishu_control_enabled", False)),
+        "feishu_control_require_confirmation": bool(nl_policy.get("feishu_control_require_confirmation", True)),
     }
     if args.output:
         out_path = Path(args.output)

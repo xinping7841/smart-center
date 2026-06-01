@@ -13,6 +13,7 @@
   let chatMessages = [];
   let initialized = false;
   let pendingControl = null;
+  let processLog = [];
 
   function $(id) { return document.getElementById(id); }
   function esc(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
@@ -114,12 +115,29 @@
                   <label>系统提示词</label>
                   <textarea class="local-model-textarea" id="cfgSystemPrompt"></textarea>
                 </div>
+                <label class="local-model-switch-row">
+                  <span>
+                    <strong>允许飞书执行中控命令</strong>
+                    <small>关闭后飞书仍可查询和解析，但不会进入真实控制执行。</small>
+                  </span>
+                  <input id="cfgFeishuControlEnabled" type="checkbox">
+                </label>
                 <div class="local-model-actions">
                   <button class="local-model-btn success" type="button" onclick="saveConfig()">保存配置</button>
                   <button class="local-model-btn secondary" type="button" onclick="loadConfig()">重新读取</button>
                 </div>
-                <div class="local-model-hint">默认使用 122 的知识代理 8001 作为对话入口，vLLM 8000 作为上游状态校验。真实控制类建议只由模型分析，最终动作仍在中控页面执行。</div>
+                <div class="local-model-hint">默认使用 122 的知识代理 8001 作为对话入口，vLLM 8000 作为上游状态校验。模型只负责理解；飞书控制开启后仍需人工确认。</div>
               </div>
+            </section>
+            <section class="local-model-card">
+              <div class="local-model-head">
+                <div>
+                  <div class="local-model-title">自然语言处理记录</div>
+                  <div class="local-model-subtitle">模型理解、安全路由与实际执行过程</div>
+                </div>
+                <button class="local-model-btn secondary" type="button" onclick="loadProcessLog()">刷新</button>
+              </div>
+              <div class="local-model-process-list" id="processLog"></div>
             </section>
             <section class="local-model-card">
               <div class="local-model-head">
@@ -138,6 +156,7 @@
   function hasUi() { return !!($('messages') && $('prompt') && $('sendBtn')); }
   function optionalSet(id, value) { const el = $(id); if (el) el.textContent = value; }
   function optionalValue(id, value) { const el = $(id); if (el) el.value = value; }
+  function optionalChecked(id, value) { const el = $(id); if (el) el.checked = !!value; }
   function setBadge(id, text, ok) {
     const el = $(id);
     if (!el) return;
@@ -186,6 +205,80 @@
     }
     return lines.join('\n');
   }
+  function compactJson(value) {
+    try {
+      return JSON.stringify(value || {});
+    } catch (err) {
+      return String(value || '');
+    }
+  }
+  function processOutcomeText(value) {
+    const map = {
+      answered: '已回答',
+      pending_confirmation: '待确认',
+      control_blocked: '已拦截',
+      route_rejected: '路由拒绝',
+      unmatched: '未匹配',
+      permission_denied: '权限拒绝',
+      executed: '已执行',
+      model_failed: '模型失败',
+      model_http_error: '模型失败',
+      not_control: '普通问答'
+    };
+    return map[value] || value || '--';
+  }
+  function processStageText(value) {
+    const map = {classify:'理解', model:'模型', route:'路由', permission:'权限', policy:'策略', confirm:'确认', execute:'执行'};
+    return map[value] || value || '步骤';
+  }
+  function renderProcessLog() {
+    const box = $('processLog');
+    if (!box) return;
+    if (!processLog.length) {
+      box.innerHTML = '<div class="local-model-hint">暂无自然语言处理记录</div>';
+      return;
+    }
+    box.innerHTML = processLog.map(item => {
+      const steps = Array.isArray(item.steps) ? item.steps : [];
+      const stepHtml = steps.map(step => `
+        <div class="local-model-process-step ${step.ok === false ? 'bad' : ''}">
+          <span>${esc(processStageText(step.stage))}</span>
+          <div><strong>${esc(step.title || '--')}</strong>${step.detail ? `<small>${esc(step.detail)}</small>` : ''}</div>
+        </div>`).join('');
+      const command = item.command || {};
+      const commandLines = command.label ? [
+        `${command.label} -> ${command.action_text || command.action || '--'}`,
+        `${command.type || '--'} · ${command.risk || '--'} · ${command.confidence || '--'}`,
+        `${command.method || 'POST'} ${command.path || ''}`,
+        compactJson(command.payload)
+      ] : [];
+      const commandHtml = commandLines.length ? `<div class="local-model-process-command">${commandLines.map(line => `<span>${esc(line)}</span>`).join('')}</div>` : '';
+      return `
+        <details class="local-model-process-row">
+          <summary>
+            <span class="local-model-process-source">${esc(item.source || '--')}</span>
+            <div><strong>${esc(item.text || '(空输入)')}</strong><small>${esc(item.started_at || '')}</small></div>
+            <em>${esc(processOutcomeText(item.outcome))}</em>
+          </summary>
+          <div class="local-model-process-body">
+            ${commandHtml}
+            ${stepHtml || '<div class="local-model-hint">没有细分步骤</div>'}
+          </div>
+        </details>`;
+    }).join('');
+  }
+  async function loadProcessLog() {
+    const box = $('processLog');
+    if (!box) return;
+    try {
+      const resp = await fetch('/api/local-model/nl-process-log?limit=40');
+      const data = await resp.json();
+      processLog = data.items || [];
+      renderProcessLog();
+    } catch (err) {
+      box.innerHTML = `<div class="local-model-hint">${esc(String(err))}</div>`;
+    }
+  }
   async function handlePendingControl(prompt) {
     if (!pendingControl) return false;
     if (isCancelText(prompt)) {
@@ -200,6 +293,7 @@
     const data = await resp.json();
     if (data.ok) addMessage('assistant', data.result || '控制已执行。');
     else addMessage('system', data.msg || data.error || '确认执行失败');
+    await loadProcessLog();
     return true;
   }
   async function tryControlDryRun(prompt) {
@@ -209,6 +303,7 @@
     const text = formatControlDryRun(data);
     if (text) addMessage(data.allowed === false ? 'system' : 'assistant', text);
     pendingControl = data.pending_token ? data : null;
+    await loadProcessLog();
     return true;
   }
   function renderMessages() {
@@ -243,6 +338,7 @@
     optionalValue('cfgMaxModelLen', modelConfig.max_model_len ?? 32768);
     optionalValue('cfgTimeout', modelConfig.timeout_sec ?? 120);
     optionalValue('cfgSystemPrompt', modelConfig.system_prompt || '');
+    optionalChecked('cfgFeishuControlEnabled', modelConfig.natural_language?.feishu_control_enabled);
     updateMetaFromConfig();
     setBadge('saveBadge', '已读取', true);
     return modelConfig;
@@ -261,7 +357,13 @@
       max_tokens: Number($('cfgMaxTokens')?.value || 512),
       max_model_len: Number($('cfgMaxModelLen')?.value || 32768),
       timeout_sec: Number($('cfgTimeout')?.value || 120),
-      system_prompt: ($('cfgSystemPrompt')?.value || '').trim()
+      system_prompt: ($('cfgSystemPrompt')?.value || '').trim(),
+      natural_language: {
+        ...(modelConfig?.natural_language || {}),
+        feishu_control_enabled: !!$('cfgFeishuControlEnabled')?.checked,
+        feishu_control_require_confirmation: true,
+        record_process_enabled: true
+      }
     };
     setBadge('saveBadge', '保存中', null);
     const resp = await fetch('/api/local-model/config', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
@@ -315,6 +417,7 @@
       const data = await resp.json();
       if (data.ok) addMessage('assistant', data.answer || '(空回复)');
       else addMessage('system', data.msg || data.error || '调用失败');
+      await loadProcessLog();
     } catch (err) {
       addMessage('system', String(err));
     } finally {
@@ -357,6 +460,7 @@
       optionalSet('modelLine', String(err));
     });
     loadFiles().catch(() => {});
+    loadProcessLog().catch(() => {});
   }
 
   const api = {
@@ -366,6 +470,7 @@
     init,
     loadConfig,
     loadFiles,
+    loadProcessLog,
     renderLocalModelPage,
     renderMessages,
     saveConfig,
@@ -388,6 +493,7 @@
     clearChat,
     exportTraining,
     loadConfig,
+    loadProcessLog,
     saveConfig,
     sendChat,
   });

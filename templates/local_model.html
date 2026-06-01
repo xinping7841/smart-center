@@ -56,6 +56,28 @@
     .file-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px; background:#0b1424; border:1px solid rgba(148,163,184,.10); border-radius:7px; }
     .file-name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:Consolas,monospace; font-size:12px; color:#dbeafe; }
     .file-meta { color:#94a3b8; font-size:12px; }
+    .local-model-switch-row { margin:0; padding:10px; min-height:58px; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; border:1px solid rgba(148,163,184,.14); border-radius:8px; background:rgba(2,6,23,.24); }
+    .local-model-switch-row strong,.local-model-switch-row small { display:block; }
+    .local-model-switch-row strong { color:#e5edf8; font-size:13px; line-height:1.25; }
+    .local-model-switch-row small { margin-top:4px; color:#94a3b8; font-size:12px; line-height:1.45; }
+    .local-model-switch-row input { width:38px; height:22px; accent-color:#22c55e; }
+    .local-model-process-list { padding:10px 12px 12px; display:grid; gap:8px; max-height:360px; overflow:auto; }
+    .local-model-process-row { border:1px solid rgba(148,163,184,.12); border-radius:8px; background:#0b1424; overflow:hidden; }
+    .local-model-process-row summary { min-height:54px; padding:9px; display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:8px; align-items:center; cursor:pointer; }
+    .local-model-process-row summary::-webkit-details-marker { display:none; }
+    .local-model-process-row strong,.local-model-process-row small { display:block; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .local-model-process-row strong { color:#dbeafe; font-size:12px; }
+    .local-model-process-row small { margin-top:3px; color:#64748b; font-size:11px; }
+    .local-model-process-row em,.local-model-process-source { display:inline-flex; align-items:center; min-height:24px; padding:4px 7px; border-radius:999px; font-style:normal; font-size:11px; font-weight:850; white-space:nowrap; }
+    .local-model-process-source { background:rgba(37,99,235,.20); color:#bfdbfe; }
+    .local-model-process-row em { background:rgba(148,163,184,.14); color:#cbd5e1; }
+    .local-model-process-body { padding:0 9px 10px; display:grid; gap:7px; }
+    .local-model-process-command { display:grid; gap:3px; padding:8px; border-radius:7px; background:rgba(37,99,235,.12); color:#dbeafe; font-size:12px; font-weight:850; line-height:1.45; word-break:break-word; }
+    .local-model-process-command span { display:block; }
+    .local-model-process-step { display:grid; grid-template-columns:42px minmax(0,1fr); gap:8px; align-items:start; padding:7px 8px; border-radius:7px; background:rgba(15,23,42,.86); }
+    .local-model-process-step.bad { background:rgba(127,29,29,.24); }
+    .local-model-process-step > span { color:#93c5fd; font-size:11px; font-weight:900; line-height:1.5; }
+    .local-model-process-step strong,.local-model-process-step small { white-space:normal; text-overflow:clip; }
     .local-model-status {}
     .local-model-hint {}
     .local-model-file-row {}
@@ -106,9 +128,17 @@
               <div class="row2"><div><label>温度</label><input id="cfgTemperature" type="number" step="0.1" min="0" max="2"></div><div><label>输出上限</label><input id="cfgMaxTokens" type="number" min="64" max="4096"></div></div>
               <div class="row2"><div><label>上下文长度</label><input id="cfgMaxModelLen" type="number" min="1024" max="262144"></div><div><label>超时秒数</label><input id="cfgTimeout" type="number" min="3" max="600"></div></div>
               <div><label>系统提示词</label><textarea id="cfgSystemPrompt"></textarea></div>
+              <label class="local-model-switch-row">
+                <span><strong>允许飞书执行中控命令</strong><small>关闭后飞书仍可查询和解析，但不会进入真实控制执行。</small></span>
+                <input id="cfgFeishuControlEnabled" type="checkbox">
+              </label>
               <div class="actions"><button class="success" onclick="saveConfig()">保存配置</button><button class="secondary" onclick="loadConfig()">重新读取</button></div>
-              <div class="hint">默认使用 122 的知识代理 8001 作为对话入口，vLLM 8000 作为上游状态校验。真实控制类建议只让模型给建议，最终动作仍由中控按钮和权限确认。</div>
+              <div class="hint">默认使用 122 的知识代理 8001 作为对话入口，vLLM 8000 作为上游状态校验。模型只负责理解；飞书控制开启后仍需人工确认。</div>
             </div>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><div><div class="panel-title">自然语言处理记录</div><div class="hint">模型理解、安全路由与实际执行过程</div></div><button class="secondary" onclick="loadProcessLog()">刷新</button></div>
+            <div class="local-model-process-list" id="processLog"></div>
           </section>
           <section class="panel">
             <div class="panel-head"><div class="panel-title">训练数据导出</div><button class="warning" onclick="exportTraining()">生成</button></div>
@@ -119,6 +149,6 @@
       </main>
     </div>
   </div>
-<script src="/static/js/views/local-model.js?v=20260522-sidebar-nav"></script>
+<script src="/static/js/views/local-model.js?v=20260601-nl-process-feishu-control"></script>
 </body>
 </html>

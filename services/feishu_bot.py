@@ -29,6 +29,12 @@ from services.control_intent_router import ControlIntentRouter
 from services.control_learning import ControlLearningStore
 from services.control_model_translator import LocalModelControlTranslator
 from services.device_aliases import build_device_alias_rows, find_alias_rows, normalize_alias_text
+from services.natural_language_orchestrator import (
+    NaturalLanguageTrace,
+    describe_control_policy,
+    load_runtime_natural_language_policy,
+    summarize_command_for_process,
+)
 
 try:
     import lark_oapi as lark
@@ -149,6 +155,8 @@ class FeishuBotConfig:
     nl_model_url: str = "http://127.0.0.1:11434"
     nl_model_name: str = "qwen3:14b"
     nl_model_timeout_sec: float = 8.0
+    feishu_control_enabled: bool = False
+    feishu_control_require_confirmation: bool = True
 
 
 def load_dotenv(path: Path) -> None:
@@ -204,6 +212,8 @@ def load_config(env_file: str | Path | None = None) -> FeishuBotConfig:
         nl_model_url=str(nl_model_url or "http://127.0.0.1:11434").strip().rstrip("/"),
         nl_model_name=str(nl_model_name or "qwen3:14b").strip(),
         nl_model_timeout_sec=model_timeout,
+        feishu_control_enabled=str(os.environ.get("FEISHU_CONTROL_ENABLED", "") or "").strip().lower() in {"1", "true", "yes", "on"},
+        feishu_control_require_confirmation=str(os.environ.get("FEISHU_CONTROL_REQUIRE_CONFIRMATION", "1") or "1").strip().lower() in {"1", "true", "yes", "on"},
     )
 
 
@@ -2505,7 +2515,23 @@ class FeishuBot:
         self.log(f"Feishu card callback buttons enabled: {self.config.card_callback_enabled}")
         if self.intent_classifier:
             self.log(f"NL intent model: {self.config.nl_model_name} at {self.config.nl_model_url}")
+        policy = self._natural_language_policy()
+        self.log(
+            "Feishu control policy: "
+            f"enabled={policy.get('feishu_control_enabled')} "
+            f"require_confirmation={policy.get('feishu_control_require_confirmation')}"
+        )
         self.ws_client.start()
+
+    def _natural_language_policy(self) -> dict[str, Any]:
+        policy = load_runtime_natural_language_policy()
+        env_enabled = self.config.feishu_control_enabled
+        if env_enabled:
+            policy["feishu_control_enabled"] = True
+        policy["feishu_control_require_confirmation"] = bool(
+            policy.get("feishu_control_require_confirmation", True) or self.config.feishu_control_require_confirmation
+        )
+        return policy
 
     def start_scheduler(self) -> None:
         if not self.config.default_chat_id or not self.config.push_times:
@@ -2557,13 +2583,25 @@ class FeishuBot:
         decision = str(value.get("decision") or "").strip().lower()
         pending_id = str(value.get("pending_id") or "").strip()
         self.log(f"[card action] chat_id={chat_id} decision={decision} pending_id={pending_id}")
+        trace = NaturalLanguageTrace(
+            source="feishu",
+            text=f"card_action:{decision}",
+            actor={"chat_id": chat_id, "pending_id": pending_id},
+            policy=self._natural_language_policy(),
+        )
+        trace.add_step("confirm", "收到飞书卡片按钮", data={"decision": decision, "pending_id": pending_id}, ok=True)
         if decision in {"confirm", "execute"}:
-            text = self._execute_pending_control(chat_id, expected_pending_id=pending_id)
+            text = self._execute_pending_control(chat_id, expected_pending_id=pending_id, trace=trace)
+            trace.finish(intent="control", outcome="executed" if "成功" in text else "control_blocked", reply=text)
             toast_type = "success" if "成功" in text or "已确认" in text else "warning"
             return self._card_action_response(text, toast_type=toast_type, done_text=text)
         if decision == "cancel":
             text = self._cancel_pending_control(chat_id, expected_pending_id=pending_id)
+            trace.add_step("confirm", "已取消飞书待确认控制", detail=text, ok=True)
+            trace.finish(intent="control", outcome="cancelled", reply=text)
             return self._card_action_response(text, toast_type="success", done_text=text)
+        trace.add_step("confirm", "无法识别卡片按钮动作", detail=decision, ok=False)
+        trace.finish(intent="control", outcome="unknown_card_action", reply="无法识别按钮动作，请重新下发。")
         return self._card_action_response("无法识别按钮动作，请重新下发。", toast_type="warning")
 
     def _pending_key(self, chat_id: str) -> str:
@@ -2630,20 +2668,42 @@ class FeishuBot:
             return {"expired": True}
         return pending
 
-    def _execute_pending_control(self, chat_id: str, expected_pending_id: str = "") -> str:
+    def _execute_pending_control(self, chat_id: str, expected_pending_id: str = "", trace: NaturalLanguageTrace | None = None) -> str:
         pending = self._pending_control_by_id(chat_id, expected_pending_id=expected_pending_id, pop=True)
         if not pending:
-            return "未执行：当前没有待确认控制。可能是旧卡片、服务重启前卡片，或测试卡片没有生成真实待确认任务。请重新下发控制命令。"
+            reply = "未执行：当前没有待确认控制。可能是旧卡片、服务重启前卡片，或测试卡片没有生成真实待确认任务。请重新下发控制命令。"
+            if trace:
+                trace.add_step("confirm", "没有找到待确认控制", detail=reply, ok=False)
+            return reply
         if pending.get("mismatch"):
-            return "未执行：这张确认卡片已不是最新请求，请使用最新卡片或重新下发。"
+            reply = "未执行：这张确认卡片已不是最新请求，请使用最新卡片或重新下发。"
+            if trace:
+                trace.add_step("confirm", "确认卡片不是最新请求", detail=reply, ok=False)
+            return reply
         if pending.get("expired"):
             command = pending.get("command") if isinstance(pending.get("command"), dict) else None
             state_text = self.local_client.control_state_text(command)
-            return f"未执行：待确认控制已过期，请重新下发。{chr(10) + state_text if state_text else ''}"
+            reply = f"未执行：待确认控制已过期，请重新下发。{chr(10) + state_text if state_text else ''}"
+            if trace:
+                trace.add_step("confirm", "待确认控制已过期", detail=reply, data=summarize_command_for_process(command), ok=False)
+            return reply
         command = pending.get("command")
         if not isinstance(command, dict):
-            return "未执行：待确认控制格式无效，请重新下发。"
+            reply = "未执行：待确认控制格式无效，请重新下发。"
+            if trace:
+                trace.add_step("confirm", "待确认控制格式无效", detail=reply, ok=False)
+            return reply
+        if trace:
+            trace.add_step("confirm", "确认通过，准备执行", data=summarize_command_for_process(command), ok=True)
+        policy = self._natural_language_policy()
+        if not policy.get("feishu_control_enabled", False):
+            reply = "未执行：飞书控制中控执行命令已关闭。查询仍可使用；如需控制，请先在中控 AI 模块打开飞书控制开关。"
+            if trace:
+                trace.add_step("policy", "飞书控制开关关闭", detail=reply, ok=False)
+            return reply
         result = self.local_client.execute_control_command(command)
+        if trace:
+            trace.add_step("execute", "已调用中控执行链路", detail=result, data=summarize_command_for_process(command), ok="成功" in result)
         ControlLearningStore(CONTROL_FEEDBACK_STORE).append(
             str(pending.get("source_text") or ""),
             command,
@@ -2668,7 +2728,7 @@ class FeishuBot:
         )
         return "已取消待确认控制。"
 
-    def _store_pending_control(self, chat_id: str, command: dict[str, Any], source_text: str) -> str:
+    def _store_pending_control(self, chat_id: str, command: dict[str, Any], source_text: str, *, reason_override: str = "") -> str:
         key = self._pending_key(chat_id)
         expires_at = time.time() + PENDING_CONTROL_TTL_SEC
         pending_id = uuid.uuid4().hex
@@ -2702,6 +2762,24 @@ class FeishuBot:
                 reason=reason,
                 high_risk=False,
             )
+        if reason_override:
+            fallback_text = (
+                f"控制请求已解析，需要确认：{label} -> {action}\n"
+                f"原因：{reason_override}\n"
+                "点击卡片按钮，或回复“执行/确认”执行，回复“取消”放弃。\n"
+                "提示：确认有效期 10 分钟。"
+            )
+            return self._pending_control_card_payload(
+                chat_id,
+                pending_id,
+                label,
+                action,
+                fallback_text,
+                title="控制执行确认",
+                template="yellow",
+                reason=reason_override,
+                high_risk=False,
+            )
         fallback_text = (
             f"高风险操作需要二次确认：{label} -> {action}\n"
             "点击卡片按钮，或回复“执行/确认”执行，回复“取消”放弃。\n"
@@ -2719,23 +2797,58 @@ class FeishuBot:
             high_risk=True,
         )
 
-    def _dispatch_control_command(self, normalized: str, chat_id: str = "") -> str | None:
+    def _dispatch_control_command(self, normalized: str, chat_id: str = "", trace: NaturalLanguageTrace | None = None) -> str | None:
         if _is_cancel_text(normalized):
             return self._cancel_pending_control(chat_id)
         if _is_confirmation_text(normalized):
-            return self._execute_pending_control(chat_id)
+            return self._execute_pending_control(chat_id, trace=trace)
         if not _is_control_request(normalized):
             return None
+        policy = self._natural_language_policy()
+        if trace:
+            trace.event["policy"] = policy
+            trace.add_step("classify", "识别为飞书控制请求", data={"control_enabled": policy.get("feishu_control_enabled")}, ok=True)
         command = self.local_client.resolve_control_command_with_translator(normalized, translator=self.control_translator)
         if not command:
+            if trace:
+                trace.add_step("route", "未匹配到可执行设备", ok=False)
             return "我识别到这是控制请求，但没有明确匹配到可执行设备。请带上设备名称、编号或 IP。"
         if command.get("type") == "error":
+            if trace:
+                trace.add_step("route", "安全路由拒绝控制", detail=command.get("message") or "", data=summarize_command_for_process(command), ok=False)
             return str(command.get("message") or "控制请求无法执行。")
-        if str(command.get("confidence") or "high") in INFERRED_CONTROL_CONFIDENCE:
-            return self._store_pending_control(chat_id, command, normalized)
-        if str(command.get("type") or "") in HIGH_RISK_CONTROL_TYPES or str(command.get("risk") or "") == "high":
-            return self._store_pending_control(chat_id, command, normalized)
+        command_policy = describe_control_policy(
+            command,
+            high_risk_types=HIGH_RISK_CONTROL_TYPES,
+            inferred_confidences=INFERRED_CONTROL_CONFIDENCE,
+            require_confirmation=bool(policy.get("feishu_control_require_confirmation", True)),
+        )
+        if trace:
+            trace.add_step("route", "控制目标已解析", data={"command": summarize_command_for_process(command), "control_policy": command_policy}, ok=True)
+        if not policy.get("feishu_control_enabled", False):
+            reply = (
+                "已识别为控制请求，但当前已关闭飞书控制中控执行命令。\n"
+                f"目标：{command.get('label') or '设备'}\n"
+                f"动作：{_format_control_action(str(command.get('action') or ''))}\n"
+                "查询指令仍可正常使用；如需执行，请先在中控 AI 模块打开飞书控制开关。"
+            )
+            if trace:
+                trace.add_step("policy", "飞书控制开关关闭，未进入执行", detail=reply, ok=False)
+            return reply
+        if command_policy.get("requires_confirmation", False):
+            reply = self._store_pending_control(chat_id, command, normalized, reason_override=str(command_policy.get("reason") or "飞书控制需要确认"))
+            if trace:
+                trace.add_step(
+                    "confirm",
+                    "已生成飞书待确认控制",
+                    detail=str(command_policy.get("reason") or "飞书控制需要确认"),
+                    data=summarize_command_for_process(command),
+                    ok=True,
+                )
+            return reply
         result = self.local_client.execute_control_command(command)
+        if trace:
+            trace.add_step("execute", "已调用中控执行链路", detail=result, data=summarize_command_for_process(command), ok="成功" in result)
         ControlLearningStore(CONTROL_FEEDBACK_STORE).append(
             normalized,
             command,
@@ -2746,32 +2859,66 @@ class FeishuBot:
 
     def dispatch_command(self, text: str, chat_id: str = "") -> str:
         normalized = re.sub(r"\s+", " ", str(text or "").strip())
+        trace = NaturalLanguageTrace(
+            source="feishu",
+            text=normalized,
+            actor={"chat_id": chat_id},
+            policy=self._natural_language_policy(),
+        )
         if not normalized:
-            return "我在。可以直接问状态，也可以下发控制，例如打开庭院灯、关闭机房空调。强电柜和时序电源会二次确认。"
-        control_reply = self._dispatch_control_command(normalized, chat_id=chat_id)
+            reply = "我在。可以直接问状态，也可以下发控制，例如打开庭院灯、关闭机房空调。强电柜和时序电源会二次确认。"
+            trace.add_step("classify", "空消息", ok=True)
+            trace.finish(intent="help", outcome="help", reply=reply)
+            return reply
+        control_reply = self._dispatch_control_command(normalized, chat_id=chat_id, trace=trace)
         if control_reply is not None:
+            outcome = "control_reply"
+            if isinstance(control_reply, dict) and control_reply.get("send_card"):
+                outcome = "pending_confirmation"
+            elif "已关闭飞书控制" in str(control_reply) or "未执行" in str(control_reply):
+                outcome = "control_blocked"
+            trace.finish(intent="control", outcome=outcome, reply=str(control_reply))
             return control_reply
         if normalized in {"状态", "/状态", "status", "/status"}:
-            return self.local_client.status_text()
+            trace.add_step("classify", "内置状态命令", ok=True)
+            reply = self.local_client.status_text()
+            trace.finish(intent="overview", outcome="answered", reply=reply)
+            return reply
         if normalized in {"日报", "/日报", "daily", "/daily"}:
-            return self.local_client.daily_text()
+            trace.add_step("classify", "内置日报命令", ok=True)
+            reply = self.local_client.daily_text()
+            trace.finish(intent="daily", outcome="answered", reply=reply)
+            return reply
         if normalized.startswith(("查询 ", "/查询 ")):
-            return self.local_client.query_text(normalized.split(" ", 1)[1])
+            query = normalized.split(" ", 1)[1]
+            trace.add_step("classify", "显式查询命令", data={"query": query}, ok=True)
+            reply = self.local_client.query_text(query)
+            trace.finish(intent="query", outcome="answered", reply=reply)
+            return reply
         if normalized in {"帮助", "/帮助", "help", "/help"}:
-            return (
+            reply = (
                 "可以直接问：哪些设备离线、昨日电量、近7天用电、最近自动化日志、当前电流、服务器状态、UPS状态。\n"
                 "也可以控制：打开庭院灯、关闭机房空调、唤醒门口LED服务器、投影机开机。\n"
-                "强电柜和时序电源属于高风险操作，会先要求回复“确认”。"
+                "飞书控制可由中控 AI 模块总开关启停；强电柜、时序电源和所有启用控制都会先要求确认。"
             )
+            trace.add_step("classify", "帮助命令", ok=True)
+            trace.finish(intent="help", outcome="answered", reply=reply)
+            return reply
         if self.intent_classifier:
             classified = self.intent_classifier.classify(normalized)
             if classified:
                 intent = str(classified.get("intent") or "unknown")
                 query = str(classified.get("query") or normalized)
                 self.log(f"[nl intent] text={normalized!r} intent={intent!r}")
+                trace.add_step("model", "本地模型完成意图分类", data=classified, ok=True)
                 if intent != "unknown":
-                    return self.local_client.answer_intent(intent, query)
-        return self.local_client.query_text(normalized)
+                    reply = self.local_client.answer_intent(intent, query)
+                    trace.finish(intent=intent, outcome="answered", reply=reply)
+                    return reply
+        trace.add_step("classify", "使用确定性查询兜底", ok=True)
+        reply = self.local_client.query_text(normalized)
+        trace.finish(intent="query", outcome="answered", reply=reply)
+        return reply
 
     def _pending_control_card_payload(
         self,
