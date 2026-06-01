@@ -14,6 +14,7 @@
     const utils = SmartCenter.utils || {};
     const nodeRedPending = {};
     const nodeRedCooldownUntil = {};
+    const protocolReadCache = {};
     let universalRendered = false;
 
     function nowMs() {
@@ -93,6 +94,13 @@
 
     function getTargetDeviceConfig(targetId) {
         return getControlCenterDevices().find(item => String(item?.target_group_id || '') === String(targetId || '')) || null;
+    }
+
+    function getProtocolReadCache(card, kind) {
+        const targetId = String(card?.dataset?.targetId || card?.dataset?.infoEndpoint || 'unknown');
+        if (!protocolReadCache[targetId]) protocolReadCache[targetId] = { do: {}, di: {} };
+        if (!protocolReadCache[targetId][kind]) protocolReadCache[targetId][kind] = {};
+        return protocolReadCache[targetId][kind];
     }
 
     function getVisibleHomeControlsForTarget(targetId) {
@@ -417,6 +425,7 @@
             ['设备状态', card.querySelector('[data-text="health"]')?.textContent?.trim() || '未读取'],
             ['输出状态', card.querySelector('[data-text="do"]')?.textContent?.trim() || '未读取'],
             ['输入状态', card.querySelector('[data-text="di"]')?.textContent?.trim() || '未读取'],
+            ['最近读取', card.querySelector('[data-text="note"]')?.textContent?.trim() || '未读取'],
         ];
         showProtocolInfoDialog(`${title} 设备信息`, null, rows);
     }
@@ -484,6 +493,38 @@
         };
     }
 
+    function stabilizeProtocolReadState(card, kind, state) {
+        const cache = getProtocolReadCache(card, kind);
+        const nowIso = new Date().toISOString();
+        if (state.ok) {
+            cache.value = state.value;
+            cache.text = state.text;
+            cache.updatedAt = nowIso;
+            cache.failures = 0;
+            cache.lastError = '';
+            return Object.assign({}, state, { stale: false, failures: 0, cachedAt: nowIso });
+        }
+        cache.failures = Number(cache.failures || 0) + 1;
+        cache.lastError = state.error || state.text || '读取失败';
+        cache.lastFailedAt = nowIso;
+        if (cache.updatedAt && cache.value !== undefined && cache.value !== null) {
+            return Object.assign({}, state, {
+                value: cache.value,
+                text: cache.text || state.text,
+                stale: true,
+                failures: cache.failures,
+                cachedAt: cache.updatedAt,
+                error: cache.lastError,
+            });
+        }
+        return Object.assign({}, state, {
+            stale: false,
+            failures: cache.failures,
+            cachedAt: '',
+            error: cache.lastError,
+        });
+    }
+
     function setProtocolLamp(card, key, state, text) {
         const led = card.querySelector(`[data-led="${key}"]`);
         const label = card.querySelector(`[data-text="${key}"]`);
@@ -521,16 +562,24 @@
         return executeProtocolControl(readDo)
             .then(doResult => executeProtocolControl(readDi).then(diResult => [doResult, diResult]))
             .then(([doResult, diResult]) => {
-                const doState = protocolReadState(doResult, 'do');
-                const diState = protocolReadState(diResult, 'di');
+                const doState = stabilizeProtocolReadState(card, 'do', protocolReadState(doResult, 'do'));
+                const diState = stabilizeProtocolReadState(card, 'di', protocolReadState(diResult, 'di'));
                 const okCount = Number(doState.ok) + Number(diState.ok);
+                const hasDisplayState = doState.value !== null || diState.value !== null;
+                const hasStaleState = Boolean(doState.stale || diState.stale);
                 if (okCount === 2) setProtocolLamp(card, 'health', true, '正常');
-                else if (okCount === 1) setProtocolLamp(card, 'health', null, '部分异常');
+                else if (hasStaleState) setProtocolLamp(card, 'health', null, '波动');
+                else if (okCount === 1 || hasDisplayState) setProtocolLamp(card, 'health', null, '部分异常');
                 else setProtocolLamp(card, 'health', false, '异常');
                 setProtocolLamp(card, 'di', diState.value, diState.text);
                 setProtocolLamp(card, 'do', doState.value, doState.text);
                 applyProtocolOutput(card, doState.value);
-                const errors = [doState.error && `DO:${doState.error}`, diState.error && `DI:${diState.error}`].filter(Boolean);
+                const describeIssue = (label, state) => {
+                    if (state.ok) return '';
+                    if (state.stale) return `${label}本次失败(${state.failures})，保留${formatTimeShort(state.cachedAt)}`;
+                    return `${label}:${state.error || '读取失败'}`;
+                };
+                const errors = [describeIssue('DO', doState), describeIssue('DI', diState)].filter(Boolean);
                 const stamp = formatTimeShort(new Date().toISOString());
                 setProtocolNote(card, errors.length ? `${errors.join('；')} · ${stamp}` : `读取正常 · ${stamp}`, errors.length > 0);
             })
@@ -853,7 +902,7 @@
         if (isUniversalActive) renderUniversalControlPage();
         const protocolPollRegister = typeof global.registerPollingTask === 'function' ? global.registerPollingTask : (typeof SmartCenter.registerPollingTask === 'function' ? SmartCenter.registerPollingTask.bind(SmartCenter) : null);
         if (protocolPollRegister) {
-            protocolPollRegister('protocol_control', 2500, () => updateProtocolDeviceCards(), () => typeof global.getActiveViewId !== 'function' || global.getActiveViewId() === 'universal');
+            protocolPollRegister('protocol_control', 8000, () => updateProtocolDeviceCards(), () => typeof global.getActiveViewId !== 'function' || global.getActiveViewId() === 'universal');
         }
         if (isUniversalActive) {
             setTimeout(() => updateProtocolDeviceCards(true), 120);
