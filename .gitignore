@@ -24,6 +24,7 @@ operation_logs.json
 audit_logs.json
 runtime/auth_users.json
 reports/
+training/
 */data/reports/
 .baseline_reports/perf-baseline-*.json
 

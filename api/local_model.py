@@ -28,9 +28,16 @@ from auth.session import get_current_user
 from config import CONFIG, save_config
 from event_logger import query_events
 from paths import AUDIT_LOG_FILE, CONFIG_FILE, DATA_DIR, DB_FILE, OPERATION_LOG_FILE, ensure_directory
-from services.device_aliases import build_device_alias_rows
 from services.feishu_bot import HIGH_RISK_CONTROL_TYPES, INFERRED_CONTROL_CONFIDENCE, LocalSmartCenterClient, _control_action_from_text, _format_control_action, _is_control_request
 from services.control_model_translator import LocalModelControlTranslator
+from services.device_aliases import build_device_alias_rows
+from services.natural_language_orchestrator import (
+    NaturalLanguageTrace,
+    describe_control_policy,
+    list_natural_language_events,
+    normalize_natural_language_policy,
+    summarize_command_for_process,
+)
 
 
 bp = Blueprint("local_model", __name__)
@@ -62,6 +69,12 @@ DEFAULT_LOCAL_MODEL = {
     "max_model_len": 32768,
     "system_prompt": "你是演播中控系统的本地助手，回答要基于中控设备、协议、日志和运行状态。允许识别和发起受控控制意图；涉及强电、时序电源、服务器关机等高风险动作时，必须说明风险并走二次确认。",
     "training_export": {"enabled": True, "include_logs": True, "recent_log_limit": 500},
+    "natural_language": {
+        "feishu_control_enabled": False,
+        "feishu_control_require_confirmation": True,
+        "record_process_enabled": True,
+        "process_log_limit": 200,
+    },
 }
 
 LEGACY_LOCAL_MODEL_BASE_URLS = {"http://192.168.50.122:8000/v1"}
@@ -166,6 +179,7 @@ def normalize_local_model_config(raw_config=None, *, keep_secret=True):
     except Exception:
         merged_export["recent_log_limit"] = 500
     merged["training_export"] = merged_export
+    merged["natural_language"] = normalize_natural_language_policy(merged.get("natural_language"))
     if not keep_secret:
         merged["api_key_set"] = bool(merged.get("api_key"))
         merged["api_key"] = ""
@@ -1151,6 +1165,18 @@ def api_local_model_chat():
         normalized_messages.append({"role": "user", "content": prompt})
     if not any(item.get("role") == "user" for item in normalized_messages):
         return jsonify({"ok": False, "error": "empty_prompt", "msg": "请输入问题"}), 400
+    trace = NaturalLanguageTrace(
+        source="local_model",
+        text=prompt or (normalized_messages[-1].get("content") if normalized_messages else ""),
+        actor={"user": get_current_user().username, "role": get_current_user().role},
+        policy=cfg.get("natural_language"),
+    )
+    trace.add_step(
+        "classify",
+        "进入普通问答",
+        detail="未命中本地控制 dry-run，转交本地模型/知识代理回答。",
+        data={"message_count": len(normalized_messages), "model": cfg["model"]},
+    )
     req_payload = {
         "model": cfg["model"],
         "messages": normalized_messages,
@@ -1166,12 +1192,18 @@ def api_local_model_chat():
         if choices and isinstance(choices[0], dict):
             message = choices[0].get("message") or {}
             answer = str(message.get("content") or choices[0].get("text") or "")
-        return jsonify({"ok": True, "answer": answer, "elapsed_ms": result.get("elapsed_ms"), "model": cfg["model"], "raw": data})
+        trace.add_step("model", "模型完成回答", data={"elapsed_ms": result.get("elapsed_ms")}, ok=True)
+        process = trace.finish(intent="query", outcome="answered", reply=answer)
+        return jsonify({"ok": True, "answer": answer, "elapsed_ms": result.get("elapsed_ms"), "model": cfg["model"], "raw": data, "process": process})
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace") if exc.fp else str(exc)
-        return jsonify({"ok": False, "error": "http_error", "status": exc.code, "msg": detail}), 502
+        trace.add_step("model", "模型 HTTP 调用失败", detail=detail, ok=False)
+        process = trace.finish(intent="query", outcome="model_http_error", reply=detail)
+        return jsonify({"ok": False, "error": "http_error", "status": exc.code, "msg": detail, "process": process}), 502
     except Exception as exc:
-        return jsonify({"ok": False, "error": "request_failed", "msg": str(exc)}), 502
+        trace.add_step("model", "模型调用失败", detail=str(exc), ok=False)
+        process = trace.finish(intent="query", outcome="model_failed", reply=str(exc))
+        return jsonify({"ok": False, "error": "request_failed", "msg": str(exc), "process": process}), 502
 
 
 @bp.route("/api/local-model/control/dry-run", methods=["POST"])
@@ -1181,20 +1213,37 @@ def api_local_model_control_dry_run():
     text = str(payload.get("text") or payload.get("prompt") or "").strip()
     if not text:
         return jsonify({"ok": False, "error": "empty_text", "msg": "请输入控制内容"}), 400
+    cfg = normalize_local_model_config(CONFIG.get("local_model"))
+    trace = NaturalLanguageTrace(
+        source="local_model",
+        text=text,
+        actor={"user": get_current_user().username, "role": get_current_user().role},
+        policy=cfg.get("natural_language"),
+    )
     action = _control_action_from_text(text)
     if not _is_control_request(text):
+        trace.add_step("classify", "判断为普通查询/对话", data={"recognized_action": action}, ok=True)
+        process = trace.finish(intent="query", outcome="not_control", reply="这句话不像明确控制请求。", record=False)
         return jsonify({
             "ok": True,
             "dry_run": True,
             "is_control_request": False,
             "recognized_action": action,
             "msg": "这句话不像明确控制请求，可以继续补充设备和动作。",
+            "process": process,
         })
     client = LocalSmartCenterClient(_smart_center_self_base_url())
-    cfg = normalize_local_model_config(CONFIG.get("local_model"))
     translator = LocalModelControlTranslator(cfg["base_url"], cfg["model"], cfg["timeout_sec"]) if cfg.get("enabled") else None
+    trace.add_step(
+        "classify",
+        "识别为控制请求",
+        data={"recognized_action": action, "model_translator_enabled": bool(translator)},
+        ok=True,
+    )
     command = client.resolve_control_command_with_translator(text, translator=translator)
     if not command:
+        trace.add_step("route", "未匹配到可执行设备", ok=False)
+        process = trace.finish(intent="control", outcome="unmatched", reply="识别到控制请求，但没有明确匹配到设备。")
         return jsonify({
             "ok": True,
             "dry_run": True,
@@ -1202,8 +1251,11 @@ def api_local_model_control_dry_run():
             "recognized_action": action,
             "matched": False,
             "msg": "识别到控制请求，但没有明确匹配到设备。",
+            "process": process,
         })
     if command.get("type") == "error":
+        trace.add_step("route", "安全路由拒绝控制", detail=command.get("message") or "", data=summarize_command_for_process(command), ok=False)
+        process = trace.finish(intent="control", outcome="route_rejected", reply=command.get("message") or "控制请求无法执行。", command=command)
         return jsonify({
             "ok": True,
             "dry_run": True,
@@ -1212,12 +1264,30 @@ def api_local_model_control_dry_run():
             "recognized_action": action,
             "command": _summarize_control_command(command),
             "msg": command.get("message") or "控制请求无法执行。",
+            "process": process,
         })
     allowed, permission, reason = _user_can_execute_local_model_control(command)
     summary = _summarize_control_command(command)
+    policy = describe_control_policy(
+        command,
+        high_risk_types=HIGH_RISK_CONTROL_TYPES,
+        inferred_confidences=INFERRED_CONTROL_CONFIDENCE,
+        require_confirmation=True,
+    )
+    trace.add_step("route", "控制目标已解析", data={"command": summary, "control_policy": policy}, ok=True)
+    trace.add_step(
+        "permission",
+        "本地账号权限校验",
+        detail=reason or "允许进入待确认",
+        data={"permission": permission},
+        ok=allowed,
+    )
     token = ""
     if allowed:
         token = _store_local_model_pending_control(command, text)
+    outcome = "pending_confirmation" if token else "permission_denied"
+    reply = "已解析控制意图，未执行真实设备控制。" if token else (reason or "当前账号没有对应设备控制权限")
+    process = trace.finish(intent="control", outcome=outcome, reply=reply, command=command, extra={"pending_token_created": bool(token)})
     return jsonify({
         "ok": True,
         "dry_run": True,
@@ -1230,6 +1300,7 @@ def api_local_model_control_dry_run():
         "pending_token": token,
         "command": summary,
         "msg": "已解析控制意图，未执行真实设备控制。",
+        "process": process,
     })
 
 
@@ -1248,18 +1319,48 @@ def api_local_model_control_confirm():
     command = pending.get("command")
     if not isinstance(command, dict):
         return jsonify({"ok": False, "error": "invalid_command", "msg": "待确认控制格式无效"}), 400
+    cfg = normalize_local_model_config(CONFIG.get("local_model"))
+    trace = NaturalLanguageTrace(
+        source="local_model",
+        text=str(pending.get("source_text") or ""),
+        actor={"user": get_current_user().username, "role": get_current_user().role},
+        policy=cfg.get("natural_language"),
+    )
+    trace.add_step("confirm", "收到本地页面确认", data={"pending_token": token, "command": _summarize_control_command(command)}, ok=True)
     allowed, permission, reason = _user_can_execute_local_model_control(command)
     if not allowed:
-        return jsonify({"ok": False, "error": "permission_denied", "permission": permission, "msg": reason}), 403
+        trace.add_step("permission", "确认时权限拒绝", detail=reason, data={"permission": permission}, ok=False)
+        process = trace.finish(intent="control", outcome="permission_denied", reply=reason, command=command)
+        return jsonify({"ok": False, "error": "permission_denied", "permission": permission, "msg": reason, "process": process}), 403
     client = LocalSmartCenterClient(_smart_center_self_base_url())
     result_text = client.execute_control_command(command)
-    return jsonify({"ok": True, "executed": True, "permission": permission, "result": result_text, "command": _summarize_control_command(command)})
+    trace.add_step("execute", "已调用中控执行链路", detail=result_text, data={"permission": permission}, ok="成功" in result_text)
+    process = trace.finish(intent="control", outcome="executed", reply=result_text, command=command)
+    return jsonify({"ok": True, "executed": True, "permission": permission, "result": result_text, "command": _summarize_control_command(command), "process": process})
+
+
+@bp.route("/api/local-model/nl-process-log")
+@require_permission("local_model.view")
+def api_local_model_nl_process_log():
+    try:
+        limit = int(request.args.get("limit", "50") or 50)
+    except Exception:
+        limit = 50
+    source = str(request.args.get("source") or "").strip()
+    return jsonify({"ok": True, "items": list_natural_language_events(limit, source=source)})
 
 
 @bp.route("/api/local-model/export-training", methods=["POST"])
 @require_permission("system.config")
 def api_local_model_export_training():
-    return jsonify(build_training_export())
+    payload = build_training_export()
+    try:
+        from scripts.export_code_knowledge import build_code_knowledge_export
+
+        payload["code_knowledge"] = build_code_knowledge_export()
+    except Exception as exc:
+        payload["code_knowledge"] = {"ok": False, "error": str(exc)}
+    return jsonify(payload)
 
 
 @bp.route("/api/local-model/training-files")

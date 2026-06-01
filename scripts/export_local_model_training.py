@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from api.local_model import build_training_export  # noqa: E402
 from paths import CONFIG_FILE, DATA_DIR, ensure_directory  # noqa: E402
+from scripts.export_code_knowledge import build_code_knowledge_export  # noqa: E402
 
 
 DEFAULT_NAS_DIR = "/mnt/ubuntu01/smart-center-backups/local-model-training"
@@ -128,6 +129,7 @@ def sync_export_to_nas(export_payload, nas_dir, keep_days=DEFAULT_KEEP_DAYS):
 
 def main():
     parser = argparse.ArgumentParser(description="Export Smart Center local-model training data and optionally sync to NAS.")
+    parser.add_argument("--skip-code-knowledge", action="store_true", help="do not export source-code/module knowledge")
     parser.add_argument("--sync-nas", action="store_true", help="copy generated files to NAS training directory")
     parser.add_argument("--nas-dir", default=os.environ.get("SMART_CENTER_LOCAL_MODEL_TRAINING_NAS_DIR", DEFAULT_NAS_DIR))
     parser.add_argument("--keep-days", type=int, default=int(os.environ.get("SMART_CENTER_LOCAL_MODEL_TRAINING_KEEP_DAYS", DEFAULT_KEEP_DAYS)))
@@ -135,6 +137,7 @@ def main():
 
     ensure_directory(DATA_DIR / "training" / "local_model")
     export_payload = build_training_export()
+    code_knowledge_payload = None if args.skip_code_knowledge else build_code_knowledge_export()
     alias_count = int((export_payload.get("counts") or {}).get("device_aliases") or 0)
     if alias_count < 20:
         print(
@@ -145,6 +148,8 @@ def main():
             file=sys.stderr,
         )
     result = {"ok": True, "export": export_payload}
+    if code_knowledge_payload:
+        result["code_knowledge"] = code_knowledge_payload
     if args.sync_nas:
         result["nas"] = sync_export_to_nas(export_payload, args.nas_dir, args.keep_days)
     print(json.dumps(result, ensure_ascii=False, indent=2))

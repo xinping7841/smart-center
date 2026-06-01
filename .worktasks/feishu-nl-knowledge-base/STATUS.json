@@ -1,0 +1,10 @@
+{
+  "task": "feishu-nl-knowledge-base",
+  "module": "backend_api",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-feishu-nl-knowledge-base-20260601",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/feishu-nl-knowledge-base",
+  "started_at": "2026-06-01 21:36:26",
+  "status": "in_progress"
+}

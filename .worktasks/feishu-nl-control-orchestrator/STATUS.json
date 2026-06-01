@@ -1,0 +1,10 @@
+{
+  "task": "feishu-nl-control-orchestrator",
+  "module": "backend_api",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-feishu-nl-control-orchestrator-20260601",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/feishu-nl-control-orchestrator",
+  "started_at": "2026-06-01 22:11:40",
+  "status": "in_progress"
+}
