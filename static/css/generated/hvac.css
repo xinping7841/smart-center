@@ -1049,3 +1049,47 @@
                 max-width:none !important;
             }
         }
+
+/* Final priority: HVAC is lazy-loaded without projector.css, so keep the
+   round power button visual here even after dense layout overrides. */
+#view-hvac .projector-power-key,
+        #view-hvac .hvac-card .projector-power-key {
+            width:30px !important;
+            height:30px !important;
+            min-width:30px !important;
+            border:0 !important;
+            border-radius:50% !important;
+            cursor:pointer !important;
+            display:flex !important;
+            align-items:center !important;
+            justify-content:center !important;
+            color:#fff !important;
+            font-size:14px !important;
+            transition:transform .18s ease, box-shadow .18s ease, opacity .18s ease !important;
+        }
+
+#view-hvac .projector-power-key.on,
+        #view-hvac .hvac-card .projector-power-key.on {
+            background:radial-gradient(circle at 35% 30%, #34d399, #059669 72%) !important;
+            box-shadow:0 0 0 3px rgba(16,185,129,0.15), 0 8px 18px rgba(16,185,129,0.24) !important;
+        }
+
+#view-hvac .projector-power-key.off,
+        #view-hvac .hvac-card .projector-power-key.off {
+            background:radial-gradient(circle at 35% 30%, #f87171, #dc2626 72%) !important;
+            box-shadow:0 0 0 3px rgba(239,68,68,0.15), 0 8px 18px rgba(239,68,68,0.22) !important;
+        }
+
+#view-hvac .projector-power-key.unknown,
+        #view-hvac .hvac-card .projector-power-key.unknown {
+            background:radial-gradient(circle at 35% 30%, #94a3b8, #475569 72%) !important;
+            box-shadow:0 0 0 3px rgba(100,116,139,0.15), 0 8px 18px rgba(71,85,105,0.22) !important;
+        }
+
+#view-hvac .projector-power-key svg,
+        #view-hvac .hvac-card .projector-power-key svg {
+            width:14px !important;
+            height:14px !important;
+            display:block !important;
+            pointer-events:none !important;
+        }

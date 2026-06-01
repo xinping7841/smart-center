@@ -7580,6 +7580,15 @@ html body.dashboard-compact-mode #view-dashboard.view-section.active > #dashboar
             }
         }
 
+/* Codex 2026-06-01: lazy shell hotfix final override. Historical fixed-canvas
+   rules above pin rows/columns; default dashboard uses JS-measured masonry. */
+html body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active > [data-section-id] {
+            grid-row-start:auto !important;
+            grid-row-end:var(--smart-dashboard-row-span, auto) !important;
+            height:auto !important;
+            overflow:visible !important;
+        }
+
 /* Codex 2026-05-27: page-level card collections use fixed widths instead of stretching to fill rows. */
         #view-power .dashboard-power-grid,
         #view-light .dashboard-compact-grid,

@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260601-page-shells-hotfix-v2';
+        const lazyModuleVersion = '20260601-page-shells-hotfix-v3';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -1874,12 +1874,17 @@
             const rowGap = style ? parseFloat(style.rowGap || style.gap || '0') : 0;
             const sections = Array.from(dashboard.querySelectorAll('[data-section-id]'));
             sections.forEach(section => {
+                section.style.removeProperty('--smart-dashboard-row-span');
                 section.style.gridRowEnd = '';
+                section.style.gridRowStart = '';
+                section.style.gridColumnStart = '';
+                section.style.gridColumnEnd = '';
                 if (!document.body.classList.contains('dashboard-compact-mode') || !rowHeight) return;
                 if (section.style.display === 'none') return;
                 const rect = section.getBoundingClientRect();
                 if (!rect.height) return;
                 const span = Math.max(1, Math.ceil((rect.height + rowGap) / (rowHeight + rowGap)));
+                section.style.setProperty('--smart-dashboard-row-span', `span ${span}`);
                 section.style.gridRowEnd = `span ${span}`;
             });
         }
