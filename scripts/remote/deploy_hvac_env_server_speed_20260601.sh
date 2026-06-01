@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_ROOT="/srv/smart-center"
 REPO_URL="/srv/git/smart-center-clean.git"
-REVISION="47359da"
+REVISION="$(sudo -n git --git-dir "$REPO_URL" rev-parse refs/heads/main)"
 STAMP="$(date +%Y%m%d_%H%M%S)"
 SHORT_REV="$(printf '%s' "$REVISION" | cut -c1-7)"
 RELEASE_DIR="$APP_ROOT/releases/smart-center-release-${STAMP}-main-${SHORT_REV}"
