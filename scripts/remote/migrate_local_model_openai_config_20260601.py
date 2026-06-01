@@ -4,13 +4,22 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
+import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
 
 CONFIG_PATH = Path("/srv/smart-center-data/config.json")
 LEGACY_PROVIDER_TOKEN = "olla" + "ma"
+
+
+def reexec_with_sudo_if_needed() -> None:
+    if os.geteuid() == 0:
+        return
+    os.execvp("sudo", ["sudo", "-n", sys.executable, *sys.argv])
 
 
 def clean_model_name(value: object) -> str:
@@ -36,6 +45,7 @@ def normalize_openai_base_url(value: object, default: str) -> str:
 
 
 def main() -> int:
+    reexec_with_sudo_if_needed()
     payload = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
         raise SystemExit("config root is not an object")
@@ -73,6 +83,7 @@ def main() -> int:
     tmp_path = CONFIG_PATH.with_suffix(".tmp")
     tmp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     tmp_path.replace(CONFIG_PATH)
+    subprocess.run(["systemctl", "restart", "smart-center.service"], check=True)
     print("changed=true")
     print(f"backup={backup_path}")
     print(f"name={local_model.get('name') or ''}")
