@@ -268,6 +268,55 @@ body { background: radial-gradient(circle at top left, rgba(34,211,238,0.10), tr
 
 @media screen and (max-width: 600px) { .ch-span-2 { grid-column: span 1; } }
 
+#view-light #light-page-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(480px, 520px)); gap:16px; align-items:start; justify-content:start; }
+
+#view-light #light-page-grid > .card { width:100%; max-width:520px; margin-bottom:0; }
+
+#view-light #light-page-grid .cab-header { gap:12px; align-items:flex-start; }
+
+#view-light #light-page-grid .cab-header h3 { min-width:0; font-size:18px; line-height:1.25; word-break:break-word; }
+
+#view-light #light-page-grid .info-bar { gap:8px; margin-bottom:14px; }
+
+#view-light #light-page-grid .info-bar > div { min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+#view-light #light-page-grid .light-diagnostic-panel { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+
+#view-light #light-page-grid .channel-grid,
+#view-light #light-page-grid .relay-input-grid { grid-template-columns:repeat(auto-fill, minmax(132px, 132px)); gap:10px; justify-content:start; align-items:stretch; }
+
+#view-light #light-page-grid .ch-span-2 { grid-column:span 2; }
+
+#view-light #light-page-grid .ch-span-3 { grid-column:span 3; }
+
+#view-light #light-page-grid .ch-span-4 { grid-column:span 3; }
+
+#view-light #light-page-grid .ch-btn { width:100%; min-width:0; height:78px; padding:10px 12px; }
+
+#view-light #light-page-grid .ch-btn .name { max-width:calc(100% - 42px); font-size:14px; }
+
+#view-light #light-page-grid .ch-btn .remark { max-width:100%; font-size:11px; }
+
+#view-light #light-page-grid .relay-input-chip { min-width:0; padding:9px 10px; }
+
+@media screen and (min-width: 1800px) {
+            #view-light #light-page-grid { grid-template-columns:repeat(auto-fill, minmax(480px, 520px)); }
+        }
+
+@media screen and (max-width: 760px) {
+            #view-light #light-page-grid { grid-template-columns:1fr; }
+            #view-light #light-page-grid > .card { max-width:none; }
+        }
+
+@media screen and (max-width: 520px) {
+            #view-light #light-page-grid .channel-grid,
+            #view-light #light-page-grid .relay-input-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+            #view-light #light-page-grid .ch-span-2,
+            #view-light #light-page-grid .ch-span-3,
+            #view-light #light-page-grid .ch-span-4 { grid-column:span 1; }
+            #view-light #light-page-grid .light-diagnostic-panel { grid-template-columns:1fr; }
+        }
+
 .ch-off { background: #1e293b; border: 1px solid #334155; color: var(--text-sub); }
 
 .ch-off:hover { background: #334155; }
