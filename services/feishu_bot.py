@@ -2319,7 +2319,7 @@ class LocalSmartCenterClient:
         return (
             f"本地模型：{'启用' if cfg.get('enabled') else '停用'}，模型 {cfg.get('model') or '--'}\n"
             f"入口：{cfg.get('base_url') or '--'}\n"
-            f"vLLM：{cfg.get('vllm_base_url') or '--'}"
+            f"模型服务：{cfg.get('vllm_base_url') or '--'}"
         )
 
     def software_playback_text(self) -> str:
@@ -2425,7 +2425,7 @@ class LocalSmartCenterClient:
             return self.nvr_status_text()
         if _contains_any(keyword, ("代理", "chatgpt", "ChatGPT", "google", "Google", "youtube", "YouTube", "github", "GitHub")):
             return self.proxy_status_text()
-        if _contains_any(keyword, ("本地模型", "模型服务", "qwen", "Qwen", "vllm", "vLLM", "知识模型")):
+        if _contains_any(keyword, ("本地模型", "模型服务", "qwen", "Qwen", "知识模型")):
             return self.local_model_status_text()
         if _contains_any(keyword, ("设备", "概览", "状态", "在线", "情况", "现在")):
             return self.status_text()

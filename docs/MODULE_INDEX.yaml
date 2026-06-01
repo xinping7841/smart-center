@@ -206,4 +206,4 @@ modules:
     config_keys: ['local_model']
     runtime_state: ['runtime/local_model']
     split_priority: low
-    ai_keywords: ['local model','training','export','ai','vLLM','OpenAI compatible','knowledge proxy']
+    ai_keywords: ['local model','training','export','ai','OpenAI compatible','knowledge proxy']

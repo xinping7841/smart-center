@@ -71,6 +71,12 @@ def main() -> int:
         local_model["base_url"] = after_base
         changed = True
 
+    before_upstream = str(local_model.get("vllm_base_url") or "")
+    after_upstream = after_base
+    if before_upstream != after_upstream:
+        local_model["vllm_base_url"] = after_upstream
+        changed = True
+
     if not changed:
         print("changed=false")
         print(f"name={local_model.get('name') or ''}")
@@ -88,6 +94,7 @@ def main() -> int:
     print(f"backup={backup_path}")
     print(f"name={local_model.get('name') or ''}")
     print(f"base_url={local_model.get('base_url') or ''}")
+    print(f"vllm_base_url={local_model.get('vllm_base_url') or ''}")
     return 0
 
 

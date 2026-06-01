@@ -438,7 +438,7 @@ Use:
 Current defaults:
 
 - OpenAI-compatible proxy: `http://192.168.50.122:8001/v1`
-- vLLM upstream: `http://192.168.50.122:8000/v1`
+- Model service check: same OpenAI-compatible proxy endpoint by default.
 - Model: `gemma-4-e4b-awq-int4`
 - Feishu NL model endpoint: OpenAI-compatible `/v1` service, for example `http://127.0.0.1:8001/v1` with `qwen3:14b` when `FEISHU_NL_MODEL_ENABLED=true`.
 

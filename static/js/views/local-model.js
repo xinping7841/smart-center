@@ -54,7 +54,7 @@
                 <div class="local-model-meta-value" id="localModelContextMeta">--</div>
               </div>
               <div class="local-model-meta-item">
-                <div class="local-model-meta-label">vLLM</div>
+                <div class="local-model-meta-label">模型服务</div>
                 <div class="local-model-meta-value" id="localModelVllmMeta">--</div>
               </div>
             </div>
@@ -90,7 +90,7 @@
                   <input class="local-model-input" id="cfgBaseUrl">
                 </div>
                 <div>
-                  <label>vLLM 上游服务</label>
+                  <label>模型上游 / 兼容服务</label>
                   <input class="local-model-input" id="cfgVllmBaseUrl">
                 </div>
                 <div>
@@ -129,7 +129,7 @@
                   <button class="local-model-btn success" type="button" onclick="saveConfig()">保存配置</button>
                   <button class="local-model-btn secondary" type="button" onclick="loadConfig()">重新读取</button>
                 </div>
-                <div class="local-model-hint">默认使用 122 的知识代理 8001 作为对话入口，vLLM 8000 作为上游状态校验。模型只负责理解；飞书控制开启后仍需人工确认。</div>
+                <div class="local-model-hint">默认使用知识代理作为对话入口和模型服务校验。模型只负责理解；飞书控制开启后仍需人工确认。</div>
               </div>
             </section>
             <section class="local-model-card">
@@ -396,7 +396,7 @@
       const data = await resp.json();
       if (data.ok) {
         const proxyText = data.proxy_online ? '代理在线' : '代理离线';
-        const vllmText = data.vllm_online ? 'vLLM在线' : 'vLLM离线';
+        const vllmText = data.vllm_online ? '模型服务在线' : '模型服务离线';
         const elapsedText = Number.isFinite(Number(data.elapsed_ms)) ? `${data.elapsed_ms}ms` : '';
         setBadge('healthBadge', `${proxyText}${elapsedText ? ' ' + elapsedText : ''}`, true);
         const docsText = data.docs_count ? `${formatNumber(data.docs_count)} docs` : (data.proxy_online ? '已加载' : '--');
@@ -405,7 +405,7 @@
         optionalSet('localModelVllmMeta', vllmText);
       } else {
         setBadge('healthBadge', '离线', false);
-        optionalSet('localModelVllmMeta', data.vllm_online ? 'vLLM在线' : 'vLLM离线');
+        optionalSet('localModelVllmMeta', data.vllm_online ? '模型服务在线' : '模型服务离线');
       }
       return data;
     } catch (err) {

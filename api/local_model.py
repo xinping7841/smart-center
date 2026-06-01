@@ -60,7 +60,7 @@ DEFAULT_LOCAL_MODEL = {
     "name": "122 本地模型",
     "provider": "openai-compatible",
     "base_url": "http://192.168.50.122:8001/v1",
-    "vllm_base_url": "http://192.168.50.122:8000/v1",
+    "vllm_base_url": "http://192.168.50.122:8001/v1",
     "model": "gemma-4-e4b-awq-int4",
     "api_key": "dummy",
     "timeout_sec": 120,
@@ -161,7 +161,7 @@ def normalize_local_model_config(raw_config=None, *, keep_secret=True):
     merged["base_url"] = str(merged.get("base_url") or DEFAULT_LOCAL_MODEL["base_url"]).strip().rstrip("/") or DEFAULT_LOCAL_MODEL["base_url"]
     if merged["base_url"] in LEGACY_LOCAL_MODEL_BASE_URLS and not source_config.get("vllm_base_url"):
         merged["base_url"] = DEFAULT_LOCAL_MODEL["base_url"]
-    merged["vllm_base_url"] = str(merged.get("vllm_base_url") or DEFAULT_LOCAL_MODEL["vllm_base_url"]).strip().rstrip("/") or DEFAULT_LOCAL_MODEL["vllm_base_url"]
+    merged["vllm_base_url"] = merged["base_url"]
     merged["model"] = str(merged.get("model") or DEFAULT_LOCAL_MODEL["model"]).strip() or DEFAULT_LOCAL_MODEL["model"]
     if merged["model"] in LEGACY_LOCAL_MODEL_MODELS:
         merged["model"] = DEFAULT_LOCAL_MODEL["model"]
