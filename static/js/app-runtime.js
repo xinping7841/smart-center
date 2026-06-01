@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260601-frontend-opt-sweep-v1';
+        const lazyModuleVersion = '20260601-hvac-env-server-speed-v1';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -692,7 +692,7 @@
             power: 1800,
             sequencer: 2400,
             ups: 3000,
-            env: 3600,
+            env: 1200,
             projector: 4400,
             screen: 5200,
             automation: 6000,
@@ -2393,7 +2393,7 @@
         registerPollingTask('node_red', 5000, () => ensureViewReady('universal').then(() => updateNodeRedDevices()), () => getActiveViewId() === 'universal');
         registerPollingTask('server', 5000, () => ensureViewReady('server').then(() => updateServerData()), () => getActiveViewId() === 'server');
         registerPollingTask('door', 1200, () => updateDoorStatus(), () => ['dashboard', 'door'].includes(getActiveViewId()) || isDashboardSectionVisible('door'));
-        registerPollingTask('env', 3500, () => window.updateEnvData(), () => ['dashboard', 'env', 'hvac'].includes(getActiveViewId()) || isDashboardSectionVisible('env') || isDashboardSectionVisible('hvac'));
+        registerPollingTask('env', 2000, () => window.updateEnvData(), () => ['dashboard', 'env', 'hvac'].includes(getActiveViewId()) || isDashboardSectionVisible('env') || isDashboardSectionVisible('hvac'));
         registerPollingTask('automation', 4000, () => {
             loadAutomationStatus();
             if (getActiveViewId() === 'auto') window.loadAutomationLogs();

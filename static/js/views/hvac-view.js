@@ -93,6 +93,13 @@
         return status?.power ? 'on' : 'off';
     }
 
+    function getHvacPowerIcon() {
+        return `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 3.8v7.4" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+            <path d="M7.2 6.7a7.6 7.6 0 1 0 9.6 0" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+        </svg>`;
+    }
+
     function getHvacModeIcon(kind) {
         const key = String(kind || '').trim().toLowerCase();
         if (key === 'cool') {
@@ -536,7 +543,7 @@
         const safeDeviceId = escapeHtml(deviceId);
         const disabledClass = typeof global.getPermissionDisabledClass === 'function' ? global.getPermissionDisabledClass('hvac.control') : '';
         const disabledAttrs = typeof global.getPermissionDisabledAttrs === 'function' ? global.getPermissionDisabledAttrs('hvac.control', '当前账号无空调控制权限') : '';
-        const iconHtml = typeof global.getProjectorIconHtml === 'function' ? global.getProjectorIconHtml('power') : '电源';
+        const iconHtml = getHvacPowerIcon();
         return `<div class="dashboard-hvac-device-mini ${state.stateClass}${modeClass ? ` mode-${modeClass}` : ''}">
             <div class="dashboard-hvac-device-main">
                 <div class="dashboard-hvac-device-title">${title}</div>
@@ -692,7 +699,7 @@
                     </div>`;
         const disabledClass = typeof global.getPermissionDisabledClass === 'function' ? global.getPermissionDisabledClass('hvac.control') : '';
         const disabledAttrs = typeof global.getPermissionDisabledAttrs === 'function' ? global.getPermissionDisabledAttrs('hvac.control', '当前账号无空调控制权限') : '';
-        const iconHtml = typeof global.getProjectorIconHtml === 'function' ? global.getProjectorIconHtml('power') : '电源';
+        const iconHtml = getHvacPowerIcon();
         return `<div class="hvac-card ${cardStateClass}${modeClass ? ` mode-${modeClass}` : ''}">
             <div class="hvac-card-head">
                 <div>
@@ -704,7 +711,7 @@
                         <span class="hvac-state-badge ${merged.online ? 'online' : 'offline'}">${state.onlineText}</span>
                         ${powerBadgeHtml}
                     </div>
-                    <button class="projector-power-key ${powerButtonClass}${disabledClass}" ${disabledAttrs} title="${escapeHtml(powerButtonTitle)}" onclick="event.stopPropagation(); controlHvac('${safeDeviceId}', '${merged.power ? 'power_off' : 'power_on'}')">${iconHtml}</button>
+                    <button class="hvac-power-key ${powerButtonClass}${disabledClass}" ${disabledAttrs} title="${escapeHtml(powerButtonTitle)}" aria-label="${escapeHtml(powerButtonTitle)}" onclick="event.stopPropagation(); controlHvac('${safeDeviceId}', '${merged.power ? 'power_off' : 'power_on'}')">${iconHtml}<span>${escapeHtml(merged.power ? '开' : '关')}</span></button>
                 </div>
             </div>
             <div class="hvac-body">
@@ -757,6 +764,7 @@
         getHvacCardStateClass,
         getHvacActionClass,
         getHvacPowerButtonClass,
+        getHvacPowerIcon,
         getHvacModeIcon,
         getHvacFanLevel,
         renderHvacFanStatus,

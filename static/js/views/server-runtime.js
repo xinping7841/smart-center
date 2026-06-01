@@ -20,6 +20,8 @@
         serverGridRenderToken: 0,
         serverGridSignature: '',
         serverDataRequestInFlight: null,
+        serverDataRequestInFlightFull: null,
+        serverDataDetail: 'compact',
     }, SmartCenter.serverRuntime || {});
 
     let serverCommandRefreshTimer = null;
@@ -318,6 +320,10 @@
     function setServerViewMode(mode, context = {}) {
         applyServerViewMode(mode);
         try { global.localStorage?.setItem('smart-center-server-view-mode', state.serverViewMode); } catch (_) {}
+        if (state.serverViewMode === 'detail' && state.serverDataDetail !== 'full') {
+            updateServerData(Object.assign({}, context || {}, { detail: 'full', force: true }));
+            return;
+        }
         if (Array.isArray(state.globalServerList) && state.globalServerList.length) {
             renderServerGridDeferred(state.globalServerList, { force: true }, context);
         }
@@ -440,6 +446,10 @@
 
     function exportServerDeviceInfoCsv(context = {}) {
         const ctx = getContext(context);
+        if (state.serverDataDetail !== 'full') {
+            return updateServerData(Object.assign({}, ctx, { detail: 'full', force: true }))
+                .then(() => exportServerDeviceInfoCsv(ctx));
+        }
         const rows = getServerDeviceInfoExportRows();
         if (!rows.length) {
             ctx.showToast('暂无可导出的服务器设备信息', true);
@@ -605,10 +615,16 @@
 
     function updateServerData(context = {}) {
         const ctx = getContext(context);
-        if (state.serverDataRequestInFlight) return state.serverDataRequestInFlight;
-        state.serverDataRequestInFlight = ctx.fetchJson('/api/machines', {}, '服务器列表读取失败')
+        const requestedDetail = String(context.detail || '').toLowerCase() === 'full' || readServerViewMode() === 'detail'
+            ? 'full'
+            : 'compact';
+        const requestKey = requestedDetail === 'full' ? 'serverDataRequestInFlightFull' : 'serverDataRequestInFlight';
+        if (state[requestKey]) return state[requestKey];
+        const query = requestedDetail === 'full' ? '?detail=full' : '?detail=compact';
+        state[requestKey] = ctx.fetchJson(`/api/machines${query}`, {}, '服务器列表读取失败')
             .then(data => {
                 const list = Array.isArray(data) ? data : [];
+                state.serverDataDetail = requestedDetail;
                 applyServerViewMode(readServerViewMode());
                 list.sort((a, b) => {
                     if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
@@ -635,9 +651,9 @@
                 return [];
             })
             .finally(() => {
-                state.serverDataRequestInFlight = null;
+                state[requestKey] = null;
             });
-        return state.serverDataRequestInFlight;
+        return state[requestKey];
     }
 
     function setDashboardServerCompactList(list = []) {

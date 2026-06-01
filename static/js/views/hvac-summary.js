@@ -94,11 +94,10 @@
         return status?.power ? 'on' : 'off';
     }
 
-    function getPowerIconHtml() {
-        if (typeof global.getProjectorIconHtml === 'function') return global.getProjectorIconHtml('power');
+    function getHvacPowerIcon() {
         return `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 4.2v7.2" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
-            <path d="M7.4 6.5A8 8 0 1 0 16.6 6.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+            <path d="M12 3.8v7.4" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>
+            <path d="M7.2 6.7a7.6 7.6 0 1 0 9.6 0" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
         </svg>`;
     }
 
@@ -377,7 +376,7 @@
                 <strong>${escapeHtml(targetText)}</strong>
                 <span>${escapeHtml(actionText)}</span>
             </div>
-            <button class="dashboard-hvac-power ${getHvacPowerButtonClass(merged)}${disabledClass}" ${disabledAttrs} title="${escapeHtml(merged.power ? '当前开机，点击关机' : '当前关机，点击开机')}" onclick="event.stopPropagation(); controlHvac('${safeDeviceId}', '${merged.power ? 'power_off' : 'power_on'}')">${getPowerIconHtml()}</button>
+            <button class="dashboard-hvac-power ${getHvacPowerButtonClass(merged)}${disabledClass}" ${disabledAttrs} title="${escapeHtml(merged.power ? '当前开机，点击关机' : '当前关机，点击开机')}" aria-label="${escapeHtml(merged.power ? '当前开机，点击关机' : '当前关机，点击开机')}" onclick="event.stopPropagation(); controlHvac('${safeDeviceId}', '${merged.power ? 'power_off' : 'power_on'}')">${getHvacPowerIcon()}</button>
         </div>`;
     }
 
@@ -451,6 +450,7 @@
         getHvacCardStateClass,
         getHvacActionClass,
         getHvacPowerButtonClass,
+        getHvacPowerIcon,
         getHvacAgeText,
         getHvacRoomName,
         getHvacSortOrder,
