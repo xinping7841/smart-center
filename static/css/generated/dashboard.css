@@ -7582,10 +7582,76 @@ html body.dashboard-compact-mode #view-dashboard.view-section.active > #dashboar
 
 /* Codex 2026-06-01: lazy shell hotfix final override. Historical fixed-canvas
    rules above pin rows/columns; default dashboard uses JS-measured masonry. */
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active,
+html body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active {
+            grid-template-columns:repeat(24, minmax(0, 1fr)) !important;
+            grid-auto-flow:dense !important;
+            grid-auto-rows:8px !important;
+            gap:10px !important;
+            align-items:flex-start !important;
+            align-content:flex-start !important;
+            justify-content:flex-start !important;
+            height:auto !important;
+            min-height:0 !important;
+            overflow:visible !important;
+        }
+
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .view-container {
+            overflow:auto !important;
+            scrollbar-gutter:stable;
+        }
+
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active > [data-section-id],
 html body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #view-dashboard.view-section.active > [data-section-id] {
             grid-row-start:auto !important;
             grid-row-end:var(--smart-dashboard-row-span, auto) !important;
             height:auto !important;
+            min-height:0 !important;
+            overflow:visible !important;
+        }
+
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-stats,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-projector,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-hy_edge,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-hvac,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-ups_compact,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-screen,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-sequencer,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-light_compact,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-power_compact,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-snmp,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-server_compact,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-energy_trend {
+            grid-row-start:auto !important;
+            grid-row-end:var(--smart-dashboard-row-span, auto) !important;
+        }
+
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-stats {
+            grid-column:auto / span 18 !important;
+            overflow:visible !important;
+        }
+
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-projector,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-hy_edge,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-ups_compact,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-screen {
+            grid-column:auto / span 4 !important;
+        }
+
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-hvac,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-sequencer,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-light_compact,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-power_compact,
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-snmp {
+            grid-column:auto / span 8 !important;
+        }
+
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-server_compact {
+            grid-column:auto / span 12 !important;
+        }
+
+html.dashboard-fixed-canvas body.dashboard-compact-mode.dashboard-masonry-mode:not(.mobile-layout):not(.touch-wide-layout):not(.touch-portrait-layout) #dashboard-section-energy_trend {
+            grid-column:auto / span 6 !important;
             overflow:visible !important;
         }
 
