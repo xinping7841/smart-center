@@ -1259,7 +1259,14 @@ def api_local_model_control_confirm():
 @bp.route("/api/local-model/export-training", methods=["POST"])
 @require_permission("system.config")
 def api_local_model_export_training():
-    return jsonify(build_training_export())
+    payload = build_training_export()
+    try:
+        from scripts.export_code_knowledge import build_code_knowledge_export
+
+        payload["code_knowledge"] = build_code_knowledge_export()
+    except Exception as exc:
+        payload["code_knowledge"] = {"ok": False, "error": str(exc)}
+    return jsonify(payload)
 
 
 @bp.route("/api/local-model/training-files")

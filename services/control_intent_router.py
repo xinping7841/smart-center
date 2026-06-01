@@ -28,6 +28,7 @@ RouteResolver = Callable[[str, str], dict[str, Any] | None]
 OUTDOOR_LIGHT_WORDS = ("庭院灯", "户外灯", "室外灯", "室外照明", "院子灯", "院子里的灯", "外墙灯", "院灯")
 DOOR_CONTROL_WORDS = ("大门", "门禁", "开门", "关门", "停止大门", "停门")
 POWER_WORDS = ("强电", "电柜", "电箱", "电源柜", "配电柜", "回路")
+POWER_DEVICE_WORDS = ("强电", "电柜", "电箱", "电源柜", "配电柜")
 SEQUENCER_WORDS = ("时序", "时序电源", "sequencer")
 HVAC_WORDS = ("空调", "hvac", "制冷", "制热")
 PROJECTOR_WORDS = ("投影", "投影机", "pjlink")
@@ -47,7 +48,13 @@ def _looks_like_bare_channel(text: str) -> bool:
     raw = str(text or "")
     if not re.search(r"(?:第?\s*\d+\s*(?:路|回路|通道)|第?\s*[一二两三四五六七八九十]\s*(?:路|回路|通道))", raw):
         return False
-    return not _contains_any(raw, POWER_WORDS + SEQUENCER_WORDS + HVAC_WORDS + PROJECTOR_WORDS + SERVER_WORDS + ("灯光", "照明"))
+    return not _contains_any(raw, POWER_DEVICE_WORDS + SEQUENCER_WORDS + HVAC_WORDS + PROJECTOR_WORDS + SERVER_WORDS + ("灯", "灯光", "照明"))
+
+
+def _explicit_power_context(text: str) -> bool:
+    if _contains_any(text, SEQUENCER_WORDS):
+        return False
+    return _contains_any(text, POWER_DEVICE_WORDS + ("供电", "电源", "插座", "断电", "上电", "合闸", "空气开关", "空开"))
 
 
 def _looks_like_protocol_ip(text: str) -> bool:
@@ -126,12 +133,38 @@ class ControlIntentRouter:
         if _contains_any(raw, SCREEN_WORDS):
             return ControlRouteResult(screen(raw, action), module="screen", reason="包含幕布语义")
 
-        # "门口LED电柜" contains 门口 but is a cabinet phrase, not the gate.
-        if _contains_any(raw, POWER_WORDS):
-            return ControlRouteResult(power(raw, action), module="power", reason="包含电柜/回路语义")
-
         if _contains_any(raw, SEQUENCER_WORDS):
             return ControlRouteResult(sequencer(raw, action), module="sequencer", reason="包含时序电源语义")
+
+        # "一号厅空调" can also be a cabinet channel name. Prefer the HVAC
+        # device unless the user explicitly says cabinet/power/circuit.
+        if _contains_any(raw, HVAC_WORDS) and not _explicit_power_context(raw):
+            return ControlRouteResult(hvac(raw, action), module="hvac", reason="包含空调语义")
+
+        # A server label may overlap a cabinet-channel label, such as
+        # "门口LED服务器". Never reinterpret server wording as a power cut.
+        if _contains_any(raw, SERVER_WORDS):
+            command = server(raw, action, True)
+            if command is None:
+                command = {
+                    "type": "error",
+                    "message": "识别到服务器控制语义，但动作不够明确。请说：唤醒、关机、重启或刷新指定服务器。",
+                }
+            return ControlRouteResult(command, module="server", reason="包含服务器语义", stop=True)
+
+        # "门口LED电柜" contains 门口 but is a cabinet phrase, not the gate.
+        if _explicit_power_context(raw):
+            return ControlRouteResult(power(raw, action), module="power", reason="包含电柜/回路语义")
+
+        if _looks_like_bare_channel(raw):
+            return ControlRouteResult(
+                {
+                    "type": "error",
+                    "message": "只识别到回路编号，但没有明确是强电柜、灯光、时序电源还是其他设备。请补充模块，例如：中控室电柜第8路关闭，或一号厅前言墙灯打开。",
+                },
+                stop=True,
+                reason="裸回路编号不允许猜测",
+            )
 
         specific_alias_modules = _specific_alias_modules(raw, self.alias_rows)
         if "power" in specific_alias_modules:
@@ -147,16 +180,6 @@ class ControlIntentRouter:
 
         if _contains_any(raw, DOOR_CONTROL_WORDS):
             return ControlRouteResult(door(raw, action), module="door", reason="包含明确大门/门禁动作")
-
-        if _looks_like_bare_channel(raw):
-            return ControlRouteResult(
-                {
-                    "type": "error",
-                    "message": "只识别到回路编号，但没有明确是强电柜、灯光、时序电源还是其他设备。请补充模块，例如：中控室电柜第8路关闭，或一号厅前言墙灯打开。",
-                },
-                stop=True,
-                reason="裸回路编号不允许猜测",
-            )
 
         if _contains_any(raw, HVAC_WORDS):
             return ControlRouteResult(hvac(raw, action), module="hvac", reason="包含空调语义")

@@ -1,6 +1,6 @@
 # Local Model Learning Workflow
 
-Last updated: 2026-05-24
+Last updated: 2026-06-01
 
 The local model should learn Smart Center information through a controlled RAG or training export pipeline, not by silently memorizing chat messages.
 
@@ -14,18 +14,29 @@ python scripts/export_local_model_training.py
 
 or use `POST /api/local-model/export-training` from the local-model page.
 
-2. The export writes files under `SMART_CENTER_DATA_DIR/training/local_model`:
+2. The export writes runtime knowledge files under `SMART_CENTER_DATA_DIR/training/local_model`:
 
 - `devices_*.jsonl`: configured devices plus runtime `server_machines`.
+- `device_aliases_*.jsonl`: natural-language aliases used by Feishu and local-model control routing.
 - `protocols_*.jsonl`: protocol/config/driver records.
 - `logs_*.jsonl`: recent event, operation, and audit logs, with sensitive fields redacted.
 - `instructions_*.jsonl`: curated query instructions.
+- `control_intents_*.jsonl`: curated controlled-action examples and safety expectations.
 - `insights_*.jsonl`: device profiles, server inventory, protocol cards, inference rules, and log summaries.
 - `knowledge_*.json`: manifest and counts.
 
-3. Feed the latest files to the local model knowledge proxy/RAG index. RAG is preferred for frequently changing facts such as online/offline server state, CPU/GPU metrics, and logs.
+3. The same command also writes source-code knowledge files unless `--skip-code-knowledge` is passed:
 
-4. Optional fine-tuning or LoRA should only use curated examples from `instructions_*.jsonl` and reviewed rows. Do not fine-tune on raw secrets, tokens, SNMP community strings, RTSP credentials, or unreviewed logs.
+- `code_files_*.jsonl`: source files, `AI_*` markers, purpose, boundary, risk, config keys, and control paths.
+- `code_routes_*.jsonl`: Flask routes, permissions, methods, source functions, and route risk.
+- `code_modules_*.jsonl`: module-level summaries assembled from files and routes.
+- `code_design_*.jsonl`: compact design notes for Feishu natural language, local-model knowledge, and physical-control safety.
+- `code_knowledge_*.jsonl`: combined file, route, module, and design records for RAG ingestion.
+- `code_manifest_*.json`: code-knowledge manifest and counts.
+
+4. Feed the latest runtime and code knowledge files to the local model knowledge proxy/RAG index. RAG is preferred for frequently changing facts such as online/offline server state, CPU/GPU metrics, logs, current code boundaries, and routes.
+
+5. Optional fine-tuning or LoRA should only use curated examples from `instructions_*.jsonl`, `control_intents_*.jsonl`, and reviewed rows. Do not fine-tune on raw secrets, tokens, SNMP community strings, RTSP credentials, unreviewed logs, or full source code.
 
 ## Server Knowledge
 
@@ -49,9 +60,27 @@ Real device actions must still go through the existing Smart Center control chai
 
 Smart Center uses a layered route for Feishu and local-model control:
 
-1. Feedback memory checks previously confirmed or cancelled phrases in `SMART_CENTER_RUNTIME_DIR/control_feedback.jsonl`.
-2. The deterministic safety router selects the safest module and blocks ambiguous phrases such as "把第8路关了".
-3. If enabled, the local model may rewrite fuzzy text into a standard Chinese control phrase. The model output is untrusted and must be validated again by the deterministic router.
-4. Smart Center executes only after the normal permission, risk, and confirmation policy. Strong-current cabinets and sequencers always require confirmation.
+1. Feishu strips mentions, handles pending confirmations/cancellations, and classifies whether the message is query or control.
+2. Feedback memory checks previously confirmed or cancelled phrases in `SMART_CENTER_RUNTIME_DIR/control_feedback.jsonl`.
+3. The deterministic safety router selects the safest module and blocks ambiguous phrases such as "把第8路关了".
+4. If enabled, the local model may rewrite fuzzy text into a standard Chinese control phrase. The model output is untrusted and must be validated again by the deterministic router.
+5. Smart Center executes only after the normal permission, risk, and confirmation policy. Strong-current cabinets, sequencers, server shutdown/restart, and inferred targets must require confirmation.
 
 This makes the assistant improve from real usage while preventing the model from directly producing executable HTTP calls.
+
+## Recommended Feishu Architecture
+
+The target design should keep four layers separate:
+
+- Feishu adapter: receives messages, renders text/card confirmations, stores short-lived pending controls, and records user decisions.
+- Intent and retrieval layer: uses deterministic rules plus optional local model classification/rewrite; retrieves `knowledge_*.json`, `insights_*.jsonl`, `device_aliases_*.jsonl`, and `code_knowledge_*.jsonl`.
+- Tool/router layer: maps read intents to read-only allowlisted APIs and control intents to `LocalSmartCenterClient.resolve_control_command_with_translator`.
+- Execution layer: calls existing Smart Center APIs only after permission, operation lock, audit, target confidence, risk classification, and confirmation policy.
+
+Known design gaps to watch:
+
+- Feishu uses app credentials, not a logged-in Smart Center session, so control execution should have an explicit service identity or HMAC/internal token instead of relying on whatever auth defaults the HTTP service applies.
+- Low-risk direct execution is convenient but broad. Consider requiring confirmation for all Feishu controls first, then allowing an explicit low-risk allowlist after enough field testing.
+- Pending controls are keyed by chat, so two people in the same group can overwrite each other. Include sender/open_id in the pending key before enabling wider group control.
+- The local-model page stores pending controls in process memory, while Feishu persists them to runtime JSON. A shared pending-control store would make restart behavior and auditing more consistent.
+- Query intent classification, control rewrite, and answer generation should be separately observable in logs so mistakes can be debugged without exposing secrets.
