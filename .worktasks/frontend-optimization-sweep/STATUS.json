@@ -1,0 +1,35 @@
+{
+  "task": "frontend-optimization-sweep",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-frontend-optimization-sweep-20260601",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-optimization-sweep",
+  "started_at": "2026-06-01 13:41:43",
+  "status": "in_progress",
+  "updated_at": "2026-06-01 14:55:00",
+  "locks": [
+    "frontend_assets",
+    "templates_index_html"
+  ],
+  "completed": [
+    "production baseline confirmed and backup created",
+    "strong-power runtime moved into power-meter-runtime.js",
+    "template inline hotfix css moved into hotfix-overrides.css",
+    "nvr preview runtime split from snmp-runtime.js",
+    "automation runtime split from app-runtime.js"
+  ],
+  "verified": [
+    "node --check static/js/app-runtime.js",
+    "node --check static/js/views/power-meter-runtime.js",
+    "node --check static/js/views/snmp-runtime.js",
+    "node --check static/js/views/nvr-preview-runtime.js",
+    "node --check static/js/views/automation-runtime.js"
+  ],
+  "pending": [
+    "gzip/static artifact check",
+    "git diff --check",
+    "browser smoke",
+    "finish-work commit/push/release locks"
+  ]
+}

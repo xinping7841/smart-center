@@ -1,7 +1,7 @@
 // AI_MODULE: power_meter_runtime
-// AI_PURPOSE: 强电柜状态刷新、首页强电卡片、电表中心和能耗图表运行时。
-// AI_BOUNDARY: 真实强电控制确认和 payload 仍由 app-runtime.js 中的 togglePower/doPowerStart/doPowerStop 负责。
-// AI_DATA_FLOW: /api/status /api/logs /api/7days_energy /api/meters -> DOM；控制后由 app-runtime 调用本模块回读状态。
+// AI_PURPOSE: 强电柜控制/状态刷新、首页强电卡片、电表中心和能耗图表运行时。
+// AI_BOUNDARY: 保持旧全局 togglePower/doPowerStart/doPowerStop 入口；不改变强电控制 payload。
+// AI_DATA_FLOW: /api/status /api/logs /api/7days_energy /api/meters -> DOM；用户点击 -> /api/set /api/onekey_*。
 // AI_RUNTIME: dashboard 强电区接近视口或进入 power/meter 视图时按需加载，降低 app-runtime 首屏体积。
 // AI_RISK: 中高，读取真实强电状态但不直接下发强电控制；必须保持状态回读、权限样式和旧全局函数兼容。
 // AI_SEARCH_KEYWORDS: power meter runtime, dashboard power, meter center, energy chart, strong current.
@@ -12,6 +12,8 @@
     const SmartCenter = global.SmartCenter || (global.SmartCenter = {});
     const utils = SmartCenter.utils || {};
     const helper = SmartCenter.powerMeter || {};
+    const POWER_CHANNEL_LOCK_MS = 6000;
+    const POWER_CHANNEL_VERIFY_HOLD_MS = 45000;
     const state = SmartCenter.powerMeterRuntime = Object.assign({
         charts: {},
         powerHistoryCache: {},
@@ -20,6 +22,11 @@
         powerSupplementInFlight: {},
         powerFetchInFlight: null,
         powerVisibleSupplementCabIds: [],
+        pwrLocks: {},
+        pwrStates: {},
+        pwrPending: {},
+        pwrDesiredStates: {},
+        powerStatusCache: {},
         meterCenterCache: { summary: {}, meters: [], trend: [] },
         meterTrendTarget: 'total',
         meterTrendPeriod: 'day',
@@ -47,6 +54,9 @@
         return Object.assign({
             configData: global.configData || {},
             fetchJson: utils.fetchJson || global.fetchJson,
+            fetchJsonLoose: utils.fetchJsonLoose || global.fetchJsonLoose,
+            postJsonLoose: utils.postJsonLoose || global.postJsonLoose,
+            ensurePermission: utils.ensurePermission || global.ensurePermission || (() => false),
             showToast: utils.showToast || global.showToast || (() => {}),
             translateApiError: utils.translateApiError || global.translateApiError || ((err, fallback) => String(err || fallback || '请求失败')),
             escapeHtml: utils.escapeHtml || global.escapeHtml || fallbackEscapeHtml,
@@ -64,11 +74,12 @@
             getActiveViewId: global.getActiveViewId || (() => 'dashboard'),
             isDashboardSectionVisible: global.isDashboardSectionVisible || (() => false),
             resolveVisiblePowerSupplementCabIds: global.resolveVisiblePowerSupplementCabIds || (() => []),
-            getPowerChannelStatus: global.getPowerChannelStatus || (() => null),
-            applyPowerStatusSnapshot: global.applyPowerStatusSnapshot || (() => false),
-            renderPwrChannel: global.renderPwrChannel || (() => {}),
-            powerStatusCache: global.powerStatusCache || {},
-            pwrPending: global.pwrPending || {},
+            getPowerChannelStatus,
+            applyPowerStatusSnapshot,
+            renderPwrChannel,
+            powerStatusCache: state.powerStatusCache,
+            pwrPending: state.pwrPending,
+            updateDashboardLogs: global.updateDashboardLogs || (() => {}),
             renderPowerDetailLogs: SmartCenter.logs?.renderPowerDetailLogs || global.renderPowerDetailLogs || (() => {}),
             renderPowerLogSourceTag: SmartCenter.logs?.renderPowerLogSourceTag || global.renderPowerLogSourceTag || (() => ''),
             normalizeLogOperationText: SmartCenter.logs?.normalizeLogOperationText || global.normalizeLogOperationText || (log => String(log?.operation || log?.msg || log || '')),
@@ -114,6 +125,230 @@
             const ctx = getContext();
             return `<span class="name" title="${ctx.escapeHtml(remark ? name + ' / ' + remark : name)}">${ctx.escapeHtml(name)}</span>${options.compact || !remark ? '' : `<span class="remark" title="${ctx.escapeHtml(remark)}">${ctx.escapeHtml(remark)}</span>`}`;
         }, arguments);
+    }
+
+    function ensurePowerControlState(context = {}) {
+        const ctx = getContext(context);
+        const cabinets = Array.isArray(ctx.configData.cabinets) ? ctx.configData.cabinets : [];
+        cabinets.forEach((_, idx) => {
+            state.pwrLocks[idx] = state.pwrLocks[idx] || {};
+            state.pwrStates[idx] = state.pwrStates[idx] || [];
+            state.pwrPending[idx] = state.pwrPending[idx] || {};
+            state.pwrDesiredStates[idx] = state.pwrDesiredStates[idx] || {};
+        });
+        global.powerStatusCache = state.powerStatusCache;
+        global.pwrPending = state.pwrPending;
+        return cabinets;
+    }
+
+    function getPowerChannelStatus(cabId, chNum, context = {}) {
+        ensurePowerControlState(context);
+        const desired = state.pwrDesiredStates[cabId]?.[chNum];
+        if (desired && Date.now() - desired.ts < POWER_CHANNEL_LOCK_MS) return desired.target;
+        const cachedChannels = (state.powerStatusCache[cabId] || {}).channels_1_4;
+        if (Array.isArray(cachedChannels) && cachedChannels[chNum - 1] !== undefined) return cachedChannels[chNum - 1];
+        return (state.pwrStates[cabId] || [])[chNum];
+    }
+
+    function setPowerDesiredState(cabId, chNum, targetState, context = {}) {
+        ensurePowerControlState(context);
+        state.pwrDesiredStates[cabId] = state.pwrDesiredStates[cabId] || {};
+        state.pwrDesiredStates[cabId][chNum] = { target: !!targetState, ts: Date.now(), confirmed: false };
+        state.pwrStates[cabId] = state.pwrStates[cabId] || [];
+        state.pwrStates[cabId][chNum] = !!targetState;
+    }
+
+    function setPowerCabinetDesiredState(cabId, targetState, context = {}) {
+        const cabinets = ensurePowerControlState(context);
+        const cab = cabinets[cabId] || {};
+        const count = Number(cab.channel_count || 8);
+        for (let chNum = 1; chNum <= count; chNum += 1) setPowerDesiredState(cabId, chNum, targetState, context);
+    }
+
+    function clearPowerCabinetDesiredState(cabId) {
+        if (state.pwrDesiredStates[cabId]) state.pwrDesiredStates[cabId] = {};
+    }
+
+    function clearPowerDesiredState(cabId, chNum) {
+        if (state.pwrDesiredStates[cabId]) delete state.pwrDesiredStates[cabId][chNum];
+    }
+
+    function shouldAcceptPowerState(cabId, chNum, incomingState) {
+        const desired = state.pwrDesiredStates[cabId]?.[chNum];
+        if (!desired) return true;
+        const age = Date.now() - desired.ts;
+        const matchesTarget = !!incomingState === !!desired.target;
+        if (matchesTarget) {
+            desired.confirmed = true;
+            desired.confirmedAt = Date.now();
+            return true;
+        }
+        if (age < POWER_CHANNEL_VERIFY_HOLD_MS) return false;
+        delete state.pwrDesiredStates[cabId][chNum];
+        return true;
+    }
+
+    function applyPowerStatusSnapshot(cabId, status, context = {}) {
+        ensurePowerControlState(context);
+        if (!status || !Array.isArray(status.channels_1_4)) return false;
+        const previous = state.powerStatusCache[cabId] || {};
+        const safeStatus = Object.assign({}, previous, status || {});
+        const nextStates = safeStatus.channels_1_4.map((channelState, idx) => {
+            const chNum = idx + 1;
+            if (!shouldAcceptPowerState(cabId, chNum, channelState)) {
+                const desired = state.pwrDesiredStates[cabId]?.[chNum];
+                return desired ? desired.target : (state.pwrStates[cabId] || [])[chNum];
+            }
+            return channelState;
+        });
+        safeStatus.channels_1_4 = nextStates;
+        safeStatus.channel_on_count = nextStates.filter(Boolean).length;
+        state.powerStatusCache[cabId] = safeStatus;
+        state.pwrStates[cabId] = state.pwrStates[cabId] || [];
+        nextStates.forEach((channelState, idx) => {
+            const chNum = idx + 1;
+            state.pwrStates[cabId][chNum] = channelState;
+            renderPwrChannel(cabId, chNum, context);
+        });
+        return true;
+    }
+
+    function renderPwrChannel(cabId, chNum, context = {}) {
+        const ctx = getContext(context);
+        const cabinets = ensurePowerControlState(ctx);
+        const cab = cabinets[cabId] || {};
+        const cachedChannels = (state.powerStatusCache[cabId] || {}).channels_1_4;
+        const hasCachedStatus = Array.isArray(cachedChannels) && cachedChannels[chNum - 1] !== undefined;
+        const status = getPowerChannelStatus(cabId, chNum, ctx);
+        const chItem = document.getElementById(`pch_${cabId}_${chNum}`);
+        if (!chItem) return;
+        const channelsConfig = Array.isArray(cab.channels_config) ? cab.channels_config : [];
+        const chCfg = channelsConfig.find(item => Number(item?.channel) === Number(chNum));
+        const ui = cab.ui_text || {};
+        const chName = chCfg ? chCfg.name : ((ui.label_channel || '通道') + chNum);
+        const chRemark = chCfg ? (chCfg.remark || '') : '';
+        const isPending = !!(state.pwrPending[cabId] && state.pwrPending[cabId][chNum]);
+        const cls = isPending ? 'ch-off' : (status === null || status === undefined ? 'ch-err' : (status ? 'ch-on' : 'ch-off'));
+        const txt = isPending ? '执行中' : (status === null || status === undefined ? '离线' : (status ? (ui.label_on || '已开启') : (ui.label_off || '已关闭')));
+        const oldClasses = Array.from(chItem.classList).filter(item => item.startsWith('ch-span-') || item === 'ch-btn' || item === 'power-channel-btn').join(' ');
+        chItem.className = `${oldClasses || 'ch-btn power-channel-btn'} ${cls}`;
+        chItem.innerHTML = `<span class="name" title="${ctx.escapeHtml(chRemark ? chName + ' / ' + chRemark : chName)}">${ctx.escapeHtml(chName)}</span>${chRemark ? `<span class="remark" title="${ctx.escapeHtml(chRemark)}">${ctx.escapeHtml(chRemark)}</span>` : ''}<span class="state">${ctx.escapeHtml(txt)}</span>`;
+        chItem.disabled = isPending || chItem.classList.contains('permission-disabled');
+        chItem.style.pointerEvents = isPending ? 'none' : '';
+        chItem.style.opacity = isPending ? '0.78' : '';
+        chItem.dataset.stateSource = hasCachedStatus ? 'api' : 'local';
+    }
+
+    function doPowerStart(cabId, context = {}) {
+        const ctx = getContext(context);
+        if (!ctx.ensurePermission('power.control', '执行强电启动')) return Promise.resolve(false);
+        setPowerCabinetDesiredState(cabId, true, ctx);
+        if (typeof ctx.fetchJsonLoose !== 'function') {
+            clearPowerCabinetDesiredState(cabId);
+            ctx.showToast('强电控制运行库缺少请求方法', true);
+            return Promise.resolve(false);
+        }
+        return ctx.fetchJsonLoose(`/api/onekey_start?cab=${cabId}`, {}, '启动请求失败')
+            .then(data => {
+                if (!data.ok) {
+                    clearPowerCabinetDesiredState(cabId);
+                    ctx.showToast(data.msg || '启动失败', true);
+                    return data;
+                }
+                applyPowerStatusSnapshot(cabId, data.status, ctx);
+                ctx.showToast(data.verified === false ? (data.msg || '启动指令已下发，状态稍后刷新') : '启动指令已发送');
+                updatePowerData(ctx);
+                setTimeout(() => updatePowerData(ctx), 450);
+                return data;
+            })
+            .catch(err => {
+                clearPowerCabinetDesiredState(cabId);
+                ctx.showToast(ctx.translateApiError(err?.message, '启动请求失败'), true);
+                return false;
+            });
+    }
+
+    function doPowerStop(cabId, msg, context = {}) {
+        const ctx = getContext(context);
+        if (!ctx.ensurePermission('power.control', '执行强电停止')) return Promise.resolve(false);
+        if (!global.confirm(msg)) return Promise.resolve(false);
+        setPowerCabinetDesiredState(cabId, false, ctx);
+        if (typeof ctx.fetchJsonLoose !== 'function') {
+            clearPowerCabinetDesiredState(cabId);
+            ctx.showToast('强电控制运行库缺少请求方法', true);
+            return Promise.resolve(false);
+        }
+        return ctx.fetchJsonLoose(`/api/onekey_stop?cab=${cabId}`, {}, '停止请求失败')
+            .then(data => {
+                if (!data.ok) {
+                    clearPowerCabinetDesiredState(cabId);
+                    ctx.showToast(data.msg || '停止失败', true);
+                    return data;
+                }
+                applyPowerStatusSnapshot(cabId, data.status, ctx);
+                ctx.showToast(data.verified === false ? (data.msg || '停止指令已下发，状态稍后刷新') : '停止指令已下发');
+                updatePowerData(ctx);
+                setTimeout(() => updatePowerData(ctx), 450);
+                return data;
+            })
+            .catch(err => {
+                clearPowerCabinetDesiredState(cabId);
+                ctx.showToast(ctx.translateApiError(err?.message, '停止请求失败'), true);
+                return false;
+            });
+    }
+
+    function togglePower(cabId, chNum, context = {}) {
+        const ctx = getContext(context);
+        if (!ctx.ensurePermission('power.control', '切换强电通道')) return Promise.resolve(false);
+        ensurePowerControlState(ctx);
+        state.pwrPending[cabId] = state.pwrPending[cabId] || {};
+        state.pwrLocks[cabId] = state.pwrLocks[cabId] || {};
+        if (state.pwrPending[cabId][chNum]) {
+            ctx.showToast('该回路正在执行中，请等待状态确认');
+            return Promise.resolve(false);
+        }
+        const status = getPowerChannelStatus(cabId, chNum, ctx);
+        if (status === null) return Promise.resolve(false);
+        const cab = (ctx.configData.cabinets || [])[cabId] || {};
+        if (status && !global.confirm(cab.ui_text?.confirm_single_off || '确定要断开该回路吗？')) return Promise.resolve(false);
+        const targetState = !status;
+        state.pwrLocks[cabId][chNum] = Date.now();
+        state.pwrPending[cabId][chNum] = true;
+        setPowerDesiredState(cabId, chNum, targetState, ctx);
+        renderPwrChannel(cabId, chNum, ctx);
+        if (typeof ctx.postJsonLoose !== 'function') {
+            delete state.pwrPending[cabId][chNum];
+            clearPowerDesiredState(cabId, chNum);
+            renderPwrChannel(cabId, chNum, ctx);
+            ctx.showToast('强电控制运行库缺少请求方法', true);
+            return Promise.resolve(false);
+        }
+        return ctx.postJsonLoose('/api/set', { cab: cabId, ch: chNum, on: targetState }, '强电控制请求失败')
+            .then(data => {
+                if (!data.ok) {
+                    clearPowerDesiredState(cabId, chNum);
+                    renderPwrChannel(cabId, chNum, ctx);
+                    ctx.showToast(data.msg || '强电控制失败', true);
+                    return data;
+                }
+                if (data.verified === false && data.msg) ctx.showToast(data.msg);
+                applyPowerStatusSnapshot(cabId, data.status, ctx);
+                updatePowerData(ctx);
+                setTimeout(() => updatePowerData(ctx), 450);
+                return data;
+            })
+            .catch(err => {
+                clearPowerDesiredState(cabId, chNum);
+                renderPwrChannel(cabId, chNum, ctx);
+                ctx.showToast(ctx.translateApiError(err?.message, '强电控制请求失败'), true);
+                return false;
+            })
+            .finally(() => {
+                delete state.pwrPending[cabId][chNum];
+                renderPwrChannel(cabId, chNum, ctx);
+                setTimeout(() => { delete state.pwrLocks[cabId][chNum]; }, POWER_CHANNEL_LOCK_MS);
+            });
     }
 
     function renderDashboardPowerHistory(historyRows, status) {
@@ -893,6 +1128,17 @@
         renderMeterTrendChart,
         renderDashboardEnergyTrend,
         renderPowerLogSummary,
+        ensurePowerControlState,
+        getPowerChannelStatus,
+        setPowerDesiredState,
+        setPowerCabinetDesiredState,
+        clearPowerCabinetDesiredState,
+        clearPowerDesiredState,
+        applyPowerStatusSnapshot,
+        renderPwrChannel,
+        doPowerStart,
+        doPowerStop,
+        togglePower,
         renderMeterCenterShell,
         refreshPowerSupplement,
         updateMeterCenter,
@@ -903,6 +1149,7 @@
 
     Object.assign(state, api);
     Object.assign(global, api);
+    ensurePowerControlState();
 
     if (typeof SmartCenter.registerModule === 'function') {
         SmartCenter.registerModule('power-meter-runtime', {

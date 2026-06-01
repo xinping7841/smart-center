@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260601-page-regression-hotfix-v1';
+        const lazyModuleVersion = '20260601-frontend-opt-sweep-v1';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const viewStyleGroups = {
             dashboard: [lazyStyle('dashboard')],
@@ -58,6 +58,9 @@
                 `/static/js/views/snmp-summary.js?v=${lazyModuleVersion}`,
                 `/static/js/views/snmp-runtime.js?v=${lazyModuleVersion}`,
             ],
+        });
+        SmartCenter.registerLazyModule('nvr-preview-runtime', {
+            scripts: [`/static/js/views/nvr-preview-runtime.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('snmp-full', {
             styles: viewStyleGroups.snmp,
@@ -127,6 +130,9 @@
             scripts: [`/static/js/views/ups.js?v=${lazyModuleVersion}`],
         });
         SmartCenter.registerLazyModule('auto-view-style', { styles: viewStyleGroups.auto });
+        SmartCenter.registerLazyModule('automation-runtime', {
+            scripts: [`/static/js/views/automation-runtime.js?v=${lazyModuleVersion}`],
+        });
         SmartCenter.registerLazyModule('automation-view', {
             scripts: [`/static/js/views/automation-view.js?v=${lazyModuleVersion}`],
         });
@@ -143,7 +149,7 @@
         SmartCenter.registerViewModules('projector', ['projector-view-style', 'projector-runtime', 'projector-view']);
         SmartCenter.registerViewModules('screen', ['screen-runtime']);
         SmartCenter.registerViewModules('snmp', ['snmp-full']);
-        SmartCenter.registerViewModules('camera_preview', ['snmp-full']);
+        SmartCenter.registerViewModules('camera_preview', ['snmp-full', 'nvr-preview-runtime']);
         SmartCenter.registerViewModules('proxy', ['proxy-view']);
         SmartCenter.registerViewModules('universal', ['universal-view']);
         SmartCenter.registerViewModules('apple_audio', ['apple-audio-view']);
@@ -154,7 +160,7 @@
         SmartCenter.registerViewModules('door', ['door-runtime']);
         SmartCenter.registerViewModules('meter', ['meter-view-style', 'power-meter-runtime']);
         SmartCenter.registerViewModules('ups', ['ups-runtime']);
-        SmartCenter.registerViewModules('auto', ['auto-view-style', 'logs-runtime', 'automation-view']);
+        SmartCenter.registerViewModules('auto', ['auto-view-style', 'logs-runtime', 'automation-runtime', 'automation-view']);
         SmartCenter.registerViewModules('sequencer', ['sequencer-view-style', 'sequencer-runtime']);
         SmartCenter.registerViewModules('env', ['env-view-style', 'env-runtime']);
         SmartCenter.registerViewModules('logs', ['logs-view-style', 'logs-runtime']);
@@ -491,91 +497,8 @@
                 notifier: showToast,
             });
         }
-        const pwrLocks = {};
-        const pwrStates = {};
-        const pwrPending = {};
-        const pwrDesiredStates = {};
-        const POWER_CHANNEL_LOCK_MS = 6000;
-        const POWER_CHANNEL_VERIFY_HOLD_MS = 45000;
-        const powerStatusCache = {};
-        window.powerStatusCache = powerStatusCache;
-        window.pwrPending = pwrPending;
-        let automationStatusCache = { server_time: '', rules: [] };
-        let automationStatusLoading = false;
         let dashboardSummaryCache = null;
         let dashboardSummaryInFlight = null;
-
-        function getPowerChannelStatus(cabId, chNum) {
-            const desired = pwrDesiredStates[cabId]?.[chNum];
-            if (desired && Date.now() - desired.ts < POWER_CHANNEL_LOCK_MS) {
-                return desired.target;
-            }
-            const cachedChannels = (powerStatusCache[cabId] || {}).channels_1_4;
-            if (Array.isArray(cachedChannels) && cachedChannels[chNum - 1] !== undefined) {
-                return cachedChannels[chNum - 1];
-            }
-            return (pwrStates[cabId] || [])[chNum];
-        }
-        function setPowerDesiredState(cabId, chNum, targetState) {
-            pwrDesiredStates[cabId] = pwrDesiredStates[cabId] || {};
-            pwrDesiredStates[cabId][chNum] = {
-                target: !!targetState,
-                ts: Date.now(),
-                confirmed: false,
-            };
-            pwrStates[cabId] = pwrStates[cabId] || [];
-            pwrStates[cabId][chNum] = !!targetState;
-        }
-        function setPowerCabinetDesiredState(cabId, targetState) {
-            const cab = configData.cabinets[cabId] || {};
-            const count = Number(cab.channel_count || 8);
-            for (let chNum = 1; chNum <= count; chNum += 1) {
-                setPowerDesiredState(cabId, chNum, targetState);
-            }
-        }
-        function clearPowerCabinetDesiredState(cabId) {
-            if (pwrDesiredStates[cabId]) pwrDesiredStates[cabId] = {};
-        }
-        function clearPowerDesiredState(cabId, chNum) {
-            if (pwrDesiredStates[cabId]) delete pwrDesiredStates[cabId][chNum];
-        }
-        function shouldAcceptPowerState(cabId, chNum, incomingState) {
-            const desired = pwrDesiredStates[cabId]?.[chNum];
-            if (!desired) return true;
-            const age = Date.now() - desired.ts;
-            const matchesTarget = !!incomingState === !!desired.target;
-            if (matchesTarget) {
-                desired.confirmed = true;
-                desired.confirmedAt = Date.now();
-                return true;
-            }
-            if (age < POWER_CHANNEL_VERIFY_HOLD_MS) return false;
-            delete pwrDesiredStates[cabId][chNum];
-            return true;
-        }
-        function applyPowerStatusSnapshot(cabId, status) {
-            if (!status || !Array.isArray(status.channels_1_4)) return false;
-            const previous = powerStatusCache[cabId] || {};
-            const safeStatus = Object.assign({}, previous, status || {});
-            const nextStates = safeStatus.channels_1_4.map((st, idx) => {
-                const chNum = idx + 1;
-                if (!shouldAcceptPowerState(cabId, chNum, st)) {
-                    const desired = pwrDesiredStates[cabId]?.[chNum];
-                    return desired ? desired.target : (pwrStates[cabId] || [])[chNum];
-                }
-                return st;
-            });
-            safeStatus.channels_1_4 = nextStates;
-            safeStatus.channel_on_count = nextStates.filter(Boolean).length;
-            powerStatusCache[cabId] = safeStatus;
-            pwrStates[cabId] = pwrStates[cabId] || [];
-            nextStates.forEach((st, idx) => {
-                const chNum = idx + 1;
-                pwrStates[cabId][chNum] = st;
-                renderPwrChannel(cabId, chNum);
-            });
-            return true;
-        }
         const projectorConfigs = configData.projectors || [];
         const upsConfigs = configData.ups_devices || [];
         window.upsConfigs = upsConfigs;
@@ -655,7 +578,7 @@
             return ((dashboardSummaryCache || {}).counts || {})[name] || {};
         }
         function getDashboardSummaryRenderContext() {
-            return { pickDashboardEnvSensor, renderDashboardProxySummary };
+            return { pickDashboardEnvSensor: window.pickDashboardEnvSensor, renderDashboardProxySummary };
         }
         function renderDashboardSummaryTopStats(payload) {
             return ensureDashboardSummaryReady()
@@ -1094,72 +1017,64 @@
             showToast(copied ? successText : '复制失败，请手动复制', !copied);
             return Promise.resolve(copied);
         }
+        function getAutomationRuntimeApi() {
+            return window.SmartCenter?.automationRuntime || null;
+        }
+        function ensureAutomationRuntimeReady(contextLabel = '自动化运行时模块') {
+            const api = getAutomationRuntimeApi();
+            if (api?.loadAutomationStatus) return Promise.resolve(api);
+            return ensureModulesReady(['automation-runtime'], contextLabel).then(() => getAutomationRuntimeApi());
+        }
         function getAutomationStatusMap() {
-            return new Map((Array.isArray(automationStatusCache.rules) ? automationStatusCache.rules : []).map(item => [String(item.id), item]));
+            const api = getAutomationRuntimeApi();
+            if (api?.getAutomationStatusMap) return api.getAutomationStatusMap();
+            const cache = getAutomationStatusCache();
+            return new Map((Array.isArray(cache.rules) ? cache.rules : []).map(item => [String(item.id), item]));
         }
         function getAutomationStatusCache() {
-            return automationStatusCache;
+            const api = getAutomationRuntimeApi();
+            return api?.getAutomationStatusCache ? api.getAutomationStatusCache() : { server_time: '', rules: [] };
         }
         function getAutomationViewApi() {
             return window.SmartCenter?.automationView || null;
         }
         function ensureAutomationViewReady(contextLabel = '自动化详情模块') {
             if (getAutomationViewApi()) return Promise.resolve(getAutomationViewApi());
-            return ensureModulesReady(['automation-view'], contextLabel).then(() => getAutomationViewApi());
+            return ensureModulesReady(['automation-runtime', 'automation-view'], contextLabel).then(() => getAutomationViewApi());
         }
         function getAutomationRuntimeContext() {
             return {
                 configData,
                 currentUser,
                 getActiveViewId,
+                ensureModulesReady,
+                ensureViewReady,
                 getAutomationStatusCache,
                 getAutomationStatusMap,
                 loadAutomationStatus,
                 loadAutomationLogs: window.SmartCenter?.logs?.loadAutomationLogs || window.loadAutomationLogs,
                 ensurePermission,
+                fetchJson,
                 postJsonLoose,
                 translateApiError,
                 showToast,
+                applyPermissionUI,
+                scheduleDashboardMasonry,
                 formatAutomationRuleTime,
                 formatAutomationValue,
                 escapeHtml,
+                envConfigs,
             };
         }
         function renderAutomationPageStatus() {
-            const rules = Array.isArray(automationStatusCache.rules) ? automationStatusCache.rules : [];
-            if (getActiveViewId() !== 'auto') return;
-            if (!document.getElementById('view-auto')) return;
-            ensureAutomationViewReady('自动化运行页面模块')
-                .then(api => {
-                    api?.renderAutomationPageStatus?.(rules, getAutomationRuntimeContext());
-                    applyPermissionUI();
-                })
-                .catch(() => {});
+            return ensureAutomationRuntimeReady('自动化运行页面模块')
+                .then(api => api?.renderAutomationPageStatus?.(getAutomationRuntimeContext()))
+                .catch(() => null);
         }
         function renderAutomationLazyPage() {
-            return ensureViewReady('auto')
-                .then(() => {
-                    const api = getAutomationViewApi();
-                    if (!api?.renderAutomationViewShell) throw new Error('automation_view_api_unavailable');
-                    api.renderAutomationViewShell();
-                    applyPermissionUI();
-                    return loadAutomationStatus(true);
-                })
-                .then(() => window.loadAutomationLogs())
-                .catch(err => {
-                    console.error('自动化运行页面初始化失败', err);
-                    const container = document.getElementById('view-auto');
-                    if (container) {
-                        container.innerHTML = `
-                            <div class="card lazy-view-placeholder">
-                                <div style="font-weight:800;margin-bottom:8px;">自动化运行页面加载失败</div>
-                                <div style="color:var(--muted);font-size:13px;">请刷新页面重试；若持续出现，请检查 automation-view 模块加载状态。</div>
-                            </div>
-                        `;
-                    }
-                    if (typeof showToast === 'function') showToast('自动化运行页面加载失败，请刷新后重试', true);
-                    return null;
-                });
+            return ensureAutomationRuntimeReady('自动化运行页面模块')
+                .then(api => api?.renderAutomationLazyPage?.(getAutomationRuntimeContext()))
+                .catch(() => null);
         }
         function getEnvConfigById(deviceId) {
             const targetId = String(deviceId || '').trim();
@@ -1193,9 +1108,13 @@
         function envFeatureEnabled(features, key) {
             return (features || {})[key] !== false;
         }
-        function getOutdoorGateSensorSnapshot(envData = null) {
+        function updateDashboardDoorStatusFromEnv(envData = null) {
+            const api = getAutomationRuntimeApi();
+            if (api?.updateDashboardDoorStatusFromEnv) return api.updateDashboardDoorStatusFromEnv(envData, getAutomationRuntimeContext());
+            const dashStatus = document.getElementById('dash-door-status');
+            if (!dashStatus) return false;
             const data = envData && typeof envData === 'object' ? envData : (window.__envStatusCache || {});
-            const candidates = envConfigs
+            const snapshot = envConfigs
                 .map(cfg => {
                     const text = `${cfg?.id || ''} ${cfg?.name || ''} ${cfg?.model || ''} ${cfg?.note || ''}`.toLowerCase();
                     const st = data[cfg.id] || {};
@@ -1208,40 +1127,26 @@
                     return { cfg, st, score };
                 })
                 .filter(item => item.score > 0)
-                .sort((left, right) => right.score - left.score);
-            return candidates[0] || null;
-        }
-        function resolveOutdoorGateState(st = {}) {
-            if (!st || st.online === false) {
-                return { status: 'offline', text: '离线', className: 'blue' };
-            }
-            if (typeof st.contact === 'boolean') {
-                return st.contact
-                    ? { status: 'open', text: '已打开', className: 'danger' }
-                    : { status: 'closed', text: '已关闭', className: 'green' };
-            }
-            if (typeof st.opening === 'boolean') {
-                return st.opening
-                    ? { status: 'open', text: '已打开', className: 'danger' }
-                    : { status: 'closed', text: '已关闭', className: 'green' };
-            }
-            const text = String(st.contact_text || st.state || '').trim();
-            if (/开|open/i.test(text)) return { status: 'open', text: '已打开', className: 'danger' };
-            if (/关|close|closed/i.test(text)) return { status: 'closed', text: '已关闭', className: 'green' };
-            return { status: 'unknown', text: '门磁未知', className: 'blue' };
-        }
-        function updateDashboardDoorStatusFromEnv(envData = null) {
-            const dashStatus = document.getElementById('dash-door-status');
-            if (!dashStatus) return false;
-            const snapshot = getOutdoorGateSensorSnapshot(envData);
+                .sort((left, right) => right.score - left.score)[0];
             if (!snapshot) return false;
-            const gateState = resolveOutdoorGateState(snapshot.st);
+            const st = snapshot.st || {};
+            let gateState = { text: '门磁未知', className: 'blue' };
+            if (!st || st.online === false) gateState = { text: '离线', className: 'blue' };
+            else if (typeof st.contact === 'boolean') gateState = st.contact ? { text: '已打开', className: 'danger' } : { text: '已关闭', className: 'green' };
+            else if (typeof st.opening === 'boolean') gateState = st.opening ? { text: '已打开', className: 'danger' } : { text: '已关闭', className: 'green' };
+            else {
+                const text = String(st.contact_text || st.state || '').trim();
+                if (/开|open/i.test(text)) gateState = { text: '已打开', className: 'danger' };
+                else if (/关|close|closed/i.test(text)) gateState = { text: '已关闭', className: 'green' };
+            }
             dashStatus.textContent = gateState.text;
             dashStatus.className = `value ${gateState.className}`;
             dashStatus.title = `${snapshot.cfg?.name || '户外大门'} · 来源：门磁传感器`;
             return true;
         }
         function updateDashboardDoorStatusFromVision(data = {}) {
+            const api = getAutomationRuntimeApi();
+            if (api?.updateDashboardDoorStatusFromVision) return api.updateDashboardDoorStatusFromVision(data);
             const dashStatus = document.getElementById('dash-door-status');
             if (!dashStatus) return;
             dashStatus.textContent = String(data.msg || '').replace(/[\u2705\uD83D\uDEAA\u23F3\u26A0\uFE0F\u23F8\uFE0F\u23F8]\s*/g, '');
@@ -1264,32 +1169,9 @@
             if (isContactLikeEnvSensor(cfg)) score -= 30;
             return score;
         }
-        function resolveOutdoorAutomationSensor(rule, envData) {
-            const data = envData && typeof envData === 'object' ? envData : (window.__envStatusCache || {});
-            const configuredId = String(rule?.state?.resolved_device_id || rule?.condition?.device_id || '').trim();
-            let sensorCfg = getEnvConfigById(configuredId);
-            if (!sensorCfg || isContactLikeEnvSensor(sensorCfg)) {
-                sensorCfg = envConfigs
-                    .map(cfg => ({ cfg, st: data[cfg.id] || {} }))
-                    .sort((left, right) => getEnvDashboardScore(right.cfg, right.st) - getEnvDashboardScore(left.cfg, left.st))
-                    .find(item => getEnvDashboardScore(item.cfg, item.st) > -999)?.cfg
-                    || envConfigs.find(cfg => ((cfg.features || {}).illuminance !== false) && !isContactLikeEnvSensor(cfg))
-                    || envConfigs[0]
-                    || null;
-            }
-            const sensorState = sensorCfg ? (data[sensorCfg.id] || null) : null;
-            return {
-                sensorId: sensorCfg ? String(sensorCfg.id) : configuredId,
-                sensorCfg,
-                sensorState,
-            };
-        }
         function pickDashboardEnvSensor(envData) {
-            const runtimeMap = getAutomationStatusMap();
-            const outdoorSensor = resolveOutdoorAutomationSensor(runtimeMap.get('auto_outdoor_light_low_lux_on'), envData);
-            if (outdoorSensor.sensorCfg && outdoorSensor.sensorState && outdoorSensor.sensorState.online) {
-                return { cfg: outdoorSensor.sensorCfg, st: outdoorSensor.sensorState };
-            }
+            const api = getAutomationRuntimeApi();
+            if (api?.pickDashboardEnvSensor) return api.pickDashboardEnvSensor(envData, getAutomationRuntimeContext());
             return envConfigs
                 .map(cfg => ({ cfg, st: envData[cfg.id] || { online: false } }))
                 .sort((left, right) => getEnvDashboardScore(right.cfg, right.st) - getEnvDashboardScore(left.cfg, left.st))
@@ -1297,223 +1179,34 @@
                 || envConfigs.map(cfg => ({ cfg, st: envData[cfg.id] || { online: false } })).find(item => item.st && item.st.online)
                 || null;
         }
-        function formatLuxTrendSummary(trend, threshold, currentLux) {
-            if (!trend || typeof trend !== 'object') {
-                return { eta: '--', note: '趋势数据尚未建立' };
-            }
-            const current = Number(currentLux);
-            const thresholdNum = Number(threshold);
-            const etaSec = Number(trend.estimate_to_threshold_sec);
-            const direction = String(trend.direction || 'unknown');
-            const slope = Number(trend.slope_lux_per_min);
-            if (Number.isFinite(etaSec)) {
-                if (etaSec <= 0) {
-                    if (Number.isFinite(current) && Number.isFinite(thresholdNum) && current > thresholdNum) {
-                        return {
-                            eta: '高于阈值',
-                            note: `当前 ${current.toFixed(0)} lux，高于阈值 ${thresholdNum.toFixed(0)} lux`
-                        };
-                    }
-                    return {
-                        eta: '低于阈值',
-                        note: Number.isFinite(current) && Number.isFinite(thresholdNum)
-                            ? `当前 ${current.toFixed(0)} lux，已低于阈值 ${thresholdNum.toFixed(0)} lux`
-                            : '当前已低于触发阈值'
-                    };
-                }
-                const directionText = direction === 'falling' ? '正在变暗' : (direction === 'rising' ? '正在变亮' : '趋势变化中');
-                return {
-                    eta: formatRelativeSeconds(etaSec),
-                    note: `${directionText}，约 ${formatRelativeSeconds(etaSec)} 后接近阈值`
-                };
-            }
-            if (direction === 'falling' && Number.isFinite(slope)) {
-                return { eta: '趋势建立中', note: `光照下降约 ${Math.abs(slope).toFixed(1)} lux/分钟，继续观察是否靠近阈值` };
-            }
-            if (direction === 'rising' && Number.isFinite(slope)) {
-                return { eta: '暂无风险', note: `光照回升约 ${Math.abs(slope).toFixed(1)} lux/分钟` };
-            }
-            if (direction === 'stable') {
-                return { eta: '基本稳定', note: '光照波动较小，暂未接近自动开灯条件' };
-            }
-            return { eta: '--', note: '趋势数据尚未建立' };
-        }
-        function formatAutomationWindowText(schedule = {}) {
-            const start = schedule.time_start || '00:00';
-            const end = schedule.time_end || '23:59';
-            return `${start}-${end}`;
-        }
-        function getAutomationWindowNextText(schedule = {}, inWindow = false) {
-            const startText = schedule.time_start || '00:00';
-            const endText = schedule.time_end || '23:59';
-            if (inWindow) return `${endText}前有效`;
-            const startTarget = getTodayTargetDateTime(startText);
-            const endTarget = getTodayTargetDateTime(endText);
-            const now = new Date();
-            if (now < startTarget) return `${startText}开始`;
-            if (now > endTarget) return `明日${startText}`;
-            return `${startText}-${endText}`;
-        }
-        function getAutomationOffPlanText(rule) {
-            const timeText = rule?.schedule?.time || '20:00';
-            const target = getTodayTargetDateTime(timeText);
-            const countdown = formatCountdownText(target);
-            return countdown === '已到时间' ? `${timeText}已到` : `${timeText}关灯`;
-        }
         function renderOutdoorAutomationDashboardCard() {
-            const runtimeMap = getAutomationStatusMap();
-            const onRule = runtimeMap.get('auto_outdoor_light_low_lux_on');
-            const offRule = runtimeMap.get('auto_outdoor_light_20_off');
-            const card = document.getElementById('dash-outdoor-automation-card');
-            if (!card) return;
-            const luxEl = document.getElementById('dash-outdoor-lux');
-            const statusEl = document.getElementById('dash-outdoor-status-text');
-            const etaEl = document.getElementById('dash-outdoor-eta');
-            const offEl = document.getElementById('dash-outdoor-off-countdown');
-            const windowEl = document.getElementById('dash-outdoor-window');
-            const debounceEl = document.getElementById('dash-outdoor-debounce');
-            const noteEl = document.getElementById('dash-outdoor-note');
-            const chipEl = document.getElementById('dash-outdoor-auto-chip');
-            if (!onRule && !offRule) {
-                card.style.opacity = '0.72';
-                if (luxEl) luxEl.textContent = '--';
-                if (statusEl) statusEl.textContent = '未找到户外灯自动化规则';
-                if (etaEl) etaEl.textContent = '--';
-                if (offEl) offEl.textContent = '--';
-                if (windowEl) windowEl.textContent = '--';
-                if (debounceEl) debounceEl.textContent = '--';
-                if (noteEl) noteEl.textContent = '请先配置 auto_outdoor_light_low_lux_on 与 auto_outdoor_light_20_off。';
-                if (chipEl) {
-                    chipEl.textContent = '未配置';
-                    chipEl.className = 'outdoor-auto-chip';
-                }
-                return;
-            }
-
-            const outdoorSensor = resolveOutdoorAutomationSensor(onRule);
-            const runtimeLux = toFiniteNumber(onRule?.state?.current_value);
-            const liveLux = toFiniteNumber(outdoorSensor.sensorState?.lux);
-            const currentLux = runtimeLux !== null ? runtimeLux : liveLux;
-            const threshold = toFiniteNumber(onRule?.condition?.value) ?? 300;
-            const inWindow = !!onRule?.state?.last_in_window;
-            const debounceSec = Number(onRule?.state?.debounce_sec || 0);
-            const ready = !!onRule?.state?.last_trigger_matched;
-            const crossingMode = String(onRule?.state?.crossing_mode || onRule?.condition?.crossing_mode || 'none');
-            const crossingReady = onRule?.state?.crossing_ready !== false;
-            const rearmValue = Number(onRule?.state?.rearm_value ?? onRule?.condition?.rearm_value);
-            const lastBaseMatch = !!onRule?.state?.last_base_match;
-            const lastSkipReason = String(onRule?.state?.last_skip_reason || '');
-            const windowBootstrapSec = Number(onRule?.condition?.window_bootstrap_sec || 0);
-            const sensorName = outdoorSensor.sensorCfg?.name || '户外传感器';
-            const usingLiveSensorFallback = runtimeLux === null && liveLux !== null;
-            const windowText = formatAutomationWindowText(onRule?.schedule || {});
-            const windowStateText = getAutomationWindowNextText(onRule?.schedule || {}, inWindow);
-            const rearmText = Number.isFinite(rearmValue) ? `${rearmValue.toFixed(0)} lux` : '回升';
-            const triggerText = crossingMode === 'cross_down'
-                ? `跌破${threshold.toFixed(0)} lux`
-                : `低于${threshold.toFixed(0)} lux`;
-            const debounceText = debounceSec > 0 ? ` ${formatRelativeSeconds(debounceSec)}` : '';
-            const conditionText = `${triggerText}${debounceText}`;
-            const resetText = crossingMode === 'cross_down' ? `${rearmText}复位` : '自动复位';
-            const offPlanText = getAutomationOffPlanText(offRule);
-
-            let chipText = '观察中';
-            let chipClass = 'outdoor-auto-chip';
-            let statusText = '正在等待光照与自动化状态...';
-            if (ready) {
-                chipText = '满足触发';
-                chipClass += ' good';
-                statusText = '已满足开灯条件，自动化可执行';
-            } else if (currentLux !== null) {
-                if (!inWindow) {
-                    chipText = '时间窗外';
-                    statusText = currentLux <= threshold
-                        ? '光照已低，但未到开灯窗口'
-                        : '未到开灯窗口，当前光照充足';
-                } else if (currentLux <= threshold) {
-                    if (crossingMode === 'cross_down' && !crossingReady) {
-                        chipText = '已触发待复位';
-                        statusText = Number.isFinite(rearmValue)
-                            ? `已开过灯，需回升到 ${rearmValue.toFixed(0)} lux 后复位`
-                            : '已开过灯，需明显回升后复位';
-                    } else if (lastSkipReason.startsWith('window_bootstrap_after_')) {
-                        chipText = '补触发就绪';
-                        chipClass += ' warn';
-                        statusText = '窗口内持续低照度，补触发可执行';
-                    } else if (crossingMode === 'cross_down' && !lastBaseMatch) {
-                        chipText = '等待变暗';
-                        chipClass += ' warn';
-                        statusText = '等待光照从亮转暗跌破阈值';
-                    } else {
-                        chipText = '确认中';
-                        chipClass += ' warn';
-                        statusText = '光照已低，正在确认是否稳定';
-                    }
-                } else {
-                    chipText = '监测中';
-                    statusText = '窗口内监测中，光照高于开灯阈值';
-                }
-            } else if (outdoorSensor.sensorCfg) {
-                chipText = '等待数据';
-                chipClass += ' warn';
-                statusText = `正在等待 ${sensorName} 上报实时光照`;
-            }
-
-            card.style.opacity = '1';
-            if (luxEl) luxEl.textContent = currentLux !== null ? `${currentLux.toFixed(0)} lux` : '--';
-            if (statusEl) statusEl.textContent = statusText;
-            if (etaEl) etaEl.textContent = windowStateText;
-            if (offEl) offEl.textContent = offPlanText;
-            if (windowEl) windowEl.textContent = conditionText;
-            if (debounceEl) debounceEl.textContent = resetText;
-            if (noteEl) {
-                let ruleNote = `规则：${windowText}，${conditionText} 开灯，${offPlanText}。`;
-                if (windowBootstrapSec > 0) {
-                    ruleNote += ` 低照度入窗 ${formatRelativeSeconds(windowBootstrapSec)} 后补开。`;
-                }
-                if (usingLiveSensorFallback) {
-                    ruleNote += ` 使用 ${sensorName} 实时值。`;
-                } else if (outdoorSensor.sensorCfg) {
-                    ruleNote += ` 来源：${sensorName}。`;
-                }
-                const lastText = formatDateTimeText(onRule?.state?.last_evaluated_at || automationStatusCache.server_time || '');
-                noteEl.textContent = `${ruleNote}更新 ${lastText}`;
-            }
-            if (chipEl) {
-                chipEl.textContent = chipText;
-                chipEl.className = chipClass;
-            }
-            scheduleDashboardMasonry(80);
+            const api = getAutomationRuntimeApi();
+            if (api?.renderOutdoorAutomationDashboardCard) return api.renderOutdoorAutomationDashboardCard(getAutomationRuntimeContext());
+            return ensureAutomationRuntimeReady('自动化首页卡片模块')
+                .then(runtimeApi => runtimeApi?.renderOutdoorAutomationDashboardCard?.(getAutomationRuntimeContext()))
+                .catch(() => null);
         }
         async function loadAutomationStatus(showError=false) {
-            if (automationStatusLoading) return;
-            automationStatusLoading = true;
-            try {
-                const data = await fetchJson('/api/automation/status', {}, '自动化状态读取失败');
-                automationStatusCache = {
-                    server_time: data.server_time || '',
-                    rules: Array.isArray(data.rules) ? data.rules : []
-                };
-                const rules = automationStatusCache.rules || [];
-                const dashAutoTotal = document.getElementById('dash-auto-total');
-                const dashAutoEnabled = document.getElementById('dash-auto-enabled');
-                const dashAutoErrors = document.getElementById('dash-auto-errors');
-                const enabledCount = rules.filter(item => item && item.enabled).length;
-                const errorCount = rules.filter(item => item && String(item.last_error || '').trim()).length;
-                if (dashAutoTotal) dashAutoTotal.innerText = String(rules.length);
-                if (dashAutoEnabled) dashAutoEnabled.innerText = String(enabledCount);
-                if (dashAutoErrors) dashAutoErrors.innerText = String(errorCount);
-                renderOutdoorAutomationDashboardCard();
-                if (getActiveViewId() === 'auto') {
-                    renderAutomationPageStatus();
-                }
-            } catch (err) {
-                if (showError) showToast(err.message || '自动化状态读取失败', true);
-                console.error('自动化状态读取失败', err);
-            } finally {
-                automationStatusLoading = false;
-            }
+            return ensureAutomationRuntimeReady('自动化状态模块')
+                .then(api => api?.loadAutomationStatus?.(showError, getAutomationRuntimeContext()))
+                .catch(err => {
+                    if (showError) showToast(err?.message || '自动化状态读取失败', true);
+                    console.error('自动化状态读取失败', err);
+                    return null;
+                });
         }
+        Object.assign(window, {
+            getAutomationRuntimeContext,
+            getAutomationStatusMap,
+            getAutomationStatusCache,
+            renderAutomationPageStatus,
+            renderAutomationLazyPage,
+            updateDashboardDoorStatusFromEnv,
+            updateDashboardDoorStatusFromVision,
+            pickDashboardEnvSensor,
+            renderOutdoorAutomationDashboardCard,
+            loadAutomationStatus,
+        });
         function getPowerMeterRuntimeContext() {
             return {
                 configData,
@@ -1528,11 +1221,10 @@
                 getActiveViewId,
                 isDashboardSectionVisible,
                 resolveVisiblePowerSupplementCabIds,
-                getPowerChannelStatus,
-                applyPowerStatusSnapshot,
-                renderPwrChannel,
-                powerStatusCache,
-                pwrPending,
+                ensurePermission,
+                fetchJsonLoose,
+                postJsonLoose,
+                updateDashboardLogs: window.updateDashboardLogs,
                 renderPowerDetailLogs: window.SmartCenter?.logs?.renderPowerDetailLogs || window.renderPowerDetailLogs,
                 renderPowerLogSourceTag: window.SmartCenter?.logs?.renderPowerLogSourceTag || window.renderPowerLogSourceTag,
                 normalizeLogOperationText: window.SmartCenter?.logs?.normalizeLogOperationText || window.normalizeLogOperationText,
@@ -1575,6 +1267,35 @@
         function updatePowerData() {
             return withPowerMeterRuntime((api, ctx) => api.updatePowerData(ctx), '强电状态模块');
         }
+        function getPowerChannelStatus(cabId, chNum) {
+            const api = window.SmartCenter?.powerMeterRuntime || null;
+            return api?.getPowerChannelStatus ? api.getPowerChannelStatus(cabId, chNum, getPowerMeterRuntimeContext()) : null;
+        }
+        function applyPowerStatusSnapshot(cabId, status) {
+            const api = window.SmartCenter?.powerMeterRuntime || null;
+            return api?.applyPowerStatusSnapshot ? api.applyPowerStatusSnapshot(cabId, status, getPowerMeterRuntimeContext()) : false;
+        }
+        function renderPwrChannel(cabId, chNum) {
+            const api = window.SmartCenter?.powerMeterRuntime || null;
+            return api?.renderPwrChannel ? api.renderPwrChannel(cabId, chNum, getPowerMeterRuntimeContext()) : null;
+        }
+        function doPowerStart(cabId) {
+            return withPowerMeterRuntime((api, ctx) => api.doPowerStart(cabId, ctx), '强电启动模块');
+        }
+        function doPowerStop(cabId, msg) {
+            return withPowerMeterRuntime((api, ctx) => api.doPowerStop(cabId, msg, ctx), '强电停止模块');
+        }
+        function togglePower(cabId, chNum) {
+            return withPowerMeterRuntime((api, ctx) => api.togglePower(cabId, chNum, ctx), '强电控制模块');
+        }
+        Object.assign(window, {
+            getPowerChannelStatus,
+            applyPowerStatusSnapshot,
+            renderPwrChannel,
+            doPowerStart,
+            doPowerStop,
+            togglePower,
+        });
         function getSnmpRuntimeContext() {
             return {
                 configData,
@@ -1734,8 +1455,8 @@
                 setTimeout(() => {
                     ensureSnmpRuntimeReady('监控预览模块')
                         .then(api => {
-                            api?.applyNvrPreviewUrlParams?.();
-                            return ensureViewReady('camera_preview');
+                            return Promise.resolve(api?.applyNvrPreviewUrlParams?.())
+                                .then(() => ensureViewReady('camera_preview'));
                         })
                         .then(() => updateSnmpStatus({ full: true }))
                         .finally(() => renderNvrPreviewPanel({ refresh: true }));
@@ -2188,9 +1909,7 @@
         });
         Object.assign(window, { openWizard, closeWizard, captureWizard, applyAiCalibration });
 
-        // 强电与灯光控制
-        configData.cabinets.forEach((cab, idx) => { pwrLocks[idx] = {}; pwrStates[idx] = []; pwrDesiredStates[idx] = {}; });
-function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCache[cabId] || {}).channels_1_4; const hasCachedStatus = Array.isArray(cachedChannels) && cachedChannels[chNum - 1] !== undefined; const status = getPowerChannelStatus(cabId, chNum); const chItem = document.getElementById(`pch_${cabId}_${chNum}`); if(!chItem) return; let chCfg = (configData.cabinets[cabId].channels_config || []).find(c => c.channel === chNum); let chName = chCfg ? chCfg.name : (configData.cabinets[cabId].ui_text.label_channel + chNum); let chRemark = chCfg ? (chCfg.remark || '') : ''; const ui = configData.cabinets[cabId].ui_text; const isPending = !!(pwrPending[cabId] && pwrPending[cabId][chNum]); const cls = isPending ? 'ch-off' : (status === null || status === undefined ? 'ch-err' : (status ? 'ch-on' : 'ch-off')); const txt = isPending ? '执行中' : (status === null || status === undefined ? '离线' : (status ? ui.label_on : ui.label_off)); const oldClasses = Array.from(chItem.classList).filter(c => c.startsWith('ch-span-') || c === 'ch-btn' || c === 'power-channel-btn').join(' '); chItem.className = `${oldClasses || 'ch-btn power-channel-btn'} ${cls}`; chItem.innerHTML = `<span class="name" title="${escapeHtml(chRemark ? chName + ' / ' + chRemark : chName)}">${escapeHtml(chName)}</span>${chRemark ? `<span class="remark" title="${escapeHtml(chRemark)}">${escapeHtml(chRemark)}</span>` : ''}<span class="state">${escapeHtml(txt)}</span>`; chItem.disabled = isPending || chItem.classList.contains('permission-disabled'); chItem.style.pointerEvents = isPending ? 'none' : ''; chItem.style.opacity = isPending ? '0.78' : ''; chItem.dataset.stateSource = hasCachedStatus ? 'api' : 'local'; }
+        // 强电控制、状态回读和通道渲染已迁移到 static/js/views/power-meter-runtime.js。
         function exportEnergyHistory() {
             window.open('/api/export/energy_30days', '_blank');
         }
@@ -2693,91 +2412,6 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         // 门禁状态、视频取流、区域框选和真实开关门控制已迁移到 static/js/views/door-runtime.js。
         // 保留全局函数名是为了兼容模板内联 onclick 与历史轮询入口。
 
-        doPowerStart = function(cabId) {
-            if (!ensurePermission('power.control', '执行强电启动')) return;
-            setPowerCabinetDesiredState(cabId, true);
-            fetchJsonLoose(`/api/onekey_start?cab=${cabId}`, {}, '启动请求失败')
-                .then(data => {
-                    if (!data.ok) {
-                        clearPowerCabinetDesiredState(cabId);
-                        showToast(data.msg || '启动失败', true);
-                        return;
-                    }
-                    applyPowerStatusSnapshot(cabId, data.status);
-                    showToast(data.verified === false ? (data.msg || '启动指令已下发，状态稍后刷新') : '启动指令已发送');
-                    updatePowerData();
-                    setTimeout(() => updatePowerData(), 450);
-                })
-                .catch(err => {
-                    clearPowerCabinetDesiredState(cabId);
-                    showToast(translateApiError(err?.message, '启动请求失败'), true);
-                });
-        };
-
-        doPowerStop = function(cabId, msg) {
-            if (!ensurePermission('power.control', '执行强电停止')) return;
-            if (!confirm(msg)) return;
-            setPowerCabinetDesiredState(cabId, false);
-            fetchJsonLoose(`/api/onekey_stop?cab=${cabId}`, {}, '停止请求失败')
-                .then(data => {
-                    if (!data.ok) {
-                        clearPowerCabinetDesiredState(cabId);
-                        showToast(data.msg || '停止失败', true);
-                        return;
-                    }
-                    applyPowerStatusSnapshot(cabId, data.status);
-                    showToast(data.verified === false ? (data.msg || '停止指令已下发，状态稍后刷新') : '停止指令已下发');
-                    updatePowerData();
-                    setTimeout(() => updatePowerData(), 450);
-                })
-                .catch(err => {
-                    clearPowerCabinetDesiredState(cabId);
-                    showToast(translateApiError(err?.message, '停止请求失败'), true);
-                });
-        };
-
-        togglePower = function(cabId, chNum) {
-            if (!ensurePermission('power.control', '切换强电通道')) return;
-            pwrPending[cabId] = pwrPending[cabId] || {};
-            if (pwrPending[cabId][chNum]) {
-                showToast('该回路正在执行中，请等待状态确认');
-                return;
-            }
-            const status = getPowerChannelStatus(cabId, chNum);
-            if (status === null) return;
-            if (status && !confirm(configData.cabinets[cabId].ui_text.confirm_single_off)) return;
-            const targetState = !status;
-            pwrLocks[cabId][chNum] = Date.now();
-            pwrPending[cabId][chNum] = true;
-            setPowerDesiredState(cabId, chNum, targetState);
-            renderPwrChannel(cabId, chNum);
-            postJsonLoose('/api/set', { cab: cabId, ch: chNum, on: targetState }, '强电控制请求失败')
-                .then(data => {
-                    if (!data.ok) {
-                        clearPowerDesiredState(cabId, chNum);
-                        renderPwrChannel(cabId, chNum);
-                        showToast(data.msg || '强电控制失败', true);
-                        return;
-                    }
-                    if (data.verified === false && data.msg) {
-                        showToast(data.msg);
-                    }
-                    applyPowerStatusSnapshot(cabId, data.status);
-                    updatePowerData();
-                    setTimeout(() => updatePowerData(), 450);
-                })
-                .catch(err => {
-                    clearPowerDesiredState(cabId, chNum);
-                    renderPwrChannel(cabId, chNum);
-                    showToast(translateApiError(err?.message, '强电控制请求失败'), true);
-                })
-                .finally(() => {
-                    delete pwrPending[cabId][chNum];
-                    renderPwrChannel(cabId, chNum);
-                    setTimeout(() => { delete pwrLocks[cabId][chNum]; }, POWER_CHANNEL_LOCK_MS);
-                });
-        };
-
         wakeServer = function(mac) {
             return withServerRuntime(
                 (api, ctx) => api.wakeServer(mac, ctx),
@@ -3117,27 +2751,30 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         }
 
         function withAutomationView(callback, contextLabel = '自动化运行页面模块') {
-            return ensureAutomationViewReady(contextLabel)
-                .then(api => {
-                    if (api && typeof callback === 'function') return callback(api);
-                    return null;
+            return ensureAutomationRuntimeReady(contextLabel)
+                .then(runtimeApi => {
+                    if (runtimeApi?.withAutomationView) return runtimeApi.withAutomationView(callback, contextLabel, getAutomationRuntimeContext());
+                    return ensureAutomationViewReady(contextLabel).then(api => {
+                        if (api && typeof callback === 'function') return callback(api, getAutomationRuntimeContext());
+                        return null;
+                    });
                 })
                 .catch(() => null);
         }
         window.toggleAutomation = (ruleId, isEnabled) => withAutomationView(
-            api => api.toggleAutomation?.(ruleId, isEnabled, getAutomationRuntimeContext()),
+            (api, ctx) => api.toggleAutomation?.(ruleId, isEnabled, ctx),
             '自动化开关模块'
         );
         window.toggleAutomationEditor = (ruleId, forceOpen = null) => withAutomationView(
-            api => api.toggleAutomationEditor?.(ruleId, forceOpen, getAutomationRuntimeContext()),
+            (api, ctx) => api.toggleAutomationEditor?.(ruleId, forceOpen, ctx),
             '自动化编辑模块'
         );
         window.saveAutomationRule = ruleId => withAutomationView(
-            api => api.saveAutomationRule?.(ruleId, getAutomationRuntimeContext()),
+            (api, ctx) => api.saveAutomationRule?.(ruleId, ctx),
             '自动化保存模块'
         );
         window.openAutomationNodeCanvas = ruleId => withAutomationView(
-            api => api.openAutomationNodeCanvas?.(ruleId, getAutomationRuntimeContext()),
+            (api, ctx) => api.openAutomationNodeCanvas?.(ruleId, ctx),
             '自动化节点画布模块'
         );
         window.closeAutomationNodeCanvas = () => withAutomationView(
@@ -3145,7 +2782,7 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
             '自动化节点画布模块'
         );
         window.toggleAutomationNodeView = (ruleId = null, forceOpen = null) => withAutomationView(
-            api => api.toggleAutomationNodeView?.(ruleId, forceOpen, getAutomationRuntimeContext()),
+            (api, ctx) => api.toggleAutomationNodeView?.(ruleId, forceOpen, ctx),
             '自动化节点视图模块'
         );
         window.zoomAutomationNodeCanvas = delta => withAutomationView(
@@ -3159,8 +2796,22 @@ function renderPwrChannel(cabId, chNum) { const cachedChannels = (powerStatusCac
         window.handleAutomationCanvasNodeClick = (event, nodeId) => {
             const api = getAutomationViewApi();
             if (!api?.handleAutomationCanvasNodeClick) {
-                event?.preventDefault?.();
-                return false;
+                return ensureAutomationRuntimeReady('自动化节点画布模块')
+                    .then(runtimeApi => {
+                        const viewApi = getAutomationViewApi();
+                        if (!viewApi?.handleAutomationCanvasNodeClick) {
+                            event?.preventDefault?.();
+                            return false;
+                        }
+                        const ctx = runtimeApi?.buildAutomationViewContext
+                            ? runtimeApi.buildAutomationViewContext(getAutomationRuntimeContext())
+                            : getAutomationRuntimeContext();
+                        return viewApi.handleAutomationCanvasNodeClick(event, nodeId, ctx);
+                    })
+                    .catch(() => {
+                        event?.preventDefault?.();
+                        return false;
+                    });
             }
             return api.handleAutomationCanvasNodeClick(event, nodeId, getAutomationRuntimeContext());
         };

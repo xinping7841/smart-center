@@ -1,0 +1,204 @@
+{
+  "generated_at": "2026-06-01T14:19:26+08:00",
+  "cwd": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-optimization-sweep",
+  "root": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-optimization-sweep",
+  "files": [
+    {
+      "path": "templates/index.html",
+      "exists": true,
+      "bytes": 10931,
+      "gzip_bytes": 2946,
+      "lines": 165
+    },
+    {
+      "path": "api/server.py",
+      "exists": true,
+      "bytes": 329828,
+      "gzip_bytes": 72072,
+      "lines": 7754
+    },
+    {
+      "path": "background.py",
+      "exists": true,
+      "bytes": 122552,
+      "gzip_bytes": 25393,
+      "lines": 2957
+    },
+    {
+      "path": "config.py",
+      "exists": true,
+      "bytes": 120386,
+      "gzip_bytes": 25611,
+      "lines": 2700
+    },
+    {
+      "path": "snmp_core.py",
+      "exists": true,
+      "bytes": 200851,
+      "gzip_bytes": 37872,
+      "lines": 4479
+    },
+    {
+      "path": "static/vendor/echarts.min.js",
+      "exists": true,
+      "bytes": 1117939,
+      "gzip_bytes": 367295,
+      "lines": 45
+    },
+    {
+      "path": "static/smart-center-time-ntp.css",
+      "exists": true,
+      "bytes": 707376,
+      "gzip_bytes": 81668,
+      "lines": 12062
+    },
+    {
+      "path": "static/smart-center.css",
+      "exists": true,
+      "bytes": 472055,
+      "gzip_bytes": 56196,
+      "lines": 7341
+    },
+    {
+      "path": "static/smart-center-scene-card3.css",
+      "exists": true,
+      "bytes": 461809,
+      "gzip_bytes": 54552,
+      "lines": 7246
+    },
+    {
+      "path": "static/js/core/bootstrap.js",
+      "exists": true,
+      "bytes": 5753,
+      "gzip_bytes": 1795,
+      "lines": 147
+    },
+    {
+      "path": "static/js/core/utils.js",
+      "exists": true,
+      "bytes": 27482,
+      "gzip_bytes": 7295,
+      "lines": 626
+    },
+    {
+      "path": "static/js/views/snmp-summary.js",
+      "exists": true,
+      "bytes": 33519,
+      "gzip_bytes": 8090,
+      "lines": 587
+    },
+    {
+      "path": "static/js/views/snmp.js",
+      "exists": true,
+      "bytes": 180803,
+      "gzip_bytes": 32212,
+      "lines": 2424
+    },
+    {
+      "path": "static/js/views/server-monitor.js",
+      "exists": true,
+      "bytes": 62974,
+      "gzip_bytes": 15226,
+      "lines": 988
+    },
+    {
+      "path": "static/js/views/hvac-view.js",
+      "exists": true,
+      "bytes": 44297,
+      "gzip_bytes": 10156,
+      "lines": 808
+    },
+    {
+      "path": "static/js/views/automation-view.js",
+      "exists": true,
+      "bytes": 101391,
+      "gzip_bytes": 20046,
+      "lines": 1658
+    },
+    {
+      "path": "static/js/views/proxy.js",
+      "exists": true,
+      "bytes": 19122,
+      "gzip_bytes": 4914,
+      "lines": 366
+    },
+    {
+      "path": "static/js/views/universal.js",
+      "exists": true,
+      "bytes": 49352,
+      "gzip_bytes": 11771,
+      "lines": 928
+    },
+    {
+      "path": "static/js/views/apple-audio.js",
+      "exists": true,
+      "bytes": 40562,
+      "gzip_bytes": 9346,
+      "lines": 807
+    },
+    {
+      "path": "static/js/views/local-model.js",
+      "exists": true,
+      "bytes": 18881,
+      "gzip_bytes": 5481,
+      "lines": 399
+    },
+    {
+      "path": "static/css/views/local-model.css",
+      "exists": true,
+      "bytes": 6314,
+      "gzip_bytes": 1490,
+      "lines": 288
+    },
+    {
+      "path": "static/js/app-runtime.js",
+      "exists": true,
+      "bytes": 154183,
+      "gzip_bytes": 30325,
+      "lines": 2817
+    },
+    {
+      "path": "static/js/views/power-meter-runtime.js",
+      "exists": true,
+      "bytes": 66386,
+      "gzip_bytes": 14297,
+      "lines": 1162
+    },
+    {
+      "path": "static/js/views/snmp-runtime.js",
+      "exists": true,
+      "bytes": 24330,
+      "gzip_bytes": 6070,
+      "lines": 480
+    },
+    {
+      "path": "static/js/views/nvr-preview-runtime.js",
+      "exists": true,
+      "bytes": 18106,
+      "gzip_bytes": 4376,
+      "lines": 342
+    },
+    {
+      "path": "static/js/views/automation-runtime.js",
+      "exists": true,
+      "bytes": 25830,
+      "gzip_bytes": 6355,
+      "lines": 487
+    },
+    {
+      "path": "static/css/views/hotfix-overrides.css",
+      "exists": true,
+      "bytes": 28627,
+      "gzip_bytes": 4750,
+      "lines": 216
+    },
+    {
+      "path": "static/css/views/hotfix-overrides.css.gz",
+      "exists": true,
+      "bytes": 4771,
+      "gzip_bytes": 4794,
+      "lines": 16
+    }
+  ],
+  "http": []
+}
