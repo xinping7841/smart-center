@@ -82,7 +82,8 @@ The backend must then resolve that proposal through aliases, status APIs, permis
 
 2. Knowledge/RAG ingestion:
    - Run `python scripts/export_local_model_training.py`.
-   - Ingest `knowledge_*.json`, `insights_*.jsonl`, `device_aliases_*.jsonl`, `control_intents_*.jsonl`, and `code_knowledge_*.jsonl`.
+   - Ingest `system_map_*.json`, `device_inventory_*.jsonl`, `control_capabilities_*.jsonl`, `knowledge_*.json`, `insights_*.jsonl`, `device_aliases_*.jsonl`, `control_intents_*.jsonl`, `code_system_map_*.json`, `module_cards_*.jsonl`, and `code_knowledge_*.jsonl`.
+   - Use `full_code_context_*.jsonl` only for high-context periodic refresh on the 3090 local model host or for RAG indexing.
    - Prefer RAG for current state and code navigation; reserve fine-tuning for reviewed examples.
 
 3. Better intent contract:
@@ -109,3 +110,11 @@ python scripts/export_local_model_training.py
 ```
 
 Use `--skip-code-knowledge` only if you want the previous runtime-only export behavior.
+
+For the 3090 high-context host, the daily systemd export can also run:
+
+```bash
+python scripts/refresh_local_model_system_summary.py --max-input-chars 160000
+```
+
+The generated `system_summary_*.json` is an operator/model-maintenance artifact. It does not authorize control. Feishu control still depends on the explicit Feishu control switch, sender identity, confirmation policy, permissions, and Smart Center execution APIs.

@@ -14,6 +14,7 @@
   let initialized = false;
   let pendingControl = null;
   let processLog = [];
+  let knowledgeStatus = null;
 
   function $(id) { return document.getElementById(id); }
   function esc(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
@@ -135,6 +136,20 @@
             <section class="local-model-card">
               <div class="local-model-head">
                 <div>
+                  <div class="local-model-title">知识库状态</div>
+                  <div class="local-model-subtitle" id="knowledgeFreshness">等待读取</div>
+                </div>
+                <button class="local-model-btn secondary" type="button" onclick="loadKnowledgeStatus()">刷新</button>
+              </div>
+              <div class="local-model-knowledge-grid" id="knowledgeStatusGrid"></div>
+              <div class="local-model-form">
+                <div class="local-model-hint" id="knowledgeSummaryHint">系统地图、设备清单、控制能力、代码地图和高上下文源码包会一起服务自然语言查询与受控控制。</div>
+                <button class="local-model-btn warning" type="button" id="summaryBtn" onclick="refreshSystemSummary()">刷新模型摘要</button>
+              </div>
+            </section>
+            <section class="local-model-card">
+              <div class="local-model-head">
+                <div>
                   <div class="local-model-title">自然语言处理记录</div>
                   <div class="local-model-subtitle">模型理解、安全路由与实际执行过程</div>
                 </div>
@@ -180,6 +195,12 @@
   function formatNumber(value) {
     const num = Number(value);
     return Number.isFinite(num) ? num.toLocaleString('zh-CN') : '--';
+  }
+  function formatKb(value) {
+    const num = Number(value);
+    if (!Number.isFinite(num) || num <= 0) return '--';
+    if (num >= 1024 * 1024) return `${(num / 1024 / 1024).toFixed(1)} MB`;
+    return `${Math.ceil(num / 1024)} KB`;
   }
   function updateMetaFromConfig() {
     const cfg = modelConfig || {};
@@ -277,6 +298,65 @@
           </div>
         </details>`;
     }).join('');
+  }
+  function renderKnowledgeStatus() {
+    const grid = $('knowledgeStatusGrid');
+    if (!grid) return;
+    const data = knowledgeStatus || {};
+    optionalSet('knowledgeFreshness', data.latest_updated_at ? `最新刷新 ${data.latest_updated_at}` : '暂无知识包');
+    const rows = Array.isArray(data.items) ? data.items : [];
+    if (!rows.length) {
+      grid.innerHTML = '<div class="local-model-hint">暂无知识库状态</div>';
+      return;
+    }
+    grid.innerHTML = rows.map(item => `
+      <div class="local-model-knowledge-item ${item.exists ? 'is-ready' : 'is-missing'}">
+        <div class="local-model-knowledge-title">
+          <strong>${esc(item.label || item.prefix || '--')}</strong>
+          <span>${item.exists ? '已生成' : '缺失'}</span>
+        </div>
+        <small>${esc(item.name || '等待生成')}</small>
+        <em>${item.count != null ? `${formatNumber(item.count)} 条` : formatKb(item.size)}${item.updated_at ? ` · ${esc(item.updated_at)}` : ''}</em>
+      </div>`).join('');
+    const hint = $('knowledgeSummaryHint');
+    if (hint) {
+      const parts = [
+        `上下文配置 ${formatNumber(data.max_model_len)}，建议摘要输入 ${formatNumber(data.recommended_context_len)}`,
+        data.include_full_code_context ? '已启用高上下文源码包' : '未启用高上下文源码包',
+        data.last_summary?.generated_at ? `最近模型摘要 ${data.last_summary.generated_at}` : '尚未生成模型摘要'
+      ];
+      hint.textContent = parts.join('；');
+    }
+  }
+  async function loadKnowledgeStatus() {
+    const grid = $('knowledgeStatusGrid');
+    if (grid) grid.innerHTML = '<div class="local-model-hint">读取中...</div>';
+    try {
+      const resp = await fetch('/api/local-model/knowledge-status');
+      const data = await resp.json();
+      knowledgeStatus = data.ok === false ? null : data;
+      renderKnowledgeStatus();
+      return data;
+    } catch (err) {
+      if (grid) grid.innerHTML = `<div class="local-model-hint">${esc(String(err))}</div>`;
+      return null;
+    }
+  }
+  async function refreshSystemSummary() {
+    const btn = $('summaryBtn');
+    const hint = $('knowledgeSummaryHint');
+    if (btn) btn.disabled = true;
+    if (hint) hint.textContent = '正在让本地模型读取系统地图和高上下文代码摘要...';
+    try {
+      const resp = await fetch('/api/local-model/refresh-system-summary', {method:'POST'});
+      const data = await resp.json();
+      if (hint) hint.textContent = data.ok ? `已生成模型摘要：${data.summary?.file || ''}` : (data.msg || data.error || '生成失败');
+      await loadKnowledgeStatus();
+    } catch (err) {
+      if (hint) hint.textContent = String(err);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
   async function loadProcessLog() {
     const box = $('processLog');
@@ -451,10 +531,11 @@
     const resp = await fetch('/api/local-model/export-training', {method:'POST'});
     const data = await resp.json();
     if (info) {
-      if (data.ok) info.textContent = `已生成：设备 ${data.counts.devices}，服务器 ${data.counts.server_machines || 0}，协议 ${data.counts.protocol_records}，日志 ${data.counts.logs}，知识 ${data.counts.insights || 0}`;
+      if (data.ok) info.textContent = `已生成：设备 ${data.counts.devices}，控制能力 ${data.counts.control_capabilities || 0}，服务器 ${data.counts.server_machines || 0}，协议 ${data.counts.protocol_records}，日志 ${data.counts.logs}，知识 ${data.counts.insights || 0}`;
       else info.textContent = data.msg || data.error || '生成失败';
     }
     await loadFiles();
+    await loadKnowledgeStatus();
   }
   function init() {
     renderLocalModelPage();
@@ -474,6 +555,7 @@
       optionalSet('modelLine', String(err));
     });
     loadFiles().catch(() => {});
+    loadKnowledgeStatus().catch(() => {});
     loadProcessLog().catch(() => {});
   }
 
@@ -484,11 +566,13 @@
     init,
     loadConfig,
     loadFiles,
+    loadKnowledgeStatus,
     loadProcessLog,
     renderLocalModelPage,
     renderMessages,
     saveConfig,
     sendChat,
+    refreshSystemSummary,
   };
 
   const SmartCenter = global.SmartCenter || (global.SmartCenter = {});
@@ -507,7 +591,9 @@
     clearChat,
     exportTraining,
     loadConfig,
+    loadKnowledgeStatus,
     loadProcessLog,
+    refreshSystemSummary,
     saveConfig,
     sendChat,
   });

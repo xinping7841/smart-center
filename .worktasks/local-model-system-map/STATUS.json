@@ -1,0 +1,10 @@
+{
+  "task": "local-model-system-map",
+  "module": "backend_api",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-local-model-system-map-20260601",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-clean",
+  "started_at": "2026-06-01",
+  "status": "complete"
+}

@@ -12,9 +12,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from api.local_model import build_training_export  # noqa: E402
+from api.local_model import build_training_export, normalize_local_model_config  # noqa: E402
+from config import CONFIG  # noqa: E402
 from paths import CONFIG_FILE, DATA_DIR, ensure_directory  # noqa: E402
-from scripts.export_code_knowledge import build_code_knowledge_export  # noqa: E402
+from scripts.export_code_knowledge import build_code_knowledge_export_with_options  # noqa: E402
 
 
 DEFAULT_NAS_DIR = "/mnt/ubuntu01/smart-center-backups/local-model-training"
@@ -130,14 +131,19 @@ def sync_export_to_nas(export_payload, nas_dir, keep_days=DEFAULT_KEEP_DAYS):
 def main():
     parser = argparse.ArgumentParser(description="Export Smart Center local-model training data and optionally sync to NAS.")
     parser.add_argument("--skip-code-knowledge", action="store_true", help="do not export source-code/module knowledge")
+    parser.add_argument("--skip-full-code-context", action="store_true", help="do not export redacted source chunks for high-context model refresh")
     parser.add_argument("--sync-nas", action="store_true", help="copy generated files to NAS training directory")
     parser.add_argument("--nas-dir", default=os.environ.get("SMART_CENTER_LOCAL_MODEL_TRAINING_NAS_DIR", DEFAULT_NAS_DIR))
     parser.add_argument("--keep-days", type=int, default=int(os.environ.get("SMART_CENTER_LOCAL_MODEL_TRAINING_KEEP_DAYS", DEFAULT_KEEP_DAYS)))
     args = parser.parse_args()
 
     ensure_directory(DATA_DIR / "training" / "local_model")
+    model_cfg = normalize_local_model_config(CONFIG.get("local_model"))
+    export_cfg = model_cfg.get("training_export") if isinstance(model_cfg.get("training_export"), dict) else {}
     export_payload = build_training_export()
-    code_knowledge_payload = None if args.skip_code_knowledge else build_code_knowledge_export()
+    include_code_knowledge = bool(export_cfg.get("include_code_knowledge", True)) and not args.skip_code_knowledge
+    include_full_context = bool(export_cfg.get("include_full_code_context", True)) and not args.skip_full_code_context
+    code_knowledge_payload = None if not include_code_knowledge else build_code_knowledge_export_with_options(include_full_context=include_full_context)
     alias_count = int((export_payload.get("counts") or {}).get("device_aliases") or 0)
     if alias_count < 20:
         print(

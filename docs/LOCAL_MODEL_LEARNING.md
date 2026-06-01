@@ -17,12 +17,15 @@ or use `POST /api/local-model/export-training` from the local-model page.
 2. The export writes runtime knowledge files under `SMART_CENTER_DATA_DIR/training/local_model`:
 
 - `devices_*.jsonl`: configured devices plus runtime `server_machines`.
+- `device_inventory_*.jsonl`: compact device inventory with aliases, capabilities, dependencies, and natural-language matching hints.
 - `device_aliases_*.jsonl`: natural-language aliases used by Feishu and local-model control routing.
+- `control_capabilities_*.jsonl`: explicit query/control capability records, risk level, confirmation policy, and safety chain.
 - `protocols_*.jsonl`: protocol/config/driver records.
 - `logs_*.jsonl`: recent event, operation, and audit logs, with sensitive fields redacted.
 - `instructions_*.jsonl`: curated query instructions.
 - `control_intents_*.jsonl`: curated controlled-action examples and safety expectations.
 - `insights_*.jsonl`: device profiles, server inventory, protocol cards, inference rules, and log summaries.
+- `system_map_*.json`: the runtime system directory for modules, device sections, natural-language contract, and recommended learning order.
 - `knowledge_*.json`: manifest and counts.
 
 3. The same command also writes source-code knowledge files unless `--skip-code-knowledge` is passed:
@@ -30,13 +33,18 @@ or use `POST /api/local-model/export-training` from the local-model page.
 - `code_files_*.jsonl`: source files, `AI_*` markers, purpose, boundary, risk, config keys, and control paths.
 - `code_routes_*.jsonl`: Flask routes, permissions, methods, source functions, and route risk.
 - `code_modules_*.jsonl`: module-level summaries assembled from files and routes.
+- `module_cards_*.jsonl`: compact module cards for local-model navigation.
 - `code_design_*.jsonl`: compact design notes for Feishu natural language, local-model knowledge, and physical-control safety.
+- `code_system_map_*.json`: source-code entrypoints, route risk summary, and execution boundary notes.
 - `code_knowledge_*.jsonl`: combined file, route, module, and design records for RAG ingestion.
+- `full_code_context_*.jsonl`: redacted source chunks for high-context periodic refresh on the 3090 machine.
 - `code_manifest_*.json`: code-knowledge manifest and counts.
 
 4. Feed the latest runtime and code knowledge files to the local model knowledge proxy/RAG index. RAG is preferred for frequently changing facts such as online/offline server state, CPU/GPU metrics, logs, current code boundaries, and routes.
 
-5. Optional fine-tuning or LoRA should only use curated examples from `instructions_*.jsonl`, `control_intents_*.jsonl`, and reviewed rows. Do not fine-tune on raw secrets, tokens, SNMP community strings, RTSP credentials, unreviewed logs, or full source code.
+5. Optional high-context refresh can run on the 3090 local-model machine. It should read `system_map_*.json`, `device_inventory_*.jsonl`, `control_capabilities_*.jsonl`, `code_system_map_*.json`, `module_cards_*.jsonl`, and then `full_code_context_*.jsonl` to generate a reviewable `system_summary_*.json`. This is a periodic understanding refresh, not a direct control path.
+
+6. Optional fine-tuning or LoRA should only use curated examples from `instructions_*.jsonl`, `control_intents_*.jsonl`, and reviewed rows. Do not fine-tune on raw secrets, tokens, SNMP community strings, RTSP credentials, unreviewed logs, or full source code.
 
 ## Server Knowledge
 
@@ -67,6 +75,18 @@ Smart Center uses a layered route for Feishu and local-model control:
 5. Smart Center executes only after the normal permission, risk, and confirmation policy. Strong-current cabinets, sequencers, server shutdown/restart, and inferred targets must require confirmation.
 
 This makes the assistant improve from real usage while preventing the model from directly producing executable HTTP calls.
+
+## High-Context Refresh On 3090
+
+The 3090 host has enough VRAM to use larger local-model context windows, so Smart Center supports a periodic full-code understanding refresh without changing the control boundary:
+
+1. Daily export writes structured runtime and code knowledge.
+2. `full_code_context_*.jsonl` stores redacted source chunks. Runtime configs, common secret files, databases, binary assets, and generated backups are excluded.
+3. `scripts/refresh_local_model_system_summary.py` calls the OpenAI-compatible local-model endpoint and writes `system_summary_*.json`.
+4. The local-model page shows the latest `system_map`, device inventory, control capability, code map, full-code-context, and summary status.
+5. The summary is used as RAG/maintenance context only. It never grants execution permission and never bypasses Smart Center API checks.
+
+Recommended context length for the current 14B/3090 setup is `131072` first. If the model service is stable and latency is acceptable, it can be raised toward `262144`; if answers become vague or slow, lower it and rely more on RAG retrieval.
 
 ## Recommended Feishu Architecture
 
