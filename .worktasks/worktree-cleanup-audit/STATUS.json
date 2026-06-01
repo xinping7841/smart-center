@@ -1,0 +1,10 @@
+{
+  "task": "worktree-cleanup-audit",
+  "module": "docs",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-worktree-cleanup-audit-20260601",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/worktree-cleanup-audit",
+  "started_at": "2026-06-01 12:49:12",
+  "status": "ready_to_finish"
+}

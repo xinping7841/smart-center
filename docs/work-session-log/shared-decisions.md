@@ -13,6 +13,15 @@
 
 ## 决策记录
 
+### 2026-06-01 Mac worktree 清理审计
+
+在 `main` 已同步到 `836f3b6` 且无 active worklocks 后，Mac 本地清理旧任务 checkout：
+
+- 已移除 `frontend-dashboard-template-slim`、`frontend-snmp-runtime-slim`、`frontend-universal-runtime-split` 三个 worktree；它们的 HEAD 均已包含在 `main`。
+- 移除前已把运行态配置漂移保存为 Git stash，stash message 分别以 `cleanup/frontend-dashboard-template-slim`、`cleanup/frontend-snmp-runtime-slim`、`cleanup/frontend-universal-runtime-split` 开头。
+- 这些 stash 主要包含 `config.json` 的配置规范化写回和 `music_tag_library.json` 的 `last_scan_at` 刷新，不作为主线业务改动处理。
+- 保留 `frontend-power-meter-runtime-split` worktree；其 HEAD `6125fbe` 尚未包含在当前 `main`，不得作为普通清理项移除。
+
 ### 2026-05-22 多机器并行策略
 
 采用 Git worktree + coordination/worklocks + .worktasks/TASK.md 的组合：
@@ -21,4 +30,3 @@
 - coordination/worklocks 解决跨机器模块占用提醒。
 - .worktasks/TASK.md 解决单任务上下文记忆。
 - shared-decisions.md 解决跨任务共识同步。
-
