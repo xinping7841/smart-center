@@ -61,6 +61,21 @@
     .local-model-switch-row strong { color:#e5edf8; font-size:13px; line-height:1.25; }
     .local-model-switch-row small { margin-top:4px; color:#94a3b8; font-size:12px; line-height:1.45; }
     .local-model-switch-row input { width:38px; height:22px; accent-color:#22c55e; }
+    .local-model-feishu-control { margin:0 0 2px; padding:12px; min-height:96px; display:grid; grid-template-columns:52px minmax(0,1fr); gap:12px; align-items:center; border:1px solid rgba(248,113,113,.34); border-radius:8px; background:rgba(69,10,10,.30); box-shadow:inset 0 1px 0 rgba(255,255,255,.05); cursor:pointer; }
+    .local-model-feishu-control.is-enabled { border-color:rgba(34,197,94,.42); background:rgba(5,46,22,.34); }
+    .local-model-feishu-control input { position:absolute; width:1px; height:1px; opacity:0; pointer-events:none; }
+    .local-model-toggle-visual { position:relative; width:52px; height:30px; border-radius:999px; background:#7f1d1d; border:1px solid rgba(252,165,165,.30); transition:background .18s ease,border-color .18s ease; }
+    .local-model-toggle-visual span { position:absolute; top:4px; left:4px; width:20px; height:20px; border-radius:50%; background:#fff7ed; box-shadow:0 3px 10px rgba(0,0,0,.32); transition:transform .18s ease; }
+    .local-model-feishu-control.is-enabled .local-model-toggle-visual { background:#15803d; border-color:rgba(134,239,172,.34); }
+    .local-model-feishu-control.is-enabled .local-model-toggle-visual span { transform:translateX(22px); }
+    .local-model-feishu-copy { min-width:0; display:grid; gap:5px; }
+    .local-model-feishu-copy strong,.local-model-feishu-copy small,.local-model-feishu-kicker,.local-model-feishu-state { display:block; }
+    .local-model-feishu-kicker { color:#fecaca; font-size:11px; line-height:1.2; font-weight:900; }
+    .local-model-feishu-control.is-enabled .local-model-feishu-kicker { color:#86efac; }
+    .local-model-feishu-copy strong { color:#fff7ed; font-size:15px; line-height:1.25; font-weight:950; }
+    .local-model-feishu-copy small { color:#cbd5e1; font-size:12px; line-height:1.45; font-weight:750; }
+    .local-model-feishu-state { grid-column:1/-1; justify-self:start; min-height:26px; padding:5px 9px; border-radius:999px; background:rgba(248,113,113,.16); border:1px solid rgba(248,113,113,.24); color:#fecaca; font-size:12px; line-height:1.2; font-weight:900; }
+    .local-model-feishu-control.is-enabled .local-model-feishu-state { background:rgba(34,197,94,.14); border-color:rgba(34,197,94,.25); color:#86efac; }
     .local-model-process-list { padding:10px 12px 12px; display:grid; gap:8px; max-height:360px; overflow:auto; }
     .local-model-process-row { border:1px solid rgba(148,163,184,.12); border-radius:8px; background:#0b1424; overflow:hidden; }
     .local-model-process-row summary { min-height:54px; padding:9px; display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:8px; align-items:center; cursor:pointer; }
@@ -120,6 +135,12 @@
           <section class="panel">
             <div class="panel-head"><div class="panel-title">模型配置</div><span class="status local-model-status" id="saveBadge">未保存</span></div>
             <div class="form">
+              <label class="local-model-feishu-control" id="feishuControlSwitchCard">
+                <input id="cfgFeishuControlEnabled" type="checkbox">
+                <span class="local-model-toggle-visual" aria-hidden="true"><span></span></span>
+                <span class="local-model-feishu-copy"><span class="local-model-feishu-kicker">飞书控制安全开关</span><strong>允许飞书执行中控命令</strong><small>关闭时飞书只允许查询和解析，不会进入真实控制执行；开启后仍需确认并记录全过程。</small></span>
+                <span class="local-model-feishu-state" id="feishuControlState">已关闭，仅允许查询</span>
+              </label>
               <div><label>名称</label><input id="cfgName"></div>
               <div><label>对话入口 / 知识代理</label><input id="cfgBaseUrl"></div>
               <div><label>vLLM 上游服务</label><input id="cfgVllmBaseUrl"></div>
@@ -128,10 +149,6 @@
               <div class="row2"><div><label>温度</label><input id="cfgTemperature" type="number" step="0.1" min="0" max="2"></div><div><label>输出上限</label><input id="cfgMaxTokens" type="number" min="64" max="4096"></div></div>
               <div class="row2"><div><label>上下文长度</label><input id="cfgMaxModelLen" type="number" min="1024" max="262144"></div><div><label>超时秒数</label><input id="cfgTimeout" type="number" min="3" max="600"></div></div>
               <div><label>系统提示词</label><textarea id="cfgSystemPrompt"></textarea></div>
-              <label class="local-model-switch-row">
-                <span><strong>允许飞书执行中控命令</strong><small>关闭后飞书仍可查询和解析，但不会进入真实控制执行。</small></span>
-                <input id="cfgFeishuControlEnabled" type="checkbox">
-              </label>
               <div class="actions"><button class="success" onclick="saveConfig()">保存配置</button><button class="secondary" onclick="loadConfig()">重新读取</button></div>
               <div class="hint">默认使用 122 的知识代理 8001 作为对话入口，vLLM 8000 作为上游状态校验。模型只负责理解；飞书控制开启后仍需人工确认。</div>
             </div>
@@ -149,6 +166,6 @@
       </main>
     </div>
   </div>
-<script src="/static/js/views/local-model.js?v=20260601-nl-process-feishu-control"></script>
+<script src="/static/js/views/local-model.js?v=20260601-feishu-local-model-ui-v2"></script>
 </body>
 </html>

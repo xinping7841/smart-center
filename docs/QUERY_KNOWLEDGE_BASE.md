@@ -433,14 +433,14 @@ Use:
 - `GET /api/local-model/config`
 - `GET /api/local-model/health`
 - `POST /api/local-model/export-training` only by explicit admin operation, not normal chat query.
-- Optional Ollama intent parser for Feishu: `POST <FEISHU_NL_MODEL_URL>/api/generate`.
+- Optional local-model intent parser for Feishu: `POST <FEISHU_NL_MODEL_URL>/chat/completions`.
 
 Current defaults:
 
 - OpenAI-compatible proxy: `http://192.168.50.122:8001/v1`
 - vLLM upstream: `http://192.168.50.122:8000/v1`
 - Model: `gemma-4-e4b-awq-int4`
-- Ollama on node-120: `qwen3:14b` when `FEISHU_NL_MODEL_ENABLED=true`.
+- Feishu NL model endpoint: OpenAI-compatible `/v1` service, for example `http://127.0.0.1:8001/v1` with `qwen3:14b` when `FEISHU_NL_MODEL_ENABLED=true`.
 
 Natural-language examples:
 
@@ -453,20 +453,20 @@ Notes:
 - Health checks can be slow. Use short timeouts in Feishu replies and report timeout clearly.
 - Config responses redact API keys.
 - Training export redacts sensitive fields, but it is still an admin action.
-- Qwen3 Ollama requests must include `think: false`; otherwise Feishu may receive thinking text instead of the final JSON/result.
-- The Ollama/local model can classify natural-language control requests and feed the Smart Center/Feishu control chain. It must not bypass API permissions, audit logs, target matching, risk classification, or confirmation policy.
-- If Ollama only listens on `127.0.0.1` of node-120, run the Feishu bot on node-120 or expose a protected proxy URL.
+- The local model can classify natural-language control requests and feed the Smart Center/Feishu control chain. It must not bypass API permissions, audit logs, target matching, risk classification, or confirmation policy.
+- If the OpenAI-compatible model service only listens on `127.0.0.1` of node-120, run the Feishu bot on node-120 or expose a protected proxy URL.
 
-Suggested Ollama classification request:
+Suggested OpenAI-compatible classification request:
 
 ```json
 {
   "model": "qwen3:14b",
-  "prompt": "只输出 JSON。将用户问题分类为查询 intent 或 control_request；控制动作需要后续走中控安全链路。",
+  "messages": [
+    {"role": "system", "content": "你只输出一个 JSON 对象。"},
+    {"role": "user", "content": "将用户问题分类为查询 intent 或 control_request；控制动作需要后续走中控安全链路。"}
+  ],
   "stream": false,
-  "format": "json",
-  "think": false,
-  "options": {"temperature": 0}
+  "temperature": 0
 }
 ```
 
@@ -475,7 +475,7 @@ Suggested deployment path:
 ```text
 Feishu message
 -> Feishu bot / Smart Center service
--> Ollama qwen3:14b intent classification with think:false
+-> OpenAI-compatible local model intent classification
 -> Smart Center read-only allowlist API
 -> deterministic formatter
 -> Feishu reply
@@ -593,11 +593,11 @@ Implemented in `services/feishu_bot.py`:
 - Servers: "服务器状态", "所有服务器分组汇总", "机房服务器状态", "1号厅服务器", "2号厅离线机器", "node-120 CPU", "GPU温度最高".
 - Logs: "最近日志", "最近自动化日志", "最近灯光日志".
 - Environment/HVAC/UPS/SNMP/NVR/proxy/local-model status queries.
-- Optional Ollama intent classifier via `FEISHU_NL_MODEL_ENABLED=true`.
+- Optional local-model intent classifier via `FEISHU_NL_MODEL_ENABLED=true`.
 - Controlled actions: "开灯", "关灯", "控制", "重启", "关机", "执行", "下发" route into the same target matching and confirmation policy.
 
 Next useful expansion:
 
 - Add richer formatting for per-device history and filtered log summaries.
 - Add a small in-service tool dispatcher endpoint that enforces the allowlist above before any local-model response can trigger an API call.
-- Add protected network access to node-120 Ollama if the bot is not running on node-120.
+- Add protected network access to the node-120 local model service if the bot is not running on node-120.

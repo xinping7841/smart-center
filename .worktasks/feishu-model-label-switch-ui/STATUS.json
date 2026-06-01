@@ -1,0 +1,10 @@
+{
+  "task": "feishu-model-label-switch-ui",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-feishu-model-label-switch-ui-20260601",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/feishu-model-label-switch-ui",
+  "started_at": "2026-06-01 23:09:34",
+  "status": "implemented_pending_deploy"
+}

@@ -71,6 +71,16 @@
                 <span class="local-model-status" id="saveBadge">未保存</span>
               </div>
               <div class="local-model-form">
+                <label class="local-model-feishu-control" id="feishuControlSwitchCard">
+                  <input id="cfgFeishuControlEnabled" type="checkbox">
+                  <span class="local-model-toggle-visual" aria-hidden="true"><span></span></span>
+                  <span class="local-model-feishu-copy">
+                    <span class="local-model-feishu-kicker">飞书控制安全开关</span>
+                    <strong>允许飞书执行中控命令</strong>
+                    <small>关闭时飞书只允许查询和解析，不会进入真实控制执行；开启后仍需确认并记录全过程。</small>
+                  </span>
+                  <span class="local-model-feishu-state" id="feishuControlState">已关闭，仅允许查询</span>
+                </label>
                 <div>
                   <label>名称</label>
                   <input class="local-model-input" id="cfgName">
@@ -115,13 +125,6 @@
                   <label>系统提示词</label>
                   <textarea class="local-model-textarea" id="cfgSystemPrompt"></textarea>
                 </div>
-                <label class="local-model-switch-row">
-                  <span>
-                    <strong>允许飞书执行中控命令</strong>
-                    <small>关闭后飞书仍可查询和解析，但不会进入真实控制执行。</small>
-                  </span>
-                  <input id="cfgFeishuControlEnabled" type="checkbox">
-                </label>
                 <div class="local-model-actions">
                   <button class="local-model-btn success" type="button" onclick="saveConfig()">保存配置</button>
                   <button class="local-model-btn secondary" type="button" onclick="loadConfig()">重新读取</button>
@@ -157,6 +160,14 @@
   function optionalSet(id, value) { const el = $(id); if (el) el.textContent = value; }
   function optionalValue(id, value) { const el = $(id); if (el) el.value = value; }
   function optionalChecked(id, value) { const el = $(id); if (el) el.checked = !!value; }
+  function updateFeishuControlState() {
+    const input = $('cfgFeishuControlEnabled');
+    const card = $('feishuControlSwitchCard');
+    const state = $('feishuControlState');
+    const enabled = !!input?.checked;
+    if (card) card.classList.toggle('is-enabled', enabled);
+    if (state) state.textContent = enabled ? '已开启，控制需确认' : '已关闭，仅允许查询';
+  }
   function setBadge(id, text, ok) {
     const el = $(id);
     if (!el) return;
@@ -339,6 +350,7 @@
     optionalValue('cfgTimeout', modelConfig.timeout_sec ?? 120);
     optionalValue('cfgSystemPrompt', modelConfig.system_prompt || '');
     optionalChecked('cfgFeishuControlEnabled', modelConfig.natural_language?.feishu_control_enabled);
+    updateFeishuControlState();
     updateMetaFromConfig();
     setBadge('saveBadge', '已读取', true);
     return modelConfig;
@@ -452,6 +464,8 @@
       prompt.addEventListener('keydown', ev => {
         if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) sendChat();
       });
+      const feishuSwitch = $('cfgFeishuControlEnabled');
+      if (feishuSwitch) feishuSwitch.addEventListener('change', updateFeishuControlState);
       initialized = true;
       renderMessages();
     }
