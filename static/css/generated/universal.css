@@ -232,3 +232,8 @@
 #control-center-grid .protocol-device-note.warn {
             color:#fbbf24;
         }
+
+#control-center-grid .protocol-led.idle {
+            background:#64748b !important;
+            box-shadow:0 0 0 2px rgba(100,116,139,.16) !important;
+        }

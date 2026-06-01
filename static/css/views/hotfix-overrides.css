@@ -107,6 +107,7 @@
         #control-center-grid .protocol-status-label { display:flex !important; align-items:center !important; gap:5px !important; color:#cbd5e1 !important; font-size:11px !important; font-weight:900 !important; }
         #control-center-grid .protocol-led { width:10px !important; height:10px !important; border-radius:50% !important; background:#64748b !important; box-shadow:0 0 0 2px rgba(100,116,139,.15) !important; flex:none !important; }
         #control-center-grid .protocol-led.on { background:#22c55e !important; box-shadow:0 0 12px rgba(34,197,94,.62), 0 0 0 2px rgba(34,197,94,.16) !important; }
+        #control-center-grid .protocol-led.idle { background:#64748b !important; box-shadow:0 0 0 2px rgba(100,116,139,.16) !important; }
         #control-center-grid .protocol-led.off { background:#ef4444 !important; box-shadow:0 0 10px rgba(239,68,68,.48), 0 0 0 2px rgba(239,68,68,.14) !important; }
         #control-center-grid .protocol-led.warn { background:#f59e0b !important; box-shadow:0 0 10px rgba(245,158,11,.50), 0 0 0 2px rgba(245,158,11,.14) !important; }
         #control-center-grid .protocol-status-value { color:#8ea4c2 !important; font-size:10px !important; line-height:1.2 !important; }

@@ -529,9 +529,9 @@
         const led = card.querySelector(`[data-led="${key}"]`);
         const label = card.querySelector(`[data-text="${key}"]`);
         if (led) {
-            led.classList.remove('on', 'off', 'warn');
+            led.classList.remove('on', 'off', 'warn', 'idle');
             if (state === true) led.classList.add('on');
-            else if (state === false) led.classList.add('off');
+            else if (state === false) led.classList.add(key === 'health' ? 'off' : 'idle');
             else led.classList.add('warn');
         }
         if (label) label.textContent = text || (state === true ? '正常' : (state === false ? '断开' : '异常'));
