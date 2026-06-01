@@ -21,7 +21,7 @@
 ## 当前阶段
 
 ```text
-本地实现和验证完成，准备提交合并部署。
+生产部署和验证完成，准备释放锁。
 ```
 
 ## 修改范围
@@ -46,6 +46,8 @@ templates/index.html
 - 将诊断标签改成更短文案：失败、检查、成功
 - 刷新 core-theme.css.gz 和 generated CSS manifest
 - 静态只读预览确认按钮横排、信息区压缩和无横向溢出
+- 合并 main 并发布生产 release：/srv/smart-center/releases/smart-center-release-20260601_212218-main-fbb70b6
+- 生产备份：/srv/smart-center/backups/pre-main-release-20260601_212218-main-fbb70b6
 
 ## 已验证
 
@@ -55,10 +57,13 @@ templates/index.html
 - python3 -m json.tool static/css/generated/manifest.json
 - git diff --check
 - 本地只读预览 599x846：一号厅卡片约 520x287，二号厅约 520x383，4 个开关同排，每个约 116x88，overflowX=0
+- 生产 service_active=active，current 指向 smart-center-release-20260601_212218-main-fbb70b6
+- 生产 HTML 已引用 core-theme.css?v=20260601-venue-light-compact-ui-v1 和 app-runtime.js?v=20260601-venue-light-compact-ui-v1
+- 生产 gzip core-theme.css 包含紧凑卡片列和 116px 开关规则
+- 生产浏览器验证 599x846：一号厅卡片约 520x287，二号厅约 520x383，4 个开关同排，overflowX 无正向溢出
 
 ## 未验证
 
-- 生产部署验证
 - 未点击真实灯光控制按钮，避免触发现场设备
 
 ## 风险点
@@ -69,9 +74,9 @@ templates/index.html
 ## 依赖和冲突
 
 ```text
-无 active worklocks 时开始；当前任务持有 frontend_assets 和 templates_index_html。
+无 active worklocks 时开始；当前任务持有 frontend_assets 和 templates_index_html，完成后释放。
 ```
 
 ## 下一步
 
-- 提交、合并 main、部署生产
+- 释放 frontend_assets 和 templates_index_html 工作锁
