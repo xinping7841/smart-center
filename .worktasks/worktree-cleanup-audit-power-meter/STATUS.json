@@ -1,0 +1,10 @@
+{
+  "task": "worktree-cleanup-audit-power-meter",
+  "module": "docs",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-worktree-cleanup-audit-power-meter-20260601",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/worktree-cleanup-audit-power-meter",
+  "started_at": "2026-06-01 13:07:29",
+  "status": "ready_to_finish"
+}

@@ -20,7 +20,8 @@
 - 已移除 `frontend-dashboard-template-slim`、`frontend-snmp-runtime-slim`、`frontend-universal-runtime-split` 三个 worktree；它们的 HEAD 均已包含在 `main`。
 - 移除前已把运行态配置漂移保存为 Git stash，stash message 分别以 `cleanup/frontend-dashboard-template-slim`、`cleanup/frontend-snmp-runtime-slim`、`cleanup/frontend-universal-runtime-split` 开头。
 - 这些 stash 主要包含 `config.json` 的配置规范化写回和 `music_tag_library.json` 的 `last_scan_at` 刷新，不作为主线业务改动处理。
-- 保留 `frontend-power-meter-runtime-split` worktree；其 HEAD `6125fbe` 尚未包含在当前 `main`，不得作为普通清理项移除。
+- `frontend-power-meter-runtime-split` 最初保留，因其 HEAD `6125fbe` 尚未直接包含在当时的 `main`。
+- 后续审计确认 `6125fbe` 的前端拆分内容已由主线祖先 `a73404c` 覆盖；旧提交额外包含的 `runtime/auth_users.json` 是运行态账号文件，主线已通过 `.gitignore` 忽略。已移除该 worktree，仅保留本地分支记录。
 
 ### 2026-05-22 多机器并行策略
 
