@@ -1,0 +1,10 @@
+{
+  "task": "hvac-env-server-speed",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-hvac-env-server-speed-20260601",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/hvac-env-server-speed",
+  "started_at": "2026-06-01 18:04:51",
+  "status": "in_progress"
+}
