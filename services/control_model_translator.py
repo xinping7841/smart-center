@@ -19,6 +19,8 @@ from typing import Any
 
 import requests
 
+DEFAULT_LOCAL_MODEL_BASE_URL = "http://127.0.0.1:8001/v1"
+
 
 @dataclass(frozen=True)
 class ControlTranslation:
@@ -28,9 +30,74 @@ class ControlTranslation:
     reason: str
 
 
+def normalize_openai_base_url(base_url: str) -> str:
+    value = str(base_url or DEFAULT_LOCAL_MODEL_BASE_URL).strip().rstrip("/")
+    for suffix in ("/chat/completions", "/models"):
+        if value.endswith(suffix):
+            value = value[: -len(suffix)].rstrip("/")
+    if not value:
+        value = DEFAULT_LOCAL_MODEL_BASE_URL
+    if not value.endswith("/v1"):
+        value = f"{value}/v1"
+    return value
+
+
+def _extract_json_object(text: str) -> dict[str, Any] | None:
+    raw = str(text or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else None
+    except Exception:
+        pass
+    decoder = json.JSONDecoder()
+    for index, char in enumerate(raw):
+        if char != "{":
+            continue
+        try:
+            parsed, _ = decoder.raw_decode(raw[index:])
+        except Exception:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    return None
+
+
+def request_local_model_json(base_url: str, model: str, prompt: str, timeout_sec: float, *, max_tokens: int = 512) -> dict[str, Any] | None:
+    endpoint = f"{normalize_openai_base_url(base_url)}/chat/completions"
+    payload = {
+        "model": model or "qwen3:14b",
+        "messages": [
+            {"role": "system", "content": "你只输出一个 JSON 对象，不输出解释、Markdown 或额外文本。"},
+            {"role": "user", "content": prompt},
+        ],
+        "temperature": 0,
+        "max_tokens": max(64, min(int(max_tokens or 512), 2048)),
+        "stream": False,
+    }
+    response = requests.post(
+        endpoint,
+        json=payload,
+        timeout=max(1.0, min(float(timeout_sec or 8.0), 60.0)),
+        headers={"Accept": "application/json"},
+    )
+    response.raise_for_status()
+    data = response.json()
+    choices = data.get("choices") if isinstance(data, dict) else []
+    content = ""
+    if choices and isinstance(choices[0], dict):
+        message = choices[0].get("message")
+        if isinstance(message, dict):
+            content = str(message.get("content") or "")
+        if not content:
+            content = str(choices[0].get("text") or "")
+    return _extract_json_object(content)
+
+
 class LocalModelControlTranslator:
     def __init__(self, base_url: str, model: str, timeout_sec: float = 8.0) -> None:
-        self.base_url = (base_url or "http://127.0.0.1:11434").rstrip("/")
+        self.base_url = normalize_openai_base_url(base_url)
         self.model = model or "qwen3:14b"
         self.timeout_sec = max(1.0, min(float(timeout_sec or 8.0), 60.0))
 
@@ -39,24 +106,8 @@ class LocalModelControlTranslator:
         if not raw:
             return None
         prompt = self._build_prompt(raw, alias_rows)
-        payload = {
-            "model": self.model,
-            "prompt": prompt,
-            "stream": False,
-            "format": "json",
-            "think": False,
-            "options": {"temperature": 0},
-        }
         try:
-            response = requests.post(
-                f"{self.base_url}/api/generate",
-                json=payload,
-                timeout=self.timeout_sec,
-                headers={"Accept": "application/json"},
-            )
-            response.raise_for_status()
-            data = response.json()
-            parsed = json.loads(str(data.get("response") or "").strip())
+            parsed = request_local_model_json(self.base_url, self.model, prompt, self.timeout_sec)
         except Exception:
             return None
         if not isinstance(parsed, dict):

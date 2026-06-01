@@ -79,7 +79,6 @@ DEFAULT_LOCAL_MODEL = {
 
 LEGACY_LOCAL_MODEL_BASE_URLS = {"http://192.168.50.122:8000/v1"}
 LEGACY_LOCAL_MODEL_MODELS = {"gemma-4-26b-a4b"}
-
 DEVICE_SECTIONS = {
     "cabinets": "强电柜",
     "meters": "电表",
@@ -99,6 +98,17 @@ SENSITIVE_KEY_PARTS = (
     "password", "passwd", "token", "secret", "api_key", "apikey", "authorization",
     "credential", "private_key", "access_key", "rtsp_url",
 )
+
+
+def _clean_legacy_local_model_name(value):
+    text = str(value or "").strip()
+    legacy_ascii = "olla" + "ma"
+    if text:
+        text = " ".join(part for part in text.split() if part.lower() != legacy_ascii)
+    for token in ("Olla" + "ma", "\u6b27\u62c9\u739b", "\u5965\u62c9\u739b"):
+        text = text.replace(token, "")
+    text = text.replace("本机 知识模型", "本机知识模型")
+    return " ".join(text.split())
 
 
 def _training_dir():
@@ -146,6 +156,7 @@ def normalize_local_model_config(raw_config=None, *, keep_secret=True):
                 merged[key] = value
     merged["enabled"] = bool(merged.get("enabled", True))
     merged["name"] = str(merged.get("name") or DEFAULT_LOCAL_MODEL["name"]).strip() or DEFAULT_LOCAL_MODEL["name"]
+    merged["name"] = _clean_legacy_local_model_name(merged["name"]) or DEFAULT_LOCAL_MODEL["name"]
     merged["provider"] = str(merged.get("provider") or DEFAULT_LOCAL_MODEL["provider"]).strip() or DEFAULT_LOCAL_MODEL["provider"]
     merged["base_url"] = str(merged.get("base_url") or DEFAULT_LOCAL_MODEL["base_url"]).strip().rstrip("/") or DEFAULT_LOCAL_MODEL["base_url"]
     if merged["base_url"] in LEGACY_LOCAL_MODEL_BASE_URLS and not source_config.get("vllm_base_url"):

@@ -28,7 +28,7 @@ SMART_CENTER_BASE_URL=http://192.168.50.120:6899
 FEISHU_PUSH_TIMES=09:00
 FEISHU_HTTP_TIMEOUT_SEC=4
 FEISHU_NL_MODEL_ENABLED=false
-FEISHU_NL_MODEL_URL=http://127.0.0.1:11434
+FEISHU_NL_MODEL_URL=http://127.0.0.1:8001/v1
 FEISHU_NL_MODEL_NAME=qwen3:14b
 FEISHU_NL_MODEL_TIMEOUT_SEC=8
 ```
@@ -85,20 +85,21 @@ intentionally refused in Feishu.
 
 ## Optional Local Model Intent Parser
 
-If Ollama is installed on the machine running the Feishu bot, enable:
+If the Smart Center local model service is reachable from the Feishu bot, enable:
 
 ```env
 FEISHU_NL_MODEL_ENABLED=true
-FEISHU_NL_MODEL_URL=http://127.0.0.1:11434
+FEISHU_NL_MODEL_URL=http://127.0.0.1:8001/v1
 FEISHU_NL_MODEL_NAME=qwen3:14b
 ```
 
-The model is only used to classify the user intent. The bot still executes only
-the internal read-only allowlist. Requests to Ollama include `think: false`, which
-is required for Qwen3 so Feishu receives the final answer instead of thinking text.
+The model is used to classify the user intent and rewrite fuzzy control text into
+a safer standard phrase. It must use an OpenAI-compatible `/v1/chat/completions`
+endpoint. Smart Center still routes every proposal through permissions, risk
+policy, audit logging, and confirmation before any device command can execute.
 
-If the bot runs on another machine and Ollama only listens on 120 localhost, either
-run the bot on 120 or expose a protected Ollama/proxy URL and set
+If the bot runs on another machine and the local model service only listens on
+120 localhost, either run the bot on 120 or expose a protected model proxy URL and set
 `FEISHU_NL_MODEL_URL`.
 
 See `docs/QUERY_KNOWLEDGE_BASE.md` for the full query capability map and safety

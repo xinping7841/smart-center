@@ -27,7 +27,7 @@ import requests
 
 from services.control_intent_router import ControlIntentRouter
 from services.control_learning import ControlLearningStore
-from services.control_model_translator import LocalModelControlTranslator
+from services.control_model_translator import DEFAULT_LOCAL_MODEL_BASE_URL, LocalModelControlTranslator, normalize_openai_base_url, request_local_model_json
 from services.device_aliases import build_device_alias_rows, find_alias_rows, normalize_alias_text
 from services.natural_language_orchestrator import (
     NaturalLanguageTrace,
@@ -152,7 +152,7 @@ class FeishuBotConfig:
     request_timeout_sec: float = 4.0
     card_callback_enabled: bool = False
     nl_model_enabled: bool = False
-    nl_model_url: str = "http://127.0.0.1:11434"
+    nl_model_url: str = DEFAULT_LOCAL_MODEL_BASE_URL
     nl_model_name: str = "qwen3:14b"
     nl_model_timeout_sec: float = 8.0
     feishu_control_enabled: bool = False
@@ -197,7 +197,7 @@ def load_config(env_file: str | Path | None = None) -> FeishuBotConfig:
     nl_model_url = (
         os.environ.get("FEISHU_NL_MODEL_URL")
         or os.environ.get("FEISHU_LOCAL_MODEL_BASE_URL")
-        or "http://127.0.0.1:11434"
+        or DEFAULT_LOCAL_MODEL_BASE_URL
     )
     nl_model_name = os.environ.get("FEISHU_NL_MODEL_NAME") or os.environ.get("FEISHU_LOCAL_MODEL_NAME") or "qwen3:14b"
     return FeishuBotConfig(
@@ -209,7 +209,7 @@ def load_config(env_file: str | Path | None = None) -> FeishuBotConfig:
         request_timeout_sec=timeout,
         card_callback_enabled=str(os.environ.get("FEISHU_CARD_CALLBACK_ENABLED", "") or "").strip().lower() in {"1", "true", "yes", "on"},
         nl_model_enabled=str(nl_model_enabled_raw or "").strip().lower() in {"1", "true", "yes", "on"},
-        nl_model_url=str(nl_model_url or "http://127.0.0.1:11434").strip().rstrip("/"),
+        nl_model_url=normalize_openai_base_url(str(nl_model_url or DEFAULT_LOCAL_MODEL_BASE_URL)),
         nl_model_name=str(nl_model_name or "qwen3:14b").strip(),
         nl_model_timeout_sec=model_timeout,
         feishu_control_enabled=str(os.environ.get("FEISHU_CONTROL_ENABLED", "") or "").strip().lower() in {"1", "true", "yes", "on"},
@@ -626,7 +626,7 @@ def _normalize_intent(value: Any) -> str:
     return aliases.get(text, text)
 
 
-class OllamaIntentClassifier:
+class LocalModelIntentClassifier:
     INTENTS = (
         "overview",
         "offline_devices",
@@ -652,7 +652,7 @@ class OllamaIntentClassifier:
     )
 
     def __init__(self, base_url: str, model: str, timeout_sec: float = 8.0) -> None:
-        self.base_url = (base_url or "http://127.0.0.1:11434").rstrip("/")
+        self.base_url = normalize_openai_base_url(base_url)
         self.model = model or "qwen3:14b"
         self.timeout_sec = timeout_sec
 
@@ -668,25 +668,8 @@ class OllamaIntentClassifier:
             "返回格式：{\"intent\":\"...\",\"query\":\"原问题\",\"allowed\":true,\"reason\":\"\"}\n"
             f"用户问题：{text}"
         )
-        payload = {
-            "model": self.model,
-            "prompt": prompt,
-            "stream": False,
-            "format": "json",
-            "think": False,
-            "options": {"temperature": 0},
-        }
         try:
-            response = requests.post(
-                f"{self.base_url}/api/generate",
-                json=payload,
-                timeout=self.timeout_sec,
-                headers={"Accept": "application/json"},
-            )
-            response.raise_for_status()
-            data = response.json()
-            raw = str(data.get("response") or "").strip()
-            parsed = json.loads(raw)
+            parsed = request_local_model_json(self.base_url, self.model, prompt, self.timeout_sec)
         except Exception:
             return None
         if not isinstance(parsed, dict):
@@ -2442,7 +2425,7 @@ class LocalSmartCenterClient:
             return self.nvr_status_text()
         if _contains_any(keyword, ("代理", "chatgpt", "ChatGPT", "google", "Google", "youtube", "YouTube", "github", "GitHub")):
             return self.proxy_status_text()
-        if _contains_any(keyword, ("本地模型", "模型服务", "ollama", "Ollama", "qwen", "Qwen")):
+        if _contains_any(keyword, ("本地模型", "模型服务", "qwen", "Qwen", "vllm", "vLLM", "知识模型")):
             return self.local_model_status_text()
         if _contains_any(keyword, ("设备", "概览", "状态", "在线", "情况", "现在")):
             return self.status_text()
@@ -2463,7 +2446,7 @@ class FeishuBot:
             config.request_timeout_sec,
         )
         self.intent_classifier = (
-            OllamaIntentClassifier(config.nl_model_url, config.nl_model_name, config.nl_model_timeout_sec)
+            LocalModelIntentClassifier(config.nl_model_url, config.nl_model_name, config.nl_model_timeout_sec)
             if config.nl_model_enabled
             else None
         )
