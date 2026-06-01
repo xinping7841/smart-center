@@ -155,7 +155,7 @@ class FeishuBotConfig:
     nl_model_url: str = DEFAULT_LOCAL_MODEL_BASE_URL
     nl_model_name: str = "qwen3:14b"
     nl_model_timeout_sec: float = 8.0
-    feishu_control_enabled: bool = False
+    feishu_control_enabled: bool = True
     feishu_control_require_confirmation: bool = True
 
 
@@ -212,7 +212,7 @@ def load_config(env_file: str | Path | None = None) -> FeishuBotConfig:
         nl_model_url=normalize_openai_base_url(str(nl_model_url or DEFAULT_LOCAL_MODEL_BASE_URL)),
         nl_model_name=str(nl_model_name or "qwen3:14b").strip(),
         nl_model_timeout_sec=model_timeout,
-        feishu_control_enabled=str(os.environ.get("FEISHU_CONTROL_ENABLED", "") or "").strip().lower() in {"1", "true", "yes", "on"},
+        feishu_control_enabled=str(os.environ.get("FEISHU_CONTROL_ENABLED", "1") or "1").strip().lower() in {"1", "true", "yes", "on"},
         feishu_control_require_confirmation=str(os.environ.get("FEISHU_CONTROL_REQUIRE_CONFIRMATION", "1") or "1").strip().lower() in {"1", "true", "yes", "on"},
     )
 
@@ -2508,9 +2508,6 @@ class FeishuBot:
 
     def _natural_language_policy(self) -> dict[str, Any]:
         policy = load_runtime_natural_language_policy()
-        env_enabled = self.config.feishu_control_enabled
-        if env_enabled:
-            policy["feishu_control_enabled"] = True
         policy["feishu_control_require_confirmation"] = bool(
             policy.get("feishu_control_require_confirmation", True) or self.config.feishu_control_require_confirmation
         )

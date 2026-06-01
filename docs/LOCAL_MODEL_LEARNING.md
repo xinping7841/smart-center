@@ -23,7 +23,9 @@ or use `POST /api/local-model/export-training` from the local-model page.
 - `protocols_*.jsonl`: protocol/config/driver records.
 - `logs_*.jsonl`: recent event, operation, and audit logs, with sensitive fields redacted.
 - `instructions_*.jsonl`: curated query instructions.
+- `query_intents_*.jsonl`: curated read-only natural-language query intent examples and read API allowlist.
 - `control_intents_*.jsonl`: curated controlled-action examples and safety expectations.
+- `nl_intent_examples_*.jsonl`: unified query/control natural-language examples for intent classification, routing, and safety policy.
 - `insights_*.jsonl`: device profiles, server inventory, protocol cards, inference rules, and log summaries.
 - `system_map_*.json`: the runtime system directory for modules, device sections, natural-language contract, and recommended learning order.
 - `knowledge_*.json`: manifest and counts.
@@ -42,9 +44,9 @@ or use `POST /api/local-model/export-training` from the local-model page.
 
 4. Feed the latest runtime and code knowledge files to the local model knowledge proxy/RAG index. RAG is preferred for frequently changing facts such as online/offline server state, CPU/GPU metrics, logs, current code boundaries, and routes.
 
-5. Optional high-context refresh can run on the 3090 local-model machine. It should read `system_map_*.json`, `device_inventory_*.jsonl`, `control_capabilities_*.jsonl`, `code_system_map_*.json`, `module_cards_*.jsonl`, and then `full_code_context_*.jsonl` to generate a reviewable `system_summary_*.json`. This is a periodic understanding refresh, not a direct control path.
+5. Optional high-context refresh can run on the 3090 local-model machine. It should read `system_map_*.json`, `device_inventory_*.jsonl`, `control_capabilities_*.jsonl`, `nl_intent_examples_*.jsonl`, `code_system_map_*.json`, `module_cards_*.jsonl`, and then `full_code_context_*.jsonl` to generate a reviewable `system_summary_*.json`. This is a periodic understanding refresh, not a direct control path.
 
-6. Optional fine-tuning or LoRA should only use curated examples from `instructions_*.jsonl`, `control_intents_*.jsonl`, and reviewed rows. Do not fine-tune on raw secrets, tokens, SNMP community strings, RTSP credentials, unreviewed logs, or full source code.
+6. Optional fine-tuning or LoRA should only use curated examples from `instructions_*.jsonl`, `query_intents_*.jsonl`, `control_intents_*.jsonl`, `nl_intent_examples_*.jsonl`, and reviewed rows. Do not fine-tune on raw secrets, tokens, SNMP community strings, RTSP credentials, unreviewed logs, or full source code.
 
 ## Server Knowledge
 
@@ -63,6 +65,8 @@ Natural language should query all server groups by default. Specific group queri
 The model may classify intent, retrieve evidence, summarize, and act as a natural-language control entry from Feishu or the Smart Center local-model page.
 
 Real device actions must still go through the existing Smart Center control chain: API permission, audit log, target matching, risk classification, and confirmation policy. Strong-current cabinets, sequencers, server shutdown/restart, and unclear inferred targets must require confirmation before execution. The model must never invent a separate direct-control route that bypasses this chain.
+
+Feishu control defaults to enabled so authorized natural-language control can work after deployment. The AI page switch persists to `config.json`; if an operator turns it off, Feishu keeps allowing queries and parsing, but refuses real execution across service restarts and releases until the switch is turned back on.
 
 ## Natural-Language Control Router
 
@@ -93,7 +97,7 @@ Recommended context length for the current 14B/3090 setup is `131072` first. If 
 The target design should keep four layers separate:
 
 - Feishu adapter: receives messages, renders text/card confirmations, stores short-lived pending controls, and records user decisions.
-- Intent and retrieval layer: uses deterministic rules plus optional local model classification/rewrite; retrieves `knowledge_*.json`, `insights_*.jsonl`, `device_aliases_*.jsonl`, and `code_knowledge_*.jsonl`.
+- Intent and retrieval layer: uses deterministic rules plus optional local model classification/rewrite; retrieves `knowledge_*.json`, `insights_*.jsonl`, `device_aliases_*.jsonl`, `nl_intent_examples_*.jsonl`, and `code_knowledge_*.jsonl`.
 - Tool/router layer: maps read intents to read-only allowlisted APIs and control intents to `LocalSmartCenterClient.resolve_control_command_with_translator`.
 - Execution layer: calls existing Smart Center APIs only after permission, operation lock, audit, target confidence, risk classification, and confirmation policy.
 

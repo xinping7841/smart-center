@@ -25,7 +25,7 @@ from typing import Any
 from paths import CONFIG_FILE, RUNTIME_DIR, ensure_directory
 
 DEFAULT_NATURAL_LANGUAGE_POLICY = {
-    "feishu_control_enabled": False,
+    "feishu_control_enabled": True,
     "feishu_control_require_confirmation": True,
     "record_process_enabled": True,
     "process_log_limit": 200,

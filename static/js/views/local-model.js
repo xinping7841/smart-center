@@ -78,7 +78,7 @@
                   <span class="local-model-feishu-copy">
                     <span class="local-model-feishu-kicker">飞书控制安全开关</span>
                     <strong>允许飞书执行中控命令</strong>
-                    <small>关闭时飞书只允许查询和解析，不会进入真实控制执行；开启后仍需确认并记录全过程。</small>
+                    <small>默认开启并会记住手动修改；关闭时飞书只允许查询和解析，不会进入真实控制执行。</small>
                   </span>
                   <span class="local-model-feishu-state" id="feishuControlState">已关闭，仅允许查询</span>
                 </label>

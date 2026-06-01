@@ -78,7 +78,7 @@ DEFAULT_LOCAL_MODEL = {
         "recommended_context_len": 131072,
     },
     "natural_language": {
-        "feishu_control_enabled": False,
+        "feishu_control_enabled": True,
         "feishu_control_require_confirmation": True,
         "record_process_enabled": True,
         "process_log_limit": 200,
@@ -314,8 +314,8 @@ def _jsonl_write(path, rows):
             handle.write(json.dumps(row, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 
-def _read_control_intent_rows():
-    path = Path(__file__).resolve().parents[1] / "docs" / "LOCAL_MODEL_CONTROL_INTENTS.jsonl"
+def _read_intent_rows(filename):
+    path = Path(__file__).resolve().parents[1] / "docs" / filename
     rows = []
     if not path.is_file():
         return rows
@@ -329,6 +329,48 @@ def _read_control_intent_rows():
             continue
         if isinstance(row, dict):
             rows.append(row)
+    return rows
+
+
+def _read_query_intent_rows():
+    return _read_intent_rows("LOCAL_MODEL_QUERY_INTENTS.jsonl")
+
+
+def _read_control_intent_rows():
+    return _read_intent_rows("LOCAL_MODEL_CONTROL_INTENTS.jsonl")
+
+
+def _build_nl_intent_example_rows(query_intent_rows, control_intent_rows):
+    rows = []
+    for source, intent_type, read_only in (
+        (query_intent_rows, "query", True),
+        (control_intent_rows, "control", False),
+    ):
+        for row in source:
+            if not isinstance(row, dict):
+                continue
+            examples = row.get("examples") if isinstance(row.get("examples"), list) else []
+            rows.append({
+                "schema": "smart_center.nl_intent_example.v1",
+                "kind": "nl_intent_example",
+                "intent_type": intent_type,
+                "source_schema": row.get("schema") or "",
+                "intent": row.get("intent") or "",
+                "allowed": bool(row.get("allowed", True)),
+                "read_only": bool(row.get("read_only", read_only)),
+                "risk": row.get("risk") or ("low" if read_only else "normal"),
+                "requires_confirmation": bool(row.get("requires_confirmation", not read_only)),
+                "examples": examples,
+                "api": row.get("api") if isinstance(row.get("api"), list) else [],
+                "expected": row.get("expected") if isinstance(row.get("expected"), dict) else {},
+                "answer": row.get("answer") or "",
+                "guidance": row.get("guidance") or "",
+                "routing_contract": (
+                    "查询类进入只读 API/RAG，不受飞书控制开关限制。"
+                    if read_only
+                    else "控制类先生成受控提案，再走飞书控制开关、权限、确认、审计和中控 API 执行链路。"
+                ),
+            })
     return rows
 
 
@@ -1103,13 +1145,14 @@ def _build_runtime_system_map(config, device_rows, alias_rows, protocol_rows, lo
                 "target": "用户提到或别名匹配出的设备/通道",
                 "action": "只允许后端白名单动作",
                 "confidence": "0-1",
-                "evidence": "引用 device_inventory/control_capabilities/insights/code_system_map",
+                "evidence": "引用 device_inventory/control_capabilities/nl_intent_examples/insights/code_system_map",
             },
         },
         "recommended_learning_order": [
             "system_map_*.json",
             "device_inventory_*.jsonl",
             "control_capabilities_*.jsonl",
+            "nl_intent_examples_*.jsonl",
             "device_aliases_*.jsonl",
             "insights_*.jsonl",
             "code_system_map_*.json",
@@ -1178,7 +1221,9 @@ def build_training_export():
     protocol_rows = _extract_protocol_records(config)
     log_rows = _extract_log_records(int(export_cfg.get("recent_log_limit", 500))) if export_cfg.get("include_logs", True) else []
     insight_rows, daily_summary = build_insights(config, device_rows, protocol_rows, log_rows)
+    query_intent_rows = _read_query_intent_rows()
     control_intent_rows = _read_control_intent_rows()
+    nl_intent_example_rows = _build_nl_intent_example_rows(query_intent_rows, control_intent_rows)
     device_inventory_rows = _build_device_inventory_rows(device_rows, device_alias_rows)
     control_capability_rows = _build_control_capability_rows(device_alias_rows)
     instruction_rows = [
@@ -1226,7 +1271,9 @@ def build_training_export():
         "protocols": out_dir / f"protocols_{stamp}.jsonl",
         "logs": out_dir / f"logs_{stamp}.jsonl",
         "instructions": out_dir / f"instructions_{stamp}.jsonl",
+        "query_intents": out_dir / f"query_intents_{stamp}.jsonl",
         "control_intents": out_dir / f"control_intents_{stamp}.jsonl",
+        "nl_intent_examples": out_dir / f"nl_intent_examples_{stamp}.jsonl",
         "insights": out_dir / f"insights_{stamp}.jsonl",
         "daily_summary": out_dir / f"daily_summary_{stamp}.json",
         "system_map": out_dir / f"system_map_{stamp}.json",
@@ -1239,7 +1286,9 @@ def build_training_export():
     _jsonl_write(files["protocols"], protocol_rows)
     _jsonl_write(files["logs"], log_rows)
     _jsonl_write(files["instructions"], instruction_rows)
+    _jsonl_write(files["query_intents"], query_intent_rows)
     _jsonl_write(files["control_intents"], control_intent_rows)
+    _jsonl_write(files["nl_intent_examples"], nl_intent_example_rows)
     _jsonl_write(files["insights"], insight_rows)
     files["daily_summary"].write_text(json.dumps(daily_summary, ensure_ascii=False, indent=2), encoding="utf-8")
     system_map = _build_runtime_system_map(
@@ -1267,7 +1316,9 @@ def build_training_export():
             "protocol_records": len(protocol_rows),
             "logs": len(log_rows),
             "instructions": len(instruction_rows),
+            "query_intents": len(query_intent_rows),
             "control_intents": len(control_intent_rows),
+            "nl_intent_examples": len(nl_intent_example_rows),
             "insights": len(insight_rows),
         },
         "device_sections": DEVICE_SECTIONS,
@@ -1357,6 +1408,7 @@ def build_knowledge_status():
         _file_status_payload("system_map", "系统地图", ".json"),
         _file_status_payload("device_inventory", "设备清单", ".jsonl", count_jsonl=True),
         _file_status_payload("control_capabilities", "控制能力", ".jsonl", count_jsonl=True),
+        _file_status_payload("nl_intent_examples", "自然语言意图样例", ".jsonl", count_jsonl=True),
         _file_status_payload("device_aliases", "自然语言别名", ".jsonl", count_jsonl=True),
         _file_status_payload("insights", "运行洞察", ".jsonl", count_jsonl=True),
         _file_status_payload("code_system_map", "代码系统地图", ".json"),
