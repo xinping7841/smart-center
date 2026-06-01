@@ -42,6 +42,8 @@ SUPPORTED_PROTOCOLS = {"tcp", "udp", "com", "osc", "artnet", "midi"}
 SUPPORTED_FORMATS = {"str", "hex", "json", "modbus_rtu", "modbus_tcp"}
 _SERIAL_LOCKS = {}
 _SERIAL_LOCKS_GUARD = threading.Lock()
+_TARGET_GROUP_LOCKS = {}
+_TARGET_GROUP_LOCKS_GUARD = threading.Lock()
 CONTROL_PACKS_DIR = Path(__file__).resolve().parent / "control_packs"
 
 
@@ -751,6 +753,14 @@ def _get_serial_lock(com_port):
         return _SERIAL_LOCKS[key]
 
 
+def _get_target_group_lock(target_group_id):
+    key = str(target_group_id or "").strip() or "__default__"
+    with _TARGET_GROUP_LOCKS_GUARD:
+        if key not in _TARGET_GROUP_LOCKS:
+            _TARGET_GROUP_LOCKS[key] = threading.Lock()
+        return _TARGET_GROUP_LOCKS[key]
+
+
 def _send_com(target, payload, wait_ms):
     if serial is None:
         raise RuntimeError("当前 Python 环境未安装 pyserial，无法发送串口指令")
@@ -872,12 +882,35 @@ def _send_one_target(host, target, command, payload, payload_text, params, wait_
         response = _send_midi(target, payload, wait_ms)
     else:
         raise RuntimeError(f"不支持的协议类型: {protocol}")
+    response_text = _bytes_preview(response)
+    response_hex = _bytes_hex(response)
+    if _command_expects_response(command) and not response_text.strip() and not response_hex.strip():
+        return {
+            "host": host or target.get("com_port") or protocol,
+            "ok": 0,
+            "error": "设备未在等待时间内返回数据",
+            "response": response_text,
+            "response_hex": response_hex,
+        }
     return {
         "host": host or target.get("com_port") or protocol,
         "ok": 1,
-        "response": _bytes_preview(response),
-        "response_hex": _bytes_hex(response),
+        "response": response_text,
+        "response_hex": response_hex,
     }
+
+
+def _command_expects_response(command):
+    explicit = command.get("expect_response")
+    if explicit is not None:
+        return bool(explicit)
+    command_id = str(command.get("id") or "").strip().lower()
+    command_name = str(command.get("name") or "").strip().lower()
+    text = f"{command_id} {command_name}"
+    # Only read/query/info commands require payload bytes back. Control commands
+    # keep the legacy "sent successfully" semantics because many relay modules do
+    # not acknowledge every write command consistently.
+    return any(token in text for token in ("read", "query", "status", "info", "读取", "读", "查询", "状态", "信息"))
 
 
 def execute_control_center_command(config, command_id, target_group_id, params=None, value=None, control=None):
@@ -906,25 +939,29 @@ def execute_control_center_command(config, command_id, target_group_id, params=N
         return {"ok": 0, "success": False, "msg": "目标组没有可用地址或串口", "results": []}
 
     results = []
-    if str(target.get("send_strategy") or "parallel").lower() == "serial" or len(hosts) == 1:
-        for host in hosts:
-            try:
-                results.append(_send_one_target(host, target, command, payload, payload_text, merged_params, wait_ms))
-            except Exception as exc:
-                results.append({"host": host, "ok": 0, "error": str(exc)})
-    else:
-        max_workers = min(_safe_int(target.get("max_workers"), 8, 1, 64), len(hosts))
-        with ThreadPoolExecutor(max_workers=max_workers) as pool:
-            future_map = {
-                pool.submit(_send_one_target, host, target, command, payload, payload_text, merged_params, wait_ms): host
-                for host in hosts
-            }
-            for future in as_completed(future_map):
-                host = future_map[future]
+    # POE-KP-I101 and similar small TCP/RTU bridges often drop one of two
+    # concurrent reads. Serialize per target group across Flask requests while
+    # still allowing parallel sends inside a multi-host target group.
+    with _get_target_group_lock(target.get("id")):
+        if str(target.get("send_strategy") or "parallel").lower() == "serial" or len(hosts) == 1:
+            for host in hosts:
                 try:
-                    results.append(future.result())
+                    results.append(_send_one_target(host, target, command, payload, payload_text, merged_params, wait_ms))
                 except Exception as exc:
                     results.append({"host": host, "ok": 0, "error": str(exc)})
+        else:
+            max_workers = min(_safe_int(target.get("max_workers"), 8, 1, 64), len(hosts))
+            with ThreadPoolExecutor(max_workers=max_workers) as pool:
+                future_map = {
+                    pool.submit(_send_one_target, host, target, command, payload, payload_text, merged_params, wait_ms): host
+                    for host in hosts
+                }
+                for future in as_completed(future_map):
+                    host = future_map[future]
+                    try:
+                        results.append(future.result())
+                    except Exception as exc:
+                        results.append({"host": host, "ok": 0, "error": str(exc)})
     ok_count = sum(1 for row in results if row.get("ok"))
     return {
         "ok": 1 if ok_count else 0,

@@ -155,6 +155,7 @@
                     <div><div class="protocol-switch-title">输出控制</div><div class="protocol-switch-sub" data-text="switch">读取状态后可切换</div></div>
                     <label class="protocol-toggle" title="输出开关"><input type="checkbox" data-role="do-toggle" onchange="toggleProtocolDeviceOutput(this)"><span></span></label>
                 </div>
+                <div class="protocol-device-note" data-text="note">等待首次读取</div>
                 ${actions.length ? `<div class="protocol-device-actions">${actions.join('')}</div>` : ''}
             </div>
         `;
@@ -455,6 +456,34 @@
         return null;
     }
 
+    function protocolResultError(result, fallbackText = '读取失败') {
+        if (!result) return fallbackText;
+        const rows = Array.isArray(result.results) ? result.results : [];
+        const failed = rows.find(item => item && !item.ok);
+        if (failed?.error) return String(failed.error);
+        if (result.msg && result.ok === 0) return String(result.msg);
+        if (result.error) return String(result.error);
+        return fallbackText;
+    }
+
+    function protocolReadState(result, kind) {
+        const value = parseProtocolBit(result, kind);
+        if (value !== null) {
+            return {
+                ok: true,
+                value,
+                text: kind === 'do' ? (value ? '输出开' : '输出关') : (value ? '有输入' : '无输入'),
+                error: '',
+            };
+        }
+        return {
+            ok: false,
+            value: null,
+            text: '读取失败',
+            error: protocolResultError(result, '未解析到有效状态'),
+        };
+    }
+
     function setProtocolLamp(card, key, state, text) {
         const led = card.querySelector(`[data-led="${key}"]`);
         const label = card.querySelector(`[data-text="${key}"]`);
@@ -477,26 +506,40 @@
         if (switchText) switchText.textContent = value === true ? '当前输出：开' : (value === false ? '当前输出：关' : '状态读取失败');
     }
 
+    function setProtocolNote(card, text, isWarn = false) {
+        const note = card.querySelector('[data-text="note"]');
+        if (!note) return;
+        note.textContent = text || '';
+        note.classList.toggle('warn', Boolean(isWarn));
+    }
+
     function updateProtocolDeviceCard(card) {
         if (!card || card.dataset.polling === '1' || card.dataset.pulsing === '1') return Promise.resolve();
         card.dataset.polling = '1';
         const readDo = card.dataset.readDo || '';
         const readDi = card.dataset.readDi || '';
-        return Promise.all([executeProtocolControl(readDo), executeProtocolControl(readDi)])
+        return executeProtocolControl(readDo)
+            .then(doResult => executeProtocolControl(readDi).then(diResult => [doResult, diResult]))
             .then(([doResult, diResult]) => {
-                const doValue = doResult ? parseProtocolBit(doResult, 'do') : null;
-                const diValue = diResult ? parseProtocolBit(diResult, 'di') : null;
-                const healthy = Boolean((doResult && doResult.ok && doValue !== null) || (diResult && diResult.ok && diValue !== null));
-                setProtocolLamp(card, 'health', healthy, healthy ? '正常' : '异常');
-                setProtocolLamp(card, 'di', diValue, diValue === true ? '有输入' : (diValue === false ? '无输入' : '读取失败'));
-                setProtocolLamp(card, 'do', doValue, doValue === true ? '输出开' : (doValue === false ? '输出关' : '读取失败'));
-                applyProtocolOutput(card, doValue);
+                const doState = protocolReadState(doResult, 'do');
+                const diState = protocolReadState(diResult, 'di');
+                const okCount = Number(doState.ok) + Number(diState.ok);
+                if (okCount === 2) setProtocolLamp(card, 'health', true, '正常');
+                else if (okCount === 1) setProtocolLamp(card, 'health', null, '部分异常');
+                else setProtocolLamp(card, 'health', false, '异常');
+                setProtocolLamp(card, 'di', diState.value, diState.text);
+                setProtocolLamp(card, 'do', doState.value, doState.text);
+                applyProtocolOutput(card, doState.value);
+                const errors = [doState.error && `DO:${doState.error}`, diState.error && `DI:${diState.error}`].filter(Boolean);
+                const stamp = formatTimeShort(new Date().toISOString());
+                setProtocolNote(card, errors.length ? `${errors.join('；')} · ${stamp}` : `读取正常 · ${stamp}`, errors.length > 0);
             })
             .catch(() => {
                 setProtocolLamp(card, 'health', false, '异常');
                 setProtocolLamp(card, 'di', null, '读取失败');
                 setProtocolLamp(card, 'do', null, '读取失败');
                 applyProtocolOutput(card, null);
+                setProtocolNote(card, `读取请求异常 · ${formatTimeShort(new Date().toISOString())}`, true);
             })
             .finally(() => { card.dataset.polling = '0'; });
     }
@@ -622,6 +665,21 @@
         return `${onlineText} / ${detail}`;
     }
 
+    function nodeRedHealthParts(device) {
+        const health = device?.health && typeof device.health === 'object' ? device.health : {};
+        const serialOk = health.serial_connected !== false && health.serial_present !== false && String(health.status || 'ok').toLowerCase() === 'ok';
+        const gatewayOnline = device?.online !== false && String(device?.display_status || '').toLowerCase() !== 'error';
+        const state = device?.state && typeof device.state === 'object' ? device.state : {};
+        const ackMs = Number(state.last_ack_delay_ms || device?.raw?.last_result?.ack_delay_ms || 0);
+        return {
+            gatewayText: gatewayOnline ? '网关在线' : '网关离线',
+            gatewayOk: gatewayOnline,
+            serialText: serialOk ? '串口正常' : '串口异常',
+            serialOk,
+            ackText: ackMs > 0 ? `回执 ${ackMs}ms` : '等待回执',
+        };
+    }
+
     function nodeRedLightStateText(device) {
         const id = String(device?.device_id || '');
         const remaining = getNodeRedCooldownRemainingSec(id, device);
@@ -662,6 +720,7 @@
         const displayText = escapeHtml(nodeRedLightStateText(device));
         const statusClass = nodeRedStatusClass(device);
         const healthText = escapeHtml(nodeRedHealthText(device));
+        const healthParts = nodeRedHealthParts(device);
         const updated = escapeHtml(formatTimeShort(device?.updated_at || ''));
         const disabled = id ? '' : 'disabled';
         const safeId = escapeHtml(id);
@@ -677,9 +736,14 @@
             <div class="protocol-light-switch-head">
                 <div style="min-width:0;">
                     <div class="protocol-light-switch-title">${name}</div>
-                    <div class="protocol-light-switch-subtitle">\u7f51\u5173\u72b6\u6001\u786e\u8ba4</div>
+                    <div class="protocol-light-switch-subtitle">Node-RED / RF 网关状态</div>
                 </div>
                 <span class="protocol-light-switch-state">${displayText}</span>
+            </div>
+            <div class="protocol-light-health-row">
+                <span class="protocol-light-health-pill ${healthParts.gatewayOk ? 'ok' : 'bad'}">${escapeHtml(healthParts.gatewayText)}</span>
+                <span class="protocol-light-health-pill ${healthParts.serialOk ? 'ok' : 'bad'}">${escapeHtml(healthParts.serialText)}</span>
+                <span class="protocol-light-health-pill neutral">${escapeHtml(healthParts.ackText)}</span>
             </div>
             <div class="protocol-light-switch-row">
                 <div class="protocol-light-switch-meta">${healthText}<br>${updated}</div>

@@ -74,13 +74,19 @@
         #view-projector .projector-mini-btn.on { background:linear-gradient(135deg,#10b981,#059669); }
         #view-projector .projector-mini-btn.off { background:linear-gradient(135deg,#ef4444,#dc2626); }
         #view-universal .node-red-device-grid { display:grid !important; grid-template-columns:repeat(auto-fill, 280px) !important; gap:12px !important; justify-content:start !important; align-items:start !important; }
-        #view-universal .protocol-light-switch-card { width:280px !important; min-height:122px !important; padding:14px !important; border-radius:10px !important; border:1px solid rgba(71,85,105,.55) !important; border-top:4px solid #64748b !important; background:linear-gradient(180deg, rgba(15,23,42,.96), rgba(8,15,28,.96)) !important; color:#e5eefb !important; display:flex !important; flex-direction:column !important; gap:12px !important; }
+        #view-universal .protocol-light-switch-card { width:280px !important; min-height:144px !important; padding:14px !important; border-radius:10px !important; border:1px solid rgba(71,85,105,.55) !important; border-top:4px solid #64748b !important; background:linear-gradient(180deg, rgba(15,23,42,.96), rgba(8,15,28,.96)) !important; color:#e5eefb !important; display:flex !important; flex-direction:column !important; gap:12px !important; }
         #view-universal .protocol-light-switch-card.is-on { border-top-color:#10b981 !important; box-shadow:0 12px 28px rgba(16,185,129,.12) !important; }
+        #view-universal .protocol-light-switch-card.is-error, #view-universal .protocol-light-switch-card.is-offline { border-top-color:#ef4444 !important; }
         #view-universal .protocol-light-switch-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
         #view-universal .protocol-light-switch-title { font-size:16px; font-weight:900; color:#f8fafc; line-height:1.2; }
         #view-universal .protocol-light-switch-subtitle { margin-top:4px; font-size:11px; color:#9fb0c9; }
         #view-universal .protocol-light-switch-state { flex:none; border-radius:999px; padding:4px 9px; font-size:11px; font-weight:900; background:rgba(100,116,139,.18); border:1px solid rgba(148,163,184,.22); color:#cbd5e1; }
         #view-universal .protocol-light-switch-card.is-on .protocol-light-switch-state { background:rgba(16,185,129,.14); border-color:rgba(16,185,129,.34); color:#86efac; }
+        #view-universal .protocol-light-health-row { display:grid !important; grid-template-columns:repeat(3, minmax(0, 1fr)) !important; gap:6px !important; }
+        #view-universal .protocol-light-health-pill { min-width:0 !important; overflow:hidden !important; text-overflow:ellipsis !important; white-space:nowrap !important; border-radius:7px !important; padding:5px 6px !important; text-align:center !important; font-size:10px !important; font-weight:950 !important; border:1px solid rgba(148,163,184,.18) !important; background:rgba(15,23,42,.52) !important; color:#cbd5e1 !important; }
+        #view-universal .protocol-light-health-pill.ok { border-color:rgba(34,197,94,.34) !important; background:rgba(22,101,52,.22) !important; color:#86efac !important; }
+        #view-universal .protocol-light-health-pill.bad { border-color:rgba(239,68,68,.36) !important; background:rgba(127,29,29,.24) !important; color:#fecaca !important; }
+        #view-universal .protocol-light-health-pill.neutral { border-color:rgba(59,130,246,.28) !important; background:rgba(30,64,175,.18) !important; color:#bfdbfe !important; }
         #view-universal .protocol-light-switch-row { display:flex; justify-content:space-between; align-items:center; gap:12px; }
         #view-universal .protocol-light-switch-meta { min-width:0; color:#9fb0c9; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         #view-universal .protocol-light-toggle { position:relative; width:58px; height:32px; flex:none; display:inline-block; }
@@ -114,6 +120,8 @@
         #control-center-grid .protocol-toggle input:checked + span { background:#16a34a !important; border-color:rgba(74,222,128,.55) !important; }
         #control-center-grid .protocol-toggle input:checked + span::before { transform:translateX(20px) !important; background:#ecfdf5 !important; }
         #control-center-grid .protocol-device-actions { display:grid !important; grid-template-columns:repeat(2, minmax(0, 1fr)) !important; gap:5px !important; margin-top:auto !important; }
+        #control-center-grid .protocol-device-note { min-height:15px !important; color:#64748b !important; font-size:9px !important; line-height:1.25 !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; }
+        #control-center-grid .protocol-device-note.warn { color:#fbbf24 !important; }
         #control-center-grid .protocol-action-btn { min-height:28px !important; border-radius:7px !important; padding:4px 6px !important; border:1px solid rgba(71,85,105,.78) !important; background:rgba(30,41,59,.90) !important; color:#e5eefb !important; font-size:11px !important; font-weight:950 !important; text-align:center !important; cursor:pointer !important; }
         #control-center-grid .protocol-action-btn:hover { border-color:rgba(96,165,250,.75) !important; background:rgba(51,65,85,.95) !important; }
         #control-center-grid .protocol-action-btn.read { color:#bfdbfe !important; }

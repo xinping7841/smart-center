@@ -82,7 +82,7 @@
 
 #view-universal .protocol-light-switch-card {
             width:280px !important;
-            min-height:122px !important;
+            min-height:144px !important;
             padding:14px !important;
             border-radius:10px !important;
             border:1px solid rgba(71,85,105,.55) !important;
@@ -97,6 +97,11 @@
 #view-universal .protocol-light-switch-card.is-on {
             border-top-color:#10b981 !important;
             box-shadow:0 12px 28px rgba(16,185,129,.12) !important;
+        }
+
+#view-universal .protocol-light-switch-card.is-error,
+#view-universal .protocol-light-switch-card.is-offline {
+            border-top-color:#ef4444 !important;
         }
 
 #view-universal .protocol-light-switch-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
@@ -120,6 +125,45 @@
             background:rgba(16,185,129,.14);
             border-color:rgba(16,185,129,.34);
             color:#86efac;
+        }
+
+#view-universal .protocol-light-health-row {
+            display:grid;
+            grid-template-columns:repeat(3, minmax(0, 1fr));
+            gap:6px;
+        }
+
+#view-universal .protocol-light-health-pill {
+            min-width:0;
+            overflow:hidden;
+            text-overflow:ellipsis;
+            white-space:nowrap;
+            border-radius:7px;
+            padding:5px 6px;
+            text-align:center;
+            font-size:10px;
+            font-weight:950;
+            border:1px solid rgba(148,163,184,.18);
+            background:rgba(15,23,42,.52);
+            color:#cbd5e1;
+        }
+
+#view-universal .protocol-light-health-pill.ok {
+            border-color:rgba(34,197,94,.34);
+            background:rgba(22,101,52,.22);
+            color:#86efac;
+        }
+
+#view-universal .protocol-light-health-pill.bad {
+            border-color:rgba(239,68,68,.36);
+            background:rgba(127,29,29,.24);
+            color:#fecaca;
+        }
+
+#view-universal .protocol-light-health-pill.neutral {
+            border-color:rgba(59,130,246,.28);
+            background:rgba(30,64,175,.18);
+            color:#bfdbfe;
         }
 
 #view-universal .protocol-light-switch-row { display:flex; justify-content:space-between; align-items:center; gap:12px; }
@@ -173,4 +217,18 @@
 @media screen and (max-width:760px) {
             #view-universal .node-red-device-grid { grid-template-columns:1fr !important; }
             #view-universal .protocol-light-switch-card { width:100% !important; max-width:none !important; }
+        }
+
+#control-center-grid .protocol-device-note {
+            min-height:15px;
+            color:#64748b;
+            font-size:9px;
+            line-height:1.25;
+            white-space:nowrap;
+            overflow:hidden;
+            text-overflow:ellipsis;
+        }
+
+#control-center-grid .protocol-device-note.warn {
+            color:#fbbf24;
         }
