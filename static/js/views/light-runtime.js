@@ -395,7 +395,6 @@
             ctx.showToast('设备离线，无法控制通道', true);
             return Promise.resolve(false);
         }
-        const rawStatus = getLightChannelStateFromSources(devKey, chNum, {});
         const status = getLightChannelStateFromSources(devKey, chNum, {});
         if (status === null || status === undefined) {
             ctx.showToast('设备在线，但该通道状态待确认，请稍后再试或使用动作按钮', true);
@@ -414,7 +413,7 @@
         return ctx.postJsonLoose('/api/light/control', { type: 'single', device_id: devKey, channel: chNum, is_open: targetState }, '灯光控制请求失败')
             .then(data => {
                 if (!data.success) {
-                    state.lightStates[devKey][chNum] = rawStatus;
+                    state.lightStates[devKey][chNum] = status;
                     renderLightChannel(devKey, chNum);
                     ctx.showToast(data.msg || '灯光控制失败', true);
                     return data;
@@ -425,7 +424,7 @@
                 return data;
             })
             .catch(err => {
-                state.lightStates[devKey][chNum] = rawStatus;
+                state.lightStates[devKey][chNum] = status;
                 renderLightChannel(devKey, chNum);
                 ctx.showToast(ctx.translateApiError(err?.message, '灯光控制请求失败'), true);
                 return false;

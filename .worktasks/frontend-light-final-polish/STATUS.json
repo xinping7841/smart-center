@@ -1,0 +1,20 @@
+{
+  "task": "frontend-light-final-polish",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-frontend-light-final-polish-20260601",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-light-final-polish",
+  "started_at": "2026-06-01 13:18:32",
+  "status": "in_progress",
+  "summary": "Light runtime final polish: remove duplicate channel-state lookup in toggleLight without changing control payloads.",
+  "verification": [
+    "node --check static/js/views/light-runtime.js",
+    "git diff --check",
+    "node --check static/js/app-runtime.js static/js/views/light-runtime.js static/js/views/light-scene-view.js static/js/views/page-shells.js",
+    "production read-only /api/light/status: devices 1 and 2 online, poll_failures=0",
+    "production read-only ?view=light and ?view=scene returned 200",
+    "production light-runtime.js and light-scene-view.js returned 200 and passed node --check"
+  ],
+  "next": "Commit branch, merge main, deploy production, verify new revision."
+}
