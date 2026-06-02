@@ -28,6 +28,9 @@ REMOVE_PREFIXES = (
     "FEISHU_NL_MODEL_PRIORITY=",
 )
 SETTINGS = {
+    "SMART_CENTER_CONFIG_FILE": "/srv/smart-center-data/config.json",
+    "SMART_CENTER_DATA_DIR": "/srv/smart-center-data",
+    "SMART_CENTER_RUNTIME_DIR": "/srv/smart-center-data/runtime",
     "FEISHU_NL_CLOUD_ENABLED": "1",
     "FEISHU_NL_MODEL_PRIORITY": "cloud_first",
     "SMART_CENTER_NLU_PRIMARY_WAIT_SEC": "18",
@@ -53,7 +56,13 @@ def main() -> int:
         if any(stripped.startswith(prefix) for prefix in REMOVE_PREFIXES):
             removed.append(stripped.split("=", 1)[0])
             continue
-        if stripped.startswith("SMART_CENTER_NLU_PRIMARY_WAIT_SEC=") or stripped.startswith("SMART_CENTER_NLU_COMPARE_WAIT_SEC="):
+        if (
+            stripped.startswith("SMART_CENTER_CONFIG_FILE=")
+            or stripped.startswith("SMART_CENTER_DATA_DIR=")
+            or stripped.startswith("SMART_CENTER_RUNTIME_DIR=")
+            or stripped.startswith("SMART_CENTER_NLU_PRIMARY_WAIT_SEC=")
+            or stripped.startswith("SMART_CENTER_NLU_COMPARE_WAIT_SEC=")
+        ):
             removed.append(stripped.split("=", 1)[0])
             continue
         kept.append(line)
