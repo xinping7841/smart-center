@@ -1,0 +1,10 @@
+{
+  "task": "local-model-page-redesign",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-local-model-page-redesign-20260602",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-active-worktrees/local-model-page-redesign",
+  "started_at": "2026-06-02 13:28:09",
+  "status": "in_progress"
+}

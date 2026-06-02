@@ -22,41 +22,46 @@
     const root = $('view-local_model');
     if (!root || $('local-model-shell')) return;
     root.innerHTML = `
-      <div class="card">
-        <div class="card-title">
-          <span>本地模型</span>
-          <div class="local-model-actions">
+      <div class="local-model-page" id="local-model-shell">
+        <section class="local-model-topbar">
+          <div class="local-model-heading">
+            <span class="local-model-eyebrow">AI 中控链路</span>
+            <h2>自然语言控制台</h2>
+            <p id="modelLine">读取配置中...</p>
+          </div>
+          <div class="local-model-top-actions">
             <span class="local-model-status" id="healthBadge">未检测</span>
+            <span class="local-model-status" id="cloudHealthBadge">云端未检测</span>
             <button class="local-model-btn secondary" type="button" onclick="checkHealth()">检测服务</button>
           </div>
-        </div>
-        <div class="local-model-shell" id="local-model-shell">
-          <section class="local-model-card local-model-chat">
+        </section>
+        <section class="local-model-metric-grid" aria-label="模型运行概览">
+          <div class="local-model-metric">
+            <span>本地模型</span>
+            <strong id="localModelNameMeta">--</strong>
+          </div>
+          <div class="local-model-metric">
+            <span>知识库</span>
+            <strong id="localModelDocsMeta">--</strong>
+          </div>
+          <div class="local-model-metric">
+            <span>上下文</span>
+            <strong id="localModelContextMeta">--</strong>
+          </div>
+          <div class="local-model-metric">
+            <span>模型服务</span>
+            <strong id="localModelVllmMeta">--</strong>
+          </div>
+        </section>
+        <div class="local-model-workspace">
+          <section class="local-model-panel local-model-chat">
             <div class="local-model-head">
               <div>
-                <div class="local-model-title">对话入口</div>
-                <div class="local-model-subtitle" id="modelLine">读取配置中...</div>
+                <div class="local-model-title">对话测试</div>
+                <div class="local-model-subtitle">查询、状态判断、控制意图预演</div>
               </div>
               <div class="local-model-actions">
                 <button class="local-model-btn secondary" type="button" onclick="clearChat()">清空</button>
-              </div>
-            </div>
-            <div class="local-model-meta-grid">
-              <div class="local-model-meta-item">
-                <div class="local-model-meta-label">模型</div>
-                <div class="local-model-meta-value" id="localModelNameMeta">--</div>
-              </div>
-              <div class="local-model-meta-item">
-                <div class="local-model-meta-label">知识库</div>
-                <div class="local-model-meta-value" id="localModelDocsMeta">--</div>
-              </div>
-              <div class="local-model-meta-item">
-                <div class="local-model-meta-label">上下文</div>
-                <div class="local-model-meta-value" id="localModelContextMeta">--</div>
-              </div>
-              <div class="local-model-meta-item">
-                <div class="local-model-meta-label">模型服务</div>
-                <div class="local-model-meta-value" id="localModelVllmMeta">--</div>
               </div>
             </div>
             <div class="local-model-messages messages" id="messages"></div>
@@ -65,25 +70,93 @@
               <button class="local-model-btn" id="sendBtn" type="button" onclick="sendChat()">发送</button>
             </div>
           </section>
-          <aside class="local-model-side">
-            <section class="local-model-card">
+          <aside class="local-model-right-rail">
+            <section class="local-model-panel local-model-control-panel">
               <div class="local-model-head">
-                <div class="local-model-title">后台配置</div>
-                <span class="local-model-status" id="saveBadge">未保存</span>
+                <div>
+                  <div class="local-model-title">飞书执行权限</div>
+                  <div class="local-model-subtitle">查询不受限制，控制由此开关决定</div>
+                </div>
               </div>
-              <div class="local-model-form">
-                <div class="local-model-config-section local-model-config-section-strong">
-                  <label class="local-model-feishu-control" id="feishuControlSwitchCard">
-                    <input id="cfgFeishuControlEnabled" type="checkbox">
-                    <span class="local-model-toggle-visual" aria-hidden="true"><span></span></span>
-                    <span class="local-model-feishu-copy">
-                      <span class="local-model-feishu-kicker">飞书控制执行开关</span>
-                      <strong>允许飞书执行中控命令</strong>
-                      <small>默认开启并会记住手动修改；关闭时飞书只允许查询和解析，不会进入真实控制执行。</small>
-                    </span>
-                    <span class="local-model-feishu-state" id="feishuControlState">已关闭，仅允许查询</span>
+              <label class="local-model-feishu-control" id="feishuControlSwitchCard">
+                <input id="cfgFeishuControlEnabled" type="checkbox">
+                <span class="local-model-toggle-visual" aria-hidden="true"><span></span></span>
+                <span class="local-model-feishu-copy">
+                  <span class="local-model-feishu-kicker">飞书控制执行开关</span>
+                  <strong>允许飞书执行中控命令</strong>
+                  <small>关闭时飞书只做查询、解析和记录，不进入真实控制执行。</small>
+                </span>
+                <span class="local-model-feishu-state" id="feishuControlState">已关闭，仅允许查询</span>
+              </label>
+            </section>
+            <section class="local-model-panel local-model-flow-panel">
+              <div class="local-model-head">
+                <div>
+                  <div class="local-model-title">模型理解链路</div>
+                  <div class="local-model-subtitle">云端和本地并行理解，当前采用云端结果</div>
+                </div>
+              </div>
+              <div class="local-model-flow">
+                <div><span>1</span><strong>飞书输入</strong><small>自然语言请求</small></div>
+                <div><span>2</span><strong>并行理解</strong><small>云端 + 本地</small></div>
+                <div><span>3</span><strong>路由匹配</strong><small>查询或控制</small></div>
+                <div><span>4</span><strong>记录结果</strong><small>过程可追踪</small></div>
+              </div>
+              <div class="local-model-flow-controls">
+                <label class="local-model-switch-row">
+                  <span><strong>启用云端增强</strong><small id="cloudModelState">未启用，本地模型单独工作</small></span>
+                  <input id="cfgCloudEnabled" type="checkbox">
+                </label>
+                <div class="local-model-row2">
+                  <label class="local-model-switch-row local-model-mini-switch">
+                    <span><strong>摘要刷新</strong><small>代码和设备知识摘要</small></span>
+                    <input id="cfgCloudUseSummary" type="checkbox">
+                  </label>
+                  <label class="local-model-switch-row local-model-mini-switch">
+                    <span><strong>飞书并行理解</strong><small>云端结果优先采用</small></span>
+                    <input id="cfgCloudUseNlu" type="checkbox">
                   </label>
                 </div>
+              </div>
+            </section>
+            <section class="local-model-panel local-model-process-panel">
+              <div class="local-model-head">
+                <div>
+                  <div class="local-model-title">自然语言处理记录</div>
+                  <div class="local-model-subtitle">模型理解、路由和执行过程</div>
+                </div>
+                <button class="local-model-btn secondary" type="button" onclick="loadProcessLog()">刷新</button>
+              </div>
+              <div class="local-model-process-list" id="processLog"></div>
+            </section>
+          </aside>
+        </div>
+        <div class="local-model-ops-grid">
+          <section class="local-model-panel">
+            <div class="local-model-head">
+              <div>
+                <div class="local-model-title">知识库状态</div>
+                <div class="local-model-subtitle" id="knowledgeFreshness">等待读取</div>
+              </div>
+              <button class="local-model-btn secondary" type="button" onclick="loadKnowledgeStatus()">刷新</button>
+            </div>
+            <div class="local-model-knowledge-grid" id="knowledgeStatusGrid"></div>
+            <div class="local-model-form">
+              <div class="local-model-hint" id="knowledgeSummaryHint">系统地图、设备清单、控制能力、代码地图和高上下文源码包会一起服务自然语言查询与受控控制。</div>
+              <button class="local-model-btn warning" type="button" id="summaryBtn" onclick="refreshSystemSummary()">刷新模型摘要</button>
+            </div>
+          </section>
+          <section class="local-model-panel local-model-config-panel">
+            <div class="local-model-head">
+              <div>
+                <div class="local-model-title">维护参数</div>
+                <div class="local-model-subtitle">模型、云端增强和提示词配置</div>
+              </div>
+              <span class="local-model-status" id="saveBadge">未保存</span>
+            </div>
+            <div class="local-model-form">
+              <details class="local-model-details">
+                <summary>本地知识模型</summary>
                 <div class="local-model-config-section">
                   <div class="local-model-config-section-title">
                     <strong>本地知识模型</strong>
@@ -134,15 +207,14 @@
                     <textarea class="local-model-textarea" id="cfgSystemPrompt"></textarea>
                   </div>
                 </div>
+              </details>
+              <details class="local-model-details">
+                <summary>云端增强模型</summary>
                 <div class="local-model-config-section local-model-cloud-section" id="cloudModelConfigSection">
                   <div class="local-model-config-section-title">
                     <strong>云端增强模型</strong>
                     <span>Ark / DeepSeek 复杂理解、飞书并行对比、当前云端为准</span>
                   </div>
-                  <label class="local-model-switch-row">
-                    <span><strong>启用云端增强</strong><small id="cloudModelState">未启用，本地模型单独工作</small></span>
-                    <input id="cfgCloudEnabled" type="checkbox">
-                  </label>
                   <div class="local-model-row2">
                     <div>
                       <label>显示名称</label>
@@ -166,16 +238,6 @@
                     <input class="local-model-input" id="cfgCloudApiKey" placeholder="留空则保留原值">
                   </div>
                   <div class="local-model-row2">
-                    <label class="local-model-switch-row local-model-mini-switch">
-                      <span><strong>用于摘要刷新</strong><small>读取代码/设备知识生成维护摘要</small></span>
-                      <input id="cfgCloudUseSummary" type="checkbox">
-                    </label>
-                    <label class="local-model-switch-row local-model-mini-switch">
-                      <span><strong>用于飞书并行理解</strong><small>云端和本地同时理解，执行采用云端结果</small></span>
-                      <input id="cfgCloudUseNlu" type="checkbox">
-                    </label>
-                  </div>
-                  <div class="local-model-row2">
                     <div>
                       <label>云端超时秒数</label>
                       <input class="local-model-input" id="cfgCloudTimeout" type="number" min="3" max="600">
@@ -185,52 +247,24 @@
                       <input class="local-model-input" id="cfgCloudMaxTokens" type="number" min="64" max="8192">
                     </div>
                   </div>
-                  <div class="local-model-actions">
-                    <span class="local-model-status" id="cloudHealthBadge">未检测</span>
-                  </div>
                 </div>
-                <div class="local-model-actions">
-                  <button class="local-model-btn success" type="button" onclick="saveConfig()">保存配置</button>
-                  <button class="local-model-btn secondary" type="button" onclick="loadConfig()">重新读取</button>
-                </div>
-                <div class="local-model-hint">默认使用知识代理作为对话入口；飞书自然语言由云端和本地同时理解，目前采用云端结果，本地结果用于对比和学习。</div>
+              </details>
+              <div class="local-model-actions">
+                <button class="local-model-btn success" type="button" onclick="saveConfig()">保存配置</button>
+                <button class="local-model-btn secondary" type="button" onclick="loadConfig()">重新读取</button>
               </div>
-            </section>
-            <section class="local-model-card">
-              <div class="local-model-head">
-                <div>
-                  <div class="local-model-title">知识库状态</div>
-                  <div class="local-model-subtitle" id="knowledgeFreshness">等待读取</div>
-                </div>
-                <button class="local-model-btn secondary" type="button" onclick="loadKnowledgeStatus()">刷新</button>
-              </div>
-              <div class="local-model-knowledge-grid" id="knowledgeStatusGrid"></div>
-              <div class="local-model-form">
-                <div class="local-model-hint" id="knowledgeSummaryHint">系统地图、设备清单、控制能力、代码地图和高上下文源码包会一起服务自然语言查询与受控控制。</div>
-                <button class="local-model-btn warning" type="button" id="summaryBtn" onclick="refreshSystemSummary()">刷新模型摘要</button>
-              </div>
-            </section>
-            <section class="local-model-card">
-              <div class="local-model-head">
-                <div>
-                  <div class="local-model-title">自然语言处理记录</div>
-                  <div class="local-model-subtitle">云端/本地理解对比、路由与实际执行过程</div>
-                </div>
-                <button class="local-model-btn secondary" type="button" onclick="loadProcessLog()">刷新</button>
-              </div>
-              <div class="local-model-process-list" id="processLog"></div>
-            </section>
-            <section class="local-model-card">
-              <div class="local-model-head">
-                <div class="local-model-title">训练数据导出</div>
-                <button class="local-model-btn warning" type="button" onclick="exportTraining()">生成</button>
-              </div>
-              <div class="local-model-form">
-                <div class="local-model-hint" id="exportInfo">将设备、协议配置、事件日志和操作日志归一化为 JSON/JSONL，并自动脱敏凭据。</div>
-              </div>
-              <div class="local-model-files" id="files"></div>
-            </section>
-          </aside>
+            </div>
+          </section>
+          <section class="local-model-panel">
+            <div class="local-model-head">
+              <div class="local-model-title">训练数据导出</div>
+              <button class="local-model-btn warning" type="button" onclick="exportTraining()">生成</button>
+            </div>
+            <div class="local-model-form">
+              <div class="local-model-hint" id="exportInfo">将设备、协议配置、事件日志和操作日志归一化为 JSON/JSONL，并自动脱敏凭据。</div>
+            </div>
+            <div class="local-model-files" id="files"></div>
+          </section>
         </div>
       </div>`;
   }
@@ -553,6 +587,25 @@
     chatMessages = [];
     renderMessages();
   }
+  function bindLocalModelEvents() {
+    const prompt = $('prompt');
+    if (prompt && prompt.dataset.localModelBound !== '1') {
+      prompt.addEventListener('keydown', ev => {
+        if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) sendChat();
+      });
+      prompt.dataset.localModelBound = '1';
+    }
+    const feishuSwitch = $('cfgFeishuControlEnabled');
+    if (feishuSwitch && feishuSwitch.dataset.localModelBound !== '1') {
+      feishuSwitch.addEventListener('change', updateFeishuControlState);
+      feishuSwitch.dataset.localModelBound = '1';
+    }
+    const cloudSwitch = $('cfgCloudEnabled');
+    if (cloudSwitch && cloudSwitch.dataset.localModelBound !== '1') {
+      cloudSwitch.addEventListener('change', updateCloudModelState);
+      cloudSwitch.dataset.localModelBound = '1';
+    }
+  }
   async function loadConfig() {
     if (!hasUi()) return null;
     const resp = await fetch('/api/local-model/config');
@@ -713,18 +766,11 @@
   function init() {
     renderLocalModelPage();
     if (!hasUi()) return;
+    bindLocalModelEvents();
     if (!initialized) {
-      const prompt = $('prompt');
-      prompt.addEventListener('keydown', ev => {
-        if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) sendChat();
-      });
-      const feishuSwitch = $('cfgFeishuControlEnabled');
-      if (feishuSwitch) feishuSwitch.addEventListener('change', updateFeishuControlState);
       initialized = true;
       renderMessages();
     }
-    const cloudSwitch = $('cfgCloudEnabled');
-    if (cloudSwitch) cloudSwitch.addEventListener('change', updateCloudModelState);
     loadConfig().then(checkHealth).catch(err => {
       setBadge('saveBadge', '读取失败', false);
       optionalSet('modelLine', String(err));
