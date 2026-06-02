@@ -875,7 +875,7 @@ class LocalModelIntentClassifier:
             "query": parsed["query"],
             "reason": str(parsed.get("reason") or "")[:160],
         })
-        return parsed
+        return parsed, report
 
 
 class ChainedModelIntentClassifier:
