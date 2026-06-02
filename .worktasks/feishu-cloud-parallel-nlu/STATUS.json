@@ -1,0 +1,10 @@
+{
+  "task": "feishu-cloud-parallel-nlu",
+  "module": "backend_api",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-feishu-cloud-parallel-nlu-20260602",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-active-worktrees/feishu-cloud-parallel-nlu",
+  "started_at": "2026-06-02 11:53:01",
+  "status": "in_progress"
+}

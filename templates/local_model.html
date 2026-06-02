@@ -106,6 +106,18 @@
     .local-model-process-body { padding:0 9px 10px; display:grid; gap:7px; }
     .local-model-process-command { display:grid; gap:3px; padding:8px; border-radius:7px; background:rgba(37,99,235,.12); color:#dbeafe; font-size:12px; font-weight:850; line-height:1.45; word-break:break-word; }
     .local-model-process-command span { display:block; }
+    .local-model-compare { display:grid; gap:6px; padding:8px; border:1px solid rgba(56,189,248,.18); border-radius:7px; background:rgba(8,47,73,.20); }
+    .local-model-compare-head { display:flex; justify-content:space-between; gap:8px; color:#bae6fd; font-size:11px; font-weight:900; }
+    .local-model-compare-head span { color:#67e8f9; white-space:nowrap; }
+    .local-model-compare-row { display:grid; grid-template-columns:42px minmax(0,1fr) 42px; gap:8px; align-items:start; padding:7px 8px; border-radius:7px; background:rgba(15,23,42,.80); }
+    .local-model-compare-row.selected { background:rgba(22,163,74,.16); border:1px solid rgba(34,197,94,.18); }
+    .local-model-compare-row.bad { background:rgba(127,29,29,.22); }
+    .local-model-compare-row > span,.local-model-compare-row > em { color:#93c5fd; font-size:11px; font-style:normal; font-weight:900; line-height:1.45; }
+    .local-model-compare-row > em { color:#86efac; text-align:right; }
+    .local-model-compare-row.bad > em { color:#fca5a5; }
+    .local-model-compare-row strong,.local-model-compare-row small { display:block; min-width:0; white-space:normal; overflow:hidden; text-overflow:ellipsis; }
+    .local-model-compare-row strong { color:#e0f2fe; font-size:12px; }
+    .local-model-compare-row small { margin-top:3px; color:#94a3b8; font-size:11px; line-height:1.4; }
     .local-model-process-step { display:grid; grid-template-columns:42px minmax(0,1fr); gap:8px; align-items:start; padding:7px 8px; border-radius:7px; background:rgba(15,23,42,.86); }
     .local-model-process-step.bad { background:rgba(127,29,29,.24); }
     .local-model-process-step > span { color:#93c5fd; font-size:11px; font-weight:900; line-height:1.5; }
@@ -156,7 +168,7 @@
                 <label class="local-model-feishu-control" id="feishuControlSwitchCard">
                   <input id="cfgFeishuControlEnabled" type="checkbox">
                   <span class="local-model-toggle-visual" aria-hidden="true"><span></span></span>
-                  <span class="local-model-feishu-copy"><span class="local-model-feishu-kicker">飞书控制安全开关</span><strong>允许飞书执行中控命令</strong><small>默认开启并会记住手动修改；关闭时飞书只允许查询和解析，不会进入真实控制执行。</small></span>
+                  <span class="local-model-feishu-copy"><span class="local-model-feishu-kicker">飞书控制执行开关</span><strong>允许飞书执行中控命令</strong><small>默认开启并会记住手动修改；关闭时飞书只允许查询和解析，不会进入真实控制执行。</small></span>
                   <span class="local-model-feishu-state" id="feishuControlState">已关闭，仅允许查询</span>
                 </label>
               </div>
@@ -172,7 +184,7 @@
                 <div><label>系统提示词</label><textarea id="cfgSystemPrompt"></textarea></div>
               </div>
               <div class="local-model-config-section local-model-cloud-section" id="cloudModelConfigSection">
-                <div class="local-model-config-section-title"><strong>云端增强模型</strong><span>Ark / DeepSeek 复杂理解、摘要刷新、低置信度转译兜底</span></div>
+                <div class="local-model-config-section-title"><strong>云端增强模型</strong><span>Ark / DeepSeek 复杂理解、飞书并行对比、当前云端为准</span></div>
                 <label class="local-model-switch-row"><span><strong>启用云端增强</strong><small id="cloudModelState">未启用，本地模型单独工作</small></span><input id="cfgCloudEnabled" type="checkbox"></label>
                 <div class="row2"><div><label>显示名称</label><input id="cfgCloudName"></div><div><label>供应商</label><input id="cfgCloudProvider"></div></div>
                 <div><label>Ark Base URL</label><input id="cfgCloudBaseUrl"></div>
@@ -180,13 +192,13 @@
                 <div><label>Ark API Key</label><input id="cfgCloudApiKey" placeholder="留空则保留原值"></div>
                 <div class="row2">
                   <label class="local-model-switch-row local-model-mini-switch"><span><strong>用于摘要刷新</strong><small>读取代码/设备知识生成维护摘要</small></span><input id="cfgCloudUseSummary" type="checkbox"></label>
-                  <label class="local-model-switch-row local-model-mini-switch"><span><strong>用于飞书理解兜底</strong><small>只生成意图/改写，不直接执行</small></span><input id="cfgCloudUseNlu" type="checkbox"></label>
+                  <label class="local-model-switch-row local-model-mini-switch"><span><strong>用于飞书并行理解</strong><small>云端和本地同时理解，执行采用云端结果</small></span><input id="cfgCloudUseNlu" type="checkbox"></label>
                 </div>
                 <div class="row2"><div><label>云端超时秒数</label><input id="cfgCloudTimeout" type="number" min="3" max="600"></div><div><label>云端输出上限</label><input id="cfgCloudMaxTokens" type="number" min="64" max="8192"></div></div>
                 <div class="actions local-model-actions"><span class="status local-model-status" id="cloudHealthBadge">未检测</span></div>
               </div>
               <div class="actions"><button class="success" onclick="saveConfig()">保存配置</button><button class="secondary" onclick="loadConfig()">重新读取</button></div>
-              <div class="hint">默认使用知识代理作为对话入口和模型服务校验。模型只负责理解；飞书控制开启后仍需人工确认。</div>
+              <div class="hint">默认使用知识代理作为对话入口；飞书自然语言由云端和本地同时理解，目前采用云端结果，本地结果用于对比和学习。</div>
             </div>
           </section>
           <section class="panel">
@@ -195,7 +207,7 @@
             <div class="form"><div class="hint local-model-hint" id="knowledgeSummaryHint">系统地图、设备清单、控制能力、代码地图和高上下文源码包会一起服务自然语言查询与受控控制。</div><button class="warning" id="summaryBtn" onclick="refreshSystemSummary()">刷新模型摘要</button></div>
           </section>
           <section class="panel">
-            <div class="panel-head"><div><div class="panel-title">自然语言处理记录</div><div class="hint">模型理解、安全路由与实际执行过程</div></div><button class="secondary" onclick="loadProcessLog()">刷新</button></div>
+            <div class="panel-head"><div><div class="panel-title">自然语言处理记录</div><div class="hint">云端/本地理解对比、路由与实际执行过程</div></div><button class="secondary" onclick="loadProcessLog()">刷新</button></div>
             <div class="local-model-process-list" id="processLog"></div>
           </section>
           <section class="panel">
@@ -207,6 +219,6 @@
       </main>
     </div>
   </div>
-<script src="/static/js/views/local-model.js?v=20260602-ark-cloud-model-v1"></script>
+<script src="/static/js/views/local-model.js?v=20260602-cloud-parallel-nlu-v1"></script>
 </body>
 </html>

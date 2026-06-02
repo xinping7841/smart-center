@@ -77,7 +77,7 @@
                     <input id="cfgFeishuControlEnabled" type="checkbox">
                     <span class="local-model-toggle-visual" aria-hidden="true"><span></span></span>
                     <span class="local-model-feishu-copy">
-                      <span class="local-model-feishu-kicker">飞书控制安全开关</span>
+                      <span class="local-model-feishu-kicker">飞书控制执行开关</span>
                       <strong>允许飞书执行中控命令</strong>
                       <small>默认开启并会记住手动修改；关闭时飞书只允许查询和解析，不会进入真实控制执行。</small>
                     </span>
@@ -137,7 +137,7 @@
                 <div class="local-model-config-section local-model-cloud-section" id="cloudModelConfigSection">
                   <div class="local-model-config-section-title">
                     <strong>云端增强模型</strong>
-                    <span>Ark / DeepSeek 复杂理解、摘要刷新、低置信度转译兜底</span>
+                    <span>Ark / DeepSeek 复杂理解、飞书并行对比、当前云端为准</span>
                   </div>
                   <label class="local-model-switch-row">
                     <span><strong>启用云端增强</strong><small id="cloudModelState">未启用，本地模型单独工作</small></span>
@@ -171,7 +171,7 @@
                       <input id="cfgCloudUseSummary" type="checkbox">
                     </label>
                     <label class="local-model-switch-row local-model-mini-switch">
-                      <span><strong>用于飞书理解兜底</strong><small>只生成意图/改写，不直接执行</small></span>
+                      <span><strong>用于飞书并行理解</strong><small>云端和本地同时理解，执行采用云端结果</small></span>
                       <input id="cfgCloudUseNlu" type="checkbox">
                     </label>
                   </div>
@@ -193,7 +193,7 @@
                   <button class="local-model-btn success" type="button" onclick="saveConfig()">保存配置</button>
                   <button class="local-model-btn secondary" type="button" onclick="loadConfig()">重新读取</button>
                 </div>
-                <div class="local-model-hint">默认使用知识代理作为对话入口和模型服务校验。模型只负责理解；飞书控制开启后仍需人工确认。</div>
+                <div class="local-model-hint">默认使用知识代理作为对话入口；飞书自然语言由云端和本地同时理解，目前采用云端结果，本地结果用于对比和学习。</div>
               </div>
             </section>
             <section class="local-model-card">
@@ -214,7 +214,7 @@
               <div class="local-model-head">
                 <div>
                   <div class="local-model-title">自然语言处理记录</div>
-                  <div class="local-model-subtitle">模型理解、安全路由与实际执行过程</div>
+                  <div class="local-model-subtitle">云端/本地理解对比、路由与实际执行过程</div>
                 </div>
                 <button class="local-model-btn secondary" type="button" onclick="loadProcessLog()">刷新</button>
               </div>
@@ -258,7 +258,7 @@
     const state = $('feishuControlState');
     const enabled = !!input?.checked;
     if (card) card.classList.toggle('is-enabled', enabled);
-    if (state) state.textContent = enabled ? '已开启，控制需确认' : '已关闭，仅允许查询';
+    if (state) state.textContent = enabled ? '已开启，可执行控制' : '已关闭，仅允许查询';
   }
   function updateCloudModelState() {
     const input = $('cfgCloudEnabled');
@@ -342,6 +342,47 @@
       return String(value || '');
     }
   }
+  function modelSourceText(value) {
+    const map = {cloud: '云端', local: '本地'};
+    return map[String(value || '')] || value || '--';
+  }
+  function findModelComparison(item) {
+    const commandComparison = item?.command?.model_comparison;
+    if (commandComparison && typeof commandComparison === 'object') return commandComparison;
+    const steps = Array.isArray(item?.steps) ? item.steps : [];
+    for (let i = steps.length - 1; i >= 0; i -= 1) {
+      const data = steps[i]?.data;
+      if (data && typeof data === 'object' && data.schema === 'smart_center.model_comparison.v1') return data;
+    }
+    return null;
+  }
+  function renderModelComparison(comparison) {
+    if (!comparison || typeof comparison !== 'object') return '';
+    const results = Array.isArray(comparison.results) ? comparison.results : [];
+    if (!results.length) return '';
+    const selected = modelSourceText(comparison.selected_source);
+    const priority = comparison.priority === 'cloud_first' ? '云端优先' : (comparison.priority === 'local_first' ? '本地优先' : comparison.priority || '--');
+    const kind = comparison.kind === 'control_translate' ? '控制转译' : '意图理解';
+    const resultHtml = results.map(row => {
+      const status = row.ok ? (row.selected ? '采用' : '对照') : '失败';
+      const main = row.intent || row.rewritten_text || row.error || '--';
+      const meta = [
+        row.model || '',
+        Number.isFinite(Number(row.elapsed_ms)) ? `${row.elapsed_ms}ms` : '',
+        row.confidence !== undefined ? `置信 ${row.confidence}` : '',
+      ].filter(Boolean).join(' · ');
+      const detail = row.query || row.reason || row.error || '';
+      return `<div class="local-model-compare-row ${row.selected ? 'selected' : ''} ${row.ok ? '' : 'bad'}">
+        <span>${esc(modelSourceText(row.source))}</span>
+        <div><strong>${esc(main)}</strong>${detail ? `<small>${esc(detail)}</small>` : ''}${meta ? `<small>${esc(meta)}</small>` : ''}</div>
+        <em>${esc(status)}</em>
+      </div>`;
+    }).join('');
+    return `<div class="local-model-compare">
+      <div class="local-model-compare-head"><strong>${esc(kind)}</strong><span>${esc(priority)} · 采用${esc(selected)}</span></div>
+      ${resultHtml}
+    </div>`;
+  }
   function processOutcomeText(value) {
     const map = {
       answered: '已回答',
@@ -383,6 +424,7 @@
         compactJson(command.payload)
       ] : [];
       const commandHtml = commandLines.length ? `<div class="local-model-process-command">${commandLines.map(line => `<span>${esc(line)}</span>`).join('')}</div>` : '';
+      const comparisonHtml = renderModelComparison(findModelComparison(item));
       return `
         <details class="local-model-process-row">
           <summary>
@@ -391,6 +433,7 @@
             <em>${esc(processOutcomeText(item.outcome))}</em>
           </summary>
           <div class="local-model-process-body">
+            ${comparisonHtml}
             ${commandHtml}
             ${stepHtml || '<div class="local-model-hint">没有细分步骤</div>'}
           </div>
@@ -500,7 +543,7 @@
     const box = $('messages');
     if (!box) return;
     if (!chatMessages.length) {
-      box.innerHTML = '<div class="local-model-msg msg system">本地模型可识别状态查询和受控控制意图；强电柜、时序电源、服务器关机/重启等高风险动作必须二次确认，不确定目标会先给出推断让你判断。</div>';
+      box.innerHTML = '<div class="local-model-msg msg system">本地模型可识别状态查询和受控控制意图；飞书理解会同时跑云端和本地，目前采用云端结果。高风险或不确定目标会先给出推断让你判断。</div>';
       return;
     }
     box.innerHTML = chatMessages.map(m => `<div class="local-model-msg msg ${esc(m.role)}">${esc(m.content)}</div>`).join('');
@@ -573,13 +616,15 @@
         api_key: readValue('cfgCloudApiKey'),
         timeout_sec: readNumber('cfgCloudTimeout', 180),
         max_tokens: readNumber('cfgCloudMaxTokens', 2048),
+        priority: 'cloud_first',
+        compare_with_local: true,
         use_for_system_summary: readChecked('cfgCloudUseSummary', true),
         use_for_nlu_fallback: readChecked('cfgCloudUseNlu', true)
       },
       natural_language: {
         ...(modelConfig?.natural_language || {}),
         feishu_control_enabled: readChecked('cfgFeishuControlEnabled'),
-        feishu_control_require_confirmation: true,
+        feishu_control_require_confirmation: false,
         record_process_enabled: true
       }
     };

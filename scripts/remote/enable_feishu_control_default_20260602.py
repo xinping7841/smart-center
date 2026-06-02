@@ -3,7 +3,8 @@
 
 This migration changes the existing production config from the previous
 conservative default to the new operator-requested default: Feishu control is
-enabled, but every control still follows confirmation, permissions, and audit.
+enabled, global confirmation is off for speed, and command-level risk can still
+request confirmation where the Smart Center router marks it necessary.
 The AI page switch remains persisted in config.json after this migration.
 """
 
@@ -43,8 +44,8 @@ def main() -> int:
     if policy.get("feishu_control_enabled") is not True:
         policy["feishu_control_enabled"] = True
         changed = True
-    if policy.get("feishu_control_require_confirmation") is not True:
-        policy["feishu_control_require_confirmation"] = True
+    if policy.get("feishu_control_require_confirmation") is not False:
+        policy["feishu_control_require_confirmation"] = False
         changed = True
     if policy.get("record_process_enabled") is not True:
         policy["record_process_enabled"] = True
