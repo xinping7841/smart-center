@@ -254,6 +254,10 @@
         setDomainTile('door', '门禁', getCount(counts, 'door'), `${door.text || '状态未知'} · 摄像头 ${door.camera_online ?? 0}/${door.camera_total ?? 0}`);
         const aiCount = { total: 2, online: (modules.local_model?.enabled ? 1 : 0) + (modules.local_model?.cloud_enabled ? 1 : 0), offline: 0, error: 0, stale: 0 };
         setDomainTile('local_model', 'AI 自然语言', aiCount, `${modules.local_model?.cloud_priority || '--'} · ${modules.local_model?.compare_with_local ? '本地对照开启' : '本地对照关闭'}`);
+        const logItems = Array.isArray(modules.logs?.items) ? modules.logs.items.filter(shouldShowDashboardLog) : [];
+        const logTotal = Number(modules.logs?.total ?? logItems.length);
+        const logsCount = { total: Math.max(1, logTotal || logItems.length), online: logItems.length ? 1 : 0, offline: 0, error: 0, stale: 0 };
+        setDomainTile('logs', '日志流', logsCount, logItems.length ? `最近 ${logItems.length} 条 · ${data.cache_hit ? '缓存命中' : '实时刷新'}` : '暂无可展示事件');
         setText('dashboard-monitor-matrix-note', `严重 ${derived.snmpCritical || 0} · 警告 ${derived.snmpWarning || 0} · 缓存 ${data.cache_hit ? '命中' : '刷新'}`);
     }
 

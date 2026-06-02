@@ -1,0 +1,37 @@
+{
+  "task": "frontend-monitor-wall-4k-polish",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-frontend-monitor-wall-4k-polish-20260602",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-monitor-wall-4k-polish",
+  "started_at": "2026-06-02 17:04:53",
+  "status": "ready_for_commit_and_production_deploy",
+  "preview_url": "http://127.0.0.1:6911/?view=dashboard",
+  "changed_files": [
+    "static/css/views/ui-wide-1080.css",
+    "static/js/app-runtime.js",
+    "static/js/views/dashboard-shell.js",
+    "static/js/views/dashboard-summary.js",
+    "templates/index.html",
+    ".worktasks/frontend-monitor-wall-4k-polish/TASK.md",
+    ".worktasks/frontend-monitor-wall-4k-polish/STATUS.json"
+  ],
+  "verified": [
+    "node --check static/js/views/dashboard-shell.js",
+    "node --check static/js/views/dashboard-summary.js",
+    "node --check static/js/app-runtime.js",
+    "node --check static/js/core/viewport-layout.js",
+    "git diff --check",
+    "playwright local 1920x1080: no horizontal overflow, dashboard buttons 0",
+    "playwright local 3840x2160: tiny text count 0, internal overflow 0, horizontal overflow 0, dashboard buttons 0",
+    "playwright sidebar switching 1920x1080: dashboard/power/light/server/logs/dashboard stable width 224px, nav row 36px, nav font 13px",
+    "playwright sidebar switching 3840x2160: dashboard/power/light/server/logs/dashboard stable width 286px, nav row 58px, nav font 18px",
+    "resource version 20260602-monitor-wall-4k-sidebar-v2 in templates/index.html and static/js/app-runtime.js"
+  ],
+  "notes": [
+    "Preview service uses SMART_CENTER_STATIC_MAX_AGE=0 on port 6911.",
+    "config.json and music_tag_library.json were dirtied by local runtime startup and are not part of the intended UI change.",
+    "Holding frontend_assets and templates_index_html locks until production deployment validation finishes."
+  ]
+}
