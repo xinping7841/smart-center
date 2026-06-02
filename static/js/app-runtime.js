@@ -3,25 +3,27 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260602-local-model-status-dashboard-v2';
+        const lazyModuleVersion = '20260602-monitor-wall-v1';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
+        const wideUiStyle = `/static/css/views/ui-wide-1080.css?v=${lazyModuleVersion}`;
+        const withWideUiStyle = styles => [...styles, wideUiStyle];
         const viewStyleGroups = {
-            dashboard: [lazyStyle('dashboard')],
-            server: [lazyStyle('server')],
-            hvac: [lazyStyle('hvac')],
-            projector: [lazyStyle('projector')],
-            snmp: [lazyStyle('snmp')],
-            proxy: [lazyStyle('proxy')],
-            universal: [lazyStyle('universal')],
-            apple_audio: [lazyStyle('apple_audio')],
-            local_model: [`/static/css/views/local-model.css?v=${lazyModuleVersion}`],
-            power: [lazyStyle('power')],
-            meter: [lazyStyle('meter')],
-            ups: [lazyStyle('ups')],
-            auto: [lazyStyle('auto')],
-            sequencer: [lazyStyle('sequencer')],
-            env: [lazyStyle('env')],
-            logs: [lazyStyle('logs')],
+            dashboard: withWideUiStyle([lazyStyle('dashboard')]),
+            server: withWideUiStyle([lazyStyle('server')]),
+            hvac: withWideUiStyle([lazyStyle('hvac')]),
+            projector: withWideUiStyle([lazyStyle('projector')]),
+            snmp: withWideUiStyle([lazyStyle('snmp')]),
+            proxy: withWideUiStyle([lazyStyle('proxy')]),
+            universal: withWideUiStyle([lazyStyle('universal')]),
+            apple_audio: withWideUiStyle([lazyStyle('apple_audio')]),
+            local_model: withWideUiStyle([`/static/css/views/local-model.css?v=${lazyModuleVersion}`]),
+            power: withWideUiStyle([lazyStyle('power')]),
+            meter: withWideUiStyle([lazyStyle('meter')]),
+            ups: withWideUiStyle([lazyStyle('ups')]),
+            auto: withWideUiStyle([lazyStyle('auto')]),
+            sequencer: withWideUiStyle([lazyStyle('sequencer')]),
+            env: withWideUiStyle([lazyStyle('env')]),
+            logs: withWideUiStyle([lazyStyle('logs')]),
         };
         SmartCenter.registerLazyModule('server-view-style', { styles: viewStyleGroups.server });
         SmartCenter.registerLazyModule('server-runtime', {
@@ -293,16 +295,7 @@
             observer: null,
             scrollBound: false,
         };
-        const dashboardDeferredModules = {
-            server_compact: { sectionId: 'server_compact', modules: ['server-summary-view'], label: '服务器摘要模块' },
-            hvac: { sectionId: 'hvac', modules: ['hvac-summary-view'], label: '空调摘要模块' },
-            power_compact: { sectionId: 'power_compact', modules: ['power-meter-runtime'], label: '强电摘要模块' },
-            power_quick: { sectionId: 'power_quick', modules: ['power-meter-runtime'], label: '强电总览模块' },
-            light_compact: { sectionId: 'light_compact', modules: ['light-runtime'], label: '灯光摘要模块' },
-            light_quick: { sectionId: 'light_quick', modules: ['light-runtime'], label: '灯光模块' },
-            projector: { sectionId: 'projector', modules: ['projector-runtime', 'projector-summary-view'], label: '投影摘要模块' },
-            screen: { sectionId: 'screen', modules: ['screen-runtime'], label: '幕布运行时模块' },
-        };
+        const dashboardDeferredModules = {};
         function isDashboardSectionNearViewport(sectionId, marginPx = 520) {
             if (getActiveViewId() !== 'dashboard') return false;
             ensureDashboardShellRendered();
@@ -619,7 +612,6 @@
                     const serverMachines = dashboardSummaryCache.modules?.server?.machines;
                     if (Array.isArray(serverMachines)) {
                         window.SmartCenter?.serverRuntime?.setDashboardServerCompactList?.(serverMachines);
-                        renderDashboardServerCompactWhenReady(serverMachines);
                     }
                     if (getActiveViewId() === 'proxy' && dashboardSummaryCache.modules?.proxy) {
                         renderProxyDetail(dashboardSummaryCache.modules.proxy);
@@ -638,13 +630,6 @@
         function resolveVisiblePowerSupplementCabIds(activeView = getActiveViewId()) {
             if (activeView === 'power') {
                 return Array.isArray(configData.cabinets) ? configData.cabinets.map((_, idx) => idx) : [];
-            }
-            if (activeView === 'dashboard' && (isDashboardSectionVisible('power_compact') || isDashboardSectionVisible('power_quick'))) {
-                return Array.isArray(configData.cabinets)
-                    ? configData.cabinets
-                        .map((_, idx) => idx)
-                        .filter(idx => !!document.getElementById(`dash-power-card-${idx}`))
-                    : [];
             }
             return [];
         }
@@ -710,9 +695,7 @@
             projector: 4400,
             screen: 5200,
             automation: 6000,
-            hy_edge: 7000,
             door: 7800,
-            logs: 8600,
             snmp: 9800,
             meter: 12500,
         };
@@ -773,27 +756,16 @@
         if (!configData.sidebar.find(item => item.id === 'apple_audio')) {
             configData.sidebar.push({ id: 'apple_audio', icon: '🎼', name: '音乐播放器', sort: 10.5, visible: true });
         }
-        if (hvacConfigs.length && !dashboardSectionConfig.hvac) {
-            dashboardSectionConfig.hvac = { title: '空调总览', visible: true, sort: 24 };
-        }
-        if (!dashboardSectionConfig.sequencer) {
-            dashboardSectionConfig.sequencer = { title: '时序电源', visible: true, sort: 25 };
-        }
-        if (!dashboardSectionConfig.snmp) {
-            dashboardSectionConfig.snmp = { title: '网络与录像机', visible: true, sort: 27 };
-        }
         const homeDashboardOrder = {
-            stats: 10,
-            projector: 20,
-            hvac: 21,
-            hy_edge: 22,
-            ups_compact: 23,
-            screen: 24,
-            sequencer: 25,
-            light_compact: 26,
-            power_compact: 27,
-            snmp: 27.2,
-            server_compact: 28,
+            hero: 10,
+            stats: 20,
+            status_matrix: 30,
+            device_focus: 40,
+            ai_model: 50,
+            alerts: 60,
+            snmp: 70,
+            server_compact: 80,
+            energy_trend: 90,
         };
         Object.entries(homeDashboardOrder).forEach(([key, sort]) => {
             dashboardSectionConfig[key] = Object.assign(
@@ -802,20 +774,6 @@
                 { sort }
             );
         });
-        const dashboardSectionDefaults = {
-            power_compact: { title: '强电柜状态', visible: true, sort: homeDashboardOrder.power_compact },
-            light_compact: { title: '灯光控制显示', visible: true, sort: homeDashboardOrder.light_compact },
-            server_compact: { title: '机器状态', visible: true, sort: homeDashboardOrder.server_compact },
-            ups_compact: { title: 'UPS状态', visible: true, sort: homeDashboardOrder.ups_compact },
-            screen: { title: '幕布状态', visible: true, sort: homeDashboardOrder.screen },
-        };
-        Object.entries(dashboardSectionDefaults).forEach(([key, defaults]) => {
-            dashboardSectionConfig[key] = Object.assign({}, defaults, dashboardSectionConfig[key] || {}, { sort: defaults.sort });
-        });
-        if (dashboardSectionConfig.screen) {
-            dashboardSectionConfig.screen.sort = homeDashboardOrder.screen;
-            dashboardSectionConfig.screen.visible = dashboardSectionConfig.screen.visible !== false;
-        }
         function getAgentBaseUrl() {
             const api = window.SmartCenter?.serverRuntime;
             if (api?.getDeployBatUrl) return String(api.getDeployBatUrl(getServerRuntimeContext())).replace(/\/deploy_agent\.bat$/, '');
@@ -1403,9 +1361,18 @@
         const applyAdaptiveDensity = window.applyAdaptiveDensity || (() => {});
         const applyDashboardBrowserFit = window.applyDashboardBrowserFit || (() => {});
         const updateLayoutDebugPanel = window.updateLayoutDebugPanel || (() => {});
+        function isDedicatedDashboardDisplayMode() {
+            const params = new URLSearchParams(window.location.search || '');
+            const displayMode = String(params.get('display_mode') || params.get('mode') || '').toLowerCase();
+            const fitDashboard = String(params.get('fit_dashboard') || '').toLowerCase();
+            return ['wall', 'kiosk', 'carousel', 'fixed', 'canvas'].includes(displayMode)
+                || ['1', 'true', 'on', 'fit', 'fixed', 'canvas', 'kiosk', 'carousel'].includes(fitDashboard);
+        }
         function syncDashboardCompactMode(viewId = getActiveViewId()) {
-            document.body.classList.toggle('dashboard-compact-mode', viewId === 'dashboard');
-            document.body.classList.toggle('dashboard-masonry-mode', viewId === 'dashboard');
+            const dedicatedDisplay = viewId === 'dashboard' && isDedicatedDashboardDisplayMode();
+            document.body.classList.toggle('dashboard-wide-mode', viewId === 'dashboard');
+            document.body.classList.toggle('dashboard-compact-mode', dedicatedDisplay);
+            document.body.classList.toggle('dashboard-masonry-mode', dedicatedDisplay);
             applyDashboardBrowserFit();
             scheduleDashboardMasonry();
         }
@@ -1589,13 +1556,27 @@
             if (!dashboard) return;
             const sections = Array.from(dashboard.querySelectorAll('[data-section-id]'));
             sections.sort((a, b) => {
+                const defaultSort = {
+                    hero: 1,
+                    stats: 2,
+                    status_matrix: 3,
+                    device_focus: 4,
+                    ai_model: 5,
+                    alerts: 6,
+                    snmp: 7,
+                    server_compact: 8,
+                    energy_trend: 9,
+                };
                 const sa = dashboardSectionConfig[a.dataset.sectionId] || {};
                 const sb = dashboardSectionConfig[b.dataset.sectionId] || {};
-                return Number(sa.sort || 999) - Number(sb.sort || 999);
+                const aSort = Number(sa.sort ?? defaultSort[a.dataset.sectionId] ?? 999);
+                const bSort = Number(sb.sort ?? defaultSort[b.dataset.sectionId] ?? 999);
+                return aSort - bSort;
             }).forEach(section => dashboard.appendChild(section));
             sections.forEach(section => {
                 const meta = dashboardSectionConfig[section.dataset.sectionId] || {};
-                section.style.display = meta.visible === false ? 'none' : '';
+                const alwaysVisible = ['hero', 'stats', 'status_matrix', 'device_focus', 'ai_model', 'alerts', 'snmp', 'server_compact', 'energy_trend'].includes(section.dataset.sectionId);
+                section.style.display = !alwaysVisible && meta.visible === false ? 'none' : '';
             });
         }
         let dashboardMasonryTimer = 0;
@@ -1604,6 +1585,16 @@
         function applyDashboardMasonry() {
             const dashboard = document.getElementById('view-dashboard');
             if (!dashboard || getActiveViewId() !== 'dashboard') return;
+            if (!document.body.classList.contains('dashboard-masonry-mode')) {
+                Array.from(dashboard.querySelectorAll('[data-section-id]')).forEach(section => {
+                    section.style.removeProperty('--smart-dashboard-row-span');
+                    section.style.gridRowEnd = '';
+                    section.style.gridRowStart = '';
+                    section.style.gridColumnStart = '';
+                    section.style.gridColumnEnd = '';
+                });
+                return;
+            }
             const style = window.getComputedStyle ? window.getComputedStyle(dashboard) : null;
             const rowHeight = style ? parseFloat(style.gridAutoRows || '0') : 0;
             const rowGap = style ? parseFloat(style.rowGap || style.gap || '0') : 0;
@@ -1628,6 +1619,10 @@
             dashboardMasonryTimer = window.setTimeout(() => applyDashboardMasonry(), delay);
         }
         function initDashboardMasonryObservers() {
+            if (!document.body.classList.contains('dashboard-masonry-mode')) {
+                applyDashboardMasonry();
+                return;
+            }
             applyDashboardMasonry();
             if (dashboardResizeObserver || typeof ResizeObserver !== 'function') return;
             const dashboard = document.getElementById('view-dashboard');
@@ -2285,7 +2280,7 @@
             guardFrontendStep('bootstrap.agent_version', () => refreshLatestAgentVersion());
             guardFrontendStep('bootstrap.server_compact', () => {
                 const initialView = getInitialViewFromUrl();
-                if (!initialView || initialView === 'dashboard') refreshDashboardServerCompactFallback();
+                if (initialView && initialView !== 'dashboard') refreshDashboardServerCompactFallback();
             });
             const userBadge = document.getElementById('top-user-badge');
             if (userBadge) {
@@ -2385,17 +2380,17 @@
                     });
             }
             return updatePowerData();
-        }, () => getActiveViewId() === 'power' || (getActiveViewId() === 'dashboard' && (isDashboardSectionNearViewport('power_compact') || isDashboardSectionNearViewport('power_quick'))));
+        }, () => getActiveViewId() === 'power');
         registerPollingTask('meter', 4500, () => updateMeterCenter(), () => getActiveViewId() === 'meter');
-        registerPollingTask('ups', 4500, () => ensureViewReady('ups').then(() => updateUpsStatus()), () => getActiveViewId() === 'ups' || (getActiveViewId() === 'dashboard' && (isDashboardSectionNearViewport('ups_compact') || isDashboardSectionNearViewport('ups'))));
-        registerPollingTask('hy_edge', 6000, () => window.updateHyEdgeStatus(), () => ['dashboard'].includes(getActiveViewId()) || isDashboardSectionVisible('hy_edge'));
-        registerPollingTask('dashboard_summary', 5000, () => updateDashboardSummary(), () => getActiveViewId() === 'dashboard' || isDashboardSectionVisible('stats'));
+        registerPollingTask('ups', 4500, () => ensureViewReady('ups').then(() => updateUpsStatus()), () => getActiveViewId() === 'ups');
+        registerPollingTask('hy_edge', 6000, () => window.updateHyEdgeStatus(), () => false);
+        registerPollingTask('dashboard_summary', 5000, () => updateDashboardSummary(), () => getActiveViewId() === 'dashboard');
         registerPollingTask('proxy', 5000, () => ensureViewReady('proxy').then(() => updateProxyStatus()), () => getActiveViewId() === 'proxy');
-        registerPollingTask('snmp', 9000, () => updateSnmpStatus(), () => ['dashboard', 'snmp', 'camera_preview'].includes(getActiveViewId()) || isDashboardSectionVisible('snmp'));
+        registerPollingTask('snmp', 9000, () => updateSnmpStatus(), () => ['snmp', 'camera_preview'].includes(getActiveViewId()));
         registerPollingTask('hvac', 5000, () => {
             const modules = getActiveViewId() === 'hvac' ? ['hvac-view'] : ['hvac-summary-view'];
             return ensureModulesReady(modules, '空调模块').then(() => updateHvacStatus());
-        }, () => getActiveViewId() === 'hvac' || (getActiveViewId() === 'dashboard' && isDashboardSectionNearViewport('hvac')));
+        }, () => getActiveViewId() === 'hvac');
         registerPollingTask('light', 2200, () => {
             const modules = getActiveViewId() === 'light' ? ['light-runtime', 'light-scene-view'] : ['light-runtime'];
             return ensureModulesReady(modules, '灯光状态模块')
@@ -2403,23 +2398,23 @@
                     if (getActiveViewId() === 'light') renderLightSceneView('light');
                     return updateLightData();
                 });
-        }, () => getActiveViewId() === 'light' || (getActiveViewId() === 'dashboard' && (isDashboardSectionNearViewport('light_compact') || isDashboardSectionNearViewport('light_quick'))));
+        }, () => getActiveViewId() === 'light');
         registerPollingTask('node_red', 5000, () => ensureViewReady('universal').then(() => updateNodeRedDevices()), () => getActiveViewId() === 'universal');
         registerPollingTask('server', 5000, () => ensureViewReady('server').then(() => updateServerData()), () => getActiveViewId() === 'server');
-        registerPollingTask('door', 1200, () => updateDoorStatus(), () => ['dashboard', 'door'].includes(getActiveViewId()) || isDashboardSectionVisible('door'));
-        registerPollingTask('env', 2000, () => window.updateEnvData(), () => ['dashboard', 'env', 'hvac'].includes(getActiveViewId()) || isDashboardSectionVisible('env') || isDashboardSectionVisible('hvac'));
+        registerPollingTask('door', 1200, () => updateDoorStatus(), () => getActiveViewId() === 'door');
+        registerPollingTask('env', 2000, () => window.updateEnvData(), () => ['env', 'hvac'].includes(getActiveViewId()));
         registerPollingTask('automation', 4000, () => {
             loadAutomationStatus();
             if (getActiveViewId() === 'auto') window.loadAutomationLogs();
-        }, () => ['dashboard', 'auto'].includes(getActiveViewId()));
+        }, () => getActiveViewId() === 'auto');
         registerPollingTask('projector', 6000, () => {
             const modules = getActiveViewId() === 'projector' ? ['projector-runtime', 'projector-view'] : ['projector-runtime', 'projector-summary-view'];
             return ensureModulesReady(modules, '投影模块').then(() => updateProjectorStatus());
-        }, () => getActiveViewId() === 'projector' || (getActiveViewId() === 'dashboard' && isDashboardSectionNearViewport('projector')));
-        registerPollingTask('sequencer', 4500, () => ensureModulesReady(['sequencer-runtime'], '时序电源运行时模块').then(() => updateSequencerStatus()), () => getActiveViewId() === 'sequencer' || (getActiveViewId() === 'dashboard' && isDashboardSectionNearViewport('sequencer')));
-        registerPollingTask('screen', 4500, () => ensureModulesReady(['screen-runtime'], '幕布运行时模块').then(() => updateScreenStatus()), () => getActiveViewId() === 'screen' || (getActiveViewId() === 'dashboard' && isDashboardSectionNearViewport('screen')));
+        }, () => getActiveViewId() === 'projector');
+        registerPollingTask('sequencer', 4500, () => ensureModulesReady(['sequencer-runtime'], '时序电源运行时模块').then(() => updateSequencerStatus()), () => getActiveViewId() === 'sequencer');
+        registerPollingTask('screen', 4500, () => ensureModulesReady(['screen-runtime'], '幕布运行时模块').then(() => updateScreenStatus()), () => getActiveViewId() === 'screen');
         registerPollingTask('apple_audio', 3200, () => ensureViewReady('apple_audio').then(() => loadAppleAudioStatus()), () => ['apple_audio'].includes(getActiveViewId()));
-        registerPollingTask('logs', 5000, () => window.updateDashboardLogs(), () => getActiveViewId() === 'dashboard');
+        registerPollingTask('logs', 5000, () => window.updateDashboardLogs(), () => getActiveViewId() === 'logs');
         registerPollingTask('event_logs', 5000, () => window.refreshEventLogs(false), () => getActiveViewId() === 'logs');
 
         // AI_BRIDGE: door_runtime

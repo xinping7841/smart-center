@@ -1,0 +1,27 @@
+{
+  "task": "frontend-wide-ui-1080-polish",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-frontend-wide-ui-1080-polish-20260602",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-wide-ui-1080-polish",
+  "started_at": "2026-06-02 14:41:30",
+  "status": "verified_local",
+  "locks": [
+    "frontend_assets",
+    "templates_index_html"
+  ],
+  "resource_version": "20260602-monitor-wall-v1",
+  "production_backup": "/srv/smart-center/backups/pre-ui-wide-1080-polish-20260602_144238-b4e814c",
+  "verified": [
+    "node --check dashboard shell/summary/runtime/layout scripts",
+    "python -m py_compile api/dashboard.py",
+    "GET /api/dashboard/summary",
+    "Playwright 1920x1080 overflow/buttons/scripts",
+    "Playwright 3840x2160 overflow/buttons/scripts"
+  ],
+  "not_committed": [
+    "config.json",
+    "music_tag_library.json"
+  ]
+}

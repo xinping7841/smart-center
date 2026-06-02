@@ -144,14 +144,15 @@
             root.style.removeProperty('--dashboard-fit-offset-y');
         };
         const params = new URLSearchParams(global.location.search);
-        const disabled = ['0', 'false', 'off', 'none'].includes(String(params.get('fit_dashboard') || '').toLowerCase());
+        const fitMode = String(params.get('fit_dashboard') || params.get('display_mode') || '').toLowerCase();
+        const enabled = ['1', 'true', 'on', 'fit', 'fixed', 'canvas', 'kiosk', 'carousel'].includes(fitMode);
         const activeView = getCurrentViewId();
         const mobileMode = typeof info.isMobile === 'boolean' ? info.isMobile : document.body.classList.contains('mobile-layout');
         const tabletMode = typeof info.isTablet === 'boolean' ? info.isTablet : document.body.classList.contains('tablet-layout');
         const touchWideMode = typeof info.isTouchWide === 'boolean' ? info.isTouchWide : document.body.classList.contains('touch-wide-layout');
         const touchPortraitMode = typeof info.isTouchPortrait === 'boolean' ? info.isTouchPortrait : document.body.classList.contains('touch-portrait-layout');
         const desktopDashboard = activeView === 'dashboard' && !mobileMode && !tabletMode && !touchWideMode && !touchPortraitMode;
-        if (disabled || !desktopDashboard) {
+        if (!enabled || !desktopDashboard) {
             clearFit();
             return;
         }
