@@ -3,13 +3,13 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="/static/js/core/viewport-layout.js?v=20260602-wall-page-density-v1"></script>
+    <script src="/static/js/core/viewport-layout.js?v=20260603-sidebar-carousel-v1"></script>
     <title>{{ config.global_text.title_main if config.global_text else "演播中控调度引擎" }}</title>
-    <link rel="stylesheet" href="/static/css/core/critical.css?v=20260602-wall-page-density-v1">
-    <link rel="stylesheet" href="/static/css/generated/core-theme.css?v=20260602-wall-page-density-v1">
-    <link rel="stylesheet" href="/static/css/views/dashboard-inline.css?v=20260602-wall-page-density-v1">
-    <link rel="stylesheet" href="/static/css/views/hotfix-overrides.css?v=20260602-wall-page-density-v1">
-    <link rel="stylesheet" href="/static/css/views/ui-wide-1080.css?v=20260602-wall-page-density-v1">
+    <link rel="stylesheet" href="/static/css/core/critical.css?v=20260603-sidebar-carousel-v1">
+    <link rel="stylesheet" href="/static/css/generated/core-theme.css?v=20260603-sidebar-carousel-v1">
+    <link rel="stylesheet" href="/static/css/views/dashboard-inline.css?v=20260603-sidebar-carousel-v1">
+    <link rel="stylesheet" href="/static/css/views/hotfix-overrides.css?v=20260603-sidebar-carousel-v1">
+    <link rel="stylesheet" href="/static/css/views/ui-wide-1080.css?v=20260603-sidebar-carousel-v1">
 </head>
 <body>
     <div id="toast" class="toast-msg">提示信息</div>
@@ -151,8 +151,8 @@
         window.currentUser = {{ current_user.as_dict() | tojson | safe }};
         const currentUser = window.currentUser || { permissions: [] };
     </script>
-    <script src="/static/js/views/dashboard-shell.js?v=20260602-wall-page-density-v1"></script>
-    <script src="/static/js/views/page-shells.js?v=20260602-wall-page-density-v1"></script>
+    <script src="/static/js/views/dashboard-shell.js?v=20260603-sidebar-carousel-v1"></script>
+    <script src="/static/js/views/page-shells.js?v=20260603-sidebar-carousel-v1"></script>
     <script>
         window.renderDashboardShell?.(window.configData || {});
         try {
@@ -161,6 +161,6 @@
             if (initialView && initialView !== 'dashboard') window.renderPageShell?.(initialView);
         } catch (_) {}
     </script>
-    <script src="/static/js/app-runtime.js?v=20260602-wall-page-density-v1"></script>
+    <script src="/static/js/app-runtime.js?v=20260603-sidebar-carousel-v1"></script>
 </body>
 </html>
