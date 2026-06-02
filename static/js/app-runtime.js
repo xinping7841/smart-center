@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260602-monitor-wall-4k-sidebar-v2';
+        const lazyModuleVersion = '20260602-wall-page-density-v1';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const wideUiStyle = `/static/css/views/ui-wide-1080.css?v=${lazyModuleVersion}`;
         const withWideUiStyle = styles => [...styles, wideUiStyle];
@@ -25,6 +25,7 @@
             env: withWideUiStyle([lazyStyle('env')]),
             logs: withWideUiStyle([lazyStyle('logs')]),
         };
+        SmartCenter.registerLazyModule('wide-ui-style', { styles: [wideUiStyle] });
         SmartCenter.registerLazyModule('server-view-style', { styles: viewStyleGroups.server });
         SmartCenter.registerLazyModule('server-runtime', {
             scripts: [`/static/js/views/server-runtime.js?v=${lazyModuleVersion}`],
@@ -157,7 +158,7 @@
         SmartCenter.registerViewModules('apple_audio', ['apple-audio-view']);
         SmartCenter.registerViewModules('local_model', ['local-model-view']);
         SmartCenter.registerViewModules('power', ['power-view-style', 'logs-view-style', 'logs-runtime', 'power-meter-runtime', 'power-page-view']);
-        SmartCenter.registerViewModules('light', ['logs-view-style', 'light-runtime', 'light-scene-view']);
+        SmartCenter.registerViewModules('light', ['logs-view-style', 'wide-ui-style', 'light-runtime', 'light-scene-view']);
         SmartCenter.registerViewModules('scene', ['light-runtime', 'light-scene-view']);
         SmartCenter.registerViewModules('door', ['door-runtime']);
         SmartCenter.registerViewModules('meter', ['meter-view-style', 'power-meter-runtime']);
@@ -193,6 +194,16 @@
                 .catch(err => {
                     console.error(`${contextLabel}调用失败`, err);
                     return null;
+                });
+        }
+        function refreshLogsViewNow(contextLabel = '日志中心模块') {
+            return ensureViewReady('logs')
+                .then(() => {
+                    if (getActiveViewId() !== 'logs') return null;
+                    return withLogsRuntime(api => {
+                        api.renderEventLogPageShell?.();
+                        return api.refreshEventLogs?.(false);
+                    }, contextLabel);
                 });
         }
         function ensureEnvReady(contextLabel = '环境模块') {
@@ -1494,6 +1505,7 @@
             if (viewId === 'apple_audio') setTimeout(() => { ensureViewReady('apple_audio').then(() => initAppleAudioDemo()).catch(() => {}); }, 60);
             if (viewId === 'local_model') setTimeout(() => { ensureViewReady('local_model').then(() => window.SmartCenter?.localModel?.init?.()).catch(() => {}); }, 60);
             if (viewId === 'projector') setTimeout(() => { ensureViewReady('projector').then(() => updateProjectorStatus()).catch(() => {}); }, 80);
+            if (viewId === 'logs') setTimeout(() => { refreshLogsViewNow('日志中心页面加载').catch(() => {}); }, 80);
             if (viewId === 'dashboard') preloadDashboardSupportModules();
             refreshPollingVisibility();
         }

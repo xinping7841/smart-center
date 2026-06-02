@@ -1,0 +1,33 @@
+{
+  "task": "frontend-wide-page-density",
+  "module": "frontend_assets",
+  "extra_locks": [
+    "templates_index_html"
+  ],
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-frontend-wide-page-density-20260602",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-wide-page-density",
+  "started_at": "2026-06-02 18:27:03",
+  "status": "validated",
+  "goal": "Tune non-dashboard runtime pages for 16:9 monitoring-wall density at 1920x1080 and 3840x2160.",
+  "changed_files": [
+    "static/css/views/ui-wide-1080.css",
+    "static/js/core/viewport-layout.js",
+    "static/js/app-runtime.js",
+    "templates/index.html"
+  ],
+  "verification": [
+    "node --check static/js/app-runtime.js",
+    "node --check static/js/core/viewport-layout.js",
+    "git diff --check",
+    "CSS brace count 469/469",
+    "Browser metrics at 1920x1080 and 3840x2160 for power/light/server/logs",
+    "Route sequence dashboard -> power -> light -> server -> logs -> dashboard"
+  ],
+  "safety": [
+    "No real device control buttons clicked",
+    "No control payloads, permissions, or confirmation logic changed",
+    "No production deployment in this task"
+  ]
+}

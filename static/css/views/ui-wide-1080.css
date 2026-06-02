@@ -2264,3 +2264,703 @@ body.dashboard-wide-mode .monitor-empty {
         grid-row: auto !important;
     }
 }
+
+/* Monitoring wall: 16:9 density for non-dashboard runtime pages. */
+body.wall-display-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .view-section.active:not(#view-dashboard) {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    overflow: visible !important;
+}
+
+body.wall-display-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) :is(
+    #view-power,
+    #view-light,
+    #view-server,
+    #view-logs
+) > .card {
+    margin-bottom: 12px !important;
+    padding: 12px !important;
+    border-radius: 8px !important;
+}
+
+body.wall-display-mode #view-power .power-log-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+}
+
+body.wall-display-mode #view-power .power-log-summary-list {
+    height: 104px !important;
+    max-height: 104px !important;
+}
+
+body.wall-display-mode #power-page-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(760px, 1fr)) !important;
+    gap: 12px !important;
+    align-items: start !important;
+}
+
+body.wall-display-mode #power-page-grid > .card {
+    min-width: 0 !important;
+    margin-bottom: 0 !important;
+    padding: 12px !important;
+    border-radius: 8px !important;
+}
+
+body.wall-display-mode #view-power .cab-header {
+    min-height: 30px !important;
+    margin-bottom: 8px !important;
+    gap: 10px !important;
+}
+
+body.wall-display-mode #view-power .cab-header h3 {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    font-size: 16px !important;
+    line-height: 1.18 !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+body.wall-display-mode #view-power .info-bar {
+    display: grid !important;
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    gap: 6px 10px !important;
+    margin-bottom: 9px !important;
+    padding: 8px 10px !important;
+    font-size: 11px !important;
+}
+
+body.wall-display-mode #view-power .info-bar > div,
+body.wall-display-mode #view-power .info-bar span {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+body.wall-display-mode #view-power .info-bar span {
+    font-size: 12px !important;
+}
+
+body.wall-display-mode #view-power .btn-group {
+    gap: 7px !important;
+    margin-bottom: 10px !important;
+    flex-wrap: nowrap !important;
+}
+
+body.wall-display-mode #view-power .btn-base {
+    min-height: 30px !important;
+    padding: 6px 12px !important;
+    border-radius: 7px !important;
+    font-size: 12px !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+}
+
+body.wall-display-mode #view-power .panel-grid {
+    grid-template-columns: minmax(0, 0.74fr) minmax(0, 1.32fr) minmax(0, 0.74fr) !important;
+    gap: 10px !important;
+}
+
+body.wall-display-mode #view-power .param-box {
+    margin-bottom: 8px !important;
+    padding: 10px !important;
+    border-radius: 8px !important;
+}
+
+body.wall-display-mode #view-power .param-row {
+    min-width: 0 !important;
+    margin: 5px 0 !important;
+    gap: 8px !important;
+    font-size: 12px !important;
+    line-height: 1.25 !important;
+}
+
+body.wall-display-mode #view-power .param-row .val {
+    min-width: 0 !important;
+    overflow: hidden !important;
+    font-size: 13px !important;
+    text-align: right !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+body.wall-display-mode #view-power .channel-grid {
+    grid-template-columns: repeat(auto-fill, minmax(102px, 1fr)) !important;
+    gap: 8px !important;
+    margin-bottom: 10px !important;
+}
+
+body.wall-display-mode #view-power .ch-btn.power-channel-btn {
+    min-height: 62px !important;
+    height: 62px !important;
+    padding: 8px 9px 7px !important;
+    border-radius: 8px !important;
+}
+
+body.wall-display-mode #view-power .ch-btn.power-channel-btn .name {
+    font-size: 13px !important;
+}
+
+body.wall-display-mode #view-power .ch-btn.power-channel-btn .remark {
+    font-size: 10px !important;
+}
+
+body.wall-display-mode #view-power .ch-btn.power-channel-btn .state {
+    font-size: 10px !important;
+    letter-spacing: 0 !important;
+}
+
+body.wall-display-mode #view-power .chart-box {
+    height: 180px !important;
+    padding: 8px !important;
+    border-radius: 8px !important;
+}
+
+body.wall-display-mode #view-power .right-col .log-list {
+    height: 180px !important;
+    padding: 8px !important;
+    font-size: 11px !important;
+}
+
+body.wall-display-mode #view-power .right-col .log-item {
+    padding: 5px 4px !important;
+    gap: 6px !important;
+    line-height: 1.25 !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(430px, 1fr)) !important;
+    gap: 12px !important;
+    align-items: start !important;
+    justify-content: stretch !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid > .card {
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin-bottom: 0 !important;
+    padding: 12px !important;
+    border-radius: 8px !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid .cab-header {
+    min-height: 30px !important;
+    margin-bottom: 8px !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid .cab-header h3 {
+    overflow: hidden !important;
+    font-size: 15px !important;
+    line-height: 1.18 !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid .info-bar {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    margin-bottom: 8px !important;
+    padding: 7px 8px !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid .light-diagnostic-panel {
+    gap: 5px !important;
+    margin-bottom: 8px !important;
+    padding: 6px !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid .light-diagnostic-item,
+body.wall-display-mode #view-light #light-page-grid .light-diagnostic-reason {
+    border-radius: 7px !important;
+    font-size: 10px !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid .light-diagnostic-item span {
+    font-size: 10px !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid .channel-grid,
+body.wall-display-mode #view-light #light-page-grid .relay-input-grid {
+    grid-template-columns: repeat(auto-fill, minmax(98px, 1fr)) !important;
+    gap: 7px !important;
+    justify-content: stretch !important;
+    margin-bottom: 8px !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid .ch-span-2,
+body.wall-display-mode #view-light #light-page-grid .ch-span-3,
+body.wall-display-mode #view-light #light-page-grid .ch-span-4 {
+    grid-column: span 1 !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid .ch-btn {
+    height: 72px !important;
+    border-radius: 8px !important;
+    padding: 5px 6px 6px !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid .ch-btn .name {
+    min-height: 14px !important;
+    font-size: 10px !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid .ch-btn .state {
+    left: 6px !important;
+    right: 6px !important;
+    bottom: 5px !important;
+    font-size: 10px !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid .ch-btn::before {
+    top: 18px !important;
+    width: 42px !important;
+    height: 38px !important;
+    border-radius: 10px !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid .ch-btn::after {
+    top: 25px !important;
+    width: 19px !important;
+    height: 27px !important;
+    border-radius: 7px !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid .ch-btn.ch-on::after {
+    top: 22px !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid .ch-btn.ch-off::after {
+    top: 31px !important;
+}
+
+body.wall-display-mode #view-light #light-page-grid .relay-input-chip {
+    min-height: 42px !important;
+    padding: 7px 8px !important;
+    border-radius: 8px !important;
+}
+
+body.wall-display-mode #view-light .log-list {
+    height: 210px !important;
+    font-size: 11px !important;
+}
+
+body.wall-display-mode #view-server .card-title {
+    margin-bottom: 12px !important;
+    padding-bottom: 8px !important;
+}
+
+body.wall-display-mode #view-server .server-grid {
+    gap: 10px !important;
+}
+
+body.wall-display-mode #view-server .server-group-section {
+    padding: 10px !important;
+    border-radius: 8px !important;
+}
+
+body.wall-display-mode #view-server .server-group-head {
+    margin-bottom: 9px !important;
+    padding-bottom: 7px !important;
+}
+
+body.wall-display-mode #view-server .server-group-title {
+    font-size: 15px !important;
+}
+
+body.wall-display-mode #view-server .server-group-meta {
+    font-size: 11px !important;
+}
+
+body.wall-display-mode #view-server .server-group-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)) !important;
+    gap: 10px !important;
+    align-items: start !important;
+}
+
+body.wall-display-mode #view-server .server-group-grid > *,
+body.wall-display-mode #view-server .server-card,
+body.wall-display-mode #view-server .server-card.size-normal,
+body.wall-display-mode #view-server .server-card.size-large,
+body.wall-display-mode #view-server .server-card.size-full {
+    grid-column: span 1 !important;
+    width: auto !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    flex: initial !important;
+}
+
+body.wall-display-mode #view-server .server-card {
+    padding: 10px 11px !important;
+    border-radius: 8px !important;
+}
+
+body.wall-display-mode #view-server .server-title {
+    margin-bottom: 3px !important;
+    gap: 8px !important;
+    font-size: 14px !important;
+    line-height: 1.15 !important;
+}
+
+body.wall-display-mode #view-server .server-ip {
+    margin-bottom: 6px !important;
+    font-size: 11px !important;
+}
+
+body.wall-display-mode #view-server .server-meta-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 5px !important;
+    margin-bottom: 6px !important;
+}
+
+body.wall-display-mode #view-server .server-meta-chip {
+    padding: 5px 6px !important;
+    border-radius: 7px !important;
+}
+
+body.wall-display-mode #view-server .server-meta-chip span,
+body.wall-display-mode #view-server .server-meta-chip em {
+    font-size: 10px !important;
+}
+
+body.wall-display-mode #view-server .server-meta-chip strong {
+    font-size: 11px !important;
+}
+
+body.wall-display-mode #view-server .server-alert-note,
+body.wall-display-mode #view-server .server-offline-snapshot,
+body.wall-display-mode #view-server .server-command-result,
+body.wall-display-mode #view-server .server-command-disabled-note,
+body.wall-display-mode #view-server .server-pending-command {
+    margin-top: 6px !important;
+    margin-bottom: 6px !important;
+    padding: 6px 7px !important;
+    border-radius: 7px !important;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+}
+
+body.wall-display-mode #view-server .metric-row {
+    min-height: 28px !important;
+    margin-bottom: 6px !important;
+}
+
+body.wall-display-mode #view-server .metric-label {
+    min-height: 16px !important;
+    margin-bottom: 2px !important;
+    font-size: 11px !important;
+}
+
+body.wall-display-mode #view-server .progress-track {
+    height: 4px !important;
+}
+
+body.wall-display-mode #view-server .server-network-line,
+body.wall-display-mode #view-server .server-codemeter-line {
+    margin-top: 6px !important;
+    font-size: 11px !important;
+}
+
+body.wall-display-mode #view-server .server-network-line strong,
+body.wall-display-mode #view-server .server-codemeter-line strong {
+    font-size: 11px !important;
+}
+
+body.wall-display-mode #view-server .gpu-list {
+    max-height: 78px !important;
+    margin-top: 6px !important;
+    padding-top: 6px !important;
+    gap: 5px !important;
+    overflow: auto !important;
+}
+
+body.wall-display-mode #view-server .gpu-list .server-gpu-row {
+    min-height: 48px !important;
+    padding: 6px !important;
+    border-radius: 7px !important;
+}
+
+body.wall-display-mode #view-server .server-compact-actions {
+    margin-top: 8px !important;
+    padding-top: 7px !important;
+    gap: 5px !important;
+}
+
+body.wall-display-mode #view-server .server-action-btn {
+    min-height: 25px !important;
+    padding: 3px 8px !important;
+    border-radius: 6px !important;
+    font-size: 11px !important;
+}
+
+body.wall-display-mode #view-server .server-action-btn.icon {
+    width: 25px !important;
+    padding: 0 !important;
+}
+
+body.wall-display-mode #view-logs .event-log-page {
+    min-height: calc(100dvh - 110px) !important;
+    margin-bottom: 0 !important;
+}
+
+body.wall-display-mode #view-logs .event-log-toolbar {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+    gap: 7px !important;
+}
+
+body.wall-display-mode #view-logs .event-log-toolbar select,
+body.wall-display-mode #view-logs .event-log-toolbar input,
+body.wall-display-mode #view-logs .event-log-toolbar button {
+    min-height: 32px !important;
+    border-radius: 7px !important;
+    font-size: 12px !important;
+}
+
+body.wall-display-mode #view-logs .event-log-table-wrap {
+    max-height: calc(100dvh - 245px) !important;
+}
+
+body.wall-display-mode #view-logs .event-log-table {
+    min-width: 1080px !important;
+    font-size: 12px !important;
+}
+
+body.wall-display-mode #view-logs .event-log-table th,
+body.wall-display-mode #view-logs .event-log-table td {
+    padding: 8px 9px !important;
+}
+
+body.wall-display-mode #view-logs .event-message {
+    max-width: 620px !important;
+}
+
+@media screen and (min-width: 2200px) and (min-height: 1400px) {
+    body.wall-display-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) :is(
+        #view-power,
+        #view-light,
+        #view-server,
+        #view-logs
+    ) > .card {
+        margin-bottom: 16px !important;
+        padding: 18px !important;
+        border-radius: 10px !important;
+    }
+
+    body.wall-display-mode #view-power .power-log-summary-grid {
+        gap: 14px !important;
+    }
+
+    body.wall-display-mode #view-power .power-log-summary-list {
+        height: 170px !important;
+        max-height: 170px !important;
+    }
+
+    body.wall-display-mode #power-page-grid {
+        grid-template-columns: repeat(auto-fit, minmax(1020px, 1fr)) !important;
+        gap: 16px !important;
+    }
+
+    body.wall-display-mode #power-page-grid > .card {
+        padding: 18px !important;
+        border-radius: 10px !important;
+    }
+
+    body.wall-display-mode #view-power .cab-header h3 {
+        font-size: 22px !important;
+    }
+
+    body.wall-display-mode #view-power .info-bar {
+        gap: 10px 14px !important;
+        padding: 12px 14px !important;
+        font-size: 16px !important;
+    }
+
+    body.wall-display-mode #view-power .info-bar span,
+    body.wall-display-mode #view-power .btn-base,
+    body.wall-display-mode #view-power .param-row,
+    body.wall-display-mode #view-power .right-col .log-list,
+    body.wall-display-mode #view-power .right-col .log-item {
+        font-size: 16px !important;
+    }
+
+    body.wall-display-mode #view-power .panel-grid {
+        grid-template-columns: minmax(0, 0.78fr) minmax(0, 1.35fr) minmax(0, 0.82fr) !important;
+        gap: 14px !important;
+    }
+
+    body.wall-display-mode #view-power .param-box {
+        padding: 15px !important;
+    }
+
+    body.wall-display-mode #view-power .param-row .val {
+        font-size: 18px !important;
+    }
+
+    body.wall-display-mode #view-power .channel-grid {
+        grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)) !important;
+        gap: 12px !important;
+    }
+
+    body.wall-display-mode #view-power .ch-btn.power-channel-btn {
+        min-height: 92px !important;
+        height: 92px !important;
+        border-radius: 10px !important;
+    }
+
+    body.wall-display-mode #view-power .ch-btn.power-channel-btn .name {
+        font-size: 19px !important;
+    }
+
+    body.wall-display-mode #view-power .ch-btn.power-channel-btn .remark,
+    body.wall-display-mode #view-power .ch-btn.power-channel-btn .state {
+        font-size: 15px !important;
+    }
+
+    body.wall-display-mode #view-power .chart-box,
+    body.wall-display-mode #view-power .right-col .log-list {
+        height: 320px !important;
+    }
+
+    body.wall-display-mode #view-light #light-page-grid {
+        grid-template-columns: repeat(auto-fit, minmax(620px, 1fr)) !important;
+        gap: 16px !important;
+    }
+
+    body.wall-display-mode #view-light #light-page-grid > .card {
+        padding: 18px !important;
+        border-radius: 10px !important;
+    }
+
+    body.wall-display-mode #view-light #light-page-grid .cab-header h3 {
+        font-size: 22px !important;
+    }
+
+    body.wall-display-mode #view-light #light-page-grid .info-bar,
+    body.wall-display-mode #view-light #light-page-grid .info-bar span,
+    body.wall-display-mode #view-light #light-page-grid .light-diagnostic-item,
+    body.wall-display-mode #view-light #light-page-grid .light-diagnostic-reason,
+    body.wall-display-mode #view-light .log-list {
+        font-size: 15px !important;
+    }
+
+    body.wall-display-mode #view-light #light-page-grid .channel-grid,
+    body.wall-display-mode #view-light #light-page-grid .relay-input-grid {
+        grid-template-columns: repeat(auto-fill, minmax(138px, 1fr)) !important;
+        gap: 11px !important;
+    }
+
+    body.wall-display-mode #view-light #light-page-grid .ch-btn {
+        height: 108px !important;
+        border-radius: 10px !important;
+    }
+
+    body.wall-display-mode #view-light #light-page-grid .ch-btn .name,
+    body.wall-display-mode #view-light #light-page-grid .ch-btn .state {
+        font-size: 15px !important;
+    }
+
+    body.wall-display-mode #view-light #light-page-grid .ch-btn::before {
+        top: 29px !important;
+        width: 62px !important;
+        height: 55px !important;
+        border-radius: 13px !important;
+    }
+
+    body.wall-display-mode #view-light #light-page-grid .ch-btn::after {
+        top: 39px !important;
+        width: 27px !important;
+        height: 39px !important;
+    }
+
+    body.wall-display-mode #view-light #light-page-grid .ch-btn.ch-on::after {
+        top: 34px !important;
+    }
+
+    body.wall-display-mode #view-light #light-page-grid .ch-btn.ch-off::after {
+        top: 48px !important;
+    }
+
+    body.wall-display-mode #view-server .server-group-grid {
+        grid-template-columns: repeat(auto-fill, minmax(460px, 1fr)) !important;
+        gap: 14px !important;
+    }
+
+    body.wall-display-mode #view-server .server-card {
+        padding: 16px !important;
+        border-radius: 10px !important;
+    }
+
+    body.wall-display-mode #view-server .server-group-title,
+    body.wall-display-mode #view-server .server-title {
+        font-size: 21px !important;
+    }
+
+    body.wall-display-mode #view-server .server-group-meta,
+    body.wall-display-mode #view-server .server-ip,
+    body.wall-display-mode #view-server .server-meta-chip span,
+    body.wall-display-mode #view-server .server-meta-chip em,
+    body.wall-display-mode #view-server .metric-label,
+    body.wall-display-mode #view-server .server-network-line,
+    body.wall-display-mode #view-server .server-codemeter-line,
+    body.wall-display-mode #view-server .server-action-btn {
+        font-size: 15px !important;
+    }
+
+    body.wall-display-mode #view-server .server-meta-chip strong,
+    body.wall-display-mode #view-server .server-network-line strong,
+    body.wall-display-mode #view-server .server-codemeter-line strong {
+        font-size: 16px !important;
+    }
+
+    body.wall-display-mode #view-server .metric-row {
+        min-height: 40px !important;
+    }
+
+    body.wall-display-mode #view-server .progress-track {
+        height: 6px !important;
+    }
+
+    body.wall-display-mode #view-server .gpu-list {
+        max-height: 130px !important;
+    }
+
+    body.wall-display-mode #view-server .server-action-btn {
+        min-height: 34px !important;
+        padding: 5px 12px !important;
+    }
+
+    body.wall-display-mode #view-logs .event-log-toolbar select,
+    body.wall-display-mode #view-logs .event-log-toolbar input,
+    body.wall-display-mode #view-logs .event-log-toolbar button,
+    body.wall-display-mode #view-logs .event-log-summary,
+    body.wall-display-mode #view-logs .event-log-table,
+    body.wall-display-mode #view-logs .event-chip,
+    body.wall-display-mode #view-logs .event-detail,
+    body.wall-display-mode #view-logs .event-log-pager button {
+        font-size: 17px !important;
+    }
+
+    body.wall-display-mode #view-logs .event-log-toolbar select,
+    body.wall-display-mode #view-logs .event-log-toolbar input,
+    body.wall-display-mode #view-logs .event-log-toolbar button {
+        min-height: 46px !important;
+    }
+
+    body.wall-display-mode #view-logs .event-log-table {
+        min-width: 1680px !important;
+    }
+
+    body.wall-display-mode #view-logs .event-log-table th,
+    body.wall-display-mode #view-logs .event-log-table td {
+        padding: 13px 15px !important;
+    }
+
+    body.wall-display-mode #view-logs .event-log-table-wrap {
+        max-height: calc(100dvh - 330px) !important;
+    }
+}
