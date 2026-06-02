@@ -27,7 +27,7 @@ import requests
 
 from services.control_intent_router import ControlIntentRouter
 from services.control_learning import ControlLearningStore
-from services.control_model_translator import DEFAULT_LOCAL_MODEL_BASE_URL, LocalModelControlTranslator, normalize_openai_base_url, request_local_model_json
+from services.control_model_translator import ChainedModelControlTranslator, DEFAULT_LOCAL_MODEL_BASE_URL, LocalModelControlTranslator, normalize_openai_base_url, request_local_model_json
 from services.device_aliases import build_device_alias_rows, find_alias_rows, normalize_alias_text
 from services.natural_language_orchestrator import (
     NaturalLanguageTrace,
@@ -35,6 +35,7 @@ from services.natural_language_orchestrator import (
     load_runtime_natural_language_policy,
     summarize_command_for_process,
 )
+from paths import CONFIG_FILE
 
 try:
     import lark_oapi as lark
@@ -155,6 +156,12 @@ class FeishuBotConfig:
     nl_model_url: str = DEFAULT_LOCAL_MODEL_BASE_URL
     nl_model_name: str = "qwen3:14b"
     nl_model_timeout_sec: float = 8.0
+    nl_model_api_key: str = ""
+    nl_cloud_enabled: bool = False
+    nl_cloud_url: str = ""
+    nl_cloud_name: str = ""
+    nl_cloud_timeout_sec: float = 180.0
+    nl_cloud_api_key: str = ""
     feishu_control_enabled: bool = True
     feishu_control_require_confirmation: bool = True
 
@@ -173,10 +180,32 @@ def load_dotenv(path: Path) -> None:
         os.environ[key] = value.strip().strip('"').strip("'")
 
 
+def _load_runtime_local_model_config() -> dict[str, Any]:
+    try:
+        payload = json.loads(Path(CONFIG_FILE).read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    local_model = payload.get("local_model") if isinstance(payload, dict) else {}
+    return local_model if isinstance(local_model, dict) else {}
+
+
+def _env_bool(value: Any, default: bool = False) -> bool:
+    if value is None:
+        return default
+    text = str(value or "").strip().lower()
+    if text in {"1", "true", "yes", "on", "enabled", "enable"}:
+        return True
+    if text in {"0", "false", "no", "off", "disabled", "disable"}:
+        return False
+    return default
+
+
 def load_config(env_file: str | Path | None = None) -> FeishuBotConfig:
     if env_file:
         load_dotenv(Path(env_file))
     load_dotenv(PROJECT_ROOT / ".env")
+    runtime_local_model = _load_runtime_local_model_config()
+    runtime_cloud_model = runtime_local_model.get("cloud_model") if isinstance(runtime_local_model.get("cloud_model"), dict) else {}
     push_times = tuple(
         item.strip()
         for item in str(os.environ.get("FEISHU_PUSH_TIMES", "") or "").split(",")
@@ -197,9 +226,23 @@ def load_config(env_file: str | Path | None = None) -> FeishuBotConfig:
     nl_model_url = (
         os.environ.get("FEISHU_NL_MODEL_URL")
         or os.environ.get("FEISHU_LOCAL_MODEL_BASE_URL")
+        or runtime_local_model.get("base_url")
         or DEFAULT_LOCAL_MODEL_BASE_URL
     )
-    nl_model_name = os.environ.get("FEISHU_NL_MODEL_NAME") or os.environ.get("FEISHU_LOCAL_MODEL_NAME") or "qwen3:14b"
+    nl_model_name = os.environ.get("FEISHU_NL_MODEL_NAME") or os.environ.get("FEISHU_LOCAL_MODEL_NAME") or runtime_local_model.get("model") or "qwen3:14b"
+    nl_model_api_key = os.environ.get("FEISHU_NL_MODEL_API_KEY") or os.environ.get("FEISHU_LOCAL_MODEL_API_KEY") or runtime_local_model.get("api_key") or ""
+    cloud_enabled = _env_bool(os.environ.get("FEISHU_NL_CLOUD_ENABLED"), bool(runtime_cloud_model.get("enabled") and runtime_cloud_model.get("use_for_nlu_fallback", True)))
+    cloud_url = os.environ.get("FEISHU_NL_CLOUD_URL") or runtime_cloud_model.get("base_url") or ""
+    cloud_name = os.environ.get("FEISHU_NL_CLOUD_MODEL") or runtime_cloud_model.get("model") or ""
+    cloud_api_key = os.environ.get("FEISHU_NL_CLOUD_API_KEY") or runtime_cloud_model.get("api_key") or ""
+    try:
+        cloud_timeout = max(1.0, min(float(os.environ.get("FEISHU_NL_CLOUD_TIMEOUT_SEC") or runtime_cloud_model.get("timeout_sec") or 180), 600.0))
+    except Exception:
+        cloud_timeout = 180.0
+    nl_model_enabled = _env_bool(
+        nl_model_enabled_raw,
+        bool(runtime_local_model.get("enabled") or (cloud_enabled and cloud_url and cloud_name and cloud_api_key)),
+    )
     return FeishuBotConfig(
         app_id=str(os.environ.get("FEISHU_APP_ID", "") or "").strip(),
         app_secret=str(os.environ.get("FEISHU_APP_SECRET", "") or "").strip(),
@@ -208,10 +251,16 @@ def load_config(env_file: str | Path | None = None) -> FeishuBotConfig:
         push_times=push_times,
         request_timeout_sec=timeout,
         card_callback_enabled=str(os.environ.get("FEISHU_CARD_CALLBACK_ENABLED", "") or "").strip().lower() in {"1", "true", "yes", "on"},
-        nl_model_enabled=str(nl_model_enabled_raw or "").strip().lower() in {"1", "true", "yes", "on"},
+        nl_model_enabled=nl_model_enabled,
         nl_model_url=normalize_openai_base_url(str(nl_model_url or DEFAULT_LOCAL_MODEL_BASE_URL)),
         nl_model_name=str(nl_model_name or "qwen3:14b").strip(),
         nl_model_timeout_sec=model_timeout,
+        nl_model_api_key=str(nl_model_api_key or "").strip(),
+        nl_cloud_enabled=bool(cloud_enabled and cloud_url and cloud_name and cloud_api_key),
+        nl_cloud_url=normalize_openai_base_url(str(cloud_url or DEFAULT_LOCAL_MODEL_BASE_URL)) if cloud_url else "",
+        nl_cloud_name=str(cloud_name or "").strip(),
+        nl_cloud_timeout_sec=cloud_timeout,
+        nl_cloud_api_key=str(cloud_api_key or "").strip(),
         feishu_control_enabled=str(os.environ.get("FEISHU_CONTROL_ENABLED", "1") or "1").strip().lower() in {"1", "true", "yes", "on"},
         feishu_control_require_confirmation=str(os.environ.get("FEISHU_CONTROL_REQUIRE_CONFIRMATION", "1") or "1").strip().lower() in {"1", "true", "yes", "on"},
     )
@@ -231,6 +280,64 @@ def require_runtime(config: FeishuBotConfig) -> None:
         raise SystemExit("Missing FEISHU_APP_ID. Fill .env or process environment before starting.")
     if not config.app_secret:
         raise SystemExit("Missing FEISHU_APP_SECRET. Fill .env or process environment before starting.")
+
+
+def _build_intent_classifier(config: FeishuBotConfig) -> ChainedModelIntentClassifier | LocalModelIntentClassifier | None:
+    if not config.nl_model_enabled:
+        return None
+    classifiers: list[LocalModelIntentClassifier] = []
+    if config.nl_model_url and config.nl_model_name:
+        classifiers.append(
+            LocalModelIntentClassifier(
+                config.nl_model_url,
+                config.nl_model_name,
+                config.nl_model_timeout_sec,
+                api_key=config.nl_model_api_key,
+                label="本地模型",
+            )
+        )
+    if config.nl_cloud_enabled and config.nl_cloud_url and config.nl_cloud_name and config.nl_cloud_api_key:
+        classifiers.append(
+            LocalModelIntentClassifier(
+                config.nl_cloud_url,
+                config.nl_cloud_name,
+                config.nl_cloud_timeout_sec,
+                api_key=config.nl_cloud_api_key,
+                label="云端增强模型",
+            )
+        )
+    if not classifiers:
+        return None
+    return classifiers[0] if len(classifiers) == 1 else ChainedModelIntentClassifier(classifiers)
+
+
+def _build_control_translator(config: FeishuBotConfig) -> ChainedModelControlTranslator | LocalModelControlTranslator | None:
+    if not config.nl_model_enabled:
+        return None
+    translators: list[LocalModelControlTranslator] = []
+    if config.nl_model_url and config.nl_model_name:
+        translators.append(
+            LocalModelControlTranslator(
+                config.nl_model_url,
+                config.nl_model_name,
+                config.nl_model_timeout_sec,
+                api_key=config.nl_model_api_key,
+                label="本地模型",
+            )
+        )
+    if config.nl_cloud_enabled and config.nl_cloud_url and config.nl_cloud_name and config.nl_cloud_api_key:
+        translators.append(
+            LocalModelControlTranslator(
+                config.nl_cloud_url,
+                config.nl_cloud_name,
+                config.nl_cloud_timeout_sec,
+                api_key=config.nl_cloud_api_key,
+                label="云端增强模型",
+            )
+        )
+    if not translators:
+        return None
+    return translators[0] if len(translators) == 1 else ChainedModelControlTranslator(translators)
 
 
 def _json_text(content: str | None) -> str:
@@ -651,10 +758,12 @@ class LocalModelIntentClassifier:
         "unknown",
     )
 
-    def __init__(self, base_url: str, model: str, timeout_sec: float = 8.0) -> None:
+    def __init__(self, base_url: str, model: str, timeout_sec: float = 8.0, *, api_key: str = "", label: str = "") -> None:
         self.base_url = normalize_openai_base_url(base_url)
         self.model = model or "qwen3:14b"
         self.timeout_sec = timeout_sec
+        self.api_key = str(api_key or "").strip()
+        self.label = str(label or self.model or "model").strip()
 
     def classify(self, text: str) -> dict[str, Any] | None:
         prompt = (
@@ -669,7 +778,7 @@ class LocalModelIntentClassifier:
             f"用户问题：{text}"
         )
         try:
-            parsed = request_local_model_json(self.base_url, self.model, prompt, self.timeout_sec)
+            parsed = request_local_model_json(self.base_url, self.model, prompt, self.timeout_sec, api_key=self.api_key)
         except Exception:
             return None
         if not isinstance(parsed, dict):
@@ -679,7 +788,22 @@ class LocalModelIntentClassifier:
             return None
         parsed["intent"] = intent
         parsed["query"] = str(parsed.get("query") or text).strip()
+        if self.label:
+            parsed["model_source"] = self.label
         return parsed
+
+
+class ChainedModelIntentClassifier:
+    def __init__(self, classifiers: list[LocalModelIntentClassifier]) -> None:
+        self.classifiers = [item for item in classifiers if item]
+        self.labels = [item.label for item in self.classifiers if item.label]
+
+    def classify(self, text: str) -> dict[str, Any] | None:
+        for classifier in self.classifiers:
+            result = classifier.classify(text)
+            if result:
+                return result
+        return None
 
 
 class LocalSmartCenterClient:
@@ -2445,16 +2569,8 @@ class FeishuBot:
             config.smart_center_base_url,
             config.request_timeout_sec,
         )
-        self.intent_classifier = (
-            LocalModelIntentClassifier(config.nl_model_url, config.nl_model_name, config.nl_model_timeout_sec)
-            if config.nl_model_enabled
-            else None
-        )
-        self.control_translator = (
-            LocalModelControlTranslator(config.nl_model_url, config.nl_model_name, config.nl_model_timeout_sec)
-            if config.nl_model_enabled
-            else None
-        )
+        self.intent_classifier = _build_intent_classifier(config)
+        self.control_translator = _build_control_translator(config)
         self.log = log or (lambda text: print(text, flush=True))
         self.api_client = (
             lark.Client.builder()
@@ -2497,7 +2613,8 @@ class FeishuBot:
             self.log(f"Scheduled push times: {', '.join(self.config.push_times)}")
         self.log(f"Feishu card callback buttons enabled: {self.config.card_callback_enabled}")
         if self.intent_classifier:
-            self.log(f"NL intent model: {self.config.nl_model_name} at {self.config.nl_model_url}")
+            labels = getattr(self.intent_classifier, "labels", None) or [getattr(self.intent_classifier, "label", self.config.nl_model_name)]
+            self.log(f"NL intent models: {', '.join(str(item) for item in labels if item)}")
         policy = self._natural_language_policy()
         self.log(
             "Feishu control policy: "

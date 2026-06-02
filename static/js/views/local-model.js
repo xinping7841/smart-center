@@ -72,59 +72,122 @@
                 <span class="local-model-status" id="saveBadge">未保存</span>
               </div>
               <div class="local-model-form">
-                <label class="local-model-feishu-control" id="feishuControlSwitchCard">
-                  <input id="cfgFeishuControlEnabled" type="checkbox">
-                  <span class="local-model-toggle-visual" aria-hidden="true"><span></span></span>
-                  <span class="local-model-feishu-copy">
-                    <span class="local-model-feishu-kicker">飞书控制安全开关</span>
-                    <strong>允许飞书执行中控命令</strong>
-                    <small>默认开启并会记住手动修改；关闭时飞书只允许查询和解析，不会进入真实控制执行。</small>
-                  </span>
-                  <span class="local-model-feishu-state" id="feishuControlState">已关闭，仅允许查询</span>
-                </label>
-                <div>
-                  <label>名称</label>
-                  <input class="local-model-input" id="cfgName">
+                <div class="local-model-config-section local-model-config-section-strong">
+                  <label class="local-model-feishu-control" id="feishuControlSwitchCard">
+                    <input id="cfgFeishuControlEnabled" type="checkbox">
+                    <span class="local-model-toggle-visual" aria-hidden="true"><span></span></span>
+                    <span class="local-model-feishu-copy">
+                      <span class="local-model-feishu-kicker">飞书控制安全开关</span>
+                      <strong>允许飞书执行中控命令</strong>
+                      <small>默认开启并会记住手动修改；关闭时飞书只允许查询和解析，不会进入真实控制执行。</small>
+                    </span>
+                    <span class="local-model-feishu-state" id="feishuControlState">已关闭，仅允许查询</span>
+                  </label>
                 </div>
-                <div>
-                  <label>对话入口 / 知识代理</label>
-                  <input class="local-model-input" id="cfgBaseUrl">
-                </div>
-                <div>
-                  <label>模型上游 / 兼容服务</label>
-                  <input class="local-model-input" id="cfgVllmBaseUrl">
-                </div>
-                <div>
-                  <label>模型</label>
-                  <input class="local-model-input" id="cfgModel">
-                </div>
-                <div>
-                  <label>API Key</label>
-                  <input class="local-model-input" id="cfgApiKey" placeholder="留空则保留原值，可填 dummy">
-                </div>
-                <div class="local-model-row2">
-                  <div>
-                    <label>温度</label>
-                    <input class="local-model-input" id="cfgTemperature" type="number" step="0.1" min="0" max="2">
+                <div class="local-model-config-section">
+                  <div class="local-model-config-section-title">
+                    <strong>本地知识模型</strong>
+                    <span>普通对话、状态查询、RAG 知识代理</span>
                   </div>
                   <div>
-                    <label>输出上限</label>
-                    <input class="local-model-input" id="cfgMaxTokens" type="number" min="64" max="4096">
-                  </div>
-                </div>
-                <div class="local-model-row2">
-                  <div>
-                    <label>上下文长度</label>
-                    <input class="local-model-input" id="cfgMaxModelLen" type="number" min="1024" max="262144">
+                    <label>名称</label>
+                    <input class="local-model-input" id="cfgName">
                   </div>
                   <div>
-                    <label>超时秒数</label>
-                    <input class="local-model-input" id="cfgTimeout" type="number" min="3" max="600">
+                    <label>对话入口 / 知识代理</label>
+                    <input class="local-model-input" id="cfgBaseUrl">
+                  </div>
+                  <div>
+                    <label>模型上游 / 兼容服务</label>
+                    <input class="local-model-input" id="cfgVllmBaseUrl">
+                  </div>
+                  <div>
+                    <label>模型</label>
+                    <input class="local-model-input" id="cfgModel">
+                  </div>
+                  <div>
+                    <label>API Key</label>
+                    <input class="local-model-input" id="cfgApiKey" placeholder="留空则保留原值，可填 dummy">
+                  </div>
+                  <div class="local-model-row2">
+                    <div>
+                      <label>温度</label>
+                      <input class="local-model-input" id="cfgTemperature" type="number" step="0.1" min="0" max="2">
+                    </div>
+                    <div>
+                      <label>输出上限</label>
+                      <input class="local-model-input" id="cfgMaxTokens" type="number" min="64" max="4096">
+                    </div>
+                  </div>
+                  <div class="local-model-row2">
+                    <div>
+                      <label>上下文长度</label>
+                      <input class="local-model-input" id="cfgMaxModelLen" type="number" min="1024" max="262144">
+                    </div>
+                    <div>
+                      <label>超时秒数</label>
+                      <input class="local-model-input" id="cfgTimeout" type="number" min="3" max="600">
+                    </div>
+                  </div>
+                  <div>
+                    <label>系统提示词</label>
+                    <textarea class="local-model-textarea" id="cfgSystemPrompt"></textarea>
                   </div>
                 </div>
-                <div>
-                  <label>系统提示词</label>
-                  <textarea class="local-model-textarea" id="cfgSystemPrompt"></textarea>
+                <div class="local-model-config-section local-model-cloud-section" id="cloudModelConfigSection">
+                  <div class="local-model-config-section-title">
+                    <strong>云端增强模型</strong>
+                    <span>Ark / DeepSeek 复杂理解、摘要刷新、低置信度转译兜底</span>
+                  </div>
+                  <label class="local-model-switch-row">
+                    <span><strong>启用云端增强</strong><small id="cloudModelState">未启用，本地模型单独工作</small></span>
+                    <input id="cfgCloudEnabled" type="checkbox">
+                  </label>
+                  <div class="local-model-row2">
+                    <div>
+                      <label>显示名称</label>
+                      <input class="local-model-input" id="cfgCloudName">
+                    </div>
+                    <div>
+                      <label>供应商</label>
+                      <input class="local-model-input" id="cfgCloudProvider">
+                    </div>
+                  </div>
+                  <div>
+                    <label>Ark Base URL</label>
+                    <input class="local-model-input" id="cfgCloudBaseUrl">
+                  </div>
+                  <div>
+                    <label>云端模型</label>
+                    <input class="local-model-input" id="cfgCloudModel">
+                  </div>
+                  <div>
+                    <label>Ark API Key</label>
+                    <input class="local-model-input" id="cfgCloudApiKey" placeholder="留空则保留原值">
+                  </div>
+                  <div class="local-model-row2">
+                    <label class="local-model-switch-row local-model-mini-switch">
+                      <span><strong>用于摘要刷新</strong><small>读取代码/设备知识生成维护摘要</small></span>
+                      <input id="cfgCloudUseSummary" type="checkbox">
+                    </label>
+                    <label class="local-model-switch-row local-model-mini-switch">
+                      <span><strong>用于飞书理解兜底</strong><small>只生成意图/改写，不直接执行</small></span>
+                      <input id="cfgCloudUseNlu" type="checkbox">
+                    </label>
+                  </div>
+                  <div class="local-model-row2">
+                    <div>
+                      <label>云端超时秒数</label>
+                      <input class="local-model-input" id="cfgCloudTimeout" type="number" min="3" max="600">
+                    </div>
+                    <div>
+                      <label>云端输出上限</label>
+                      <input class="local-model-input" id="cfgCloudMaxTokens" type="number" min="64" max="8192">
+                    </div>
+                  </div>
+                  <div class="local-model-actions">
+                    <span class="local-model-status" id="cloudHealthBadge">未检测</span>
+                  </div>
                 </div>
                 <div class="local-model-actions">
                   <button class="local-model-btn success" type="button" onclick="saveConfig()">保存配置</button>
@@ -175,6 +238,20 @@
   function optionalSet(id, value) { const el = $(id); if (el) el.textContent = value; }
   function optionalValue(id, value) { const el = $(id); if (el) el.value = value; }
   function optionalChecked(id, value) { const el = $(id); if (el) el.checked = !!value; }
+  function readValue(id, fallback = '') {
+    const el = $(id);
+    return el ? String(el.value || '').trim() : String(fallback || '').trim();
+  }
+  function readNumber(id, fallback) {
+    const el = $(id);
+    if (!el) return Number(fallback);
+    const value = Number(el.value);
+    return Number.isFinite(value) ? value : Number(fallback);
+  }
+  function readChecked(id, fallback = false) {
+    const el = $(id);
+    return el ? !!el.checked : !!fallback;
+  }
   function updateFeishuControlState() {
     const input = $('cfgFeishuControlEnabled');
     const card = $('feishuControlSwitchCard');
@@ -182,6 +259,14 @@
     const enabled = !!input?.checked;
     if (card) card.classList.toggle('is-enabled', enabled);
     if (state) state.textContent = enabled ? '已开启，控制需确认' : '已关闭，仅允许查询';
+  }
+  function updateCloudModelState() {
+    const input = $('cfgCloudEnabled');
+    const section = $('cloudModelConfigSection');
+    const state = $('cloudModelState');
+    const enabled = !!input?.checked;
+    if (section) section.classList.toggle('is-enabled', enabled);
+    if (state) state.textContent = enabled ? '已启用，用于复杂理解和摘要' : '未启用，本地模型单独工作';
   }
   function setBadge(id, text, ok) {
     const el = $(id);
@@ -209,6 +294,19 @@
     optionalSet('localModelDocsMeta', '--');
     optionalSet('localModelContextMeta', cfg.max_model_len ? formatNumber(cfg.max_model_len) : '--');
     optionalSet('localModelVllmMeta', cfg.vllm_base_url || '--');
+  }
+  function updateCloudHealth(data) {
+    const cloud = modelConfig?.cloud_model || {};
+    if (!cloud.enabled) {
+      setBadge('cloudHealthBadge', '未启用', null);
+      optionalSet('cloudModelState', '未启用，本地模型单独工作');
+      return;
+    }
+    const online = !!data?.cloud_online;
+    const modelCount = Array.isArray(data?.cloud_models) ? data.cloud_models.length : 0;
+    const label = online ? `在线${modelCount ? ` · ${modelCount} 模型` : ''}` : '离线';
+    setBadge('cloudHealthBadge', label, online);
+    optionalSet('cloudModelState', online ? `当前 ${data.cloud_model || cloud.model || '--'}` : '已启用，但健康检查未通过');
   }
   function addMessage(role, content) {
     chatMessages.push({role, content});
@@ -345,8 +443,9 @@
   async function refreshSystemSummary() {
     const btn = $('summaryBtn');
     const hint = $('knowledgeSummaryHint');
+    const cloud = modelConfig?.cloud_model || {};
     if (btn) btn.disabled = true;
-    if (hint) hint.textContent = '正在让本地模型读取系统地图和高上下文代码摘要...';
+    if (hint) hint.textContent = cloud.enabled && cloud.use_for_system_summary ? '正在让云端增强模型读取系统地图和高上下文代码摘要...' : '正在让本地模型读取系统地图和高上下文代码摘要...';
     try {
       const resp = await fetch('/api/local-model/refresh-system-summary', {method:'POST'});
       const data = await resp.json();
@@ -430,7 +529,21 @@
     optionalValue('cfgTimeout', modelConfig.timeout_sec ?? 120);
     optionalValue('cfgSystemPrompt', modelConfig.system_prompt || '');
     optionalChecked('cfgFeishuControlEnabled', modelConfig.natural_language?.feishu_control_enabled);
+    const cloud = modelConfig.cloud_model || {};
+    optionalChecked('cfgCloudEnabled', cloud.enabled);
+    optionalValue('cfgCloudName', cloud.name || 'Ark 云端增强模型');
+    optionalValue('cfgCloudProvider', cloud.provider || 'ark');
+    optionalValue('cfgCloudBaseUrl', cloud.base_url || 'https://ark.cn-beijing.volces.com/api/v3');
+    optionalValue('cfgCloudModel', cloud.model || 'deepseek-v3-2-251201');
+    optionalValue('cfgCloudApiKey', '');
+    const cloudKeyInput = $('cfgCloudApiKey');
+    if (cloudKeyInput) cloudKeyInput.placeholder = cloud.api_key_set ? '已配置，留空保留' : '填写 Ark API Key';
+    optionalChecked('cfgCloudUseSummary', cloud.use_for_system_summary !== false);
+    optionalChecked('cfgCloudUseNlu', cloud.use_for_nlu_fallback !== false);
+    optionalValue('cfgCloudTimeout', cloud.timeout_sec ?? 180);
+    optionalValue('cfgCloudMaxTokens', cloud.max_tokens ?? 2048);
     updateFeishuControlState();
+    updateCloudModelState();
     updateMetaFromConfig();
     setBadge('saveBadge', '已读取', true);
     return modelConfig;
@@ -439,20 +552,33 @@
     if (!hasUi()) return;
     const payload = {
       enabled: true,
-      name: ($('cfgName')?.value || '').trim(),
+      name: readValue('cfgName'),
       provider: 'openai-compatible',
-      base_url: ($('cfgBaseUrl')?.value || '').trim(),
-      vllm_base_url: ($('cfgVllmBaseUrl')?.value || '').trim(),
-      model: ($('cfgModel')?.value || '').trim(),
-      api_key: ($('cfgApiKey')?.value || '').trim(),
-      temperature: Number($('cfgTemperature')?.value || 0.2),
-      max_tokens: Number($('cfgMaxTokens')?.value || 512),
-      max_model_len: Number($('cfgMaxModelLen')?.value || 32768),
-      timeout_sec: Number($('cfgTimeout')?.value || 120),
-      system_prompt: ($('cfgSystemPrompt')?.value || '').trim(),
+      base_url: readValue('cfgBaseUrl'),
+      vllm_base_url: readValue('cfgVllmBaseUrl'),
+      model: readValue('cfgModel'),
+      api_key: readValue('cfgApiKey'),
+      temperature: readNumber('cfgTemperature', 0.2),
+      max_tokens: readNumber('cfgMaxTokens', 512),
+      max_model_len: readNumber('cfgMaxModelLen', 32768),
+      timeout_sec: readNumber('cfgTimeout', 120),
+      system_prompt: readValue('cfgSystemPrompt'),
+      cloud_model: {
+        ...(modelConfig?.cloud_model || {}),
+        enabled: readChecked('cfgCloudEnabled'),
+        name: readValue('cfgCloudName', 'Ark 云端增强模型'),
+        provider: readValue('cfgCloudProvider', 'ark'),
+        base_url: readValue('cfgCloudBaseUrl', 'https://ark.cn-beijing.volces.com/api/v3'),
+        model: readValue('cfgCloudModel', 'deepseek-v3-2-251201'),
+        api_key: readValue('cfgCloudApiKey'),
+        timeout_sec: readNumber('cfgCloudTimeout', 180),
+        max_tokens: readNumber('cfgCloudMaxTokens', 2048),
+        use_for_system_summary: readChecked('cfgCloudUseSummary', true),
+        use_for_nlu_fallback: readChecked('cfgCloudUseNlu', true)
+      },
       natural_language: {
         ...(modelConfig?.natural_language || {}),
-        feishu_control_enabled: !!$('cfgFeishuControlEnabled')?.checked,
+        feishu_control_enabled: readChecked('cfgFeishuControlEnabled'),
         feishu_control_require_confirmation: true,
         record_process_enabled: true
       }
@@ -487,10 +613,12 @@
         setBadge('healthBadge', '离线', false);
         optionalSet('localModelVllmMeta', data.vllm_online ? '模型服务在线' : '模型服务离线');
       }
+      updateCloudHealth(data);
       return data;
     } catch (err) {
       setBadge('healthBadge', '离线', false);
       optionalSet('localModelVllmMeta', String(err).slice(0, 80));
+      updateCloudHealth(null);
       return null;
     }
   }
@@ -550,6 +678,8 @@
       initialized = true;
       renderMessages();
     }
+    const cloudSwitch = $('cfgCloudEnabled');
+    if (cloudSwitch) cloudSwitch.addEventListener('change', updateCloudModelState);
     loadConfig().then(checkHealth).catch(err => {
       setBadge('saveBadge', '读取失败', false);
       optionalSet('modelLine', String(err));

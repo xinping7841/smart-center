@@ -102,6 +102,13 @@ def _build_prompt(max_input_chars: int) -> tuple[str, dict[str, str]]:
     return prompt[:max_input_chars], sources
 
 
+def _summary_model_config(local_cfg: dict[str, Any]) -> tuple[dict[str, Any], str]:
+    cloud = local_cfg.get("cloud_model") if isinstance(local_cfg.get("cloud_model"), dict) else {}
+    if cloud.get("enabled") and cloud.get("use_for_system_summary") and cloud.get("api_key"):
+        return cloud, "cloud_model"
+    return local_cfg, "local_model"
+
+
 def _request_chat(cfg: dict[str, Any], prompt: str) -> dict[str, Any]:
     payload = {
         "model": cfg["model"],
@@ -133,16 +140,20 @@ def _request_chat(cfg: dict[str, Any], prompt: str) -> dict[str, Any]:
 
 
 def build_system_summary(max_input_chars: int = DEFAULT_MAX_INPUT_CHARS) -> dict[str, Any]:
-    cfg = normalize_local_model_config(CONFIG.get("local_model"))
+    local_cfg = normalize_local_model_config(CONFIG.get("local_model"))
+    cfg, model_source = _summary_model_config(local_cfg)
     prompt, sources = _build_prompt(max_input_chars)
     result = _request_chat(cfg, prompt)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     output = {
         "schema": "smart_center.local_model_system_summary.v1",
         "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "model_source": model_source,
+        "provider": cfg.get("provider"),
+        "name": cfg.get("name"),
         "model": cfg.get("model"),
         "base_url": cfg.get("base_url"),
-        "max_model_len": cfg.get("max_model_len"),
+        "max_model_len": local_cfg.get("max_model_len"),
         "prompt_chars": len(prompt),
         "elapsed_ms": result.get("elapsed_ms"),
         "sources": sources,

@@ -9,6 +9,7 @@ Smart Center already has the core pieces for Feishu natural-language operations:
 - `services/feishu_bot.py` is the Feishu long-connection adapter. It strips mentions, handles text commands, runs scheduled pushes, stores pending controls, sends confirmation cards, and calls Smart Center HTTP APIs.
 - `services/control_intent_router.py` is the deterministic safety router. It chooses the module before command construction and blocks ambiguous bare-channel commands.
 - `services/control_model_translator.py` lets a local model rewrite fuzzy user text into a safer standard Chinese control phrase. The rewritten text is treated as untrusted and must be routed again.
+- `local_model.cloud_model` can optionally configure Ark / DeepSeek as a cloud enhanced understanding model. It is only a classifier/rewrite/summary helper, never the component that executes controls.
 - `services/device_aliases.py` builds aliases from `CONFIG`, including cabinets, lights, HVAC, projectors, screens, sequencers, custom protocol devices, sensors, current collector, door, and proxy.
 - `api/local_model.py` exposes the local-model page, OpenAI-compatible chat, control dry-run/confirm, and runtime knowledge export.
 - `scripts/export_local_model_training.py` exports runtime knowledge. It now also exports source-code/module knowledge through `scripts/export_code_knowledge.py`.
@@ -23,7 +24,7 @@ The deployed behavior is more capable than older docs imply: Feishu can execute 
 4. `LocalSmartCenterClient.resolve_control_command_with_translator` uses:
    - feedback memory from `SMART_CENTER_RUNTIME_DIR/control_feedback.jsonl`;
    - `ControlIntentRouter`;
-   - optional local-model rewrite;
+   - optional local-model rewrite, then optional Ark cloud rewrite fallback when configured;
    - conservative fallback inference.
 5. The resolved command contains `type`, `risk`, `label`, `path`, `payload`, `action`, and confidence metadata.
 6. High-risk or inferred commands are stored as pending controls. Confirmation cards or text replies execute `_execute_pending_control`.
@@ -71,6 +72,8 @@ The local model should never output an executable HTTP path or payload as the fi
 ```
 
 The backend must then resolve that proposal through aliases, status APIs, permission rules, and confirmation policy.
+
+Ark / DeepSeek should follow the same rule. It may improve language understanding, but it must not decide execution by itself.
 
 ## Phased Optimization Plan
 

@@ -37,7 +37,7 @@ def normalize_openai_base_url(base_url: str) -> str:
             value = value[: -len(suffix)].rstrip("/")
     if not value:
         value = DEFAULT_LOCAL_MODEL_BASE_URL
-    if not value.endswith("/v1"):
+    if not value.endswith(("/v1", "/api/v3")):
         value = f"{value}/v1"
     return value
 
@@ -64,7 +64,15 @@ def _extract_json_object(text: str) -> dict[str, Any] | None:
     return None
 
 
-def request_local_model_json(base_url: str, model: str, prompt: str, timeout_sec: float, *, max_tokens: int = 512) -> dict[str, Any] | None:
+def request_local_model_json(
+    base_url: str,
+    model: str,
+    prompt: str,
+    timeout_sec: float,
+    *,
+    max_tokens: int = 512,
+    api_key: str = "",
+) -> dict[str, Any] | None:
     endpoint = f"{normalize_openai_base_url(base_url)}/chat/completions"
     payload = {
         "model": model or "qwen3:14b",
@@ -76,11 +84,14 @@ def request_local_model_json(base_url: str, model: str, prompt: str, timeout_sec
         "max_tokens": max(64, min(int(max_tokens or 512), 2048)),
         "stream": False,
     }
+    headers = {"Accept": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
     response = requests.post(
         endpoint,
         json=payload,
         timeout=max(1.0, min(float(timeout_sec or 8.0), 60.0)),
-        headers={"Accept": "application/json"},
+        headers=headers,
     )
     response.raise_for_status()
     data = response.json()
@@ -96,10 +107,12 @@ def request_local_model_json(base_url: str, model: str, prompt: str, timeout_sec
 
 
 class LocalModelControlTranslator:
-    def __init__(self, base_url: str, model: str, timeout_sec: float = 8.0) -> None:
+    def __init__(self, base_url: str, model: str, timeout_sec: float = 8.0, *, api_key: str = "", label: str = "") -> None:
         self.base_url = normalize_openai_base_url(base_url)
         self.model = model or "qwen3:14b"
         self.timeout_sec = max(1.0, min(float(timeout_sec or 8.0), 60.0))
+        self.api_key = str(api_key or "").strip()
+        self.label = str(label or self.model or "model").strip()
 
     def translate(self, text: str, alias_rows: list[dict[str, Any]]) -> ControlTranslation | None:
         raw = str(text or "").strip()
@@ -107,7 +120,7 @@ class LocalModelControlTranslator:
             return None
         prompt = self._build_prompt(raw, alias_rows)
         try:
-            parsed = request_local_model_json(self.base_url, self.model, prompt, self.timeout_sec)
+            parsed = request_local_model_json(self.base_url, self.model, prompt, self.timeout_sec, api_key=self.api_key)
         except Exception:
             return None
         if not isinstance(parsed, dict):
@@ -126,6 +139,8 @@ class LocalModelControlTranslator:
             return None
         if any(token in rewritten.lower() for token in ("http://", "https://", "/api/", "curl ", "requests.")):
             return None
+        if self.label:
+            reason = f"{self.label}: {reason}" if reason else self.label
         return ControlTranslation(
             rewritten_text=rewritten[:120],
             module=module,
@@ -162,3 +177,16 @@ class LocalModelControlTranslator:
         rows.append("- module=node_red; type=gateway_light; name=庭院灯; aliases=庭院灯,户外灯,室外灯,院子灯,院子里的灯")
         rows.append("- module=server; type=server; name=服务器; aliases=服务器,主机,机器,电脑,IP地址,门口LED服务器")
         return "\n".join(rows)
+
+
+class ChainedModelControlTranslator:
+    def __init__(self, translators: list[LocalModelControlTranslator]) -> None:
+        self.translators = [item for item in translators if item]
+        self.labels = [item.label for item in self.translators if item.label]
+
+    def translate(self, text: str, alias_rows: list[dict[str, Any]]) -> ControlTranslation | None:
+        for translator in self.translators:
+            result = translator.translate(text, alias_rows)
+            if result:
+                return result
+        return None

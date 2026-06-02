@@ -29,7 +29,7 @@ from config import CONFIG, save_config
 from event_logger import query_events
 from paths import AUDIT_LOG_FILE, CONFIG_FILE, DATA_DIR, DB_FILE, OPERATION_LOG_FILE, ensure_directory
 from services.feishu_bot import HIGH_RISK_CONTROL_TYPES, INFERRED_CONTROL_CONFIDENCE, LocalSmartCenterClient, _control_action_from_text, _format_control_action, _is_control_request
-from services.control_model_translator import LocalModelControlTranslator
+from services.control_model_translator import ChainedModelControlTranslator, LocalModelControlTranslator
 from services.device_aliases import build_device_alias_rows
 from services.natural_language_orchestrator import (
     NaturalLanguageTrace,
@@ -82,6 +82,19 @@ DEFAULT_LOCAL_MODEL = {
         "feishu_control_require_confirmation": True,
         "record_process_enabled": True,
         "process_log_limit": 200,
+    },
+    "cloud_model": {
+        "enabled": False,
+        "name": "Ark 云端增强模型",
+        "provider": "ark",
+        "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+        "model": "deepseek-v3-2-251201",
+        "api_key": "",
+        "timeout_sec": 180,
+        "temperature": 0.1,
+        "max_tokens": 2048,
+        "use_for_system_summary": True,
+        "use_for_nlu_fallback": True,
     },
 }
 
@@ -153,6 +166,46 @@ def _redact(value, key=""):
     return value
 
 
+def _as_bool(value, default=False):
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return default
+    text = str(value).strip().lower()
+    if text in {"1", "true", "yes", "on", "enabled", "enable"}:
+        return True
+    if text in {"0", "false", "no", "off", "disabled", "disable"}:
+        return False
+    return default
+
+
+def normalize_cloud_model_config(raw_config=None, *, keep_secret=True):
+    source = raw_config if isinstance(raw_config, dict) else {}
+    merged = deepcopy(DEFAULT_LOCAL_MODEL["cloud_model"])
+    merged.update(source)
+    merged["enabled"] = _as_bool(merged.get("enabled"), DEFAULT_LOCAL_MODEL["cloud_model"]["enabled"])
+    merged["name"] = str(merged.get("name") or DEFAULT_LOCAL_MODEL["cloud_model"]["name"]).strip() or DEFAULT_LOCAL_MODEL["cloud_model"]["name"]
+    merged["provider"] = str(merged.get("provider") or DEFAULT_LOCAL_MODEL["cloud_model"]["provider"]).strip() or DEFAULT_LOCAL_MODEL["cloud_model"]["provider"]
+    merged["base_url"] = str(merged.get("base_url") or DEFAULT_LOCAL_MODEL["cloud_model"]["base_url"]).strip().rstrip("/") or DEFAULT_LOCAL_MODEL["cloud_model"]["base_url"]
+    merged["model"] = str(merged.get("model") or DEFAULT_LOCAL_MODEL["cloud_model"]["model"]).strip() or DEFAULT_LOCAL_MODEL["cloud_model"]["model"]
+    merged["api_key"] = str(merged.get("api_key") or "").strip()
+    for key, default, minimum, maximum in (("timeout_sec", 180, 3, 600), ("temperature", 0.1, 0, 2)):
+        try:
+            merged[key] = max(minimum, min(float(merged.get(key, default) or default), maximum))
+        except Exception:
+            merged[key] = default
+    try:
+        merged["max_tokens"] = max(64, min(int(merged.get("max_tokens", 2048) or 2048), 8192))
+    except Exception:
+        merged["max_tokens"] = 2048
+    merged["use_for_system_summary"] = _as_bool(merged.get("use_for_system_summary"), True)
+    merged["use_for_nlu_fallback"] = _as_bool(merged.get("use_for_nlu_fallback"), True)
+    if not keep_secret:
+        merged["api_key_set"] = bool(merged.get("api_key"))
+        merged["api_key"] = ""
+    return merged
+
+
 def normalize_local_model_config(raw_config=None, *, keep_secret=True):
     merged = deepcopy(DEFAULT_LOCAL_MODEL)
     source_config = raw_config if isinstance(raw_config, dict) else {}
@@ -160,6 +213,8 @@ def normalize_local_model_config(raw_config=None, *, keep_secret=True):
         for key, value in source_config.items():
             if key == "training_export" and isinstance(value, dict):
                 merged["training_export"].update(value)
+            elif key == "cloud_model" and isinstance(value, dict):
+                merged["cloud_model"].update(value)
             else:
                 merged[key] = value
     merged["enabled"] = bool(merged.get("enabled", True))
@@ -206,6 +261,7 @@ def normalize_local_model_config(raw_config=None, *, keep_secret=True):
         merged_export["recommended_context_len"] = 131072
     merged["training_export"] = merged_export
     merged["natural_language"] = normalize_natural_language_policy(merged.get("natural_language"))
+    merged["cloud_model"] = normalize_cloud_model_config(merged.get("cloud_model"), keep_secret=keep_secret)
     if not keep_secret:
         merged["api_key_set"] = bool(merged.get("api_key"))
         merged["api_key"] = ""
@@ -221,6 +277,17 @@ def _save_local_model_config(payload):
     if "training_export" not in incoming:
         incoming = dict(incoming)
         incoming["training_export"] = current.get("training_export", {})
+    if "cloud_model" not in incoming:
+        incoming = dict(incoming)
+        incoming["cloud_model"] = current.get("cloud_model", {})
+    incoming_cloud = incoming.get("cloud_model") if isinstance(incoming.get("cloud_model"), dict) else {}
+    if incoming_cloud:
+        current_cloud = current.get("cloud_model") if isinstance(current.get("cloud_model"), dict) else {}
+        if "api_key" not in incoming_cloud or str(incoming_cloud.get("api_key") or "").strip() in {"", "******"}:
+            incoming = dict(incoming)
+            incoming_cloud = dict(incoming_cloud)
+            incoming_cloud["api_key"] = current_cloud.get("api_key", "")
+            incoming["cloud_model"] = incoming_cloud
     next_config = normalize_local_model_config(incoming)
     CONFIG["local_model"] = next_config
     save_config(CONFIG)
@@ -299,6 +366,36 @@ def _check_model_endpoint(label, base_url, cfg, timeout):
         }
     except Exception as exc:
         return {"label": label, "ok": False, "online": False, "url": url, "error": str(exc)}
+
+
+def _build_control_translator_from_config(cfg):
+    translators = []
+    if cfg.get("enabled"):
+        translators.append(
+            LocalModelControlTranslator(
+                cfg.get("base_url"),
+                cfg.get("model"),
+                cfg.get("timeout_sec"),
+                api_key=cfg.get("api_key", ""),
+                label="本地模型",
+            )
+        )
+    cloud = cfg.get("cloud_model") if isinstance(cfg.get("cloud_model"), dict) else {}
+    if cloud.get("enabled") and cloud.get("use_for_nlu_fallback") and cloud.get("api_key"):
+        translators.append(
+            LocalModelControlTranslator(
+                cloud.get("base_url"),
+                cloud.get("model"),
+                cloud.get("timeout_sec"),
+                api_key=cloud.get("api_key", ""),
+                label=cloud.get("name") or "云端增强模型",
+            )
+        )
+    if not translators:
+        return None
+    if len(translators) == 1:
+        return translators[0]
+    return ChainedModelControlTranslator(translators)
 
 
 def _read_json_file(path, default):
@@ -1211,6 +1308,7 @@ def build_insights(config, device_rows, protocol_rows, log_rows):
 def build_training_export():
     config = deepcopy(CONFIG)
     model_cfg = normalize_local_model_config(config.get("local_model"))
+    model_cfg_safe = normalize_local_model_config(config.get("local_model"), keep_secret=False)
     export_cfg = model_cfg.get("training_export", {})
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     out_dir = _training_dir()
@@ -1306,7 +1404,7 @@ def build_training_export():
         "schema": "smart_center.training.v1",
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "config_source": str(CONFIG_FILE),
-        "model_target": {k: v for k, v in model_cfg.items() if k != "api_key"},
+        "model_target": model_cfg_safe,
         "counts": {
             "devices": len(device_rows),
             "device_inventory": len(device_inventory_rows),
@@ -1469,8 +1567,17 @@ def api_local_model_save_config():
 def api_local_model_health():
     cfg = normalize_local_model_config(CONFIG.get("local_model"))
     timeout = min(float(cfg.get("timeout_sec", 120)), 10)
+    cloud_cfg = cfg.get("cloud_model") if isinstance(cfg.get("cloud_model"), dict) else {}
     proxy_status = _check_model_endpoint("knowledge_proxy", cfg.get("base_url"), cfg, timeout)
     vllm_status = _check_model_endpoint("vllm_upstream", cfg.get("vllm_base_url"), cfg, timeout)
+    cloud_status = {"label": "cloud_model", "ok": False, "online": False, "disabled": True}
+    if cloud_cfg.get("enabled"):
+        cloud_status = _check_model_endpoint(
+            "cloud_model",
+            cloud_cfg.get("base_url"),
+            cloud_cfg,
+            min(float(cloud_cfg.get("timeout_sec", 180)), 15),
+        )
     online = bool(proxy_status.get("online"))
     model_rows = proxy_status.get("models") or vllm_status.get("models") or []
     docs_count = proxy_status.get("docs_count")
@@ -1498,8 +1605,12 @@ def api_local_model_health():
         "elapsed_ms": proxy_status.get("elapsed_ms"),
         "proxy": proxy_status,
         "vllm": vllm_status,
+        "cloud_online": bool(cloud_status.get("online")),
+        "cloud_model": cloud_cfg.get("model"),
+        "cloud_models": [item.get("id") for item in (cloud_status.get("models") or []) if item.get("id")],
+        "cloud": cloud_status,
         "error": proxy_status.get("error") if not online else "",
-    }), (200 if online else 502)
+    }), (200 if online or cloud_status.get("online") else 502)
 
 
 @bp.route("/api/local-model/chat", methods=["POST"])
@@ -1595,11 +1706,12 @@ def api_local_model_control_dry_run():
             "process": process,
         })
     client = LocalSmartCenterClient(_smart_center_self_base_url())
-    translator = LocalModelControlTranslator(cfg["base_url"], cfg["model"], cfg["timeout_sec"]) if cfg.get("enabled") else None
+    translator = _build_control_translator_from_config(cfg)
+    translator_labels = getattr(translator, "labels", None) or ([getattr(translator, "label", "")] if translator else [])
     trace.add_step(
         "classify",
         "识别为控制请求",
-        data={"recognized_action": action, "model_translator_enabled": bool(translator)},
+        data={"recognized_action": action, "model_translator_enabled": bool(translator), "model_translators": translator_labels},
         ok=True,
     )
     command = client.resolve_control_command_with_translator(text, translator=translator)

@@ -92,6 +92,17 @@ The 3090 host has enough VRAM to use larger local-model context windows, so Smar
 
 Recommended context length for the current 14B/3090 setup is `131072` first. If the model service is stable and latency is acceptable, it can be raised toward `262144`; if answers become vague or slow, lower it and rely more on RAG retrieval.
 
+## Cloud Enhanced Model
+
+Smart Center can configure an optional `local_model.cloud_model` block for Ark / DeepSeek-compatible OpenAI API access. The intended role is an enhanced understanding layer, not an execution authority:
+
+- Local 14B / knowledge proxy remains the normal chat and RAG entry.
+- Ark can be used for manual `system_summary_*.json` refresh when local 14B cannot finish a long summary reliably.
+- Ark can be used as a low-confidence Feishu/control rewrite fallback. It only returns intent or rewritten text, then Smart Center routes the result through aliases, permissions, confirmation, audit, and existing APIs.
+- The cloud API key is runtime config only. It must not be committed to docs, source code, or exported knowledge files.
+
+Production configuration should use `scripts/remote/configure_ark_cloud_model_20260602.py` with `ARK_API_KEY` supplied in the remote execution environment.
+
 ## Recommended Feishu Architecture
 
 The target design should keep four layers separate:
