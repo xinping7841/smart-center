@@ -1,0 +1,10 @@
+{
+  "task": "revert-4k-energy-hvac",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-revert-4k-energy-hvac-20260603",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/revert-4k-energy-hvac",
+  "started_at": "2026-06-03 01:29:59",
+  "status": "in_progress"
+}
