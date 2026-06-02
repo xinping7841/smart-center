@@ -147,6 +147,7 @@
             ['automation', '自动化', '等待规则快照'],
             ['proxy', '代理出口', '等待代理探活'],
             ['local_model', 'AI 自然语言', '等待 AI 配置'],
+            ['logs', '日志流', '等待运行日志'],
         ];
         return `
                 <section class="monitor-panel monitor-panel-wide" id="dashboard-section-status_matrix" data-section-id="status_matrix">
