@@ -38,9 +38,10 @@ PY
 
 echo
 echo "== http checks =="
-curl -fsS http://127.0.0.1:6899/api/local-model/config | python3 - <<'PY'
-import json, sys
-payload = json.load(sys.stdin)
+python3 - <<'PY'
+import json
+import urllib.request
+payload = json.loads(urllib.request.urlopen("http://127.0.0.1:6899/api/local-model/config", timeout=10).read().decode("utf-8"))
 cfg = payload.get("config") or {}
 cloud = cfg.get("cloud_model") or {}
 nl = cfg.get("natural_language") or {}
@@ -56,9 +57,10 @@ print(json.dumps({
 }, ensure_ascii=False, indent=2))
 PY
 
-curl -fsS http://127.0.0.1:6899/api/local-model/health | python3 - <<'PY'
-import json, sys
-payload = json.load(sys.stdin)
+python3 - <<'PY'
+import json
+import urllib.request
+payload = json.loads(urllib.request.urlopen("http://127.0.0.1:6899/api/local-model/health", timeout=20).read().decode("utf-8"))
 print(json.dumps({
     "ok": payload.get("ok"),
     "proxy_online": payload.get("proxy_online"),
