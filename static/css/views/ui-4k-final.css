@@ -1,0 +1,360 @@
+/* AI_MODULE: ui_4k_final_fit
+   AI_PURPOSE: Last-mile 3840x2160 wall-display overrides loaded after lazy view CSS.
+   AI_BOUNDARY: Presentation only; no device control behavior. */
+
+@media screen and (min-width: 2200px) and (min-height: 1400px) {
+    body.wall-display-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .view-section:not(.active) {
+        display: none !important;
+        height: 0 !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .view-section.active:not(#view-dashboard) {
+        height: calc(100dvh - 138px) !important;
+        min-height: 0 !important;
+        max-height: calc(100dvh - 138px) !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-meter.view-section.active {
+        display: block !important;
+    }
+
+    body.wall-display-mode #view-meter #meter-center-shell {
+        display: grid !important;
+        grid-template-rows: 34px 132px 34px 34px minmax(0, 1fr) 360px !important;
+        gap: 12px !important;
+        height: calc(100dvh - 138px) !important;
+        min-height: 0 !important;
+        max-height: calc(100dvh - 138px) !important;
+        padding: 18px !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-summary-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        height: 132px !important;
+        min-height: 0 !important;
+        gap: 12px !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-summary-card {
+        height: 132px !important;
+        min-height: 0 !important;
+        padding: 14px 16px !important;
+        border-radius: 10px !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-summary-card .value {
+        font-size: 32px !important;
+        line-height: 1.04 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-summary-badgebar,
+    body.wall-display-mode #view-meter .meter-type-chip-row {
+        height: 34px !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-center-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        grid-auto-rows: 292px !important;
+        gap: 12px !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        overflow: auto !important;
+        align-content: start !important;
+        scrollbar-width: thin;
+    }
+
+    body.wall-display-mode #view-meter .meter-center-grid > * {
+        flex: initial !important;
+        min-width: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense {
+        grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.35fr) !important;
+        grid-template-areas:
+            "head main"
+            "head main"
+            "extra extra"
+            "foot foot" !important;
+        grid-template-rows: 48px minmax(0, 1fr) 44px 24px !important;
+        gap: 9px 12px !important;
+        height: 292px !important;
+        min-height: 0 !important;
+        padding: 14px !important;
+        border-radius: 10px !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense .meter-card-subtitle,
+    body.wall-display-mode #view-meter .meter-card-dense .meter-status-chip,
+    body.wall-display-mode #view-meter .meter-dense-power span,
+    body.wall-display-mode #view-meter .meter-dense-power em,
+    body.wall-display-mode #view-meter .meter-card-dense .meter-kpi-card .label,
+    body.wall-display-mode #view-meter .meter-card-dense .meter-kpi-card .value,
+    body.wall-display-mode #view-meter .meter-card-dense .meter-extra-card .label,
+    body.wall-display-mode #view-meter .meter-card-dense .meter-extra-card .value,
+    body.wall-display-mode #view-meter .meter-card-dense .meter-foot,
+    body.wall-display-mode #view-meter .meter-card-dense .meter-foot span {
+        font-size: 14px !important;
+        line-height: 1.18 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-dense-power strong {
+        font-size: 30px !important;
+        line-height: 1 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense .meter-phase-grid {
+        display: none !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense .meter-extra-grid {
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 7px !important;
+        max-height: none !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense .meter-extra-card {
+        min-height: 0 !important;
+        padding: 6px 8px !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-trend-layout {
+        grid-template-columns: minmax(0, 1fr) 280px !important;
+        height: 360px !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-chart-box {
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: none !important;
+    }
+
+    body.wall-display-mode #view-dashboard .dashboard-energy-list {
+        max-height: 300px !important;
+        overflow: auto !important;
+        scrollbar-width: thin;
+    }
+
+    body.wall-display-mode #view-dashboard .dashboard-energy-row:nth-of-type(n+7) {
+        display: none !important;
+    }
+
+    body.wall-display-mode #view-hvac > .card {
+        display: flex !important;
+        flex-direction: column !important;
+        height: calc(100dvh - 138px) !important;
+        min-height: 0 !important;
+        max-height: calc(100dvh - 138px) !important;
+        padding: 18px !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-hvac .card-title {
+        flex: 0 0 auto !important;
+        min-height: 0 !important;
+        margin: 0 0 14px !important;
+        padding-bottom: 10px !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-refresh-diagnostics {
+        flex: 0 0 auto !important;
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 12px !important;
+        margin: 0 0 16px !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-refresh-chip {
+        min-height: 72px !important;
+        padding: 12px 16px !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-grid {
+        flex: 1 1 auto !important;
+        display: grid !important;
+        grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+        gap: 18px !important;
+        min-height: 0 !important;
+        width: 100% !important;
+        overflow: hidden !important;
+        align-items: stretch !important;
+        align-content: stretch !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-group-section,
+    body.wall-display-mode #view-hvac .hvac-group-count-1,
+    body.wall-display-mode #view-hvac .hvac-group-count-2,
+    body.wall-display-mode #view-hvac .hvac-group-count-3,
+    body.wall-display-mode #view-hvac .hvac-group-count-4 {
+        flex: initial !important;
+        width: auto !important;
+        max-width: none !important;
+        min-width: 0 !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-group-section {
+        grid-column: span 4 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 18px !important;
+        border-radius: 14px !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-group-count-1 {
+        grid-column: span 3 !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-group-count-2 {
+        grid-column: span 4 !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-group-count-3 {
+        grid-column: span 5 !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-group-count-4 {
+        grid-column: span 6 !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-group-head {
+        flex: 0 0 auto !important;
+        margin: 0 0 14px !important;
+        padding: 0 4px 10px 12px !important;
+        align-items: flex-start !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-group-title,
+    body.wall-display-mode #view-hvac .hvac-group-title[style] {
+        font-size: 22px !important;
+        line-height: 1.08 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-group-stat,
+    body.wall-display-mode #view-hvac .hvac-room-env-chip,
+    body.wall-display-mode #view-hvac .hvac-room-env-chip strong {
+        font-size: 14px !important;
+        line-height: 1.16 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-group-grid,
+    body.wall-display-mode #view-hvac .hvac-group-count-1 .hvac-group-grid,
+    body.wall-display-mode #view-hvac .hvac-group-count-2 .hvac-group-grid,
+    body.wall-display-mode #view-hvac .hvac-group-count-3 .hvac-group-grid,
+    body.wall-display-mode #view-hvac .hvac-group-count-4 .hvac-group-grid {
+        flex: 1 1 auto !important;
+        display: grid !important;
+        width: 100% !important;
+        max-width: none !important;
+        min-height: 0 !important;
+        gap: 14px !important;
+        overflow: auto !important;
+        align-items: stretch !important;
+        scrollbar-width: thin;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-group-count-1 .hvac-group-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-group-count-2 .hvac-group-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-group-count-3 .hvac-group-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-group-count-4 .hvac-group-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-card {
+        width: 100% !important;
+        max-width: none !important;
+        min-width: 0 !important;
+        min-height: 0 !important;
+        height: 560px !important;
+        padding: 18px !important;
+        border-radius: 12px !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-body {
+        grid-template-columns: minmax(178px, 0.88fr) minmax(0, 1.12fr) !important;
+        gap: 14px !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-temp-panel {
+        min-height: 178px !important;
+        padding: 16px 54px 16px 16px !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-temp-value {
+        font-size: 46px !important;
+        line-height: 1.02 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-mode-trigger {
+        min-height: 64px !important;
+        padding: 12px 14px !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-mode-name,
+    body.wall-display-mode #view-hvac .hvac-action-text {
+        font-size: 20px !important;
+        line-height: 1.12 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-hvac .hvac-mode-caption,
+    body.wall-display-mode #view-hvac .hvac-mode-side,
+    body.wall-display-mode #view-hvac .hvac-action-caption,
+    body.wall-display-mode #view-hvac .hvac-info-row .label,
+    body.wall-display-mode #view-hvac .hvac-info-row .value,
+    body.wall-display-mode #view-hvac .hvac-fan-inline-label {
+        font-size: 14px !important;
+        line-height: 1.16 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-logs .event-log-page {
+        height: calc(100dvh - 138px) !important;
+        min-height: 0 !important;
+        max-height: calc(100dvh - 138px) !important;
+        margin: 0 !important;
+        padding: 18px !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-logs .event-log-table-wrap {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: auto !important;
+    }
+}
