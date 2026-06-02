@@ -224,7 +224,7 @@
     }
 
     body.wall-display-mode #view-hvac .hvac-group-count-1 {
-        grid-column: span 3 !important;
+        grid-column: span 4 !important;
     }
 
     body.wall-display-mode #view-hvac .hvac-group-count-2 {
@@ -232,11 +232,11 @@
     }
 
     body.wall-display-mode #view-hvac .hvac-group-count-3 {
-        grid-column: span 5 !important;
+        grid-column: span 4 !important;
     }
 
     body.wall-display-mode #view-hvac .hvac-group-count-4 {
-        grid-column: span 6 !important;
+        grid-column: span 8 !important;
     }
 
     body.wall-display-mode #view-hvac .hvac-group-head {
@@ -290,7 +290,7 @@
     }
 
     body.wall-display-mode #view-hvac .hvac-group-count-4 .hvac-group-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     }
 
     body.wall-display-mode #view-hvac .hvac-card {

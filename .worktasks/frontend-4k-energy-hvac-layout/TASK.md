@@ -56,6 +56,7 @@ static/css/generated/meter.css.gz
 - 3840x2160 下新增最终 4K 样式 ui-4k-final.css，确保懒加载视图样式后仍保持最终布局。
 - 电表页 4K 调整为 4 列紧凑卡片、3 行卡片列表与可见趋势图。
 - 空调页 4K 最终提升到 v13，覆盖懒加载 hvac.css 的 320px 固定卡片规则，三个分区横向铺满 3840 宽屏。
+- 生产真实数据有 14 台空调，v14 进一步按 12 栏重排 HVAC 分组：1/2/3 台组占 4 栏，4 台组占 8 栏并 4 列展示，减少 3840 下行尾留白。
 - 修复 meter.css.gz 未同步导致浏览器拿到旧预压缩 CSS 的问题。
 - 日志页、服务页、首页、电表页 4K 布局完成复扫。
 
@@ -69,6 +70,7 @@ static/css/generated/meter.css.gz
 - /api/hvac/status 返回 _refresh，当前中控轮询约 0.1-0.3ms
 - 3840x2160 全页面扫描：dashboard/power/light/meter/sequencer/universal/snmp/hvac/apple_audio/local_model/server/logs 均 tinyCount=0、rootX=0、bodyX=0、inactiveVisible=0、finalCssV13=true
 - 3840x2160 空调页：诊断条可见，HA stale 判断可见，分组最右侧 right=3783，卡片不再固定 320px。
+- 3840x2160 生产 HVAC 真实数据：14 台空调、6 个分组；v14 按生产分组补齐 12 栏宽屏布局。
 - 3840x2160 切页 dashboard -> power -> light -> server -> logs -> hvac -> meter -> dashboard：侧栏 286px，导航行高 58px，导航字号 18px
 
 ## 未验证
