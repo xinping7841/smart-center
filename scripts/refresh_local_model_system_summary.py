@@ -28,7 +28,7 @@ from config import CONFIG  # noqa: E402
 from paths import DATA_DIR, ensure_directory  # noqa: E402
 
 
-DEFAULT_MAX_INPUT_CHARS = 160_000
+DEFAULT_MAX_INPUT_CHARS = 20_000
 
 
 def _training_dir() -> Path:
@@ -159,7 +159,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Refresh Smart Center system summary with the local high-context model.")
     parser.add_argument("--max-input-chars", type=int, default=DEFAULT_MAX_INPUT_CHARS)
     args = parser.parse_args()
-    result = build_system_summary(max_input_chars=max(20_000, min(args.max_input_chars, 240_000)))
+    result = build_system_summary(max_input_chars=max(8_000, min(args.max_input_chars, 240_000)))
     print(json.dumps({"ok": True, "summary": result}, ensure_ascii=False, indent=2))
 
 

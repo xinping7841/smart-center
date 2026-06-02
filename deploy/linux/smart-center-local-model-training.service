@@ -11,6 +11,6 @@ EnvironmentFile=-/etc/smart-center.env
 Environment=SMART_CENTER_LOCAL_MODEL_TRAINING_NAS_DIR=/mnt/ubuntu01/smart-center-backups/local-model-training
 Environment=SMART_CENTER_LOCAL_MODEL_TRAINING_KEEP_DAYS=180
 ExecStart=/srv/smart-center/.venv/bin/python /srv/smart-center/current/scripts/export_local_model_training.py --sync-nas
-ExecStartPost=-/srv/smart-center/.venv/bin/python /srv/smart-center/current/scripts/refresh_local_model_system_summary.py --max-input-chars 160000
+ExecStartPost=-/srv/smart-center/.venv/bin/python /srv/smart-center/current/scripts/refresh_local_model_system_summary.py --max-input-chars 20000
 StandardOutput=append:/srv/smart-center-data/runtime/local_model_training_export.log
 StandardError=append:/srv/smart-center-data/runtime/local_model_training_export.log

@@ -1746,13 +1746,13 @@ def api_local_model_knowledge_status():
 def api_local_model_refresh_system_summary():
     try:
         payload = request.get_json(silent=True) if request.is_json else {}
-        max_input_chars = int((payload or {}).get("max_input_chars") or 160000)
+        max_input_chars = int((payload or {}).get("max_input_chars") or 20000)
     except Exception:
-        max_input_chars = 160000
+        max_input_chars = 20000
     try:
         from scripts.refresh_local_model_system_summary import build_system_summary
 
-        summary = build_system_summary(max_input_chars=max(20000, min(max_input_chars, 240000)))
+        summary = build_system_summary(max_input_chars=max(8000, min(max_input_chars, 240000)))
         return jsonify({"ok": True, "summary": summary})
     except Exception as exc:
         return jsonify({"ok": False, "error": "summary_failed", "msg": str(exc)}), 502
