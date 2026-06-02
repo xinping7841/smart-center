@@ -25,8 +25,8 @@
       <div class="local-model-page" id="local-model-shell">
         <section class="local-model-topbar">
           <div class="local-model-heading">
-            <span class="local-model-eyebrow">AI 中控链路</span>
-            <h2>自然语言控制台</h2>
+            <span class="local-model-eyebrow">AI 配置与学习状态</span>
+            <h2>本地模型运行面板</h2>
             <p id="modelLine">读取配置中...</p>
           </div>
           <div class="local-model-top-actions">
@@ -52,86 +52,130 @@
             <span>模型服务</span>
             <strong id="localModelVllmMeta">--</strong>
           </div>
+          <div class="local-model-metric">
+            <span>云端增强</span>
+            <strong id="cloudModelNameMeta">--</strong>
+          </div>
+          <div class="local-model-metric">
+            <span>决策模式</span>
+            <strong id="localModelDecisionMeta">--</strong>
+          </div>
         </section>
         <div class="local-model-workspace">
-          <section class="local-model-panel local-model-chat">
+          <section class="local-model-panel local-model-config-status">
             <div class="local-model-head">
               <div>
-                <div class="local-model-title">对话测试</div>
-                <div class="local-model-subtitle">查询、状态判断、控制意图预演</div>
-              </div>
-              <div class="local-model-actions">
-                <button class="local-model-btn secondary" type="button" onclick="clearChat()">清空</button>
+                <div class="local-model-title">AI 配置状态</div>
+                <div class="local-model-subtitle">当前模型、云端增强、飞书执行权限</div>
               </div>
             </div>
-            <div class="local-model-messages messages" id="messages"></div>
-            <div class="local-model-composer">
-              <textarea class="local-model-textarea" id="prompt" placeholder="问本地模型，例如：整理当前投影机、空调、强电柜的协议和状态关注点"></textarea>
-              <button class="local-model-btn" id="sendBtn" type="button" onclick="sendChat()">发送</button>
+            <div class="local-model-config-summary">
+              <div class="local-model-status-line">
+                <span>本地模型</span>
+                <strong id="parseLocalState">--</strong>
+              </div>
+              <div class="local-model-status-line">
+                <span>云端模型</span>
+                <strong id="parseCloudState">--</strong>
+              </div>
+              <div class="local-model-status-line">
+                <span>当前采用</span>
+                <strong id="parseDecisionState">--</strong>
+              </div>
+            </div>
+            <div class="local-model-flow local-model-flow-compact">
+              <div><span>1</span><strong>飞书输入</strong><small>自然语言请求</small></div>
+              <div><span>2</span><strong>云端解析</strong><small>主判断</small></div>
+              <div><span>3</span><strong>本地对照</strong><small>学习样本</small></div>
+              <div><span>4</span><strong>沉淀优化</strong><small>切回本地</small></div>
+            </div>
+            <div class="local-model-flow-controls">
+              <label class="local-model-switch-row">
+                <span><strong>启用云端增强</strong><small id="cloudModelState">未启用，本地模型单独工作</small></span>
+                <input id="cfgCloudEnabled" type="checkbox">
+              </label>
+              <div class="local-model-row2">
+                <label class="local-model-switch-row local-model-mini-switch">
+                  <span><strong>摘要刷新</strong><small>代码和设备知识摘要</small></span>
+                  <input id="cfgCloudUseSummary" type="checkbox">
+                </label>
+                <label class="local-model-switch-row local-model-mini-switch">
+                  <span><strong>飞书并行理解</strong><small>云端结果优先采用</small></span>
+                  <input id="cfgCloudUseNlu" type="checkbox">
+                </label>
+              </div>
+            </div>
+            <label class="local-model-feishu-control" id="feishuControlSwitchCard">
+              <input id="cfgFeishuControlEnabled" type="checkbox">
+              <span class="local-model-toggle-visual" aria-hidden="true"><span></span></span>
+              <span class="local-model-feishu-copy">
+                <span class="local-model-feishu-kicker">飞书控制执行开关</span>
+                <strong>允许飞书执行中控命令</strong>
+                <small>关闭时仅查询、解析和记录，不下发控制。</small>
+              </span>
+              <span class="local-model-feishu-state" id="feishuControlState">已关闭，仅允许查询</span>
+            </label>
+          </section>
+          <section class="local-model-panel local-model-process-panel">
+            <div class="local-model-head">
+              <div>
+                <div class="local-model-title">模型解析状态</div>
+                <div class="local-model-subtitle">云端/本地理解对比、路由与执行结果</div>
+              </div>
+              <button class="local-model-btn secondary" type="button" onclick="loadProcessLog()">刷新</button>
+            </div>
+            <div class="local-model-parse-summary">
+              <div><span>最近记录</span><strong id="learningSampleCount">--</strong></div>
+              <div><span>云端选择</span><strong id="learningCloudSelected">--</strong></div>
+              <div><span>本地可用</span><strong id="learningLocalOk">--</strong></div>
+            </div>
+            <div class="local-model-process-list" id="processLog"></div>
+          </section>
+          <section class="local-model-panel local-model-learning-panel">
+            <div class="local-model-head">
+              <div>
+                <div class="local-model-title">学习沉淀与切换准备</div>
+                <div class="local-model-subtitle">先云端主用，持续存储样本，成熟后切回本地</div>
+              </div>
+            </div>
+            <div class="local-model-learning-stage">
+              <span id="learningStageBadge">观察中</span>
+              <strong id="learningStageText">等待配置读取</strong>
+            </div>
+            <div class="local-model-learning-grid">
+              <div><span>样本存储</span><strong id="learningStorageState">--</strong></div>
+              <div><span>知识包</span><strong id="learningKnowledgeCount">--</strong></div>
+              <div><span>摘要状态</span><strong id="learningSummaryState">--</strong></div>
+              <div><span>本地切换</span><strong id="learningSwitchReadiness">--</strong></div>
+            </div>
+            <div class="local-model-learning-steps">
+              <div><span>1</span><strong>云端稳定解析</strong><small>当前用于主判断</small></div>
+              <div><span>2</span><strong>本地并行对照</strong><small>记录差异和成功样本</small></div>
+              <div><span>3</span><strong>周期汇总学习</strong><small>沉淀知识、意图和别名</small></div>
+              <div><span>4</span><strong>切换本地优先</strong><small>准确率达标后执行</small></div>
             </div>
           </section>
-          <aside class="local-model-right-rail">
-            <section class="local-model-panel local-model-control-panel">
-              <div class="local-model-head">
-                <div>
-                  <div class="local-model-title">飞书执行权限</div>
-                  <div class="local-model-subtitle">查询不受限制，控制由此开关决定</div>
-                </div>
-              </div>
-              <label class="local-model-feishu-control" id="feishuControlSwitchCard">
-                <input id="cfgFeishuControlEnabled" type="checkbox">
-                <span class="local-model-toggle-visual" aria-hidden="true"><span></span></span>
-                <span class="local-model-feishu-copy">
-                  <span class="local-model-feishu-kicker">飞书控制执行开关</span>
-                  <strong>允许飞书执行中控命令</strong>
-                  <small>关闭时飞书只做查询、解析和记录，不进入真实控制执行。</small>
-                </span>
-                <span class="local-model-feishu-state" id="feishuControlState">已关闭，仅允许查询</span>
-              </label>
-            </section>
-            <section class="local-model-panel local-model-flow-panel">
-              <div class="local-model-head">
-                <div>
-                  <div class="local-model-title">模型理解链路</div>
-                  <div class="local-model-subtitle">云端和本地并行理解，当前采用云端结果</div>
-                </div>
-              </div>
-              <div class="local-model-flow">
-                <div><span>1</span><strong>飞书输入</strong><small>自然语言请求</small></div>
-                <div><span>2</span><strong>并行理解</strong><small>云端 + 本地</small></div>
-                <div><span>3</span><strong>路由匹配</strong><small>查询或控制</small></div>
-                <div><span>4</span><strong>记录结果</strong><small>过程可追踪</small></div>
-              </div>
-              <div class="local-model-flow-controls">
-                <label class="local-model-switch-row">
-                  <span><strong>启用云端增强</strong><small id="cloudModelState">未启用，本地模型单独工作</small></span>
-                  <input id="cfgCloudEnabled" type="checkbox">
-                </label>
-                <div class="local-model-row2">
-                  <label class="local-model-switch-row local-model-mini-switch">
-                    <span><strong>摘要刷新</strong><small>代码和设备知识摘要</small></span>
-                    <input id="cfgCloudUseSummary" type="checkbox">
-                  </label>
-                  <label class="local-model-switch-row local-model-mini-switch">
-                    <span><strong>飞书并行理解</strong><small>云端结果优先采用</small></span>
-                    <input id="cfgCloudUseNlu" type="checkbox">
-                  </label>
-                </div>
-              </div>
-            </section>
-            <section class="local-model-panel local-model-process-panel">
-              <div class="local-model-head">
-                <div>
-                  <div class="local-model-title">自然语言处理记录</div>
-                  <div class="local-model-subtitle">模型理解、路由和执行过程</div>
-                </div>
-                <button class="local-model-btn secondary" type="button" onclick="loadProcessLog()">刷新</button>
-              </div>
-              <div class="local-model-process-list" id="processLog"></div>
-            </section>
-          </aside>
         </div>
         <div class="local-model-ops-grid">
+          <details class="local-model-panel local-model-chat local-model-chat-compact local-model-chat-drawer">
+            <summary class="local-model-chat-summary">
+              <span>
+                <strong>轻量对话测试</strong>
+                <small>默认收起，临时验证自然语言理解时再展开</small>
+              </span>
+              <span class="local-model-chat-summary-action" aria-hidden="true"></span>
+            </summary>
+            <div class="local-model-chat-body">
+              <div class="local-model-chat-actions">
+                <button class="local-model-btn secondary" type="button" onclick="clearChat()">清空</button>
+              </div>
+              <div class="local-model-messages messages" id="messages"></div>
+              <div class="local-model-composer">
+                <textarea class="local-model-textarea" id="prompt" placeholder="临时测试一句自然语言，例如：查询一号厅灯光状态"></textarea>
+                <button class="local-model-btn" id="sendBtn" type="button" onclick="sendChat()">发送</button>
+              </div>
+            </div>
+          </details>
           <section class="local-model-panel">
             <div class="local-model-head">
               <div>
@@ -323,11 +367,18 @@
   }
   function updateMetaFromConfig() {
     const cfg = modelConfig || {};
+    const cloud = cfg.cloud_model || {};
     optionalSet('modelLine', `${cfg.base_url || '--'} · ${cfg.model || '--'}`);
     optionalSet('localModelNameMeta', cfg.model || '--');
     optionalSet('localModelDocsMeta', '--');
     optionalSet('localModelContextMeta', cfg.max_model_len ? formatNumber(cfg.max_model_len) : '--');
     optionalSet('localModelVllmMeta', cfg.vllm_base_url || '--');
+    optionalSet('cloudModelNameMeta', cloud.enabled ? (cloud.model || cloud.name || '已启用') : '未启用');
+    optionalSet('localModelDecisionMeta', cloud.enabled && cloud.use_for_nlu_fallback !== false ? '云端主用 / 本地学习' : '本地优先');
+    optionalSet('parseLocalState', `${cfg.model || '--'} · ${cfg.max_model_len ? formatNumber(cfg.max_model_len) : '--'} 上下文`);
+    optionalSet('parseCloudState', cloud.enabled ? `${cloud.model || cloud.name || '--'} · 已启用` : '未启用');
+    optionalSet('parseDecisionState', cloud.enabled && cloud.use_for_nlu_fallback !== false ? '云端结果为准，本地并行学习' : '本地模型直接判断');
+    updateLearningStatusSummary();
   }
   function updateCloudHealth(data) {
     const cloud = modelConfig?.cloud_model || {};
@@ -341,6 +392,8 @@
     const label = online ? `在线${modelCount ? ` · ${modelCount} 模型` : ''}` : '离线';
     setBadge('cloudHealthBadge', label, online);
     optionalSet('cloudModelState', online ? `当前 ${data.cloud_model || cloud.model || '--'}` : '已启用，但健康检查未通过');
+    optionalSet('parseCloudState', online ? `${data.cloud_model || cloud.model || '--'} · 在线` : `${cloud.model || '--'} · 离线`);
+    updateLearningStatusSummary();
   }
   function addMessage(role, content) {
     chatMessages.push({role, content});
@@ -473,6 +526,7 @@
           </div>
         </details>`;
     }).join('');
+    updateLearningStatusSummary();
   }
   function renderKnowledgeStatus() {
     const grid = $('knowledgeStatusGrid');
@@ -482,6 +536,7 @@
     const rows = Array.isArray(data.items) ? data.items : [];
     if (!rows.length) {
       grid.innerHTML = '<div class="local-model-hint">暂无知识库状态</div>';
+      updateLearningStatusSummary();
       return;
     }
     grid.innerHTML = rows.map(item => `
@@ -501,6 +556,50 @@
         data.last_summary?.generated_at ? `最近模型摘要 ${data.last_summary.generated_at}` : '尚未生成模型摘要'
       ];
       hint.textContent = parts.join('；');
+    }
+    updateLearningStatusSummary();
+  }
+  function collectLearningStats() {
+    const rows = Array.isArray(processLog) ? processLog : [];
+    let cloudSelected = 0;
+    let localOk = 0;
+    let comparisons = 0;
+    rows.forEach(item => {
+      const comparison = findModelComparison(item);
+      const results = Array.isArray(comparison?.results) ? comparison.results : [];
+      if (results.length) comparisons += 1;
+      results.forEach(row => {
+        if (row.source === 'cloud' && row.selected) cloudSelected += 1;
+        if (row.source === 'local' && row.ok) localOk += 1;
+      });
+    });
+    const knowledgeRows = Array.isArray(knowledgeStatus?.items) ? knowledgeStatus.items : [];
+    const readyKnowledge = knowledgeRows.filter(item => item.exists).length;
+    return {rows, cloudSelected, localOk, comparisons, knowledgeRows, readyKnowledge};
+  }
+  function updateLearningStatusSummary() {
+    const cfg = modelConfig || {};
+    const cloud = cfg.cloud_model || {};
+    const stats = collectLearningStats();
+    const processCount = stats.rows.length;
+    const hasSummary = !!knowledgeStatus?.last_summary?.generated_at;
+    const readyRatio = stats.knowledgeRows.length ? stats.readyKnowledge / stats.knowledgeRows.length : 0;
+    const localCoverage = stats.comparisons ? Math.round((stats.localOk / stats.comparisons) * 100) : null;
+    const switchReady = cloud.enabled
+      ? (processCount >= 80 && readyRatio >= 0.8 && hasSummary && localCoverage !== null && localCoverage >= 85)
+      : false;
+    optionalSet('learningSampleCount', processCount ? `${formatNumber(processCount)} 条` : '暂无');
+    optionalSet('learningCloudSelected', stats.cloudSelected ? `${formatNumber(stats.cloudSelected)} 次` : '暂无');
+    optionalSet('learningLocalOk', localCoverage === null ? '等待样本' : `${localCoverage}%`);
+    optionalSet('learningStorageState', processCount ? `已记录 ${formatNumber(processCount)} 条` : '等待飞书/页面解析记录');
+    optionalSet('learningKnowledgeCount', stats.knowledgeRows.length ? `${stats.readyKnowledge}/${stats.knowledgeRows.length} 就绪` : '等待知识包');
+    optionalSet('learningSummaryState', hasSummary ? `已生成 ${knowledgeStatus.last_summary.generated_at}` : '等待摘要刷新');
+    optionalSet('learningSwitchReadiness', switchReady ? '可评估切换' : '继续云端主用');
+    optionalSet('learningStageText', switchReady ? '本地模型已具备切换评估条件' : (cloud.enabled ? '云端主用，本地持续对照学习' : '本地模型单独工作'));
+    const badge = $('learningStageBadge');
+    if (badge) {
+      badge.textContent = switchReady ? '可切换评估' : (cloud.enabled ? '学习中' : '本地直连');
+      badge.className = switchReady ? 'is-ready' : (cloud.enabled ? 'is-learning' : 'is-local');
     }
   }
   async function loadKnowledgeStatus() {

@@ -222,14 +222,14 @@ body.local-model-standalone a {
 
 #view-local_model .local-model-metric-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 10px;
 }
 
 #view-local_model .local-model-metric {
     min-width: 0;
-    min-height: 66px;
-    padding: 10px 12px;
+    min-height: 58px;
+    padding: 9px 10px;
     border: 1px solid rgba(148, 163, 184, .13);
     border-radius: 8px;
     background: #0f172a;
@@ -259,21 +259,24 @@ body.local-model-standalone a {
 #view-local_model .local-model-workspace {
     min-width: 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
-    grid-template-areas: "chat rail";
+    grid-template-columns: minmax(380px, .95fr) minmax(420px, 1.15fr) minmax(360px, .9fr);
+    grid-template-areas: "config parse learning";
     gap: 14px;
     align-items: start;
 }
 
-#view-local_model .local-model-chat {
-    grid-area: chat;
+#view-local_model .local-model-config-status {
+    grid-area: config;
 }
 
-#view-local_model .local-model-right-rail {
-    grid-area: rail;
+#view-local_model .local-model-process-panel {
+    grid-area: parse;
 }
 
-#view-local_model .local-model-right-rail,
+#view-local_model .local-model-learning-panel {
+    grid-area: learning;
+}
+
 #view-local_model .local-model-ops-grid {
     min-width: 0;
     display: grid;
@@ -281,7 +284,7 @@ body.local-model-standalone a {
 }
 
 #view-local_model .local-model-ops-grid {
-    grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+    grid-template-columns: minmax(420px, .9fr) minmax(360px, .75fr) minmax(360px, .75fr);
     align-items: start;
 }
 
@@ -295,9 +298,91 @@ body.local-model-standalone a {
 }
 
 #view-local_model .local-model-chat {
-    min-height: 560px;
+    min-height: 0;
     display: flex;
     flex-direction: column;
+}
+
+#view-local_model .local-model-chat-compact .local-model-messages {
+    min-height: 96px;
+    max-height: 132px;
+}
+
+#view-local_model .local-model-chat-compact .local-model-textarea {
+    min-height: 54px;
+}
+
+#view-local_model .local-model-chat-drawer {
+    display: block;
+}
+
+#view-local_model .local-model-chat-summary {
+    min-height: 54px;
+    padding: 11px 12px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    cursor: pointer;
+}
+
+#view-local_model .local-model-chat-summary::-webkit-details-marker {
+    display: none;
+}
+
+#view-local_model .local-model-chat-summary strong,
+#view-local_model .local-model-chat-summary small {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#view-local_model .local-model-chat-summary strong {
+    color: #f8fafc;
+    font-size: 14px;
+    line-height: 1.25;
+    font-weight: 900;
+}
+
+#view-local_model .local-model-chat-summary small {
+    margin-top: 4px;
+    color: #94a3b8;
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+#view-local_model .local-model-chat-summary-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 28px;
+    min-width: 44px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: rgba(37, 99, 235, .18);
+    color: #bfdbfe;
+    font-size: 12px;
+    font-weight: 900;
+}
+
+#view-local_model .local-model-chat-summary-action::before {
+    content: "展开";
+}
+
+#view-local_model .local-model-chat-drawer[open] .local-model-chat-summary-action::before {
+    content: "收起";
+}
+
+#view-local_model .local-model-chat-body {
+    border-top: 1px solid rgba(148, 163, 184, .12);
+}
+
+#view-local_model .local-model-chat-actions {
+    padding: 10px 12px 0;
+    display: flex;
+    justify-content: flex-end;
 }
 
 #view-local_model .local-model-head {
@@ -385,8 +470,8 @@ body.local-model-standalone a {
 
 #view-local_model .local-model-messages {
     flex: 1;
-    min-height: 360px;
-    max-height: calc(100vh - 430px);
+    min-height: 140px;
+    max-height: 220px;
     overflow: auto;
     padding: 14px;
     display: flex;
@@ -540,12 +625,12 @@ body.local-model-standalone a {
 }
 
 #view-local_model .local-model-feishu-control {
-    margin: 12px;
-    padding: 14px;
-    min-height: 118px;
+    margin: 10px 12px 12px;
+    padding: 10px;
+    min-height: 72px;
     display: grid;
-    grid-template-columns: 62px minmax(0, 1fr);
-    gap: 14px;
+    grid-template-columns: 54px minmax(0, 1fr) auto;
+    gap: 10px;
     align-items: center;
     border: 1px solid rgba(248, 113, 113, .42);
     border-radius: 8px;
@@ -568,8 +653,8 @@ body.local-model-standalone a {
 
 #view-local_model .local-model-toggle-visual {
     position: relative;
-    width: 62px;
-    height: 34px;
+    width: 54px;
+    height: 30px;
     border-radius: 999px;
     background: #7f1d1d;
     border: 1px solid rgba(252, 165, 165, .34);
@@ -580,8 +665,8 @@ body.local-model-standalone a {
     position: absolute;
     top: 4px;
     left: 4px;
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     background: #fff7ed;
     box-shadow: 0 3px 10px rgba(0, 0, 0, .32);
@@ -594,7 +679,7 @@ body.local-model-standalone a {
 }
 
 #view-local_model .local-model-feishu-control.is-enabled .local-model-toggle-visual span {
-    transform: translateX(28px);
+    transform: translateX(24px);
 }
 
 #view-local_model .local-model-feishu-copy {
@@ -623,7 +708,7 @@ body.local-model-standalone a {
 
 #view-local_model .local-model-feishu-copy strong {
     color: #fff7ed;
-    font-size: 16px;
+    font-size: 14px;
     line-height: 1.25;
     font-weight: 950;
 }
@@ -636,8 +721,7 @@ body.local-model-standalone a {
 }
 
 #view-local_model .local-model-feishu-state {
-    grid-column: 1 / -1;
-    justify-self: start;
+    justify-self: end;
     min-height: 27px;
     padding: 5px 9px;
     border-radius: 999px;
@@ -647,6 +731,7 @@ body.local-model-standalone a {
     font-size: 12px;
     line-height: 1.2;
     font-weight: 900;
+    white-space: nowrap;
 }
 
 #view-local_model .local-model-feishu-control.is-enabled .local-model-feishu-state {
@@ -660,6 +745,30 @@ body.local-model-standalone a {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
+}
+
+#view-local_model .local-model-flow-compact {
+    padding-top: 0;
+}
+
+#view-local_model .local-model-flow-compact div {
+    min-height: 46px;
+    padding: 8px;
+    grid-template-columns: 22px minmax(0, 1fr);
+}
+
+#view-local_model .local-model-flow-compact span {
+    width: 22px;
+    height: 22px;
+    font-size: 11px;
+}
+
+#view-local_model .local-model-flow-compact strong {
+    font-size: 12px;
+}
+
+#view-local_model .local-model-flow-compact small {
+    margin-top: 2px;
 }
 
 #view-local_model .local-model-flow div {
@@ -712,15 +821,177 @@ body.local-model-standalone a {
 }
 
 #view-local_model .local-model-flow-controls {
+    padding: 0 12px 10px;
+    display: grid;
+    gap: 8px;
+}
+
+#view-local_model .local-model-config-summary,
+#view-local_model .local-model-parse-summary,
+#view-local_model .local-model-learning-grid {
+    padding: 12px;
+    display: grid;
+    gap: 8px;
+}
+
+#view-local_model .local-model-config-summary {
+    grid-template-columns: 1fr;
+}
+
+#view-local_model .local-model-parse-summary,
+#view-local_model .local-model-learning-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#view-local_model .local-model-learning-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+#view-local_model .local-model-status-line,
+#view-local_model .local-model-parse-summary div,
+#view-local_model .local-model-learning-grid div {
+    min-width: 0;
+    min-height: 50px;
+    padding: 8px 9px;
+    border: 1px solid rgba(148, 163, 184, .12);
+    border-radius: 8px;
+    background: rgba(2, 6, 23, .22);
+}
+
+#view-local_model .local-model-status-line {
+    display: grid;
+    grid-template-columns: 78px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+}
+
+#view-local_model .local-model-status-line span,
+#view-local_model .local-model-parse-summary span,
+#view-local_model .local-model-learning-grid span {
+    color: #64748b;
+    font-size: 11px;
+    line-height: 1.2;
+    font-weight: 850;
+}
+
+#view-local_model .local-model-status-line strong,
+#view-local_model .local-model-parse-summary strong,
+#view-local_model .local-model-learning-grid strong {
+    display: block;
+    min-width: 0;
+    margin-top: 5px;
+    color: #e0f2fe;
+    font-size: 12px;
+    line-height: 1.35;
+    font-weight: 900;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#view-local_model .local-model-status-line strong {
+    margin-top: 0;
+}
+
+#view-local_model .local-model-learning-stage {
+    margin: 12px 12px 0;
+    min-height: 66px;
+    padding: 10px;
+    border: 1px solid rgba(56, 189, 248, .18);
+    border-radius: 8px;
+    background: rgba(8, 47, 73, .18);
+    display: grid;
+    gap: 7px;
+}
+
+#view-local_model .local-model-learning-stage span {
+    justify-self: start;
+    min-height: 24px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, .16);
+    color: #67e8f9;
+    font-size: 11px;
+    line-height: 1.2;
+    font-weight: 900;
+}
+
+#view-local_model .local-model-learning-stage span.is-ready {
+    background: rgba(34, 197, 94, .16);
+    color: #86efac;
+}
+
+#view-local_model .local-model-learning-stage span.is-local {
+    background: rgba(148, 163, 184, .18);
+    color: #cbd5e1;
+}
+
+#view-local_model .local-model-learning-stage strong {
+    min-width: 0;
+    color: #f8fafc;
+    font-size: 14px;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#view-local_model .local-model-learning-steps {
     padding: 0 12px 12px;
     display: grid;
-    gap: 10px;
+    gap: 8px;
+}
+
+#view-local_model .local-model-learning-steps div {
+    min-width: 0;
+    padding: 9px 10px;
+    border: 1px solid rgba(148, 163, 184, .12);
+    border-radius: 8px;
+    background: rgba(2, 6, 23, .20);
+    display: grid;
+    grid-template-columns: 24px minmax(0, 1fr);
+    column-gap: 8px;
+}
+
+#view-local_model .local-model-learning-steps span {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(34, 197, 94, .14);
+    color: #86efac;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 900;
+}
+
+#view-local_model .local-model-learning-steps strong {
+    min-width: 0;
+    color: #e0f2fe;
+    font-size: 12px;
+    line-height: 1.25;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+#view-local_model .local-model-learning-steps small {
+    grid-column: 2;
+    min-width: 0;
+    margin-top: 4px;
+    color: #94a3b8;
+    font-size: 11px;
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 #view-local_model .local-model-switch-row {
     margin: 0;
-    padding: 10px;
-    min-height: 58px;
+    padding: 8px 9px;
+    min-height: 48px;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 12px;
@@ -755,7 +1026,7 @@ body.local-model-standalone a {
 }
 
 #view-local_model .local-model-mini-switch {
-    min-height: 72px;
+    min-height: 54px;
 }
 
 #view-local_model .local-model-knowledge-grid {
@@ -829,12 +1100,12 @@ body.local-model-standalone a {
     padding: 10px 12px 12px;
     display: grid;
     gap: 8px;
-    max-height: 350px;
+    max-height: 420px;
     overflow: auto;
 }
 
 #view-local_model .local-model-process-panel .local-model-process-list {
-    max-height: 330px;
+    max-height: 420px;
 }
 
 #view-local_model .local-model-process-row {
@@ -1065,12 +1336,17 @@ body.local-model-standalone a {
     #view-local_model .local-model-workspace {
         grid-template-columns: 1fr;
         grid-template-areas:
-            "rail"
-            "chat";
+            "config"
+            "parse"
+            "learning";
     }
 
     #view-local_model .local-model-ops-grid {
         grid-template-columns: 1fr;
+    }
+
+    #view-local_model .local-model-config-summary {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     #view-local_model .local-model-chat {
@@ -1122,27 +1398,68 @@ body.local-model-standalone a {
     }
 
     #view-local_model .local-model-row2,
-    #view-local_model .local-model-flow,
+    #view-local_model .local-model-parse-summary,
+    #view-local_model .local-model-learning-grid,
     #view-local_model .local-model-knowledge-grid,
     #view-local_model .local-model-composer {
         grid-template-columns: 1fr;
     }
 
     #view-local_model .local-model-metric-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: repeat(6, minmax(0, 1fr));
     }
 
     #view-local_model .local-model-metric {
-        min-height: 58px;
+        min-height: 54px;
+        padding: 8px;
+    }
+
+    #view-local_model .local-model-metric strong {
+        font-size: 12px;
+    }
+
+    #view-local_model .local-model-flow,
+    #view-local_model .local-model-flow-controls .local-model-row2 {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
     #view-local_model .local-model-feishu-control {
-        grid-template-columns: 1fr;
+        grid-template-columns: 54px minmax(0, 1fr) auto;
+    }
+
+    #view-local_model .local-model-feishu-state {
+        grid-column: auto;
+        justify-self: end;
+    }
+}
+
+@media screen and (max-width: 560px) {
+    #view-local_model .local-model-metric-grid,
+    #view-local_model .local-model-config-summary,
+    #view-local_model .local-model-flow,
+    #view-local_model .local-model-flow-controls .local-model-row2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    #view-local_model .local-model-feishu-control {
+        grid-template-columns: 54px minmax(0, 1fr);
+    }
+
+    #view-local_model .local-model-feishu-state {
+        grid-column: 1 / -1;
+        justify-self: start;
     }
 }
 
 @media screen and (max-width: 460px) {
     #view-local_model .local-model-metric-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #view-local_model .local-model-config-summary,
+    #view-local_model .local-model-flow,
+    #view-local_model .local-model-flow-controls .local-model-row2,
+    #view-local_model .local-model-feishu-control {
         grid-template-columns: 1fr;
     }
 }

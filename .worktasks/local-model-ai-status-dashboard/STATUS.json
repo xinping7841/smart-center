@@ -1,0 +1,10 @@
+{
+  "task": "local-model-ai-status-dashboard",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "heavy",
+  "branch": "codex/mac-local-model-ai-status-dashboard-20260602",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-active-worktrees/local-model-ai-status-dashboard",
+  "started_at": "2026-06-02 13:56:26",
+  "status": "in_progress"
+}
