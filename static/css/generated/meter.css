@@ -776,3 +776,359 @@
 #view-meter .meter-summary-grid > * { flex:0 0 260px !important; }
 
 #view-meter .meter-center-grid > * { flex:0 0 360px !important; }
+
+/* 4K meter final fit: this lazy stylesheet loads after ui-wide-1080.css. */
+@media screen and (min-width: 2200px) and (min-height: 1400px) {
+    body.wall-display-mode #view-meter.view-section.active {
+        display: block !important;
+        height: calc(100dvh - 138px) !important;
+        min-height: 0 !important;
+        max-height: calc(100dvh - 138px) !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-meter #meter-center-shell {
+        display: grid !important;
+        grid-template-rows: 34px 132px 34px 34px minmax(0, 1fr) 360px !important;
+        gap: 12px !important;
+        height: calc(100dvh - 138px) !important;
+        min-height: 0 !important;
+        max-height: calc(100dvh - 138px) !important;
+        padding: 18px !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-meter #meter-center-shell > .card-title {
+        min-height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        align-items: center !important;
+    }
+
+    body.wall-display-mode #view-meter #meter-center-shell > .card-title span,
+    body.wall-display-mode #view-meter #meter-center-shell > .card-title span[style] {
+        font-size: 16px !important;
+        line-height: 1.24 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter #meter-center-shell > .card-title span:first-child {
+        font-size: 24px !important;
+        line-height: 1.1 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-summary-grid {
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 12px !important;
+        height: 132px !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-summary-grid > * {
+        flex: initial !important;
+        min-width: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-summary-card {
+        min-height: 0 !important;
+        height: 132px !important;
+        padding: 14px 16px !important;
+        border-radius: 10px !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-summary-card .label,
+    body.wall-display-mode #view-meter .meter-summary-card .sub,
+    body.wall-display-mode #view-meter .meter-summary-card .meta,
+    body.wall-display-mode #view-meter .meter-summary-card .meta strong {
+        font-size: 14px !important;
+        line-height: 1.24 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-summary-card .value {
+        font-size: 32px !important;
+        line-height: 1.04 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-summary-card .meta {
+        min-height: 0 !important;
+        margin-top: 6px !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-summary-badgebar,
+    body.wall-display-mode #view-meter .meter-type-chip-row {
+        display: flex !important;
+        align-items: center !important;
+        gap: 8px !important;
+        height: 34px !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-summary-badge,
+    body.wall-display-mode #view-meter .meter-summary-badge strong,
+    body.wall-display-mode #view-meter .meter-type-chip,
+    body.wall-display-mode #view-meter .meter-type-chip strong {
+        min-height: 28px !important;
+        padding: 5px 11px !important;
+        font-size: 14px !important;
+        line-height: 1.12 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-center-grid {
+        display: grid !important;
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        grid-auto-rows: 292px !important;
+        gap: 12px !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        overflow: auto !important;
+        align-content: start !important;
+        scrollbar-width: thin;
+    }
+
+    body.wall-display-mode #view-meter .meter-center-grid > * {
+        flex: initial !important;
+        min-width: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense {
+        display: grid !important;
+        grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.35fr) !important;
+        grid-template-areas:
+            "head main"
+            "extra extra"
+            "foot foot" !important;
+        gap: 9px 12px !important;
+        min-height: 0 !important;
+        height: 292px !important;
+        padding: 14px !important;
+        border-radius: 10px !important;
+        align-items: stretch !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense .meter-card-head {
+        grid-area: head !important;
+        min-width: 0 !important;
+        gap: 8px !important;
+        align-items: flex-start !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense .meter-card-title {
+        font-size: 20px !important;
+        line-height: 1.12 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense .meter-card-subtitle {
+        display: block !important;
+        margin-top: 5px !important;
+        font-size: 14px !important;
+        line-height: 1.18 !important;
+        letter-spacing: 0 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense .status-chip-stack {
+        gap: 5px !important;
+        justify-content: flex-start !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense .meter-status-chip {
+        min-height: 26px !important;
+        padding: 4px 8px !important;
+        font-size: 14px !important;
+        line-height: 1.1 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-dense-main {
+        grid-area: main !important;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr) !important;
+        gap: 8px !important;
+        min-width: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-dense-power,
+    body.wall-display-mode #view-meter .meter-card-dense .meter-kpi-card {
+        min-height: 0 !important;
+        padding: 10px 11px !important;
+        border-radius: 9px !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-dense-power span,
+    body.wall-display-mode #view-meter .meter-dense-power em,
+    body.wall-display-mode #view-meter .meter-card-dense .meter-kpi-card .label,
+    body.wall-display-mode #view-meter .meter-card-dense .meter-kpi-card .value {
+        font-size: 14px !important;
+        line-height: 1.12 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-dense-power strong {
+        margin-top: 8px !important;
+        font-size: 30px !important;
+        line-height: 1 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense .meter-kpi-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+        margin: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense .meter-phase-grid {
+        display: none !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense .meter-extra-grid {
+        grid-area: extra !important;
+        display: grid !important;
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 7px !important;
+        max-height: none !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense .meter-extra-card {
+        display: block !important;
+        min-height: 42px !important;
+        padding: 7px 9px !important;
+        border-radius: 9px !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense .meter-extra-card .label,
+    body.wall-display-mode #view-meter .meter-card-dense .meter-extra-card .value {
+        margin: 0 !important;
+        font-size: 14px !important;
+        line-height: 1.12 !important;
+        letter-spacing: 0 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense .meter-extra-card .value {
+        margin-top: 4px !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense .meter-foot {
+        grid-area: foot !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        gap: 8px !important;
+        margin: 0 !important;
+        padding-top: 6px !important;
+        border-top: 1px dashed rgba(148,163,184,0.14) !important;
+        font-size: 14px !important;
+        line-height: 1.18 !important;
+        text-align: left !important;
+        opacity: 0.9 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-card-dense .meter-foot span {
+        min-width: 0 !important;
+        max-width: 50% !important;
+        font-size: 14px !important;
+        line-height: 1.18 !important;
+        letter-spacing: 0 !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-trend-layout {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) 280px !important;
+        gap: 12px !important;
+        height: 360px !important;
+        min-height: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-chart-shell,
+    body.wall-display-mode #view-meter .meter-side-note {
+        min-height: 0 !important;
+        padding: 12px !important;
+        border-radius: 10px !important;
+        overflow: hidden !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-chart-shell {
+        display: grid !important;
+        grid-template-rows: auto auto minmax(0, 1fr) !important;
+        gap: 8px !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-chart-shell .card-title {
+        min-height: 28px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-chart-shell .card-title span,
+    body.wall-display-mode #view-meter .meter-chart-shell .card-title span[style] {
+        font-size: 14px !important;
+        line-height: 1.2 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-chart-shell .card-title span:first-child {
+        font-size: 20px !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-chart-toolbar {
+        gap: 8px !important;
+        margin: 0 !important;
+        min-height: 40px !important;
+    }
+
+    body.wall-display-mode #view-meter #meter-trend-target,
+    body.wall-display-mode #view-meter #meter-trend-period,
+    body.wall-display-mode #view-meter .meter-chart-toolbar select,
+    body.wall-display-mode #view-meter .meter-chart-toolbar button {
+        min-height: 40px !important;
+        padding: 7px 10px !important;
+        border-radius: 8px !important;
+        font-size: 14px !important;
+        line-height: 1.16 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-chart-box {
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: none !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-side-note-title,
+    body.wall-display-mode #view-meter .meter-side-note-item .label,
+    body.wall-display-mode #view-meter .meter-side-note-item .value {
+        font-size: 14px !important;
+        line-height: 1.22 !important;
+        letter-spacing: 0 !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-side-note-list {
+        gap: 8px !important;
+    }
+
+    body.wall-display-mode #view-meter .meter-side-note-item {
+        padding: 10px !important;
+        border-radius: 8px !important;
+    }
+}

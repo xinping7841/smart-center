@@ -268,15 +268,33 @@
                 </section>`;
     }
 
-    function buildMonitorLogsSection() {
+    function buildMonitorEnergySection() {
         return `
                 <section class="monitor-panel home-total-log-card" id="dashboard-section-energy_trend" data-section-id="energy_trend">
                     <div class="monitor-panel-head">
-                        <div><span class="monitor-panel-kicker">EVENT STREAM</span><strong>运行日志流</strong></div>
-                        <span class="monitor-panel-note">中控触发 / 外部变化</span>
+                        <div><span class="monitor-panel-kicker">ENERGY</span><strong>电能消耗态势</strong></div>
+                        <span class="monitor-panel-note" id="dashboard-energy-source">等待电表快照</span>
                     </div>
-                    <div class="home-total-log-subtitle">最近设备状态变化 / 中控触发记录</div>
-                    <div class="log-list home-total-log-list" id="dashboard-logs"></div>
+                    <div class="dashboard-energy-board">
+                        <div class="dashboard-energy-main">
+                            <span>今日总用电</span>
+                            <strong id="dashboard-energy-total">-- kWh</strong>
+                            <em id="dashboard-energy-compare">较昨日 --</em>
+                        </div>
+                        <div class="dashboard-energy-side">
+                            <div class="dashboard-energy-metric">
+                                <span>实时功率</span>
+                                <strong id="dashboard-energy-power">-- kW</strong>
+                            </div>
+                            <div class="dashboard-energy-metric">
+                                <span>本月累计</span>
+                                <strong id="dashboard-energy-monthly">-- kWh</strong>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dashboard-energy-list" id="dashboard-energy-list">
+                        ${loadingText('正在加载电能消耗快照...', 'padding:10px;')}
+                    </div>
                 </section>`;
     }
 
@@ -291,7 +309,7 @@
             buildMonitorAlertsSection(),
             buildMonitorSnmpSection(),
             buildMonitorServerSection(),
-            buildMonitorLogsSection(),
+            buildMonitorEnergySection(),
         ].join('\n');
     }
 

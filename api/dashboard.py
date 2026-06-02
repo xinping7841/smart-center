@@ -147,6 +147,53 @@ def _cabinet_snapshot():
     return devices
 
 
+def _safe_number(value, default=0.0):
+    try:
+        if value in (None, ""):
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _energy_summary(cabinets):
+    rows = list(cabinets or [])
+    total_power = sum(_safe_number(item.get("realtime_power")) for item in rows)
+    total_daily = sum(_safe_number(item.get("daily_energy")) for item in rows)
+    total_monthly = sum(_safe_number(item.get("monthly_energy")) for item in rows)
+    online_rows = [item for item in rows if item.get("online")]
+    latest_updated = max(
+        (str(item.get("updated_at") or "") for item in rows if item.get("updated_at")),
+        default="",
+    )
+    top_consumers = sorted(
+        [
+            {
+                "id": item.get("id"),
+                "name": item.get("name"),
+                "online": bool(item.get("online")),
+                "realtime_power": _safe_number(item.get("realtime_power")),
+                "daily_energy": _safe_number(item.get("daily_energy")),
+                "monthly_energy": _safe_number(item.get("monthly_energy")),
+                "updated_at": item.get("updated_at"),
+            }
+            for item in rows
+        ],
+        key=lambda item: (item["daily_energy"], item["realtime_power"]),
+        reverse=True,
+    )[:6]
+    return {
+        "source": "power_snapshot",
+        "total": len(rows),
+        "online": len(online_rows),
+        "realtime_power": round(total_power, 4),
+        "daily_energy": round(total_daily, 4),
+        "monthly_energy": round(total_monthly, 4),
+        "latest_updated_at": latest_updated,
+        "top_consumers": top_consumers,
+    }
+
+
 def _light_snapshot():
     devices = []
     for cfg in _safe_config_items("light_devices"):
@@ -514,6 +561,7 @@ def api_dashboard_summary():
 
     started = time.monotonic()
     cabinets = _cabinet_snapshot()
+    energy = _energy_summary(cabinets)
     lights = _light_snapshot()
     env = _env_snapshot()
     ups = _ups_snapshot()
@@ -569,6 +617,7 @@ def api_dashboard_summary():
         },
         "modules": {
             "power": {"devices": cabinets},
+            "energy": energy,
             "light": {"devices": lights},
             "env": {"devices": env},
             "ups": {"devices": ups},

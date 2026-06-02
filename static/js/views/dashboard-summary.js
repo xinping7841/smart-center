@@ -432,6 +432,42 @@
         logList.scrollTop = 0;
     }
 
+    function renderDashboardEnergySummary(payload) {
+        const data = normalizeDashboardSummaryPayload(payload);
+        const modules = data.modules || {};
+        const energy = modules.energy || {};
+        const powerDevices = Array.isArray(modules.power?.devices) ? modules.power.devices : [];
+        const rows = Array.isArray(energy.top_consumers) && energy.top_consumers.length
+            ? energy.top_consumers
+            : powerDevices.slice().sort((left, right) => Number(right.daily_energy || 0) - Number(left.daily_energy || 0)).slice(0, 6);
+        const totalPower = Number(energy.realtime_power ?? powerDevices.reduce((sum, item) => sum + Number(item.realtime_power || 0), 0));
+        const totalDaily = Number(energy.daily_energy ?? powerDevices.reduce((sum, item) => sum + Number(item.daily_energy || 0), 0));
+        const totalMonthly = Number(energy.monthly_energy ?? powerDevices.reduce((sum, item) => sum + Number(item.monthly_energy || 0), 0));
+        const online = Number(energy.online ?? powerDevices.filter(item => item && item.online).length);
+        const total = Number(energy.total ?? powerDevices.length);
+        setText('dashboard-energy-total', `${Number.isFinite(totalDaily) ? totalDaily.toFixed(1) : '--'} kWh`);
+        setText('dashboard-energy-power', `${Number.isFinite(totalPower) ? totalPower.toFixed(2) : '--'} kW`);
+        setText('dashboard-energy-monthly', `${Number.isFinite(totalMonthly) ? totalMonthly.toFixed(1) : '--'} kWh`);
+        setText('dashboard-energy-compare', total ? `在线 ${online}/${total} · 只读快照` : '暂无电力快照');
+        setText('dashboard-energy-source', energy.source === 'meter_center' ? '电表中心完整口径' : '强电柜轻量快照');
+        if (!rows.length) {
+            setHtml('dashboard-energy-list', '<div class="monitor-empty">暂无电能消耗数据。</div>');
+            return;
+        }
+        setHtml('dashboard-energy-list', rows.map(item => {
+            const daily = Number(item.daily_energy || 0);
+            const power = Number(item.realtime_power || 0);
+            const tone = item.online ? 'ok' : 'danger';
+            return `<div class="dashboard-energy-row ${tone}">
+                <div class="dashboard-energy-row-main">
+                    <strong>${html(item.name || item.id || '电力回路')}</strong>
+                    <span>${item.online ? '在线' : '离线'} · 今日 ${Number.isFinite(daily) ? daily.toFixed(1) : '--'} kWh</span>
+                </div>
+                <em>${Number.isFinite(power) ? power.toFixed(2) : '--'} kW</em>
+            </div>`;
+        }).join(''));
+    }
+
     function renderDashboardFooterStatus(payload = {}, derived = {}) {
         const data = normalizeDashboardSummaryPayload(payload);
         const aggregate = aggregateCounts(data.counts || {});
@@ -522,6 +558,7 @@
         renderAlertList(data, derived);
         renderNetworkAndServerLists(data);
         renderDashboardLogsFromSummary(data);
+        renderDashboardEnergySummary(data);
         renderDashboardFooterStatus(data, derived);
     }
 
@@ -536,6 +573,7 @@
         renderAlertList,
         renderNetworkAndServerLists,
         renderDashboardLogsFromSummary,
+        renderDashboardEnergySummary,
     };
 
     SmartCenter.dashboardSummary = Object.assign({}, SmartCenter.dashboardSummary || {}, api);

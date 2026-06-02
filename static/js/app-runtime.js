@@ -3,10 +3,11 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260602-wall-page-density-v1';
+        const lazyModuleVersion = '20260602-4k-energy-hvac-v13';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const wideUiStyle = `/static/css/views/ui-wide-1080.css?v=${lazyModuleVersion}`;
-        const withWideUiStyle = styles => [...styles, wideUiStyle];
+        const final4kStyle = `/static/css/views/ui-4k-final.css?v=${lazyModuleVersion}`;
+        const withWideUiStyle = styles => [...styles, wideUiStyle, final4kStyle];
         const viewStyleGroups = {
             dashboard: withWideUiStyle([lazyStyle('dashboard')]),
             server: withWideUiStyle([lazyStyle('server')]),
@@ -502,12 +503,28 @@
                 metaEl.innerHTML = `${escapeHtml(endpoint)} · ${escapeHtml(googleHint)} · ${escapeHtml(checkHint)} · ${escapeHtml(clientHint)} · ${escapeHtml(`↓${flow.rxText} ↑${flow.txText}`)} · ${escapeHtml(checkedAt || '--')}${lastErr ? ` <br><strong>${escapeHtml(lastErr)}</strong>` : ''}`;
             }
         }
+        function syncInactiveViewVisibility() {
+            document.querySelectorAll('.view-section').forEach(el => {
+                if (el.classList.contains('active')) {
+                    el.style.removeProperty('display');
+                    el.style.removeProperty('height');
+                    el.style.removeProperty('min-height');
+                    el.style.removeProperty('overflow');
+                    return;
+                }
+                el.style.setProperty('display', 'none', 'important');
+                el.style.setProperty('height', '0', 'important');
+                el.style.setProperty('min-height', '0', 'important');
+                el.style.setProperty('overflow', 'hidden', 'important');
+            });
+        }
         function ensureInitialVisibleView() {
             const activeView = document.querySelector('.view-section.active');
             if (!activeView) {
                 const dashboardView = document.getElementById('view-dashboard');
                 if (dashboardView) dashboardView.classList.add('active');
             }
+            syncInactiveViewVisibility();
         }
         ensureInitialVisibleView();
         function ensurePermission(permission, actionText = '执行当前操作') {
@@ -754,6 +771,8 @@
         ).trim();
         const hvacConfigs = Array.isArray(configData.hvac_devices) ? configData.hvac_devices : [];
         let hvacStatusCache = {};
+        let hvacRefreshMeta = {};
+        let hvacStatusInFlight = null;
         if (!Array.isArray(configData.sidebar)) configData.sidebar = [];
         if (hvacConfigs.length && !configData.sidebar.find(item => item.id === 'hvac')) {
             configData.sidebar.push({ id: 'hvac', icon: '❄️', name: '空调控制', sort: 4.6, visible: true });
@@ -1421,6 +1440,7 @@
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             const targetView = document.getElementById('view-' + viewId);
             if (targetView) targetView.classList.add('active');
+            syncInactiveViewVisibility();
             document.querySelectorAll('.nav-menu li').forEach(el => el.classList.remove('active'));
             if (navEl) navEl.classList.add('active');
             document.getElementById('header-title').innerText = title;
@@ -1643,7 +1663,7 @@
             Array.from(dashboard.querySelectorAll('[data-section-id]')).forEach(section => dashboardResizeObserver.observe(section));
         }
         function getHvacViewContext() {
-            return { statusMap: hvacStatusCache };
+            return { statusMap: hvacStatusCache, refreshMeta: hvacRefreshMeta };
         }
         function getHvacSummaryApi() {
             return window.SmartCenter?.hvacView || window.SmartCenter?.hvacSummary || null;
@@ -1710,6 +1730,34 @@
             closeHvacModeMenus();
             controlHvac(deviceId, String(mode || '').toLowerCase() === 'off' ? 'power_off' : 'set_mode', { mode });
         }
+        function renderHvacRefreshDiagnostics(visibleConfigs = hvacConfigs) {
+            const container = document.getElementById('hvac-refresh-diagnostics');
+            if (!container || getActiveViewId() !== 'hvac') return;
+            const rows = (Array.isArray(visibleConfigs) ? visibleConfigs : hvacConfigs)
+                .map(cfg => hvacStatusCache[cfg.id])
+                .filter(item => item && typeof item === 'object');
+            const online = rows.filter(item => item.online).length;
+            const ages = rows.map(item => Number(item.age_sec)).filter(Number.isFinite);
+            const maxAge = ages.length ? Math.max(...ages) : null;
+            const avgAge = ages.length ? ages.reduce((sum, item) => sum + item, 0) / ages.length : null;
+            const staleCount = ages.filter(item => item >= 300).length;
+            const elapsedMs = Number(hvacRefreshMeta.elapsed_ms);
+            const pollText = hvacRefreshMeta.polled_at
+                ? `${formatTimeShort(hvacRefreshMeta.polled_at)}${Number.isFinite(elapsedMs) ? ` · ${elapsedMs.toFixed(elapsedMs >= 100 ? 0 : 1)}ms` : ''}`
+                : '等待轮询';
+            const ageText = Number.isFinite(maxAge)
+                ? `最旧 ${formatCompactAgeFromSec(maxAge)} · 平均 ${formatCompactAgeFromSec(avgAge)}`
+                : '--';
+            const sourceText = staleCount > 0
+                ? `HA 状态陈旧 ${staleCount}/${rows.length}`
+                : (Number.isFinite(elapsedMs) && elapsedMs > 1500 ? '中控轮询偏慢' : '中控轮询正常');
+            container.innerHTML = [
+                ['中控轮询', pollText],
+                ['HA 数据年龄', ageText],
+                ['在线设备', `${online}/${visibleConfigs.length || rows.length || 0}`],
+                ['刷新判断', sourceText],
+            ].map(([label, value]) => `<div class="hvac-refresh-chip"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join('');
+        }
         function renderHvacCards() {
             const dashboardGrid = document.getElementById('dashboard-hvac-grid');
             const pageGrid = document.getElementById('hvac-grid-container');
@@ -1726,6 +1774,7 @@
                 ? summaryApi.renderDashboardHvacOverview(groups, context)
                 : '<div class="hvac-empty">未配置空调设备</div>';
             if (dashboardGrid) dashboardGrid.innerHTML = dashboardHtml;
+            renderHvacRefreshDiagnostics(visibleConfigs);
             if (pageGrid && getActiveViewId() === 'hvac') {
                 const pageHtml = groups.length && fullApi && typeof fullApi.renderHvacGroup === 'function'
                     ? groups.map(group => fullApi.renderHvacGroup(group, 'page', context)).join('')
@@ -1756,17 +1805,24 @@
         }
         function updateHvacStatus(showError = false) {
             if (!hvacConfigs.length) return Promise.resolve({});
-            return fetchJson('/api/hvac/status', {}, '空调状态读取失败')
+            if (hvacStatusInFlight) return hvacStatusInFlight;
+            hvacStatusInFlight = fetchJson('/api/hvac/status', {}, '空调状态读取失败')
                 .then(data => {
-                    hvacStatusCache = data || {};
+                    const payload = data && typeof data === 'object' ? data : {};
+                    hvacRefreshMeta = payload._refresh || {};
+                    hvacStatusCache = Object.fromEntries(Object.entries(payload).filter(([key]) => key !== '_refresh'));
                     renderHvacCards();
-                    return data;
+                    return hvacStatusCache;
                 })
                 .catch(err => {
                     console.error('空调状态更新失败', err);
                     if (showError) showToast(translateApiError(err?.message, '空调状态读取失败'), true);
                     throw err;
+                })
+                .finally(() => {
+                    hvacStatusInFlight = null;
                 });
+            return hvacStatusInFlight;
         }
         function controlHvac(deviceId, action, extra = {}) {
             if (!ensurePermission('hvac.control', '控制空调')) return;
@@ -2399,7 +2455,7 @@
         registerPollingTask('dashboard_summary', 5000, () => updateDashboardSummary(), () => getActiveViewId() === 'dashboard');
         registerPollingTask('proxy', 5000, () => ensureViewReady('proxy').then(() => updateProxyStatus()), () => getActiveViewId() === 'proxy');
         registerPollingTask('snmp', 9000, () => updateSnmpStatus(), () => ['snmp', 'camera_preview'].includes(getActiveViewId()));
-        registerPollingTask('hvac', 5000, () => {
+        registerPollingTask('hvac', 2500, () => {
             const modules = getActiveViewId() === 'hvac' ? ['hvac-view'] : ['hvac-summary-view'];
             return ensureModulesReady(modules, '空调模块').then(() => updateHvacStatus());
         }, () => getActiveViewId() === 'hvac');
