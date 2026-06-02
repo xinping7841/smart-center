@@ -156,12 +156,6 @@
                         <span>空调设备监控与控制</span>
                         <span style="font-size:12px; color:var(--text-sub);">当前接入来源：Home Assistant</span>
                     </div>
-                    <div class="hvac-refresh-diagnostics" id="hvac-refresh-diagnostics">
-                        <div class="hvac-refresh-chip"><span>中控轮询</span><strong>等待状态</strong></div>
-                        <div class="hvac-refresh-chip"><span>HA 数据年龄</span><strong>--</strong></div>
-                        <div class="hvac-refresh-chip"><span>在线设备</span><strong>--</strong></div>
-                        <div class="hvac-refresh-chip"><span>刷新判断</span><strong>读取中</strong></div>
-                    </div>
                     <div class="hvac-grid" id="hvac-grid-container">
                         <div class="hvac-empty">正在加载空调状态...</div>
                     </div>

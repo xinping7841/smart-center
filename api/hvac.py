@@ -184,8 +184,6 @@ def _log_hvac_status_change(device, previous, current):
 
 
 def refresh_hvac_status():
-    started = time.monotonic()
-    polled_at = _now_iso()
     devices = list(CONFIG.get("hvac_devices", []))
     active_ids = {str(item.get("id")) for item in devices}
     for device_id in list(HVAC_STATUS.keys()):
@@ -196,17 +194,8 @@ def refresh_hvac_status():
         device_id = str(device.get("id"))
         previous = dict(HVAC_STATUS.get(device_id, {}) or {})
         current = _poll_device_status(device)
-        if isinstance(current, dict):
-            current["smart_center_polled_at"] = polled_at
-            current["smart_center_poll_elapsed_ms"] = round((time.monotonic() - started) * 1000, 2)
-            current["refresh_source"] = _device_protocol(device)
         HVAC_STATUS[device_id] = current
         _log_hvac_status_change(device, previous, current)
-    return {
-        "polled_at": polled_at,
-        "elapsed_ms": round((time.monotonic() - started) * 1000, 2),
-        "device_count": len(devices),
-    }
 
 
 @bp.route("/api/hvac/devices")
@@ -219,17 +208,12 @@ def get_hvac_devices():
 @bp.route("/api/hvac/status")
 @require_permission("hvac.view")
 def get_hvac_status():
-    refresh_meta = refresh_hvac_status()
+    refresh_hvac_status()
     device_id = request.args.get("device_id")
     if device_id:
         status = HVAC_STATUS.get(str(device_id), {"online": False, "temp": None, "mode": "off"})
-        if isinstance(status, dict):
-            status = dict(status)
-            status["_refresh"] = refresh_meta
         return jsonify(status)
-    payload = {key: dict(value) if isinstance(value, dict) else value for key, value in HVAC_STATUS.items()}
-    payload["_refresh"] = refresh_meta
-    return jsonify(payload)
+    return jsonify(HVAC_STATUS)
 
 
 @bp.route("/api/hvac/debug")

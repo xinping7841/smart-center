@@ -804,47 +804,6 @@
         state.charts.dashboardEnergyTrend.resize();
     }
 
-    function renderDashboardEnergySnapshot(summary = {}, meters = [], context = {}) {
-        const ctx = getContext(context);
-        const rows = Array.isArray(meters) ? meters : [];
-        const cardTotalPower = Number(summary.card_total_realtime_power ?? summary.stable_total_realtime_power ?? summary.estimated_total_realtime_power ?? summary.total_realtime_power ?? 0);
-        const dashSummary = state.meterCenterCache.dashboard_summary || {};
-        const realtimePower = Number(dashSummary.stable_power ?? dashSummary.estimated_power ?? dashSummary.power ?? cardTotalPower);
-        const dailyEnergy = Number(dashSummary.daily_energy ?? summary.total_daily_energy ?? 0);
-        const monthlyEnergy = Number(summary.total_monthly_energy ?? 0);
-        ctx.setTextIfExists('dashboard-energy-total', `${Number.isFinite(dailyEnergy) ? dailyEnergy.toFixed(1) : '--'} kWh`);
-        ctx.setTextIfExists('dashboard-energy-power', `${Number.isFinite(realtimePower) ? realtimePower.toFixed(2) : '--'} kW`);
-        ctx.setTextIfExists('dashboard-energy-monthly', `${Number.isFinite(monthlyEnergy) ? monthlyEnergy.toFixed(1) : '--'} kWh`);
-        ctx.setTextIfExists('dashboard-energy-source', '电表中心完整口径');
-        const compareToReference = summary.compare_to_reference || {};
-        const compare = compareToReference.daily_energy && compareToReference.daily_energy.delta_text
-            ? `较参考 ${compareToReference.daily_energy.delta_text}`
-            : `${Number(summary.online || 0)} / ${Number(summary.total || 0)} 在线`;
-        ctx.setTextIfExists('dashboard-energy-compare', compare);
-        const list = document.getElementById('dashboard-energy-list');
-        if (!list) return;
-        const topRows = rows.slice()
-            .sort((left, right) => Number(right.daily_energy || 0) - Number(left.daily_energy || 0))
-            .slice(0, 6);
-        if (!topRows.length) {
-            list.innerHTML = '<div class="monitor-empty">暂无电能消耗数据。</div>';
-            return;
-        }
-        list.innerHTML = topRows.map(item => {
-            const name = item.display_name || item.name || item.meter_name || item.id || '电表';
-            const daily = Number(item.daily_energy || 0);
-            const power = Number(item.realtime_power || 0);
-            const tone = item.online === false ? 'danger' : 'ok';
-            return `<div class="dashboard-energy-row ${tone}">
-                <div class="dashboard-energy-row-main">
-                    <strong>${ctx.escapeHtml(name)}</strong>
-                    <span>${item.online === false ? '离线' : '在线'} · 今日 ${Number.isFinite(daily) ? daily.toFixed(1) : '--'} kWh</span>
-                </div>
-                <em>${Number.isFinite(power) ? power.toFixed(2) : '--'} kW</em>
-            </div>`;
-        }).join('');
-    }
-
     function renderPowerLogSummary(context = {}) {
         const ctx = getContext(context);
         const container = document.getElementById('power-log-summary-grid');
@@ -1052,7 +1011,6 @@
                 const trendRows = (((state.meterCenterCache.trend_breakdown || {})[state.meterTrendPeriod === 'week' ? 'weekly' : (state.meterTrendPeriod === 'month' ? 'monthly' : 'daily')]) || []);
                 renderMeterTrendChart(trendRows, ctx);
                 renderDashboardEnergyTrend(trendRows, summary, ctx);
-                renderDashboardEnergySnapshot(summary, meters, ctx);
                 return state.meterCenterCache;
             })
             .catch(err => {
@@ -1169,7 +1127,6 @@
         renderDashboardPowerCompact,
         renderMeterTrendChart,
         renderDashboardEnergyTrend,
-        renderDashboardEnergySnapshot,
         renderPowerLogSummary,
         ensurePowerControlState,
         getPowerChannelStatus,
