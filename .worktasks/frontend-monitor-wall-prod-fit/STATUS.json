@@ -1,0 +1,20 @@
+{
+  "task": "frontend-monitor-wall-prod-fit",
+  "module": "frontend_assets",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-frontend-monitor-wall-prod-fit-20260602",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/frontend-monitor-wall-prod-fit",
+  "started_at": "2026-06-02 16:37:09",
+  "status": "verified_local",
+  "scope": [
+    "static/css/views/ui-wide-1080.css"
+  ],
+  "reason": "Production 3840x2160 server_compact list overflowed with real machine data",
+  "verified": [
+    "node --check dashboard shell/summary/runtime/layout scripts",
+    "python -m py_compile api/dashboard.py",
+    "Playwright production real data 1920x1080 with injected hotfix",
+    "Playwright production real data 3840x2160 with injected hotfix"
+  ]
+}

@@ -1802,8 +1802,7 @@ body.dashboard-wide-mode .monitor-empty {
     }
 
     body.dashboard-wide-mode #dashboard-section-alerts .monitor-alert-item:nth-of-type(n+6),
-    body.dashboard-wide-mode #dashboard-section-snmp .monitor-feed-row:nth-of-type(n+4),
-    body.dashboard-wide-mode #dashboard-section-server_compact .monitor-feed-row:nth-of-type(n+5) {
+    body.dashboard-wide-mode #dashboard-section-snmp .monitor-feed-row:nth-of-type(n+4) {
         display: grid;
     }
 
