@@ -13,7 +13,7 @@ DATA_DIR="/srv/smart-center-data"
 cd "$CURRENT"
 echo "current=$(sudo -n readlink -f "$CURRENT")"
 echo "revision=$(sudo -n cat "$CURRENT/REVISION")"
-MAX_INPUT_CHARS="${SMART_CENTER_SUMMARY_MAX_INPUT_CHARS:-20000}"
+MAX_INPUT_CHARS="${SMART_CENTER_SUMMARY_MAX_INPUT_CHARS:-8000}"
 
 echo "summary_start=$(date -Iseconds)"
 echo "max_input_chars=$MAX_INPUT_CHARS"

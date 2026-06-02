@@ -44,7 +44,7 @@ or use `POST /api/local-model/export-training` from the local-model page.
 
 4. Feed the latest runtime and code knowledge files to the local model knowledge proxy/RAG index. RAG is preferred for frequently changing facts such as online/offline server state, CPU/GPU metrics, logs, current code boundaries, and routes.
 
-5. Optional high-context refresh can run on the 3090 local-model machine. It should read `system_map_*.json`, `device_inventory_*.jsonl`, `control_capabilities_*.jsonl`, `nl_intent_examples_*.jsonl`, `code_system_map_*.json`, `module_cards_*.jsonl`, and then `full_code_context_*.jsonl` to generate a reviewable `system_summary_*.json`. This is a periodic understanding refresh, not a direct control path.
+5. Optional high-context refresh can run on the 3090 local-model machine. It should read `system_map_*.json`, `device_inventory_*.jsonl`, `control_capabilities_*.jsonl`, `nl_intent_examples_*.jsonl`, `code_system_map_*.json`, `module_cards_*.jsonl`, and then `full_code_context_*.jsonl` to generate a reviewable `system_summary_*.json`. This is a manual or asynchronous understanding refresh, not a direct control path.
 
 6. Optional fine-tuning or LoRA should only use curated examples from `instructions_*.jsonl`, `query_intents_*.jsonl`, `control_intents_*.jsonl`, `nl_intent_examples_*.jsonl`, and reviewed rows. Do not fine-tune on raw secrets, tokens, SNMP community strings, RTSP credentials, unreviewed logs, or full source code.
 
@@ -86,7 +86,7 @@ The 3090 host has enough VRAM to use larger local-model context windows, so Smar
 
 1. Daily export writes structured runtime and code knowledge.
 2. `full_code_context_*.jsonl` stores redacted source chunks. Runtime configs, common secret files, databases, binary assets, and generated backups are excluded.
-3. `scripts/refresh_local_model_system_summary.py` calls the OpenAI-compatible local-model endpoint and writes `system_summary_*.json`.
+3. `scripts/refresh_local_model_system_summary.py` can call the OpenAI-compatible local-model endpoint and write `system_summary_*.json`. Keep it manual/asynchronous unless the local model can finish reliably within the configured timeout.
 4. The local-model page shows the latest `system_map`, device inventory, control capability, code map, full-code-context, and summary status.
 5. The summary is used as RAG/maintenance context only. It never grants execution permission and never bypasses Smart Center API checks.
 

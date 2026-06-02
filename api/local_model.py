@@ -1746,9 +1746,9 @@ def api_local_model_knowledge_status():
 def api_local_model_refresh_system_summary():
     try:
         payload = request.get_json(silent=True) if request.is_json else {}
-        max_input_chars = int((payload or {}).get("max_input_chars") or 20000)
+        max_input_chars = int((payload or {}).get("max_input_chars") or 8000)
     except Exception:
-        max_input_chars = 20000
+        max_input_chars = 8000
     try:
         from scripts.refresh_local_model_system_summary import build_system_summary
 

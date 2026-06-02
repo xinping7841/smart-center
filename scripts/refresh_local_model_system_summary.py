@@ -28,7 +28,7 @@ from config import CONFIG  # noqa: E402
 from paths import DATA_DIR, ensure_directory  # noqa: E402
 
 
-DEFAULT_MAX_INPUT_CHARS = 20_000
+DEFAULT_MAX_INPUT_CHARS = 8_000
 
 
 def _training_dir() -> Path:
