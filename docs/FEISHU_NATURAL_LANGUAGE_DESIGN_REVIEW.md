@@ -24,7 +24,7 @@ The deployed behavior is more capable than older docs imply: Feishu can execute 
 4. `LocalSmartCenterClient.resolve_control_command_with_translator` uses:
    - feedback memory from `SMART_CENTER_RUNTIME_DIR/control_feedback.jsonl`;
    - `ControlIntentRouter`;
-   - optional local-model rewrite, then optional Ark cloud rewrite fallback when configured;
+   - parallel local-model and Ark cloud rewrite when configured, currently selecting Ark first and keeping the local result for comparison;
    - conservative fallback inference.
 5. The resolved command contains `type`, `risk`, `label`, `path`, `payload`, `action`, and confidence metadata.
 6. High-risk or inferred commands are stored as pending controls. Confirmation cards or text replies execute `_execute_pending_control`.
@@ -36,9 +36,9 @@ The deployed behavior is more capable than older docs imply: Feishu can execute 
 
    The bot calls local HTTP APIs with app credentials at the Feishu side, but device APIs are designed around Smart Center session permissions. This can become ambiguous if production auth defaults change or if auto-login grants broad access.
 
-2. Low-risk direct execution may still be too permissive for group chat.
+2. Low-risk direct execution is intentionally enabled for the current operator workflow.
 
-   A phrase like "关空调" or "开投影" can affect the venue even though it is not classified as strong-current. For the first production phase, Feishu should probably require confirmation for every control, then later allow direct execution only for a reviewed low-risk allowlist.
+   A phrase like "关空调" or "开投影" can affect the venue even though it is not classified as strong-current. For the current production phase, keep the AI page kill switch obvious and rely on process logs to review cloud/local understanding quality while ordinary controls execute quickly.
 
 3. Pending controls are keyed by chat, not sender.
 
@@ -61,7 +61,7 @@ The deployed behavior is more capable than older docs imply: Feishu can execute 
 Keep the system in four layers:
 
 - Feishu adapter: message receive/send, cards, sender identity, pending-control UX.
-- Intent and retrieval: deterministic intent rules first, optional local-model classify/rewrite, RAG over runtime and code knowledge.
+- Intent and retrieval: deterministic intent rules first, parallel Ark plus local-model classify/rewrite, RAG over runtime and code knowledge, and visible comparison logs.
 - Tool/router: read-only API allowlist for queries; controlled-action resolver for controls.
 - Execution: existing Smart Center APIs with explicit service identity, permission policy, operation locks, audit logs, risk classification, and confirmation.
 
@@ -73,14 +73,14 @@ The local model should never output an executable HTTP path or payload as the fi
 
 The backend must then resolve that proposal through aliases, status APIs, permission rules, and confirmation policy.
 
-Ark / DeepSeek should follow the same rule. It may improve language understanding, but it must not decide execution by itself.
+Ark / DeepSeek is the current preferred understanding result for Feishu NLU, while the local model runs alongside it for comparison. Ark still does not execute devices directly; Smart Center maps the selected understanding to known devices/actions.
 
 ## Phased Optimization Plan
 
 1. Safety-first Feishu control hardening:
    - Add explicit Feishu service identity or internal token for Smart Center API calls.
    - Key pending controls by chat and sender.
-   - Require confirmation for all Feishu controls initially.
+   - Keep global confirmation off for speed unless the operator enables it; use the AI page execution switch as the manual stop control.
    - Log original text, resolved command summary, risk, confirmation, and result.
 
 2. Knowledge/RAG ingestion:

@@ -59,6 +59,8 @@ def main() -> None:
             "timeout_sec": int(os.environ.get("ARK_TIMEOUT_SEC", "180") or 180),
             "temperature": float(os.environ.get("ARK_TEMPERATURE", "0.1") or 0.1),
             "max_tokens": int(os.environ.get("ARK_MAX_TOKENS", "2048") or 2048),
+            "priority": os.environ.get("ARK_NLU_PRIORITY", "cloud_first") or "cloud_first",
+            "compare_with_local": _as_bool(os.environ.get("ARK_COMPARE_WITH_LOCAL", "1"), True),
             "use_for_system_summary": _as_bool(os.environ.get("ARK_USE_FOR_SYSTEM_SUMMARY", "1"), True),
             "use_for_nlu_fallback": _as_bool(os.environ.get("ARK_USE_FOR_NLU_FALLBACK", "1"), True),
         }
@@ -81,6 +83,8 @@ def main() -> None:
                     "base_url": cloud_model.get("base_url"),
                     "model": cloud_model.get("model"),
                     "api_key_set": bool(cloud_model.get("api_key")),
+                    "priority": cloud_model.get("priority"),
+                    "compare_with_local": cloud_model.get("compare_with_local"),
                     "use_for_system_summary": cloud_model.get("use_for_system_summary"),
                     "use_for_nlu_fallback": cloud_model.get("use_for_nlu_fallback"),
                 },

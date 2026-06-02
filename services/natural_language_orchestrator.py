@@ -26,7 +26,7 @@ from paths import CONFIG_FILE, RUNTIME_DIR, ensure_directory
 
 DEFAULT_NATURAL_LANGUAGE_POLICY = {
     "feishu_control_enabled": True,
-    "feishu_control_require_confirmation": True,
+    "feishu_control_require_confirmation": False,
     "record_process_enabled": True,
     "process_log_limit": 200,
 }
@@ -167,6 +167,9 @@ def summarize_command_for_process(command: dict[str, Any] | None, *, action_text
         "confidence": command.get("confidence") or "high",
         "inference_reason": command.get("inference_reason") or "",
         "model_rewritten_text": command.get("model_rewritten_text") or "",
+        "model_source": command.get("model_source") or "",
+        "model_name": command.get("model_name") or "",
+        "model_comparison": _safe_value(command.get("model_comparison") or {}),
         "message": command.get("message") or "",
     }
 

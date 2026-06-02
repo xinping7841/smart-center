@@ -17,6 +17,7 @@ import sys
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -96,6 +97,11 @@ CONTROL_ACTION_WORDS = (
     "关门",
     "开灯",
     "关灯",
+    "点亮",
+    "弄亮",
+    "熄灭",
+    "灭一下",
+    "灭掉",
     "开了",
     "关了",
     "关掉",
@@ -162,8 +168,9 @@ class FeishuBotConfig:
     nl_cloud_name: str = ""
     nl_cloud_timeout_sec: float = 180.0
     nl_cloud_api_key: str = ""
+    nl_model_priority: str = "cloud_first"
     feishu_control_enabled: bool = True
-    feishu_control_require_confirmation: bool = True
+    feishu_control_require_confirmation: bool = False
 
 
 def load_dotenv(path: Path) -> None:
@@ -261,8 +268,9 @@ def load_config(env_file: str | Path | None = None) -> FeishuBotConfig:
         nl_cloud_name=str(cloud_name or "").strip(),
         nl_cloud_timeout_sec=cloud_timeout,
         nl_cloud_api_key=str(cloud_api_key or "").strip(),
+        nl_model_priority=str(os.environ.get("FEISHU_NL_MODEL_PRIORITY") or runtime_cloud_model.get("priority") or "cloud_first").strip() or "cloud_first",
         feishu_control_enabled=str(os.environ.get("FEISHU_CONTROL_ENABLED", "1") or "1").strip().lower() in {"1", "true", "yes", "on"},
-        feishu_control_require_confirmation=str(os.environ.get("FEISHU_CONTROL_REQUIRE_CONFIRMATION", "1") or "1").strip().lower() in {"1", "true", "yes", "on"},
+        feishu_control_require_confirmation=str(os.environ.get("FEISHU_CONTROL_REQUIRE_CONFIRMATION", "0") or "0").strip().lower() in {"1", "true", "yes", "on"},
     )
 
 
@@ -294,6 +302,7 @@ def _build_intent_classifier(config: FeishuBotConfig) -> ChainedModelIntentClass
                 config.nl_model_timeout_sec,
                 api_key=config.nl_model_api_key,
                 label="本地模型",
+                source="local",
             )
         )
     if config.nl_cloud_enabled and config.nl_cloud_url and config.nl_cloud_name and config.nl_cloud_api_key:
@@ -304,11 +313,12 @@ def _build_intent_classifier(config: FeishuBotConfig) -> ChainedModelIntentClass
                 config.nl_cloud_timeout_sec,
                 api_key=config.nl_cloud_api_key,
                 label="云端增强模型",
+                source="cloud",
             )
         )
     if not classifiers:
         return None
-    return classifiers[0] if len(classifiers) == 1 else ChainedModelIntentClassifier(classifiers)
+    return classifiers[0] if len(classifiers) == 1 else ChainedModelIntentClassifier(classifiers, priority=config.nl_model_priority)
 
 
 def _build_control_translator(config: FeishuBotConfig) -> ChainedModelControlTranslator | LocalModelControlTranslator | None:
@@ -323,6 +333,7 @@ def _build_control_translator(config: FeishuBotConfig) -> ChainedModelControlTra
                 config.nl_model_timeout_sec,
                 api_key=config.nl_model_api_key,
                 label="本地模型",
+                source="local",
             )
         )
     if config.nl_cloud_enabled and config.nl_cloud_url and config.nl_cloud_name and config.nl_cloud_api_key:
@@ -333,11 +344,12 @@ def _build_control_translator(config: FeishuBotConfig) -> ChainedModelControlTra
                 config.nl_cloud_timeout_sec,
                 api_key=config.nl_cloud_api_key,
                 label="云端增强模型",
+                source="cloud",
             )
         )
     if not translators:
         return None
-    return translators[0] if len(translators) == 1 else ChainedModelControlTranslator(translators)
+    return translators[0] if len(translators) == 1 else ChainedModelControlTranslator(translators, priority=config.nl_model_priority)
 
 
 def _json_text(content: str | None) -> str:
@@ -432,9 +444,9 @@ def _control_action_from_text(text: str) -> str:
         return "refresh"
     if any(word in raw for word in ("停止", "停住", "暂停")) and _contains_any(raw, ("幕布", "升降幕", "投影幕")):
         return "stop"
-    if any(word in raw for word in ("关机", "关闭", "关灯", "停止", "断开", "熄灭", "off")) or "关" in compact:
+    if any(word in raw for word in ("关机", "关闭", "关灯", "停止", "断开", "熄灭", "灭一下", "灭掉", "off")) or "关" in compact:
         return "off"
-    if any(word in raw for word in ("开机", "打开", "开启", "开灯", "启动", "合闸", "制冷", "制热", "on")) or "开" in compact:
+    if any(word in raw for word in ("开机", "打开", "开启", "开灯", "点亮", "弄亮", "启动", "合闸", "制冷", "制热", "on")) or "开" in compact:
         return "on"
     if any(word in raw for word in ("切换", "toggle")):
         return "toggle"
@@ -733,6 +745,40 @@ def _normalize_intent(value: Any) -> str:
     return aliases.get(text, text)
 
 
+def _model_comparison_report(
+    *,
+    kind: str,
+    reports: list[dict[str, Any]],
+    selected: dict[str, Any] | None,
+    priority: str = "cloud_first",
+) -> dict[str, Any]:
+    selected_source = str((selected or {}).get("model_source_key") or "")
+    selected_intent = str((selected or {}).get("intent") or "")
+    for report in reports:
+        report["selected"] = bool(
+            selected
+            and str(report.get("source") or "") == selected_source
+            and str(report.get("intent") or "") == selected_intent
+        )
+    valid = [row for row in reports if row.get("ok")]
+    intents = {str(row.get("intent") or "") for row in valid if row.get("intent")}
+    queries = {str(row.get("query") or "") for row in valid if row.get("query")}
+    return {
+        "schema": "smart_center.model_comparison.v1",
+        "kind": kind,
+        "mode": "parallel" if len(reports) > 1 else "single",
+        "priority": priority,
+        "selected_source": selected_source,
+        "selected_label": next((str(row.get("label") or "") for row in reports if row.get("selected")), ""),
+        "selected_intent": selected_intent,
+        "results": reports,
+        "difference": {
+            "intent_match": len(intents) <= 1,
+            "query_match": len(queries) <= 1,
+        },
+    }
+
+
 class LocalModelIntentClassifier:
     INTENTS = (
         "overview",
@@ -758,17 +804,31 @@ class LocalModelIntentClassifier:
         "unknown",
     )
 
-    def __init__(self, base_url: str, model: str, timeout_sec: float = 8.0, *, api_key: str = "", label: str = "") -> None:
+    def __init__(self, base_url: str, model: str, timeout_sec: float = 8.0, *, api_key: str = "", label: str = "", source: str = "local") -> None:
         self.base_url = normalize_openai_base_url(base_url)
         self.model = model or "qwen3:14b"
         self.timeout_sec = timeout_sec
         self.api_key = str(api_key or "").strip()
         self.label = str(label or self.model or "model").strip()
+        self.source = str(source or "local").strip() or "local"
 
     def classify(self, text: str) -> dict[str, Any] | None:
+        result, _ = self.classify_with_report(text)
+        return result
+
+    def classify_with_report(self, text: str) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+        started = time.time()
+        report: dict[str, Any] = {
+            "source": self.source,
+            "label": self.label,
+            "model": self.model,
+            "ok": False,
+            "selected": False,
+            "elapsed_ms": 0,
+        }
         prompt = (
             "你是中控飞书机器人的意图分类器，只输出 JSON，不要输出解释。\n"
-            "当前允许查询，也允许识别控制请求；真实控制由飞书/中控安全链路负责权限、审计和二次确认。\n"
+            "当前允许查询，也允许识别控制请求；你的职责是快速判断用户要查询还是要控制，并提炼查询文本。\n"
             "可选 intent："
             + ", ".join(self.INTENTS)
             + "\n"
@@ -779,31 +839,93 @@ class LocalModelIntentClassifier:
         )
         try:
             parsed = request_local_model_json(self.base_url, self.model, prompt, self.timeout_sec, api_key=self.api_key)
-        except Exception:
-            return None
+        except Exception as exc:
+            report["elapsed_ms"] = int((time.time() - started) * 1000)
+            report["error"] = str(exc)
+            return None, report
+        report["elapsed_ms"] = int((time.time() - started) * 1000)
         if not isinstance(parsed, dict):
-            return None
+            report["error"] = "no_json"
+            return None, report
         intent = _normalize_intent(parsed.get("intent"))
         if intent not in self.INTENTS:
-            return None
+            report["intent"] = intent
+            report["error"] = "invalid_intent"
+            return None, report
         parsed["intent"] = intent
         parsed["query"] = str(parsed.get("query") or text).strip()
         if self.label:
             parsed["model_source"] = self.label
+        parsed["model_source_key"] = self.source
+        parsed["model"] = self.model
+        report.update({
+            "ok": True,
+            "intent": intent,
+            "query": parsed["query"],
+            "reason": str(parsed.get("reason") or "")[:160],
+        })
         return parsed
 
 
 class ChainedModelIntentClassifier:
-    def __init__(self, classifiers: list[LocalModelIntentClassifier]) -> None:
+    def __init__(self, classifiers: list[LocalModelIntentClassifier], *, priority: str = "cloud_first") -> None:
         self.classifiers = [item for item in classifiers if item]
         self.labels = [item.label for item in self.classifiers if item.label]
+        self.priority = str(priority or "cloud_first").strip() or "cloud_first"
 
     def classify(self, text: str) -> dict[str, Any] | None:
-        for classifier in self.classifiers:
-            result = classifier.classify(text)
+        result, _ = self.classify_with_report(text)
+        return result
+
+    def classify_with_report(self, text: str) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+        if not self.classifiers:
+            return None, _model_comparison_report(kind="intent_classify", reports=[], selected=None, priority=self.priority)
+        if len(self.classifiers) == 1:
+            result, report = self.classifiers[0].classify_with_report(text)
+            comparison = _model_comparison_report(kind="intent_classify", reports=[report], selected=result, priority=self.priority)
             if result:
-                return result
-        return None
+                result = dict(result)
+                result["model_comparison"] = comparison
+            return result, comparison
+        results: list[dict[str, Any]] = []
+        reports_by_source: dict[str, dict[str, Any]] = {}
+        with ThreadPoolExecutor(max_workers=len(self.classifiers)) as pool:
+            futures = {pool.submit(item.classify_with_report, text): item for item in self.classifiers}
+            for future in as_completed(futures):
+                classifier = futures[future]
+                try:
+                    result, report = future.result()
+                except Exception as exc:
+                    result = None
+                    report = {
+                        "source": classifier.source,
+                        "label": classifier.label,
+                        "model": classifier.model,
+                        "ok": False,
+                        "selected": False,
+                        "elapsed_ms": 0,
+                        "error": str(exc),
+                    }
+                reports_by_source[classifier.source] = report
+                if result:
+                    results.append(result)
+        reports = [reports_by_source[item.source] for item in self.classifiers if item.source in reports_by_source]
+        selected = self._select_result(results)
+        comparison = _model_comparison_report(kind="intent_classify", reports=reports, selected=selected, priority=self.priority)
+        if selected:
+            selected = dict(selected)
+            selected["model_comparison"] = comparison
+        return selected, comparison
+
+    def _select_result(self, results: list[dict[str, Any]]) -> dict[str, Any] | None:
+        if not results:
+            return None
+        priority_sources = ("cloud", "local") if self.priority == "cloud_first" else ("local", "cloud")
+        by_source = {str(item.get("model_source_key") or ""): item for item in results}
+        for source in priority_sources:
+            if source in by_source:
+                return by_source[source]
+        return results[0]
 
 
 class LocalSmartCenterClient:
@@ -975,6 +1097,11 @@ class LocalSmartCenterClient:
         if not action:
             return None
         router = ControlIntentRouter(self._device_alias_rows())
+        if translator:
+            translated, comparison = self._translate_control_text(translator, text)
+            command = self._resolve_translated_control(router, text, action, translated, comparison)
+            if command:
+                return command
         routed = router.route(
             text,
             action,
@@ -996,39 +1123,68 @@ class LocalSmartCenterClient:
         learned = None if learning.rejected_recently(text) else learning.suggest(text)
         if learned:
             return learned
-        if translator:
-            translated = translator.translate(text, self._device_alias_rows())
-            if translated and translated.rewritten_text and normalize_alias_text(translated.rewritten_text) != normalize_alias_text(text):
-                translated_action = _control_action_from_text(translated.rewritten_text)
-                if translated_action:
-                    translated_route = router.route(
-                        translated.rewritten_text,
-                        translated_action,
-                        door=self._resolve_door_control,
-                        sequencer=self._resolve_sequencer_control,
-                        power=self._resolve_power_control,
-                        hvac=self._resolve_hvac_control,
-                        projector=self._resolve_projector_control,
-                        node_red=self._resolve_node_red_control,
-                        light=self._resolve_light_control,
-                        server=self._resolve_server_control,
-                        screen=self._resolve_screen_control,
-                        custom=self._resolve_control_center_control,
-                        infer=self._infer_control_command,
-                    )
-                    if translated_route.command and translated_route.command.get("type") != "error":
-                        command = self._mark_inferred(
-                            translated_route.command,
-                            "medium" if translated.confidence < 0.86 else "high",
-                            f"本地模型将“{text}”转译为“{translated.rewritten_text}”。{translated.reason}",
-                        )
-                        if command:
-                            command["model_rewritten_text"] = translated.rewritten_text
-                        return command
         normalized = _normalize_match_text(text)
         if normalized in {"开", "关", "打开", "关闭", "开启"}:
             return None
         return None
+
+    def _translate_control_text(self, translator: LocalModelControlTranslator, text: str) -> tuple[Any, dict[str, Any] | None]:
+        if hasattr(translator, "translate_with_report"):
+            translated, comparison = translator.translate_with_report(text, self._device_alias_rows())
+            return translated, comparison if isinstance(comparison, dict) else None
+        translated = translator.translate(text, self._device_alias_rows())
+        return translated, getattr(translated, "comparison", None)
+
+    def _resolve_translated_control(
+        self,
+        router: ControlIntentRouter,
+        original_text: str,
+        original_action: str,
+        translated: Any,
+        comparison: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        if not translated or not getattr(translated, "rewritten_text", ""):
+            return None
+        rewritten = str(translated.rewritten_text or "").strip()
+        if not rewritten:
+            return None
+        translated_action = _control_action_from_text(rewritten) or original_action
+        if not translated_action:
+            return None
+        translated_route = router.route(
+            rewritten,
+            translated_action,
+            door=self._resolve_door_control,
+            sequencer=self._resolve_sequencer_control,
+            power=self._resolve_power_control,
+            hvac=self._resolve_hvac_control,
+            projector=self._resolve_projector_control,
+            node_red=self._resolve_node_red_control,
+            light=self._resolve_light_control,
+            server=self._resolve_server_control,
+            screen=self._resolve_screen_control,
+            custom=self._resolve_control_center_control,
+            infer=self._infer_control_command,
+        )
+        if not translated_route.command:
+            return None
+        if translated_route.command.get("type") == "error":
+            command = dict(translated_route.command)
+            command["model_rewritten_text"] = rewritten
+            command["model_comparison"] = comparison or {}
+            return command
+        label = "云端模型" if str(getattr(translated, "source", "")) == "cloud" else "本地模型"
+        command = self._mark_inferred(
+            translated_route.command,
+            "medium" if float(getattr(translated, "confidence", 0.0) or 0.0) < 0.86 else "high",
+            f"{label}将“{original_text}”转译为“{rewritten}”。{getattr(translated, 'reason', '')}",
+        )
+        if command:
+            command["model_rewritten_text"] = rewritten
+            command["model_source"] = getattr(translated, "source", "")
+            command["model_name"] = getattr(translated, "model", "")
+            command["model_comparison"] = comparison or getattr(translated, "comparison", None) or {}
+        return command
 
     def _infer_modules_from_aliases(self, text: str) -> set[str]:
         matches = find_alias_rows(text, self._device_alias_rows())
@@ -2498,7 +2654,7 @@ class LocalSmartCenterClient:
         if intent == "local_model_status":
             return self.local_model_status_text()
         if intent in {"control_request", "forbidden_control"}:
-            return "飞书机器人已支持控制；请说清楚设备和动作，例如：打开庭院灯、关闭机房空调、唤醒门口LED服务器。强电柜和时序电源会要求二次确认。"
+            return "飞书机器人已支持控制；请说清楚设备和动作，例如：打开庭院灯、关闭机房空调、唤醒门口LED服务器。普通控制会快速执行，关闭执行开关后只允许查询。"
         return self.query_text(query)
 
     def query_text(self, keyword: str) -> str:
@@ -2626,7 +2782,7 @@ class FeishuBot:
     def _natural_language_policy(self) -> dict[str, Any]:
         policy = load_runtime_natural_language_policy()
         policy["feishu_control_require_confirmation"] = bool(
-            policy.get("feishu_control_require_confirmation", True) or self.config.feishu_control_require_confirmation
+            policy.get("feishu_control_require_confirmation", False) or self.config.feishu_control_require_confirmation
         )
         return policy
 
@@ -2895,30 +3051,49 @@ class FeishuBot:
         )
 
     def _dispatch_control_command(self, normalized: str, chat_id: str = "", trace: NaturalLanguageTrace | None = None) -> str | None:
+        return self._dispatch_control_command_with_hint(normalized, chat_id=chat_id, trace=trace)
+
+    def _dispatch_control_command_with_hint(
+        self,
+        normalized: str,
+        chat_id: str = "",
+        trace: NaturalLanguageTrace | None = None,
+        *,
+        force_control: bool = False,
+    ) -> str | None:
         if _is_cancel_text(normalized):
             return self._cancel_pending_control(chat_id)
         if _is_confirmation_text(normalized):
             return self._execute_pending_control(chat_id, trace=trace)
-        if not _is_control_request(normalized):
+        if not (force_control or _is_control_request(normalized)):
             return None
         policy = self._natural_language_policy()
         if trace:
             trace.event["policy"] = policy
-            trace.add_step("classify", "识别为飞书控制请求", data={"control_enabled": policy.get("feishu_control_enabled")}, ok=True)
+            trace.add_step(
+                "classify",
+                "识别为飞书控制请求",
+                data={"control_enabled": policy.get("feishu_control_enabled"), "force_control": force_control},
+                ok=True,
+            )
         command = self.local_client.resolve_control_command_with_translator(normalized, translator=self.control_translator)
         if not command:
             if trace:
                 trace.add_step("route", "未匹配到可执行设备", ok=False)
             return "我识别到这是控制请求，但没有明确匹配到可执行设备。请带上设备名称、编号或 IP。"
+        model_comparison = command.get("model_comparison") if isinstance(command.get("model_comparison"), dict) else None
+        if trace and model_comparison:
+            trace.add_step("model", "云端与本地模型并行完成控制理解", data=model_comparison, ok=bool(model_comparison.get("selected_source")))
         if command.get("type") == "error":
             if trace:
-                trace.add_step("route", "安全路由拒绝控制", detail=command.get("message") or "", data=summarize_command_for_process(command), ok=False)
+                trace.add_step("route", "控制路由未生成可执行命令", detail=command.get("message") or "", data=summarize_command_for_process(command), ok=False)
             return str(command.get("message") or "控制请求无法执行。")
+        require_confirmation = bool(policy.get("feishu_control_require_confirmation", False))
         command_policy = describe_control_policy(
             command,
-            high_risk_types=HIGH_RISK_CONTROL_TYPES,
-            inferred_confidences=INFERRED_CONTROL_CONFIDENCE,
-            require_confirmation=bool(policy.get("feishu_control_require_confirmation", True)),
+            high_risk_types=HIGH_RISK_CONTROL_TYPES if require_confirmation else set(),
+            inferred_confidences=INFERRED_CONTROL_CONFIDENCE if require_confirmation else set(),
+            require_confirmation=require_confirmation,
         )
         if trace:
             trace.add_step("route", "控制目标已解析", data={"command": summarize_command_for_process(command), "control_policy": command_policy}, ok=True)
@@ -2963,11 +3138,26 @@ class FeishuBot:
             policy=self._natural_language_policy(),
         )
         if not normalized:
-            reply = "我在。可以直接问状态，也可以下发控制，例如打开庭院灯、关闭机房空调。强电柜和时序电源会二次确认。"
+            reply = "我在。可以直接问状态，也可以下发控制，例如打开庭院灯、关闭机房空调。普通控制会快速执行。"
             trace.add_step("classify", "空消息", ok=True)
             trace.finish(intent="help", outcome="help", reply=reply)
             return reply
-        control_reply = self._dispatch_control_command(normalized, chat_id=chat_id, trace=trace)
+        classified = None
+        if self.intent_classifier and not (_is_cancel_text(normalized) or _is_confirmation_text(normalized)):
+            if hasattr(self.intent_classifier, "classify_with_report"):
+                classified, comparison = self.intent_classifier.classify_with_report(normalized)
+                trace.add_step(
+                    "model",
+                    "云端与本地模型并行完成意图理解",
+                    data=comparison,
+                    ok=bool(classified),
+                )
+            else:
+                classified = self.intent_classifier.classify(normalized)
+                if classified:
+                    trace.add_step("model", "模型完成意图分类", data=classified, ok=True)
+        force_control = str((classified or {}).get("intent") or "") in {"control_request", "forbidden_control"}
+        control_reply = self._dispatch_control_command_with_hint(normalized, chat_id=chat_id, trace=trace, force_control=force_control)
         if control_reply is not None:
             outcome = "control_reply"
             if isinstance(control_reply, dict) and control_reply.get("send_card"):
@@ -3001,17 +3191,15 @@ class FeishuBot:
             trace.add_step("classify", "帮助命令", ok=True)
             trace.finish(intent="help", outcome="answered", reply=reply)
             return reply
-        if self.intent_classifier:
-            classified = self.intent_classifier.classify(normalized)
-            if classified:
-                intent = str(classified.get("intent") or "unknown")
-                query = str(classified.get("query") or normalized)
-                self.log(f"[nl intent] text={normalized!r} intent={intent!r}")
-                trace.add_step("model", "本地模型完成意图分类", data=classified, ok=True)
-                if intent != "unknown":
-                    reply = self.local_client.answer_intent(intent, query)
-                    trace.finish(intent=intent, outcome="answered", reply=reply)
-                    return reply
+        if classified:
+            intent = str(classified.get("intent") or "unknown")
+            query = str(classified.get("query") or normalized)
+            source = str(classified.get("model_source") or classified.get("model_source_key") or "")
+            self.log(f"[nl intent] text={normalized!r} intent={intent!r} source={source!r}")
+            if intent != "unknown":
+                reply = self.local_client.answer_intent(intent, query)
+                trace.finish(intent=intent, outcome="answered", reply=reply)
+                return reply
         trace.add_step("classify", "使用确定性查询兜底", ok=True)
         reply = self.local_client.query_text(normalized)
         trace.finish(intent="query", outcome="answered", reply=reply)

@@ -119,10 +119,12 @@ def _dry_run_case(
     command = client.resolve_control_command_with_translator(normalized, translator=translator) if is_control else None
     safe = _safe_payload(command)
     command_type = str(safe.get("type") or "")
+    high_risk_types = HIGH_RISK_CONTROL_TYPES if require_confirmation else set()
+    inferred_confidences = INFERRED_CONTROL_CONFIDENCE if require_confirmation else set()
     policy = describe_control_policy(
         command,
-        high_risk_types=HIGH_RISK_CONTROL_TYPES,
-        inferred_confidences=INFERRED_CONTROL_CONFIDENCE,
+        high_risk_types=high_risk_types,
+        inferred_confidences=inferred_confidences,
         require_confirmation=require_confirmation,
     )
     executable = bool(command and command_type != "error" and not policy.get("requires_confirmation"))
@@ -162,7 +164,7 @@ def main() -> int:
             client,
             text,
             translator=translator,
-            require_confirmation=bool(nl_policy.get("feishu_control_require_confirmation", True)),
+            require_confirmation=bool(nl_policy.get("feishu_control_require_confirmation", False)),
         )
         for text in _load_cases(args.cases)
     ]
@@ -175,7 +177,7 @@ def main() -> int:
         "needs_confirmation": sum(1 for row in rows if row["requires_confirmation"]),
         "would_execute_without_confirmation": sum(1 for row in rows if row["would_execute_without_confirmation"]),
         "feishu_control_enabled": bool(nl_policy.get("feishu_control_enabled", False)),
-        "feishu_control_require_confirmation": bool(nl_policy.get("feishu_control_require_confirmation", True)),
+        "feishu_control_require_confirmation": bool(nl_policy.get("feishu_control_require_confirmation", False)),
     }
     if args.output:
         out_path = Path(args.output)

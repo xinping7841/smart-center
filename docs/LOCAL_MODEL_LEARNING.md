@@ -98,24 +98,24 @@ Smart Center can configure an optional `local_model.cloud_model` block for Ark /
 
 - Local 14B / knowledge proxy remains the normal chat and RAG entry.
 - Ark can be used for manual `system_summary_*.json` refresh when local 14B cannot finish a long summary reliably.
-- Ark can be used as a low-confidence Feishu/control rewrite fallback. It only returns intent or rewritten text, then Smart Center routes the result through aliases, permissions, confirmation, audit, and existing APIs.
+- Ark is currently the primary Feishu natural-language understanding source. For each Feishu turn, Ark and the local model both classify/rewrite in parallel; Smart Center records both outputs and currently selects the Ark result first. The selected result still routes through aliases, command policy, audit, and existing APIs.
 - The cloud API key is runtime config only. It must not be committed to docs, source code, or exported knowledge files.
 
 Production configuration should use `scripts/remote/configure_ark_cloud_model_20260602.py` with `ARK_API_KEY` supplied in the remote execution environment.
 
 ## Recommended Feishu Architecture
 
-The target design should keep four layers separate:
+The target design should keep four layers separate, with cloud/local model comparison visible in the AI module:
 
 - Feishu adapter: receives messages, renders text/card confirmations, stores short-lived pending controls, and records user decisions.
-- Intent and retrieval layer: uses deterministic rules plus optional local model classification/rewrite; retrieves `knowledge_*.json`, `insights_*.jsonl`, `device_aliases_*.jsonl`, `nl_intent_examples_*.jsonl`, and `code_knowledge_*.jsonl`.
+- Intent and retrieval layer: runs Ark and local model in parallel for Feishu NLU, selects Ark first for speed/understanding, logs the local result for comparison and learning, and retrieves `knowledge_*.json`, `insights_*.jsonl`, `device_aliases_*.jsonl`, `nl_intent_examples_*.jsonl`, and `code_knowledge_*.jsonl`.
 - Tool/router layer: maps read intents to read-only allowlisted APIs and control intents to `LocalSmartCenterClient.resolve_control_command_with_translator`.
 - Execution layer: calls existing Smart Center APIs only after permission, operation lock, audit, target confidence, risk classification, and confirmation policy.
 
 Known design gaps to watch:
 
 - Feishu uses app credentials, not a logged-in Smart Center session, so control execution should have an explicit service identity or HMAC/internal token instead of relying on whatever auth defaults the HTTP service applies.
-- Low-risk direct execution is convenient but broad. Consider requiring confirmation for all Feishu controls first, then allowing an explicit low-risk allowlist after enough field testing.
+- Low-risk direct execution is the operator-preferred mode for speed. Keep the AI page switch as the manual kill switch for Feishu execution while leaving queries available; use process logs to review mistakes and refine mappings.
 - Pending controls are keyed by chat, so two people in the same group can overwrite each other. Include sender/open_id in the pending key before enabling wider group control.
 - The local-model page stores pending controls in process memory, while Feishu persists them to runtime JSON. A shared pending-control store would make restart behavior and auditing more consistent.
 - Query intent classification, control rewrite, and answer generation should be separately observable in logs so mistakes can be debugged without exposing secrets.

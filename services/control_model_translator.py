@@ -14,6 +14,8 @@ the normal control router.
 from __future__ import annotations
 
 import json
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Any
 
@@ -28,6 +30,10 @@ class ControlTranslation:
     module: str
     confidence: float
     reason: str
+    source: str = ""
+    model: str = ""
+    elapsed_ms: int = 0
+    comparison: dict[str, Any] | None = None
 
 
 def normalize_openai_base_url(base_url: str) -> str:
@@ -90,7 +96,7 @@ def request_local_model_json(
     response = requests.post(
         endpoint,
         json=payload,
-        timeout=max(1.0, min(float(timeout_sec or 8.0), 60.0)),
+        timeout=max(1.0, min(float(timeout_sec or 8.0), 600.0)),
         headers=headers,
     )
     response.raise_for_status()
@@ -107,24 +113,43 @@ def request_local_model_json(
 
 
 class LocalModelControlTranslator:
-    def __init__(self, base_url: str, model: str, timeout_sec: float = 8.0, *, api_key: str = "", label: str = "") -> None:
+    def __init__(self, base_url: str, model: str, timeout_sec: float = 8.0, *, api_key: str = "", label: str = "", source: str = "local") -> None:
         self.base_url = normalize_openai_base_url(base_url)
         self.model = model or "qwen3:14b"
-        self.timeout_sec = max(1.0, min(float(timeout_sec or 8.0), 60.0))
+        self.timeout_sec = max(1.0, min(float(timeout_sec or 8.0), 600.0))
         self.api_key = str(api_key or "").strip()
         self.label = str(label or self.model or "model").strip()
+        self.source = str(source or "local").strip() or "local"
 
     def translate(self, text: str, alias_rows: list[dict[str, Any]]) -> ControlTranslation | None:
+        translation, _ = self.translate_with_report(text, alias_rows)
+        return translation
+
+    def translate_with_report(self, text: str, alias_rows: list[dict[str, Any]]) -> tuple[ControlTranslation | None, dict[str, Any]]:
+        started = time.time()
+        report: dict[str, Any] = {
+            "source": self.source,
+            "label": self.label,
+            "model": self.model,
+            "ok": False,
+            "selected": False,
+            "elapsed_ms": 0,
+        }
         raw = str(text or "").strip()
         if not raw:
-            return None
+            report["error"] = "empty_text"
+            return None, report
         prompt = self._build_prompt(raw, alias_rows)
         try:
             parsed = request_local_model_json(self.base_url, self.model, prompt, self.timeout_sec, api_key=self.api_key)
-        except Exception:
-            return None
+        except Exception as exc:
+            report["elapsed_ms"] = int((time.time() - started) * 1000)
+            report["error"] = str(exc)
+            return None, report
+        report["elapsed_ms"] = int((time.time() - started) * 1000)
         if not isinstance(parsed, dict):
-            return None
+            report["error"] = "no_json"
+            return None, report
         rewritten = str(parsed.get("rewritten_text") or "").strip()
         module = str(parsed.get("module") or "").strip().lower()
         reason = str(parsed.get("reason") or "").strip()
@@ -135,18 +160,71 @@ class LocalModelControlTranslator:
         allowed_modules = {"power", "sequencer", "light", "node_red", "door", "hvac", "projector", "server", "unknown"}
         if module not in allowed_modules:
             module = "unknown"
+        report.update({
+            "module": module,
+            "rewritten_text": rewritten[:120],
+            "confidence": max(0.0, min(confidence, 1.0)),
+            "reason": reason[:160],
+        })
         if not rewritten or confidence < 0.55:
-            return None
+            report["error"] = "low_confidence_or_empty"
+            return None, report
         if any(token in rewritten.lower() for token in ("http://", "https://", "/api/", "curl ", "requests.")):
-            return None
+            report["error"] = "unsafe_text"
+            return None, report
         if self.label:
             reason = f"{self.label}: {reason}" if reason else self.label
+        report["ok"] = True
         return ControlTranslation(
             rewritten_text=rewritten[:120],
             module=module,
             confidence=max(0.0, min(confidence, 1.0)),
             reason=reason[:160],
-        )
+            source=self.source,
+            model=self.model,
+            elapsed_ms=int(report.get("elapsed_ms") or 0),
+        ), report
+
+    def _provider_summary(self) -> dict[str, Any]:
+        return {
+            "source": self.source,
+            "label": self.label,
+            "model": self.model,
+            "timeout_sec": self.timeout_sec,
+        }
+
+    @staticmethod
+    def build_comparison(
+        *,
+        reports: list[dict[str, Any]],
+        selected: ControlTranslation | None,
+        priority: str,
+    ) -> dict[str, Any]:
+        selected_source = str(selected.source or "") if selected else ""
+        selected_rewrite = str(selected.rewritten_text or "") if selected else ""
+        for report in reports:
+            report["selected"] = bool(
+                selected
+                and str(report.get("source") or "") == selected_source
+                and str(report.get("rewritten_text") or "") == selected_rewrite
+            )
+        valid = [row for row in reports if row.get("ok")]
+        rewrites = {str(row.get("rewritten_text") or "") for row in valid if row.get("rewritten_text")}
+        modules = {str(row.get("module") or "") for row in valid if row.get("module")}
+        return {
+            "schema": "smart_center.model_comparison.v1",
+            "kind": "control_translate",
+            "mode": "parallel" if len(reports) > 1 else "single",
+            "priority": priority,
+            "selected_source": selected_source,
+            "selected_label": next((str(row.get("label") or "") for row in reports if row.get("selected")), ""),
+            "selected_rewritten_text": selected_rewrite,
+            "results": reports,
+            "difference": {
+                "rewrite_match": len(rewrites) <= 1,
+                "module_match": len(modules) <= 1,
+            },
+        }
 
     def _build_prompt(self, text: str, alias_rows: list[dict[str, Any]]) -> str:
         catalog = self._catalog_text(alias_rows)
@@ -180,13 +258,80 @@ class LocalModelControlTranslator:
 
 
 class ChainedModelControlTranslator:
-    def __init__(self, translators: list[LocalModelControlTranslator]) -> None:
+    def __init__(self, translators: list[LocalModelControlTranslator], *, priority: str = "cloud_first") -> None:
         self.translators = [item for item in translators if item]
         self.labels = [item.label for item in self.translators if item.label]
+        self.priority = str(priority or "cloud_first").strip() or "cloud_first"
 
     def translate(self, text: str, alias_rows: list[dict[str, Any]]) -> ControlTranslation | None:
+        translation, _ = self.translate_with_report(text, alias_rows)
+        return translation
+
+    def translate_with_report(self, text: str, alias_rows: list[dict[str, Any]]) -> tuple[ControlTranslation | None, dict[str, Any]]:
+        if not self.translators:
+            return None, LocalModelControlTranslator.build_comparison(reports=[], selected=None, priority=self.priority)
+        if len(self.translators) == 1:
+            translation, report = self.translators[0].translate_with_report(text, alias_rows)
+            comparison = LocalModelControlTranslator.build_comparison(reports=[report], selected=translation, priority=self.priority)
+            if translation:
+                translation = ControlTranslation(
+                    rewritten_text=translation.rewritten_text,
+                    module=translation.module,
+                    confidence=translation.confidence,
+                    reason=translation.reason,
+                    source=translation.source,
+                    model=translation.model,
+                    elapsed_ms=translation.elapsed_ms,
+                    comparison=comparison,
+                )
+            return translation, comparison
+
+        translations: list[ControlTranslation] = []
+        reports_by_source: dict[str, dict[str, Any]] = {}
+        reports: list[dict[str, Any]] = []
+        with ThreadPoolExecutor(max_workers=len(self.translators)) as pool:
+            futures = {pool.submit(item.translate_with_report, text, alias_rows): item for item in self.translators}
+            for future in as_completed(futures):
+                translator = futures[future]
+                try:
+                    translation, report = future.result()
+                except Exception as exc:
+                    report = {
+                        **translator._provider_summary(),
+                        "ok": False,
+                        "selected": False,
+                        "elapsed_ms": 0,
+                        "error": str(exc),
+                    }
+                    translation = None
+                reports_by_source[translator.source] = report
+                if translation:
+                    translations.append(translation)
         for translator in self.translators:
-            result = translator.translate(text, alias_rows)
-            if result:
-                return result
-        return None
+            report = reports_by_source.get(translator.source)
+            if report:
+                reports.append(report)
+        selected = self._select_translation(translations)
+        comparison = LocalModelControlTranslator.build_comparison(reports=reports, selected=selected, priority=self.priority)
+        if selected:
+            selected = ControlTranslation(
+                rewritten_text=selected.rewritten_text,
+                module=selected.module,
+                confidence=selected.confidence,
+                reason=selected.reason,
+                source=selected.source,
+                model=selected.model,
+                elapsed_ms=selected.elapsed_ms,
+                comparison=comparison,
+            )
+        return selected, comparison
+
+    def _select_translation(self, translations: list[ControlTranslation]) -> ControlTranslation | None:
+        if not translations:
+            return None
+        priority_sources = ("cloud", "local") if self.priority == "cloud_first" else ("local", "cloud")
+        by_source = {item.source: item for item in translations}
+        for source in priority_sources:
+            if source in by_source:
+                return by_source[source]
+        return max(translations, key=lambda item: item.confidence)

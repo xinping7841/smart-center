@@ -79,7 +79,7 @@ DEFAULT_LOCAL_MODEL = {
     },
     "natural_language": {
         "feishu_control_enabled": True,
-        "feishu_control_require_confirmation": True,
+        "feishu_control_require_confirmation": False,
         "record_process_enabled": True,
         "process_log_limit": 200,
     },
@@ -93,6 +93,8 @@ DEFAULT_LOCAL_MODEL = {
         "timeout_sec": 180,
         "temperature": 0.1,
         "max_tokens": 2048,
+        "priority": "cloud_first",
+        "compare_with_local": True,
         "use_for_system_summary": True,
         "use_for_nlu_fallback": True,
     },
@@ -198,6 +200,10 @@ def normalize_cloud_model_config(raw_config=None, *, keep_secret=True):
         merged["max_tokens"] = max(64, min(int(merged.get("max_tokens", 2048) or 2048), 8192))
     except Exception:
         merged["max_tokens"] = 2048
+    merged["priority"] = str(merged.get("priority") or "cloud_first").strip() or "cloud_first"
+    if merged["priority"] not in {"cloud_first", "local_first"}:
+        merged["priority"] = "cloud_first"
+    merged["compare_with_local"] = _as_bool(merged.get("compare_with_local"), True)
     merged["use_for_system_summary"] = _as_bool(merged.get("use_for_system_summary"), True)
     merged["use_for_nlu_fallback"] = _as_bool(merged.get("use_for_nlu_fallback"), True)
     if not keep_secret:
@@ -378,6 +384,7 @@ def _build_control_translator_from_config(cfg):
                 cfg.get("timeout_sec"),
                 api_key=cfg.get("api_key", ""),
                 label="本地模型",
+                source="local",
             )
         )
     cloud = cfg.get("cloud_model") if isinstance(cfg.get("cloud_model"), dict) else {}
@@ -389,13 +396,14 @@ def _build_control_translator_from_config(cfg):
                 cloud.get("timeout_sec"),
                 api_key=cloud.get("api_key", ""),
                 label=cloud.get("name") or "云端增强模型",
+                source="cloud",
             )
         )
     if not translators:
         return None
     if len(translators) == 1:
         return translators[0]
-    return ChainedModelControlTranslator(translators)
+    return ChainedModelControlTranslator(translators, priority=str(cloud.get("priority") or "cloud_first"))
 
 
 def _read_json_file(path, default):
@@ -505,6 +513,10 @@ def _summarize_control_command(command):
         "payload": command.get("payload") or {},
         "confidence": confidence,
         "inference_reason": command.get("inference_reason") or "",
+        "model_rewritten_text": command.get("model_rewritten_text") or "",
+        "model_source": command.get("model_source") or "",
+        "model_name": command.get("model_name") or "",
+        "model_comparison": command.get("model_comparison") or {},
         "requires_confirmation": bool(high_risk or inferred),
         "permission": _local_model_control_permission(command),
     }
@@ -1715,6 +1727,9 @@ def api_local_model_control_dry_run():
         ok=True,
     )
     command = client.resolve_control_command_with_translator(text, translator=translator)
+    comparison = command.get("model_comparison") if isinstance(command, dict) and isinstance(command.get("model_comparison"), dict) else None
+    if comparison:
+        trace.add_step("model", "云端与本地模型并行完成控制理解", data=comparison, ok=bool(comparison.get("selected_source")))
     if not command:
         trace.add_step("route", "未匹配到可执行设备", ok=False)
         process = trace.finish(intent="control", outcome="unmatched", reply="识别到控制请求，但没有明确匹配到设备。")
