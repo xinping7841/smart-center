@@ -14,14 +14,26 @@ the normal control router.
 from __future__ import annotations
 
 import json
+import os
 import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from typing import Any
 
 import requests
 
 DEFAULT_LOCAL_MODEL_BASE_URL = "http://127.0.0.1:8001/v1"
+
+
+def _env_float(name: str, default: float, minimum: float, maximum: float) -> float:
+    try:
+        return max(minimum, min(float(os.environ.get(name, "") or default), maximum))
+    except Exception:
+        return default
+
+
+def _priority_sources(priority: str) -> tuple[str, str]:
+    return ("cloud", "local") if str(priority or "") == "cloud_first" else ("local", "cloud")
 
 
 @dataclass(frozen=True)
@@ -262,6 +274,8 @@ class ChainedModelControlTranslator:
         self.translators = [item for item in translators if item]
         self.labels = [item.label for item in self.translators if item.label]
         self.priority = str(priority or "cloud_first").strip() or "cloud_first"
+        self.primary_wait_sec = _env_float("SMART_CENTER_NLU_PRIMARY_WAIT_SEC", 18.0, 1.0, 120.0)
+        self.compare_wait_sec = _env_float("SMART_CENTER_NLU_COMPARE_WAIT_SEC", 2.0, 0.0, 30.0)
 
     def translate(self, text: str, alias_rows: list[dict[str, Any]]) -> ControlTranslation | None:
         translation, _ = self.translate_with_report(text, alias_rows)
@@ -286,12 +300,16 @@ class ChainedModelControlTranslator:
                 )
             return translation, comparison
 
+        started = time.time()
         translations: list[ControlTranslation] = []
         reports_by_source: dict[str, dict[str, Any]] = {}
-        reports: list[dict[str, Any]] = []
-        with ThreadPoolExecutor(max_workers=len(self.translators)) as pool:
-            futures = {pool.submit(item.translate_with_report, text, alias_rows): item for item in self.translators}
-            for future in as_completed(futures):
+        executor = ThreadPoolExecutor(max_workers=len(self.translators))
+        futures: dict[Future, LocalModelControlTranslator] = {
+            executor.submit(item.translate_with_report, text, alias_rows): item for item in self.translators
+        }
+
+        def collect(done_futures: set[Future]) -> None:
+            for future in done_futures:
                 translator = futures[future]
                 try:
                     translation, report = future.result()
@@ -300,13 +318,50 @@ class ChainedModelControlTranslator:
                         **translator._provider_summary(),
                         "ok": False,
                         "selected": False,
-                        "elapsed_ms": 0,
+                        "elapsed_ms": int((time.time() - started) * 1000),
                         "error": str(exc),
                     }
                     translation = None
                 reports_by_source[translator.source] = report
                 if translation:
                     translations.append(translation)
+
+        pending: set[Future] = set(futures)
+        preferred = _priority_sources(self.priority)[0]
+        preferred_exists = any(item.source == preferred for item in self.translators)
+        deadline = time.time() + self.primary_wait_sec
+        while pending and time.time() < deadline:
+            done_now, pending = wait(
+                pending,
+                timeout=max(0.05, deadline - time.time()),
+                return_when=FIRST_COMPLETED,
+            )
+            if not done_now:
+                break
+            collect(set(done_now))
+            selected_now = self._select_translation(translations)
+            if selected_now and (selected_now.source == preferred or not preferred_exists):
+                break
+            preferred_report = reports_by_source.get(preferred)
+            if selected_now and preferred_report and not preferred_report.get("ok"):
+                break
+
+        if pending and self.compare_wait_sec > 0:
+            done_now, pending = wait(pending, timeout=self.compare_wait_sec)
+            collect(set(done_now))
+
+        for future in list(pending):
+            translator = futures[future]
+            reports_by_source[translator.source] = {
+                **translator._provider_summary(),
+                "ok": False,
+                "selected": False,
+                "elapsed_ms": int((time.time() - started) * 1000),
+                "error": "pending_after_fast_selection",
+            }
+        executor.shutdown(wait=False, cancel_futures=True)
+
+        reports: list[dict[str, Any]] = []
         for translator in self.translators:
             report = reports_by_source.get(translator.source)
             if report:

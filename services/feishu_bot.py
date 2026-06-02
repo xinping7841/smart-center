@@ -1,6 +1,6 @@
 # AI_MODULE: feishu_bot_service
 # AI_PURPOSE: Connect the smart center to Feishu by long connection, reply to chat commands, and run scheduled pushes.
-# AI_BOUNDARY: Feishu can issue controls through existing Smart Center HTTP APIs only; strong-current cabinets and sequencers require a chat confirmation step.
+# AI_BOUNDARY: Feishu can issue controls through existing Smart Center HTTP APIs only; strong-current cabinets and sequencers still require a chat confirmation step.
 # AI_DATA_FLOW: Feishu event -> command parser/confirmation -> local smart-center HTTP APIs -> Feishu message API.
 # AI_RUNTIME: Run as a standalone process with run_feishu_bot.py or start_feishu_bot.bat.
 # AI_RISK: High, chat commands can control real devices; keep target matching conservative and never bypass existing API locks/audit.
@@ -17,7 +17,7 @@ import sys
 import threading
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
@@ -205,6 +205,17 @@ def _env_bool(value: Any, default: bool = False) -> bool:
     if text in {"0", "false", "no", "off", "disabled", "disable"}:
         return False
     return default
+
+
+def _env_float(value: Any, default: float, minimum: float, maximum: float) -> float:
+    try:
+        return max(minimum, min(float(value if value not in (None, "") else default), maximum))
+    except Exception:
+        return default
+
+
+def _priority_sources(priority: str) -> tuple[str, str]:
+    return ("cloud", "local") if str(priority or "") == "cloud_first" else ("local", "cloud")
 
 
 def load_config(env_file: str | Path | None = None) -> FeishuBotConfig:
@@ -872,6 +883,8 @@ class ChainedModelIntentClassifier:
         self.classifiers = [item for item in classifiers if item]
         self.labels = [item.label for item in self.classifiers if item.label]
         self.priority = str(priority or "cloud_first").strip() or "cloud_first"
+        self.primary_wait_sec = _env_float(os.environ.get("SMART_CENTER_NLU_PRIMARY_WAIT_SEC"), 18.0, 1.0, 120.0)
+        self.compare_wait_sec = _env_float(os.environ.get("SMART_CENTER_NLU_COMPARE_WAIT_SEC"), 2.0, 0.0, 30.0)
 
     def classify(self, text: str) -> dict[str, Any] | None:
         result, _ = self.classify_with_report(text)
@@ -887,11 +900,16 @@ class ChainedModelIntentClassifier:
                 result = dict(result)
                 result["model_comparison"] = comparison
             return result, comparison
+        started = time.time()
         results: list[dict[str, Any]] = []
         reports_by_source: dict[str, dict[str, Any]] = {}
-        with ThreadPoolExecutor(max_workers=len(self.classifiers)) as pool:
-            futures = {pool.submit(item.classify_with_report, text): item for item in self.classifiers}
-            for future in as_completed(futures):
+        executor = ThreadPoolExecutor(max_workers=len(self.classifiers))
+        futures: dict[Future, LocalModelIntentClassifier] = {
+            executor.submit(item.classify_with_report, text): item for item in self.classifiers
+        }
+
+        def collect(done_futures: set[Future]) -> None:
+            for future in done_futures:
                 classifier = futures[future]
                 try:
                     result, report = future.result()
@@ -903,12 +921,50 @@ class ChainedModelIntentClassifier:
                         "model": classifier.model,
                         "ok": False,
                         "selected": False,
-                        "elapsed_ms": 0,
+                        "elapsed_ms": int((time.time() - started) * 1000),
                         "error": str(exc),
                     }
                 reports_by_source[classifier.source] = report
                 if result:
                     results.append(result)
+
+        pending: set[Future] = set(futures)
+        preferred = _priority_sources(self.priority)[0]
+        preferred_exists = any(item.source == preferred for item in self.classifiers)
+        deadline = time.time() + self.primary_wait_sec
+        while pending and time.time() < deadline:
+            done_now, pending = wait(
+                pending,
+                timeout=max(0.05, deadline - time.time()),
+                return_when=FIRST_COMPLETED,
+            )
+            if not done_now:
+                break
+            collect(set(done_now))
+            selected_now = self._select_result(results)
+            if selected_now and (str(selected_now.get("model_source_key") or "") == preferred or not preferred_exists):
+                break
+            preferred_report = reports_by_source.get(preferred)
+            if selected_now and preferred_report and not preferred_report.get("ok"):
+                break
+
+        if pending and self.compare_wait_sec > 0:
+            done_now, pending = wait(pending, timeout=self.compare_wait_sec)
+            collect(set(done_now))
+
+        for future in list(pending):
+            classifier = futures[future]
+            reports_by_source[classifier.source] = {
+                "source": classifier.source,
+                "label": classifier.label,
+                "model": classifier.model,
+                "ok": False,
+                "selected": False,
+                "elapsed_ms": int((time.time() - started) * 1000),
+                "error": "pending_after_fast_selection",
+            }
+        executor.shutdown(wait=False, cancel_futures=True)
+
         reports = [reports_by_source[item.source] for item in self.classifiers if item.source in reports_by_source]
         selected = self._select_result(results)
         comparison = _model_comparison_report(kind="intent_classify", reports=reports, selected=selected, priority=self.priority)
@@ -3091,7 +3147,7 @@ class FeishuBot:
         require_confirmation = bool(policy.get("feishu_control_require_confirmation", False))
         command_policy = describe_control_policy(
             command,
-            high_risk_types=HIGH_RISK_CONTROL_TYPES if require_confirmation else set(),
+            high_risk_types=HIGH_RISK_CONTROL_TYPES,
             inferred_confidences=INFERRED_CONTROL_CONFIDENCE if require_confirmation else set(),
             require_confirmation=require_confirmation,
         )
