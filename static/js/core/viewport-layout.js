@@ -283,10 +283,14 @@
             isTouchPortrait = false;
         }
         if (isMobile || isTouchWide || isTablet) maybeCloseSidebar();
-        const dense = !isMobile && !isTablet && !isTouchWide && !isFoldDesktop && (width <= 980 || height <= 720);
-        const compact = !isMobile && !isTablet && !isTouchWide && !isFoldDesktop && !dense && (width <= 1366 || height <= 860);
+        const desktopSurface = !isMobile && !isTablet && !isTouchWide && !isFoldDesktop;
+        const desktopAspect = width && height ? width / Math.max(1, height) : 0;
+        const wallDisplay = desktopSurface && width >= 1700 && height >= 900 && desktopAspect >= 1.55;
+        const dense = desktopSurface && (width <= 980 || height <= 720);
+        const compact = desktopSurface && !dense && (width <= 1366 || height <= 860);
         document.body.classList.toggle('dense-layout', dense);
         document.body.classList.toggle('compact-layout', dense || compact || isFoldDesktop);
+        document.body.classList.toggle('wall-display-mode', wallDisplay);
         document.body.classList.toggle('mobile-layout', isMobile);
         document.body.classList.toggle('tablet-layout', isTablet);
         document.body.classList.toggle('touch-layout', isTouch);
