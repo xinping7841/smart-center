@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260602-wall-page-density-v1';
+        const lazyModuleVersion = '20260603-sidebar-carousel-v1';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const wideUiStyle = `/static/css/views/ui-wide-1080.css?v=${lazyModuleVersion}`;
         const withWideUiStyle = styles => [...styles, wideUiStyle];
@@ -1412,6 +1412,95 @@
             document.body.classList.toggle('sidebar-open', shouldOpen);
         }
         function closeSidebar() { document.body.classList.remove('sidebar-open'); }
+        let sidebarCarouselTimer = 0;
+        let sidebarCarouselActive = false;
+        let sidebarCarouselIndex = 0;
+        let sidebarCarouselIntervalMs = 10000;
+        function isTruthyConfig(value) {
+            return value === true || ['1', 'true', 'on', 'yes', 'enabled'].includes(String(value || '').toLowerCase());
+        }
+        function getSidebarCarouselConfig() {
+            const primary = configData.sidebar_carousel || configData.carousel || configData.display_carousel || {};
+            return primary && typeof primary === 'object' ? primary : {};
+        }
+        function isSidebarCarouselEnabled() {
+            const params = new URLSearchParams(window.location.search || '');
+            const mode = String(params.get('display_mode') || params.get('mode') || '').toLowerCase();
+            if (['carousel', 'rotation', 'rotate'].includes(mode)) return true;
+            if (isTruthyConfig(params.get('carousel')) || isTruthyConfig(params.get('sidebar_carousel')) || isTruthyConfig(params.get('auto_rotate'))) return true;
+            const cfg = getSidebarCarouselConfig();
+            return isTruthyConfig(cfg.enabled ?? cfg.enable ?? cfg.auto_rotate);
+        }
+        function coerceSidebarCarouselIntervalMs(value) {
+            const numeric = Number(value);
+            if (!Number.isFinite(numeric) || numeric <= 0) return null;
+            const ms = numeric >= 1000 ? numeric : numeric * 1000;
+            return Math.max(1000, Math.min(300000, Math.round(ms)));
+        }
+        function getSidebarCarouselIntervalMs() {
+            const params = new URLSearchParams(window.location.search || '');
+            const cfg = getSidebarCarouselConfig();
+            return coerceSidebarCarouselIntervalMs(params.get('carousel_interval_ms'))
+                || coerceSidebarCarouselIntervalMs(params.get('carousel_interval'))
+                || coerceSidebarCarouselIntervalMs(params.get('carousel_interval_sec'))
+                || coerceSidebarCarouselIntervalMs(params.get('interval'))
+                || coerceSidebarCarouselIntervalMs(cfg.interval_ms)
+                || coerceSidebarCarouselIntervalMs(cfg.interval)
+                || coerceSidebarCarouselIntervalMs(cfg.interval_sec)
+                || 10000;
+        }
+        function getSidebarCarouselItems() {
+            const seen = new Set();
+            return Array.from(document.querySelectorAll('.nav-menu li')).map(navEl => {
+                const onclickText = String(navEl.getAttribute('onclick') || '');
+                const match = onclickText.match(/switchTab\('([^']+)',\s*'([^']+)'/);
+                if (!match) return null;
+                const viewId = normalizeViewIdCandidate(match[1]);
+                if (!viewId || seen.has(viewId)) return null;
+                seen.add(viewId);
+                return {
+                    viewId,
+                    title: match[2] || getViewTitleFromNav(navEl, '中控系统'),
+                    navEl,
+                };
+            }).filter(Boolean);
+        }
+        function syncSidebarCarouselIndex(viewId = getActiveViewId()) {
+            const items = getSidebarCarouselItems();
+            if (!items.length) return;
+            const index = items.findIndex(item => item.viewId === viewId);
+            if (index >= 0) sidebarCarouselIndex = index;
+        }
+        function stopSidebarCarousel() {
+            window.clearTimeout(sidebarCarouselTimer);
+            sidebarCarouselTimer = 0;
+            sidebarCarouselActive = false;
+            document.body.classList.remove('sidebar-carousel-mode');
+        }
+        function scheduleSidebarCarouselNext(delayMs = sidebarCarouselIntervalMs) {
+            window.clearTimeout(sidebarCarouselTimer);
+            sidebarCarouselTimer = 0;
+            if (!sidebarCarouselActive) return;
+            const items = getSidebarCarouselItems();
+            if (items.length < 2) return;
+            sidebarCarouselTimer = window.setTimeout(() => {
+                const freshItems = getSidebarCarouselItems();
+                if (!sidebarCarouselActive || freshItems.length < 2) return;
+                const currentIndex = freshItems.findIndex(item => item.viewId === getActiveViewId());
+                sidebarCarouselIndex = currentIndex >= 0 ? currentIndex : sidebarCarouselIndex;
+                const nextItem = freshItems[(sidebarCarouselIndex + 1) % freshItems.length];
+                if (!nextItem) return scheduleSidebarCarouselNext();
+                switchTab(nextItem.viewId, nextItem.title, nextItem.navEl);
+            }, Math.max(1000, Number(delayMs) || 10000));
+        }
+        function startSidebarCarousel() {
+            if (!isSidebarCarouselEnabled()) return stopSidebarCarousel();
+            sidebarCarouselIntervalMs = getSidebarCarouselIntervalMs();
+            sidebarCarouselActive = true;
+            document.body.classList.add('sidebar-carousel-mode');
+            syncSidebarCarouselIndex();
+            scheduleSidebarCarouselNext();
+        }
         function switchTab(viewId, title, navEl) {
             const previousView = getActiveViewId();
             if (viewId === 'dashboard') ensureDashboardShellRendered();
@@ -1508,6 +1597,8 @@
             if (viewId === 'logs') setTimeout(() => { refreshLogsViewNow('日志中心页面加载').catch(() => {}); }, 80);
             if (viewId === 'dashboard') preloadDashboardSupportModules();
             refreshPollingVisibility();
+            syncSidebarCarouselIndex(viewId);
+            if (sidebarCarouselActive) scheduleSidebarCarouselNext();
         }
         Object.assign(window, {
             ensureModulesReady,
@@ -1515,6 +1606,8 @@
             getActiveViewId,
             registerPollingTask,
             switchTab,
+            startSidebarCarousel,
+            stopSidebarCarousel,
             findNavElementByView,
             getViewTitleFromNav,
         });
@@ -2356,6 +2449,9 @@
                 }
                 switchTab('dashboard', '场馆总览', initialNav);
             }, '默认页面初始化异常，已切换为降级启动');
+            guardFrontendStep('bootstrap.sidebar_carousel', () => {
+                startSidebarCarousel();
+            }, '页面轮播初始化失败');
             window.addEventListener('hashchange', () => {
                 guardFrontendStep('route.hashchange', () => {
                     const nextView = getInitialViewFromUrl();
