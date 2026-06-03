@@ -145,7 +145,7 @@
         };
         const params = new URLSearchParams(global.location.search);
         const fitMode = String(params.get('fit_dashboard') || params.get('display_mode') || '').toLowerCase();
-        const enabled = ['1', 'true', 'on', 'fit', 'fixed', 'canvas', 'kiosk', 'carousel'].includes(fitMode);
+        const enabled = ['1', 'true', 'on', 'fit', 'fixed', 'canvas', 'kiosk'].includes(fitMode);
         const activeView = getCurrentViewId();
         const mobileMode = typeof info.isMobile === 'boolean' ? info.isMobile : document.body.classList.contains('mobile-layout');
         const tabletMode = typeof info.isTablet === 'boolean' ? info.isTablet : document.body.classList.contains('tablet-layout');
