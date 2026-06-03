@@ -73,3 +73,49 @@ def test_lighting_status_intent_keeps_specific_courtyard_query() -> None:
 
     assert "庭院灯状态：在线，亮" in answer
     assert client.paths == ["/api/node-red/device/courtyard_light/status"]
+
+
+def test_lighting_status_intent_returns_specific_hall_controller_channels() -> None:
+    client = FakeSmartCenterClient(
+        {
+            "/api/light/status": (
+                True,
+                {
+                    "channels": {"1": [False, True, True, False], "2": [True, True, True, False, False, None, True, True]},
+                    "extras": {
+                        "1": {"name": "一号厅", "status_label": "在线"},
+                        "2": {"name": "二号厅", "status_label": "在线"},
+                    },
+                },
+            )
+        }
+    )
+
+    answer = client.answer_intent("lighting_status", "1号厅灯光状态")
+
+    assert "一号厅灯光状态：在线" in answer
+    assert "- 一号厅 A区：关闭" in answer
+    assert "- 一号厅 B区：开启" in answer
+    assert "- 一号厅 沉浸厅：开启" in answer
+    assert "- 一号厅 前言墙：关闭" in answer
+    assert "二号厅" not in answer
+    assert client.paths == ["/api/light/status"]
+
+
+def test_lighting_query_understands_front_wall_short_alias() -> None:
+    client = FakeSmartCenterClient(
+        {
+            "/api/light/status": (
+                True,
+                {
+                    "channels": {"1": [False, True, True, False]},
+                    "extras": {"1": {"name": "一号厅", "status_label": "在线"}},
+                },
+            )
+        }
+    )
+
+    answer = client.answer_intent("lighting_status", "前言灯状态")
+
+    assert answer == "一号厅 前言墙状态：在线，第4路 关闭"
+    assert client.paths == ["/api/light/status"]
