@@ -1,3 +1,11 @@
+# AI_MODULE: apple_audio_core
+# AI_PURPOSE: Scan local music files, maintain queue/transport metadata, lyrics, covers, and playback state helpers.
+# AI_BOUNDARY: Flask routes live in api/apple_audio.py and frontend rendering lives in static/js/views/apple-audio.js.
+# AI_DATA_FLOW: CONFIG/apple audio library files -> DATA_DIR runtime caches -> API payloads for music cards and transport.
+# AI_RUNTIME: Imported by api/apple_audio.py during page/API requests and background-style scan operations.
+# AI_RISK: Medium. Heavy scans or bad metadata parsing can slow the dashboard and disrupt live playback.
+# AI_COMPAT: Preserve queue, transport, lyrics, cover, and library payload shapes used by existing frontend.
+# AI_SEARCH_KEYWORDS: apple audio, music library, queue, lyrics, cover, transport.
 import base64
 import hashlib
 import json

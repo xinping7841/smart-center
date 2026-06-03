@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# AI_MODULE: remote_script_upload_runner
+# AI_PURPOSE: Upload a local script to a remote Linux/macOS host and execute it to avoid fragile complex inline ssh commands.
+# AI_BOUNDARY: This wrapper only transports and runs a script; script contents own sudo, validation, and safety behavior.
+# AI_DATA_FLOW: local script file -> scp temporary remote directory -> remote shell/python execution -> stdout/stderr -> cleanup.
+# AI_RUNTIME: Used from Mac/120 maintenance tasks for Smart Center production checks, deploys, and one-off diagnostics.
+# AI_RISK: High. Remote scripts can touch production services; use sudo -n inside payloads and never hide destructive cleanup in them.
+# AI_COMPAT: Keep --host, --script, and --remote-workdir flags stable for existing runbooks and Codex workflows.
+# AI_SEARCH_KEYWORDS: ssh_exec, remote script, upload, scp, node-120, sudo -n.
 set -euo pipefail
 
 HOST_NAME=""

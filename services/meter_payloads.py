@@ -1,3 +1,11 @@
+# AI_MODULE: meter_payload_service
+# AI_PURPOSE: Build reference meter payloads, source matching variants, and overlay comparisons for energy display.
+# AI_BOUNDARY: No device polling or control; it only normalizes and compares already-collected meter rows.
+# AI_DATA_FLOW: CONFIG meter definitions + data_logger summaries -> reference meter payloads for meter center APIs.
+# AI_RUNTIME: Used by services/meter_center.py and power/meter API reads.
+# AI_RISK: Medium. Source matching mistakes can attach history or reference values to the wrong meter.
+# AI_COMPAT: Preserve normalized source keys and comparison fields used by meter center frontend.
+# AI_SEARCH_KEYWORDS: meter payload, source key, reference meter, energy history, overlay.
 from datetime import datetime
 
 from config import CONFIG

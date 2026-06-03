@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+# AI_MODULE: code_knowledge_exporter
+# AI_PURPOSE: Export Smart Center source-code structure, AI markers, routes, module cards, and redacted code chunks for local-model RAG.
+# AI_BOUNDARY: Produces knowledge files only; it must not import runtime device drivers in ways that poll or control real hardware.
+# AI_DATA_FLOW: Git/worktree source files -> AI marker extraction, route scan, redacted chunks -> training/local_model code_*.json/jsonl.
+# AI_RUNTIME: Run manually or through scripts/export_local_model_training.py on node-120 before refreshing the local-model knowledge context.
+# AI_RISK: Medium. Bad exclusions or redaction can leak secrets or teach stale/generated code as source of truth.
+# AI_COMPAT: code_manifest/code_system_map/code_knowledge/full_code_context schemas are consumed by local-model pages and refresh scripts.
+# AI_SEARCH_KEYWORDS: code knowledge, AI markers, RAG, full_code_context, module_cards, route scan.
 """Export Smart Center source knowledge for local-model RAG.
 
 The output is intentionally structured and compact: it teaches the model where
@@ -99,6 +107,12 @@ AI_KEYS = (
     "AI_RISK",
     "AI_COMPAT",
     "AI_SEARCH_KEYWORDS",
+)
+REQUIRED_AI_KEYS = (
+    "AI_MODULE",
+    "AI_PURPOSE",
+    "AI_BOUNDARY",
+    "AI_RISK",
 )
 ROUTE_DECORATOR_RE = re.compile(r"@(?:\w+\.)?route\((?P<args>.*)\)")
 PERMISSION_RE = re.compile(r"@require_permission\((?P<args>[^)]*)\)")
@@ -373,6 +387,40 @@ def _config_keys_from_text(text: str) -> list[str]:
     return sorted(key for key in keys if len(key) >= 2)[:80]
 
 
+def _marker_required_for_file(row: dict[str, Any]) -> bool:
+    rel_path = str(row.get("source_file") or "")
+    suffix = str(row.get("suffix") or "")
+    if rel_path.startswith(("tests/", ".baseline_reports/", "deploy/meter_service_bundle/")):
+        return False
+    if suffix in {".bat", ".cmd", ".txt"}:
+        return False
+    if rel_path.startswith("docs/"):
+        return rel_path in {
+            "docs/AI_NAVIGATION.md",
+            "docs/AI_CODE_MARKERS.md",
+            "docs/LOCAL_MODEL_LEARNING.md",
+            "docs/QUERY_KNOWLEDGE_BASE.md",
+            "docs/MODULE_INDEX.yaml",
+        }
+    if rel_path.startswith(("api/", "services/", "runtime/", "drivers/", "templates/", "static/js/", "scripts/")):
+        return True
+    if rel_path.endswith("_core.py") or rel_path in {
+        "app.py",
+        "background.py",
+        "config.py",
+        "data_logger.py",
+        "event_logger.py",
+        "modbus_core.py",
+        "paths.py",
+        "power.py",
+        "screen_core.py",
+        "snmp_core.py",
+        "universal_core.py",
+    }:
+        return True
+    return False
+
+
 def build_file_records(files: list[Path]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for path in files:
@@ -404,6 +452,74 @@ def build_file_records(files: list[Path]) -> list[dict[str, Any]]:
             }
         )
     return rows
+
+
+def build_marker_coverage(file_rows: list[dict[str, Any]]) -> dict[str, Any]:
+    missing_required: list[dict[str, Any]] = []
+    missing_any: list[dict[str, Any]] = []
+    complete_count = 0
+    required_target_count = 0
+    required_target_complete_count = 0
+    for row in file_rows:
+        markers = row.get("ai_markers") if isinstance(row.get("ai_markers"), dict) else {}
+        present = sorted(key for key in AI_KEYS if markers.get(key))
+        required_missing = [key for key in REQUIRED_AI_KEYS if not markers.get(key)]
+        any_missing = [key for key in AI_KEYS if not markers.get(key)]
+        marker_required = _marker_required_for_file(row)
+        if not any_missing:
+            complete_count += 1
+        if marker_required:
+            required_target_count += 1
+            if not required_missing:
+                required_target_complete_count += 1
+        if marker_required and required_missing:
+            missing_required.append(
+                {
+                    "source_file": row.get("source_file"),
+                    "module": row.get("module"),
+                    "line_count": row.get("line_count"),
+                    "present": present,
+                    "missing": required_missing,
+                    "risk": row.get("risk") or "",
+                }
+            )
+        if any_missing:
+            missing_any.append(
+                {
+                    "source_file": row.get("source_file"),
+                    "module": row.get("module"),
+                    "present_count": len(present),
+                    "missing": any_missing,
+                    "risk": row.get("risk") or "",
+                }
+            )
+    total = len(file_rows)
+    return {
+        "schema": "smart_center.ai_marker_coverage.v1",
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "required_keys": list(REQUIRED_AI_KEYS),
+        "all_keys": list(AI_KEYS),
+        "counts": {
+            "source_files": total,
+            "marker_required_files": required_target_count,
+            "complete_all_markers": complete_count,
+            "required_target_complete": required_target_complete_count,
+            "required_target_missing_required": len(missing_required),
+            "missing_any_marker": len(missing_any),
+            "coverage_percent_all_markers": round((complete_count / total * 100) if total else 100, 2),
+            "coverage_percent_required_targets": round(
+                (required_target_complete_count / required_target_count * 100) if required_target_count else 100,
+                2,
+            ),
+        },
+        "missing_required_top": sorted(
+            missing_required,
+            key=lambda item: (str(item.get("risk") or ""), -(int(item.get("line_count") or 0)), str(item.get("source_file") or "")),
+            reverse=True,
+        )[:120],
+        "missing_any_top": missing_any[:240],
+        "long_term_rule": "Every Smart Center code change should keep AI_* markers current so node-123 can learn module purpose, boundaries, data flow, runtime, risk, compatibility, and search keywords.",
+    }
 
 
 def _infer_file_purpose(rel_path: str, text: str) -> str:
@@ -587,6 +703,7 @@ def build_code_system_map(
             if row.get("control_paths") or row.get("risk") in {"high", "medium", "高", "中"}
         }
     )
+    marker_coverage = build_marker_coverage(file_rows)
     return {
         "schema": "smart_center.code_system_map.v1",
         "generated_at": datetime.now().isoformat(timespec="seconds"),
@@ -600,7 +717,11 @@ def build_code_system_map(
             "design_notes": len(design_rows),
             "high_risk_routes": len(high_risk_routes),
             "medium_risk_routes": len(medium_risk_routes),
+            "ai_marker_complete_all": marker_coverage["counts"]["complete_all_markers"],
+            "ai_marker_missing_required": marker_coverage["counts"]["required_target_missing_required"],
         },
+        "ai_marker_coverage": marker_coverage["counts"],
+        "ai_marker_rule": marker_coverage["long_term_rule"],
         "entrypoints": {
             "flask_app": "app.py",
             "main_template": "templates/index.html",
@@ -738,6 +859,7 @@ def build_code_knowledge_export_with_options(out_dir: Path | None = None, *, inc
     module_rows = build_module_records(file_rows, route_rows)
     design_rows = build_design_records(file_rows, route_rows)
     module_card_rows = build_module_cards(module_rows, file_rows, route_rows)
+    marker_coverage = build_marker_coverage(file_rows)
     system_map = build_code_system_map(file_rows, route_rows, module_rows, design_rows, module_card_rows)
     full_context_rows = build_full_code_context(files, file_rows) if include_full_context else []
     all_rows = file_rows + route_rows + module_rows + design_rows + module_card_rows
@@ -747,6 +869,7 @@ def build_code_knowledge_export_with_options(out_dir: Path | None = None, *, inc
         "code_modules": out_dir / f"code_modules_{stamp}.jsonl",
         "module_cards": out_dir / f"module_cards_{stamp}.jsonl",
         "code_design": out_dir / f"code_design_{stamp}.jsonl",
+        "ai_marker_coverage": out_dir / f"ai_marker_coverage_{stamp}.json",
         "code_knowledge": out_dir / f"code_knowledge_{stamp}.jsonl",
         "code_system_map": out_dir / f"code_system_map_{stamp}.json",
         "code_manifest": out_dir / f"code_manifest_{stamp}.json",
@@ -759,6 +882,7 @@ def build_code_knowledge_export_with_options(out_dir: Path | None = None, *, inc
     _jsonl_write(output_files["module_cards"], module_card_rows)
     _jsonl_write(output_files["code_design"], design_rows)
     _jsonl_write(output_files["code_knowledge"], all_rows)
+    output_files["ai_marker_coverage"].write_text(json.dumps(marker_coverage, ensure_ascii=False, indent=2), encoding="utf-8")
     output_files["code_system_map"].write_text(json.dumps(system_map, ensure_ascii=False, indent=2), encoding="utf-8")
     if include_full_context:
         _jsonl_write(output_files["full_code_context"], full_context_rows)
@@ -774,6 +898,8 @@ def build_code_knowledge_export_with_options(out_dir: Path | None = None, *, inc
             "design_notes": len(design_rows),
             "full_code_context_chunks": len(full_context_rows),
             "all_rows": len(all_rows),
+            "ai_marker_complete_all": marker_coverage["counts"]["complete_all_markers"],
+            "ai_marker_missing_required": marker_coverage["counts"]["required_target_missing_required"],
         },
         "files": {name: str(path) for name, path in output_files.items()},
         "recommended_use": [
@@ -782,6 +908,7 @@ def build_code_knowledge_export_with_options(out_dir: Path | None = None, *, inc
             "Use full_code_context_*.jsonl only for high-context periodic refresh or RAG indexing; it is redacted source context, not a control executor.",
             "Use runtime devices/logs/insights from export_local_model_training.py for changing production facts.",
             "Do not let the model execute route paths directly; route execution must stay inside Smart Center permission and confirmation APIs.",
+            "For future code changes, update AI_* markers in touched files and review ai_marker_coverage_*.json before refreshing node-123 knowledge.",
         ],
     }
     output_files["code_manifest"].write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")

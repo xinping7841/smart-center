@@ -1,3 +1,11 @@
+# AI_MODULE: auth_api
+# AI_PURPOSE: Authentication, logout, current-user state, and user-management HTTP endpoints for Smart Center.
+# AI_BOUNDARY: Password storage and permission policy live in auth.store/auth.policy; this module only exposes API/page routes.
+# AI_DATA_FLOW: Browser login/admin requests -> auth store/session/audit -> JSON or page redirects.
+# AI_RUNTIME: Registered by app.py and used by login page, config center, and all session-aware frontend code.
+# AI_RISK: High. Mistakes can lock out operators or grant unauthorized control access.
+# AI_COMPAT: Preserve /login, /logout, /api/auth/* payloads and session behavior used by existing browsers.
+# AI_SEARCH_KEYWORDS: auth, login, session, users, permissions, audit.
 from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
 
 from audit import load_audit_logs, log_audit_event

@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# AI_MODULE: collab_check_sync
+# AI_PURPOSE: Show repository sync, dirty state, worktrees, and active Smart Center worklocks before code edits.
+# AI_BOUNDARY: Read-only coordination check; it must not create branches, acquire locks, or modify source files.
+# AI_DATA_FLOW: git remote/worktree/worklock metadata -> terminal status report for the operator or coding agent.
+# AI_RUNTIME: Required first step before Smart Center edits on Mac/120/121/122/123 collaboration machines.
+# AI_RISK: Low. Incorrect output can cause branch or lock collisions, but it does not touch real devices.
+# AI_COMPAT: Output sections are referenced by collaboration runbooks; keep check names stable.
+# AI_SEARCH_KEYWORDS: check-sync, worklock, worktree, collaboration, git status.
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
@@ -71,4 +79,3 @@ if git ls-remote --exit-code --heads origin "$LOCK_BRANCH" >/dev/null 2>&1; then
 else
   echo "worklock branch missing; run scripts/collab/setup-git-collab.sh"
 fi
-

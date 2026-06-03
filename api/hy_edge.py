@@ -1,3 +1,11 @@
+# AI_MODULE: hy_edge_api
+# AI_PURPOSE: Proxy and cache HY edge / Node-RED status data for the Smart Center frontend.
+# AI_BOUNDARY: Read-only status adapter; it must not send device control commands or own Node-RED flow logic.
+# AI_DATA_FLOW: CONFIG.hy_edge/status URL -> cached HTTP fetch -> /api/hy-edge/status JSON.
+# AI_RUNTIME: Registered by app.py and polled by the HY edge page/view.
+# AI_RISK: Medium. Stale or failed cache data can mislead diagnostics but should not affect real controls.
+# AI_COMPAT: Preserve status payload fields consumed by static/js/views/hy-edge.js.
+# AI_SEARCH_KEYWORDS: hy-edge, node-red, edge status, cache, proxy.
 import json
 import os
 import threading
