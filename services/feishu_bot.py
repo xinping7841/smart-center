@@ -2568,6 +2568,84 @@ class LocalSmartCenterClient:
             lines.append(f"- {extra.get('name') or device_id}：{online}，{state_text}")
         return "\n".join(lines)
 
+    def _light_channel_is_specific_query(self, query: str, channel_row: dict[str, Any]) -> bool:
+        normalized = normalize_alias_text(query)
+        if not normalized:
+            return False
+        channel = str(channel_row.get("channel") or "").strip()
+        channel_terms = {
+            normalize_alias_text(channel_row.get("name")),
+            normalize_alias_text(f"{channel}路"),
+            normalize_alias_text(f"第{channel}路"),
+            normalize_alias_text(f"{channel}通道"),
+            normalize_alias_text(f"第{channel}通道"),
+            normalize_alias_text(f"{channel}回路"),
+            normalize_alias_text(f"第{channel}回路"),
+        }
+        row_name = normalize_alias_text(channel_row.get("name"))
+        device_id = str(channel_row.get("device_id") or "")
+        for row in self._device_alias_rows():
+            if row.get("module") != "light" or row.get("device_type") != "light_controller" or str(row.get("device_id")) != device_id:
+                continue
+            controller_name = normalize_alias_text(row.get("name"))
+            if controller_name and row_name.startswith(controller_name):
+                suffix = row_name[len(controller_name):]
+                if suffix:
+                    channel_terms.update({
+                        suffix,
+                        normalize_alias_text(f"{suffix}灯"),
+                        normalize_alias_text(f"{suffix}灯光"),
+                        normalize_alias_text(f"{suffix}照明"),
+                    })
+        return any(term and len(term) >= 2 and term in normalized for term in channel_terms)
+
+    def specific_lighting_status_text(self, query: str = "") -> str:
+        query = str(query or "").strip()
+        if not query:
+            return ""
+        alias_matches = find_alias_rows(query, self._device_alias_rows(), module="light")
+        channel_alias = next((row for row in alias_matches if row.get("device_type") == "light_channel" and self._light_channel_is_specific_query(query, row)), None)
+        controller_alias = next((row for row in alias_matches if row.get("device_type") == "light_controller"), None)
+        target = channel_alias or controller_alias
+        if not target:
+            return ""
+        ok, payload = self.get_json("/api/light/status", timeout_sec=4.0)
+        if not ok or not isinstance(payload, dict):
+            return f"灯光接口暂时不可用：{payload}"
+        extras = payload.get("extras") if isinstance(payload.get("extras"), dict) else {}
+        channels = payload.get("channels") if isinstance(payload.get("channels"), dict) else {}
+        device_id = str(target.get("device_id") or "")
+        states = channels.get(device_id)
+        extra = extras.get(device_id, {}) if isinstance(extras.get(device_id), dict) else {}
+        online = extra.get("status_label") or ("在线" if extra.get("status_level") == "online" else extra.get("status_level") or "--")
+        if not isinstance(states, list):
+            return f"{target.get('name') or device_id}状态：{online}，通道未知"
+        if channel_alias:
+            try:
+                channel = int(channel_alias.get("channel") or 0)
+                state = "开启" if bool(states[channel - 1]) else "关闭"
+            except Exception:
+                channel = int(channel_alias.get("channel") or 0)
+                state = "--"
+            return f"{channel_alias.get('name') or '灯光通道'}状态：{online}，第{channel}路 {state}"
+        rows = []
+        for row in self._device_alias_rows():
+            if row.get("module") != "light" or row.get("device_type") != "light_channel" or str(row.get("device_id")) != device_id:
+                continue
+            try:
+                channel = int(row.get("channel") or 0)
+                state = "开启" if bool(states[channel - 1]) else "关闭"
+            except Exception:
+                channel = int(row.get("channel") or 0)
+                state = "--"
+            name = str(row.get("name") or f"{device_id} 第{channel}路")
+            rows.append((channel, f"- {name}：{state}"))
+        if rows:
+            return "\n".join([f"{target.get('name') or device_id}灯光状态：{online}", *[line for _channel, line in sorted(rows)]])
+        on_count = sum(1 for value in states if value in {1, True})
+        known_count = sum(1 for value in states if value is not None)
+        return f"{target.get('name') or device_id}灯光状态：{online}，{on_count}/{known_count} 路开启"
+
     def node_red_device_status_text(self, device_id: str, label: str = "") -> str:
         safe_device_id = requests.utils.quote(str(device_id or "").strip(), safe="")
         if not safe_device_id:
@@ -2728,7 +2806,8 @@ class LocalSmartCenterClient:
         if intent == "lighting_status":
             if _contains_any(query, OUTDOOR_LIGHT_QUERY_WORDS):
                 return self.outdoor_light_status_text()
-            return self.lighting_status_text()
+            specific = self.specific_lighting_status_text(query)
+            return specific or self.lighting_status_text()
         if intent == "lighting_logs":
             return self.log_text(query, category="light")
         if intent == "automation_status":
@@ -2788,7 +2867,8 @@ class LocalSmartCenterClient:
         if _contains_any(keyword, OUTDOOR_LIGHT_QUERY_WORDS):
             return self.outdoor_light_status_text()
         if _contains_any(keyword, ("灯光", "继电器", "灯状态", "哪些灯")):
-            return self.lighting_status_text()
+            specific = self.specific_lighting_status_text(keyword)
+            return specific or self.lighting_status_text()
         if _contains_any(keyword, ("自动化", "场景", "联动", "规则")):
             return self.automation_status_text()
         if _contains_any(keyword, ("ups", "UPS", "电池", "旁路", "输入电压", "负载", "续航")):

@@ -1,0 +1,10 @@
+{
+  "task": "feishu-light-specific-status-query",
+  "module": "feishu_bot",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-feishu-light-specific-status-query-20260604",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-task-worktrees/feishu-light-specific-status-query",
+  "started_at": "2026-06-04 01:36:53",
+  "status": "in_progress"
+}
