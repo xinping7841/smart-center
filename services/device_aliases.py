@@ -116,6 +116,15 @@ def _name_variants(name: Any) -> set[str]:
     compact = normalize_alias_text(raw)
     if compact:
         _add_alias(aliases, compact.replace("电柜", ""), compact.replace("灯", ""))
+        _add_alias(aliases, compact.replace("号厅", "厅"))
+        if re.search(r"\d厅", compact):
+            _add_alias(aliases, re.sub(r"(\d)厅", r"\1号厅", compact))
+        if compact.endswith("led"):
+            without_led = compact[:-3]
+            _add_alias(aliases, without_led, f"{without_led}时序电源", f"{without_led}屏幕")
+            if re.search(r"\d厅", without_led):
+                with_hao = re.sub(r"(\d)厅", r"\1号厅", without_led)
+                _add_alias(aliases, with_hao, f"{with_hao}时序电源", f"{with_hao}led", f"{with_hao}屏幕")
     for suffix in ("电柜", "配电柜", "电箱", "电源柜", "柜", "灯", "灯光", "照明"):
         _add_alias(aliases, f"{raw}{suffix}")
     return aliases
@@ -343,12 +352,21 @@ def build_device_alias_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
         )
 
     for item in _iter_list(config, "snmp_devices"):
+        device_type = str(item.get("device_type") or "snmp_device")
         rows.append(
             _generic_device_row(
                 "snmp",
-                str(item.get("device_type") or "snmp_device"),
+                device_type,
                 item,
-                extra_aliases=("SNMP", "snmp", "网络设备", "交换机" if item.get("device_type") == "switch" else "", "网关" if item.get("device_type") == "router" else "", "NAS" if item.get("device_type") == "nas" else ""),
+                extra_aliases=(
+                    "SNMP",
+                    "snmp",
+                    "网络设备",
+                    "交换机" if device_type == "switch" else "",
+                    "核心交换机" if device_type == "switch" else "",
+                    "网关" if device_type == "router" else "",
+                    "NAS" if device_type == "nas" else "",
+                ),
                 control_capability=False,
                 query_capability=True,
                 risk="normal",

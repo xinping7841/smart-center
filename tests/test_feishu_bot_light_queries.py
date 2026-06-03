@@ -208,7 +208,7 @@ def test_projector_screen_sequencer_and_power_query_route_to_specific_status() -
             ),
             "/api/sequencer/status": (
                 True,
-                {"devices": [{"id": "seq_demo", "name": "二号厅时序电源", "online": True, "channels": [True, False, True], "updated_at": "2026-06-04T01:02:00"}]},
+                {"devices": [{"id": "sequencer_1775236288646", "name": "2 厅-LED", "online": True, "channels": [True, False, True], "updated_at": "2026-06-04T01:02:00"}]},
             ),
             "/api/status?cab=0": (
                 True,
@@ -224,7 +224,7 @@ def test_projector_screen_sequencer_and_power_query_route_to_specific_status() -
 
     assert "投影机状态" in projector and "一号厅" in projector
     assert "幕布状态" in screen and "一厅-A区-幕布" in screen
-    assert "时序电源状态" in sequencer and "二号厅时序电源" in sequencer
+    assert "时序电源状态" in sequencer and "2 厅-LED" in sequencer
     assert "中控室 1号厅空调状态" in power and "第1路 开启" in power
 
 
@@ -334,3 +334,42 @@ def test_device_alias_index_includes_automation_rules_for_local_model_knowledge(
     assert len(matches) == 1
     assert matches[0]["device_id"] == "auto_outdoor_light_low_lux_on"
     assert "户外灯低照度自动开灯" in matches[0]["name"]
+
+
+def test_prod_aliases_route_core_switch_and_second_hall_sequencer() -> None:
+    client = FakeSmartCenterClient(
+        {
+            "/api/snmp/status": (
+                True,
+                {
+                    "snmp_h3c_192_168_99_1": {
+                        "online": True,
+                        "config": {"name": "H3C Switch", "host": "192.168.99.1"},
+                        "summary": {"status_text": "端口正常"},
+                        "updated_at": "2026-06-04T02:20:00",
+                    },
+                    "snmp_fnnas_192_168_50_254": {
+                        "online": True,
+                        "config": {"name": "飞牛 NAS"},
+                    },
+                },
+            ),
+            "/api/sequencer/status": (
+                True,
+                {
+                    "devices": [
+                        {"id": "sequencer_ds608_1", "name": "中控", "online": True},
+                        {"id": "sequencer_1775236288646", "name": "2 厅-LED", "online": True, "channels": [True, False, False], "updated_at": "2026-06-04T02:21:00"},
+                    ]
+                },
+            ),
+        }
+    )
+
+    snmp = client.query_text("核心交换机SNMP状态")
+    sequencer = client.query_text("二号厅时序电源状态")
+
+    assert "H3C Switch" in snmp
+    assert "飞牛 NAS" not in snmp
+    assert "2 厅-LED" in sequencer
+    assert "中控" not in sequencer
