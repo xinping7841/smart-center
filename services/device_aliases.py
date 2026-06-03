@@ -370,6 +370,26 @@ def build_device_alias_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
             )
         )
 
+    automation_rules = []
+    for key in ("automation_rules", "automation"):
+        value = config.get(key)
+        if isinstance(value, list):
+            automation_rules.extend(item for item in value if isinstance(item, dict))
+        elif isinstance(value, dict) and isinstance(value.get("rules"), list):
+            automation_rules.extend(item for item in value.get("rules") or [] if isinstance(item, dict))
+    for item in automation_rules:
+        rows.append(
+            _generic_device_row(
+                "automation",
+                "automation_rule",
+                item,
+                extra_aliases=("自动化", "规则", "场景", "联动", item.get("description")),
+                control_capability=False,
+                query_capability=True,
+                risk="normal",
+            )
+        )
+
     current_collector = config.get("current_collector") if isinstance(config.get("current_collector"), dict) else {}
     if current_collector:
         rows.append(

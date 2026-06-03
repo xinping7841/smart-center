@@ -1,0 +1,10 @@
+{
+  "task": "feishu-specific-device-status-routing",
+  "module": "feishu_bot",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-feishu-specific-device-status-routing-20260604",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-task-worktrees/feishu-specific-device-status-routing",
+  "started_at": "2026-06-04 01:57:10",
+  "status": "in_progress"
+}
