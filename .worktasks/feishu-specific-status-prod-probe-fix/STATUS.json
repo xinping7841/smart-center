@@ -1,0 +1,10 @@
+{
+  "task": "feishu-specific-status-prod-probe-fix",
+  "module": "feishu_bot",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-feishu-specific-status-prod-probe-fix-20260604",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-task-worktrees/feishu-specific-status-prod-probe-fix",
+  "started_at": "2026-06-04 02:16:58",
+  "status": "in_progress"
+}

@@ -2832,18 +2832,22 @@ class LocalSmartCenterClient:
         if not ok or not isinstance(payload, dict):
             return f"网络设备接口暂时不可用：{payload}"
         query_fragment = _specific_query_fragment(query, ("snmp", "SNMP", "网络设备", "交换机", "网关", "nas", "NAS", "存储", "状态", "查询", "查看", "显示", "情况", "现在"))
+        target_id = ""
         if query and self._specific_alias_requested(query, "snmp"):
             alias_row = self._best_alias_row(query, "snmp")
             target_id = str((alias_row or {}).get("device_id") or "")
             if target_id:
-                payload = {target_id: payload.get(target_id)} if isinstance(payload.get(target_id), dict) else {}
+                if isinstance(payload.get(target_id), dict):
+                    payload = {target_id: payload.get(target_id)}
+                else:
+                    target_id = ""
         lines = ["网络设备/SNMP 状态："]
         for device_id, item in list(payload.items())[:8]:
             if not isinstance(item, dict):
                 continue
             cfg = item.get("config") if isinstance(item.get("config"), dict) else {}
             name = cfg.get("name") or item.get("name") or device_id
-            if query_fragment and query_fragment not in normalize_alias_text(f"{device_id}{name}{cfg.get('ip') or ''}{cfg.get('host') or ''}"):
+            if query_fragment and not target_id and query_fragment not in normalize_alias_text(f"{device_id}{name}{cfg.get('ip') or ''}{cfg.get('host') or ''}"):
                 continue
             online = _status_level_text(item.get("status_level"), online=item.get("online", True))
             summary = item.get("summary") if isinstance(item.get("summary"), dict) else {}
@@ -2857,18 +2861,22 @@ class LocalSmartCenterClient:
         if not ok or not isinstance(payload, dict):
             return f"UPS 接口暂时不可用：{payload}"
         query_fragment = _specific_query_fragment(query, ("ups", "UPS", "不间断电源", "备用电源", "电池", "负载", "输入电压", "状态", "查询", "查看", "显示", "情况", "现在"))
+        target_id = ""
         if query and self._specific_alias_requested(query, "ups"):
             alias_row = self._best_alias_row(query, "ups")
             target_id = str((alias_row or {}).get("device_id") or "")
             if target_id:
-                payload = {target_id: payload.get(target_id)} if isinstance(payload.get(target_id), dict) else {}
+                if isinstance(payload.get(target_id), dict):
+                    payload = {target_id: payload.get(target_id)}
+                else:
+                    target_id = ""
         lines = ["UPS 状态："]
         for device_id, item in payload.items():
             if not isinstance(item, dict):
                 continue
             cfg = item.get("config") if isinstance(item.get("config"), dict) else {}
             name = cfg.get("name") or item.get("name") or device_id
-            if query_fragment and query_fragment not in normalize_alias_text(f"{device_id}{name}{cfg.get('ip') or ''}{cfg.get('host') or ''}"):
+            if query_fragment and not target_id and query_fragment not in normalize_alias_text(f"{device_id}{name}{cfg.get('ip') or ''}{cfg.get('host') or ''}"):
                 continue
             online = _status_level_text(item.get("status_level"), online=item.get("online", True))
             alerts = "；".join(item.get("alerts") or []) or "无告警"
