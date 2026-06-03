@@ -6058,13 +6058,7 @@
         "data_protocol": "modbus_rtu_over_tcp",
         "unit_id": "01",
         "do_channels": 1,
-        "di_channels": 1,
-        "hosts": [],
-        "range_start": "",
-        "range_end": "",
-        "com_port": "COM1",
-        "baudrate": 9600,
-        "artnet_universe": 0
+        "di_channels": 1
       },
       {
         "id": "niren_poe_kp_i101_192_168_50_52_rtu",
@@ -6084,13 +6078,7 @@
         "data_protocol": "modbus_rtu_over_tcp",
         "unit_id": "01",
         "do_channels": 1,
-        "di_channels": 1,
-        "hosts": [],
-        "range_start": "",
-        "range_end": "",
-        "com_port": "COM1",
-        "baudrate": 9600,
-        "artnet_universe": 0
+        "di_channels": 1
       },
       {
         "id": "niren_poe_kp_i101_192_168_50_89_at",
@@ -6110,13 +6098,7 @@
         "data_protocol": "at_over_tcp",
         "unit_id": "01",
         "do_channels": 1,
-        "di_channels": 1,
-        "hosts": [],
-        "range_start": "",
-        "range_end": "",
-        "com_port": "COM1",
-        "baudrate": 9600,
-        "artnet_universe": 0
+        "di_channels": 1
       },
       {
         "id": "niren_poe_kp_i101_192_168_50_107_rtu",
@@ -6136,13 +6118,7 @@
         "data_protocol": "modbus_rtu_over_tcp",
         "unit_id": "01",
         "do_channels": 1,
-        "di_channels": 1,
-        "hosts": [],
-        "range_start": "",
-        "range_end": "",
-        "com_port": "COM1",
-        "baudrate": 9600,
-        "artnet_universe": 0
+        "di_channels": 1
       },
       {
         "id": "niren_poe_kp_i101_192_168_50_108_rtu",
@@ -6162,13 +6138,7 @@
         "data_protocol": "modbus_rtu_over_tcp",
         "unit_id": "01",
         "do_channels": 1,
-        "di_channels": 1,
-        "hosts": [],
-        "range_start": "",
-        "range_end": "",
-        "com_port": "COM1",
-        "baudrate": 9600,
-        "artnet_universe": 0
+        "di_channels": 1
       }
     ],
     "command_library": [
@@ -6181,8 +6151,7 @@
         "line_ending": "crlf",
         "payload_template": "AT",
         "wait_ms": 500,
-        "enabled": true,
-        "params": []
+        "enabled": true
       },
       {
         "id": "niren_at_device_info",
@@ -6193,8 +6162,7 @@
         "line_ending": "crlf",
         "payload_template": "AT+DEVICEINFO=?",
         "wait_ms": 700,
-        "enabled": true,
-        "params": []
+        "enabled": true
       },
       {
         "id": "niren_at_do_read",
@@ -6208,11 +6176,8 @@
           {
             "id": "channel",
             "label": "通道",
-            "default": 1,
             "type": "int",
-            "options": [],
-            "description": "",
-            "required": false,
+            "default": 1,
             "min": 1,
             "max": 64,
             "step": 1
@@ -6233,11 +6198,8 @@
           {
             "id": "channel",
             "label": "通道",
-            "default": 1,
             "type": "int",
-            "options": [],
-            "description": "",
-            "required": false,
+            "default": 1,
             "min": 1,
             "max": 64,
             "step": 1
@@ -6258,11 +6220,8 @@
           {
             "id": "channel",
             "label": "通道",
-            "default": 1,
             "type": "int",
-            "options": [],
-            "description": "",
-            "required": false,
+            "default": 1,
             "min": 1,
             "max": 64,
             "step": 1
@@ -6283,11 +6242,8 @@
           {
             "id": "channel",
             "label": "通道",
-            "default": 1,
             "type": "int",
-            "options": [],
-            "description": "",
-            "required": false,
+            "default": 1,
             "min": 1,
             "max": 64,
             "step": 1
@@ -6295,11 +6251,8 @@
           {
             "id": "seconds",
             "label": "秒",
-            "default": 1,
             "type": "int",
-            "options": [],
-            "description": "",
-            "required": false,
+            "default": 1,
             "min": 1,
             "max": 100000,
             "step": 1
@@ -6320,11 +6273,8 @@
           {
             "id": "channel",
             "label": "通道",
-            "default": 1,
             "type": "int",
-            "options": [],
-            "description": "",
-            "required": false,
+            "default": 1,
             "min": 1,
             "max": 64,
             "step": 1
@@ -6344,19 +6294,12 @@
           {
             "id": "unit_id",
             "label": "站号 Hex",
-            "default": "01",
             "type": "string",
-            "options": [],
-            "description": "",
-            "required": false,
-            "min": null,
-            "max": null,
-            "step": null
+            "default": "01"
           }
         ],
         "wait_ms": 700,
-        "enabled": true,
-        "line_ending": "none"
+        "enabled": true
       },
       {
         "id": "niren_modbus_rtu_read_di",
@@ -6369,19 +6312,12 @@
           {
             "id": "unit_id",
             "label": "站号 Hex",
-            "default": "01",
             "type": "string",
-            "options": [],
-            "description": "",
-            "required": false,
-            "min": null,
-            "max": null,
-            "step": null
+            "default": "01"
           }
         ],
         "wait_ms": 700,
-        "enabled": true,
-        "line_ending": "none"
+        "enabled": true
       },
       {
         "id": "niren_modbus_rtu_do_on",
@@ -6394,19 +6330,12 @@
           {
             "id": "unit_id",
             "label": "站号 Hex",
-            "default": "01",
             "type": "string",
-            "options": [],
-            "description": "",
-            "required": false,
-            "min": null,
-            "max": null,
-            "step": null
+            "default": "01"
           }
         ],
         "wait_ms": 700,
-        "enabled": true,
-        "line_ending": "none"
+        "enabled": true
       },
       {
         "id": "niren_modbus_rtu_do_off",
@@ -6419,19 +6348,12 @@
           {
             "id": "unit_id",
             "label": "站号 Hex",
-            "default": "01",
             "type": "string",
-            "options": [],
-            "description": "",
-            "required": false,
-            "min": null,
-            "max": null,
-            "step": null
+            "default": "01"
           }
         ],
         "wait_ms": 700,
-        "enabled": true,
-        "line_ending": "none"
+        "enabled": true
       },
       {
         "id": "niren_modbus_tcp_read_do",
@@ -6444,19 +6366,12 @@
           {
             "id": "unit_id",
             "label": "站号 Hex",
-            "default": "01",
             "type": "string",
-            "options": [],
-            "description": "",
-            "required": false,
-            "min": null,
-            "max": null,
-            "step": null
+            "default": "01"
           }
         ],
         "wait_ms": 700,
-        "enabled": true,
-        "line_ending": "none"
+        "enabled": true
       },
       {
         "id": "niren_modbus_tcp_read_di",
@@ -6469,19 +6384,12 @@
           {
             "id": "unit_id",
             "label": "站号 Hex",
-            "default": "01",
             "type": "string",
-            "options": [],
-            "description": "",
-            "required": false,
-            "min": null,
-            "max": null,
-            "step": null
+            "default": "01"
           }
         ],
         "wait_ms": 700,
-        "enabled": true,
-        "line_ending": "none"
+        "enabled": true
       },
       {
         "id": "niren_modbus_tcp_do_on",
@@ -6494,19 +6402,12 @@
           {
             "id": "unit_id",
             "label": "站号 Hex",
-            "default": "01",
             "type": "string",
-            "options": [],
-            "description": "",
-            "required": false,
-            "min": null,
-            "max": null,
-            "step": null
+            "default": "01"
           }
         ],
         "wait_ms": 700,
-        "enabled": true,
-        "line_ending": "none"
+        "enabled": true
       },
       {
         "id": "niren_modbus_tcp_do_off",
@@ -6519,19 +6420,12 @@
           {
             "id": "unit_id",
             "label": "站号 Hex",
-            "default": "01",
             "type": "string",
-            "options": [],
-            "description": "",
-            "required": false,
-            "min": null,
-            "max": null,
-            "step": null
+            "default": "01"
           }
         ],
         "wait_ms": 700,
-        "enabled": true,
-        "line_ending": "none"
+        "enabled": true
       }
     ],
     "devices": [
@@ -6615,13 +6509,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 10,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 10
           },
           {
             "id": "niren_50_35_read_di",
@@ -6634,13 +6522,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 11,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 11
           },
           {
             "id": "niren_50_35_do_on",
@@ -6653,13 +6535,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 12,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 12
           },
           {
             "id": "niren_50_35_do_off",
@@ -6672,13 +6548,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 13,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 13
           },
           {
             "id": "niren_50_52_read_do",
@@ -6691,13 +6561,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 20,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 20
           },
           {
             "id": "niren_50_52_read_di",
@@ -6710,13 +6574,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 21,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 21
           },
           {
             "id": "niren_50_52_do_on",
@@ -6729,13 +6587,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 22,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 22
           },
           {
             "id": "niren_50_52_do_off",
@@ -6748,13 +6600,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 23,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 23
           },
           {
             "id": "niren_50_89_info",
@@ -6764,14 +6610,7 @@
             "target_group_id": "niren_poe_kp_i101_192_168_50_89_at",
             "show_on_home": false,
             "visible": true,
-            "sort": 30,
-            "feedback_mode": "none",
-            "params": {},
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 30
           },
           {
             "id": "niren_50_89_read_do",
@@ -6784,13 +6623,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 31,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 31
           },
           {
             "id": "niren_50_89_read_di",
@@ -6803,13 +6636,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 32,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 32
           },
           {
             "id": "niren_50_89_do_on",
@@ -6822,13 +6649,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 33,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 33
           },
           {
             "id": "niren_50_89_do_off",
@@ -6841,13 +6662,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 34,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 34
           },
           {
             "id": "niren_50_89_do_pulse",
@@ -6861,13 +6676,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 35,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 35
           },
           {
             "id": "niren_50_107_read_do",
@@ -6880,13 +6689,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 40,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 40
           },
           {
             "id": "niren_50_107_read_di",
@@ -6899,13 +6702,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 41,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 41
           },
           {
             "id": "niren_50_107_do_on",
@@ -6918,13 +6715,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 42,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 42
           },
           {
             "id": "niren_50_107_do_off",
@@ -6937,13 +6728,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 43,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 43
           },
           {
             "id": "niren_50_108_read_do",
@@ -6956,13 +6741,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 50,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 50
           },
           {
             "id": "niren_50_108_read_di",
@@ -6975,13 +6754,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 51,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 51
           },
           {
             "id": "niren_50_108_do_on",
@@ -6994,13 +6767,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 52,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 52
           },
           {
             "id": "niren_50_108_do_off",
@@ -7013,13 +6780,7 @@
             },
             "show_on_home": false,
             "visible": true,
-            "sort": 53,
-            "feedback_mode": "none",
-            "min": 0.0,
-            "max": 100.0,
-            "step": 1.0,
-            "value_param": "value",
-            "value": 0
+            "sort": 53
           }
         ],
         "id": "main",
