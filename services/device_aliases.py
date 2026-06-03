@@ -183,6 +183,38 @@ def _generic_device_row(
 def build_device_alias_rows(config: dict[str, Any]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
 
+    node_red_light_aliases = set()
+    _add_alias(
+        node_red_light_aliases,
+        "庭院灯",
+        "庭院灯RF网关",
+        "户外灯",
+        "室外灯",
+        "室外照明",
+        "院子灯",
+        "院子里的灯",
+        "外墙灯",
+        "院灯",
+        "Node-RED庭院灯",
+        "121庭院灯",
+    )
+    rows.append(
+        _row(
+            "node_red",
+            "gateway_light",
+            "courtyard_light",
+            "庭院灯RF网关",
+            node_red_light_aliases,
+            action_hint="on/off",
+            risk="normal",
+            control_capability=True,
+            query_capability=True,
+            query_api="/api/node-red/device/courtyard_light/status",
+            control_api="/api/node-red/device/courtyard_light/control",
+            gateway="121 Node-RED",
+        )
+    )
+
     for cab_idx, cab in enumerate(_iter_list(config, "cabinets")):
         if not isinstance(cab, dict):
             continue

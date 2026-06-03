@@ -9,6 +9,7 @@
 
 import glob
 import json
+import re
 import sqlite3
 import time
 import urllib.error
@@ -31,6 +32,7 @@ from paths import AUDIT_LOG_FILE, CONFIG_FILE, DATA_DIR, DB_FILE, OPERATION_LOG_
 from services.feishu_bot import HIGH_RISK_CONTROL_TYPES, INFERRED_CONTROL_CONFIDENCE, LocalSmartCenterClient, _control_action_from_text, _format_control_action, _is_control_request
 from services.control_model_translator import ChainedModelControlTranslator, LocalModelControlTranslator
 from services.device_aliases import build_device_alias_rows
+from services.device_aliases import find_alias_rows, normalize_alias_text
 from services.natural_language_orchestrator import (
     NaturalLanguageTrace,
     describe_control_policy,
@@ -1213,7 +1215,316 @@ def _build_control_capability_rows(alias_rows):
     return rows
 
 
-def _build_runtime_system_map(config, device_rows, alias_rows, protocol_rows, log_rows, insight_rows, control_capability_rows, files, code_knowledge=None):
+UI_SEMANTIC_SOURCE_GLOBS = (
+    "templates/*.html",
+    "static/js/views/*.js",
+    "static/js/*.js",
+)
+UI_SEMANTIC_SECTION_MODULES = {
+    "cabinets": "power",
+    "light_devices": "light",
+    "hvac_devices": "hvac",
+    "projectors": "projector",
+    "screens": "screen",
+    "sequencers": "sequencer",
+    "custom_devices": "custom",
+    "meters": "meter",
+    "ups_devices": "ups",
+    "snmp_devices": "snmp",
+    "env_sensors": "env",
+    "current_collector": "current_collector",
+    "server_machines": "server",
+}
+UI_SEMANTIC_TEXT_KEYS = ("title", "label", "subtitle", "name", "text", "content", "placeholder", "aria-label")
+UI_SEMANTIC_CONFIG_TEXT_KEYS = {
+    "name",
+    "display_name",
+    "custom_name",
+    "hostname",
+    "cabinet_name",
+    "meter_display_name",
+    "remark",
+    "label",
+    "title",
+    "subtitle",
+    "text",
+    "description",
+    "ui_text",
+    "channel_labels",
+    "area_name",
+    "room_name",
+    "asset_group",
+}
+UI_SEMANTIC_SKIP_RE = re.compile(
+    r"(?:"
+    r"https?://|/api/|#[0-9a-fA-F]{3,8}|rgba?\(|linear-gradient|"
+    r"function\s*\(|const\s+|let\s+|var\s+|return\s+|if\s*\(|for\s*\(|"
+    r"__|[{}<>]|[A-Za-z0-9_-]{30,}"
+    r")"
+)
+UI_SEMANTIC_MODULE_HINTS = {
+    "node_red": ("node-red", "nodered", "庭院灯", "户外灯", "室外灯", "院子灯", "外墙灯", "rf网关"),
+    "power": ("强电", "电柜", "电箱", "回路", "空气开关", "合闸", "断开"),
+    "light": ("灯光", "照明", "继电器", "灯具", "通道灯"),
+    "hvac": ("空调", "hvac", "制冷", "制热", "温度", "模式"),
+    "server": ("服务器", "主机", "机器", "cpu", "gpu", "内存", "磁盘"),
+    "projector": ("投影", "投影机", "pjlink"),
+    "screen": ("幕布", "投影幕", "升降幕"),
+    "sequencer": ("时序", "时序电源"),
+    "door": ("大门", "门禁", "门磁"),
+    "env": ("环境", "温度", "湿度", "光照", "传感器"),
+    "current_collector": ("电流", "采集器", "安培"),
+    "meter": ("电表", "电量", "用电", "能耗", "功率", "kwh"),
+    "ups": ("ups", "不间断电源", "电池", "负载", "旁路"),
+    "snmp": ("snmp", "交换机", "网关", "nas", "网络设备"),
+    "proxy": ("代理", "节点小宝", "异地访问"),
+}
+UI_SEMANTIC_QUERY_API_BY_MODULE = {
+    "node_red": "/api/node-red/device/courtyard_light/status",
+    "power": "/api/status",
+    "light": "/api/light/status",
+    "hvac": "/api/hvac/status",
+    "server": "/api/machines",
+    "projector": "/api/projector/status",
+    "screen": "/api/screen/status",
+    "sequencer": "/api/sequencer/status",
+    "door": "/api/env/status",
+    "env": "/api/env/status",
+    "current_collector": "/api/current-collector/status",
+    "meter": "/api/meters?target=total&period=day&days=7",
+    "ups": "/api/ups/status",
+    "snmp": "/api/snmp/status",
+    "proxy": "/api/proxy/status",
+}
+UI_SEMANTIC_CONTROL_API_BY_MODULE = {
+    "node_red": "/api/node-red/device/courtyard_light/control",
+    "power": "/api/set",
+    "light": "/api/light/control",
+    "hvac": "/api/hvac/control",
+    "projector": "/api/projector/control",
+    "screen": "/api/screen/control",
+    "sequencer": "/api/sequencer/control",
+    "door": "/door_control/<action>",
+    "server": "/api/wake/<mac> or /api/machines/<mac>/command",
+    "custom": "/api/control_center/execute or /api/universal/control",
+    "ups": "/api/ups/control",
+}
+UI_SEMANTIC_RISK_BY_MODULE = {
+    "power": "high",
+    "sequencer": "high",
+    "server": "high",
+    "ups": "high",
+    "projector": "medium",
+    "screen": "medium",
+    "hvac": "medium",
+    "door": "medium",
+    "custom": "medium",
+}
+UI_SEMANTIC_ACTION_WORDS = ("打开", "关闭", "开启", "关机", "开机", "重启", "唤醒", "执行", "下发", "合闸", "断开", "升起", "降下", "停止")
+UI_SEMANTIC_QUERY_WORDS = ("状态", "查询", "查看", "显示", "在线", "离线", "温度", "湿度", "电流", "电量", "日志", "告警", "负载", "功率")
+
+
+def _ui_semantic_clean_text(value):
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    text = re.sub(r"\$\{[^}]{1,120}\}", " ", text)
+    text = re.sub(r"&(?:nbsp|amp|lt|gt|quot);", " ", text)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\\[nrt]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip(" -_/|·•:：,，.。;；")
+    if not text or len(text) > 80:
+        return ""
+    if UI_SEMANTIC_SKIP_RE.search(text):
+        return ""
+    if not re.search(r"[\u4e00-\u9fffA-Za-z]", text):
+        return ""
+    return text
+
+
+def _iter_ui_literal_texts():
+    root = Path(__file__).resolve().parents[1]
+    rows = []
+    seen = set()
+    for pattern in UI_SEMANTIC_SOURCE_GLOBS:
+        for path in sorted(root.glob(pattern)):
+            if not path.is_file():
+                continue
+            try:
+                content = path.read_text(encoding="utf-8", errors="ignore")
+            except Exception:
+                continue
+            rel = str(path.relative_to(root))
+            candidates = []
+            candidates.extend(match.group(1) for match in re.finditer(r">([^<>]{1,80})<", content))
+            candidates.extend(match.group(1) for match in re.finditer(r"(?:title|aria-label|placeholder|alt)\s*=\s*[\"']([^\"']{1,80})[\"']", content))
+            candidates.extend(match.group(2) for match in re.finditer(r"\b(" + "|".join(UI_SEMANTIC_TEXT_KEYS) + r")\s*[:=]\s*[\"']([^\"']{1,80})[\"']", content))
+            candidates.extend(match.group(1) for match in re.finditer(r"`([^`]{1,80})`", content))
+            for raw in candidates:
+                text = _ui_semantic_clean_text(raw)
+                if not text:
+                    continue
+                key = (rel, normalize_alias_text(text))
+                if key in seen:
+                    continue
+                seen.add(key)
+                rows.append({"source_file": rel, "text": text})
+    return rows
+
+
+def _iter_config_ui_texts(config):
+    rows = []
+    seen = set()
+
+    def walk(value, path_parts):
+        key = str(path_parts[-1] if path_parts else "")
+        if isinstance(value, dict):
+            for child_key, child_value in value.items():
+                walk(child_value, [*path_parts, str(child_key)])
+            return
+        if isinstance(value, list):
+            for index, item in enumerate(value[:300]):
+                walk(item, [*path_parts, str(index)])
+            return
+        if key not in UI_SEMANTIC_CONFIG_TEXT_KEYS and not any(part in UI_SEMANTIC_CONFIG_TEXT_KEYS for part in path_parts):
+            return
+        text = _ui_semantic_clean_text(value)
+        if not text:
+            return
+        section = str(path_parts[0] if path_parts else "")
+        source_path = ".".join(path_parts)
+        dedupe_key = (source_path, normalize_alias_text(text))
+        if dedupe_key in seen:
+            return
+        seen.add(dedupe_key)
+        rows.append({"source_path": source_path, "source_section": section, "text": text})
+
+    for section, value in config.items():
+        if section in DEVICE_SECTIONS or section in {"current_collector", "dashboard", "ui_text", "automation_rules", "control_center"}:
+            walk(value, [str(section)])
+    return rows
+
+
+def _module_hint_for_text(text):
+    normalized = normalize_alias_text(text)
+    lowered = str(text or "").lower()
+    for module, hints in UI_SEMANTIC_MODULE_HINTS.items():
+        for hint in hints:
+            if normalize_alias_text(hint) in normalized or str(hint).lower() in lowered:
+                return module
+    return ""
+
+
+def _module_for_section(section):
+    return UI_SEMANTIC_SECTION_MODULES.get(str(section or ""), "")
+
+
+def _semantic_apis_for_match(module, alias_row=None):
+    alias_row = alias_row if isinstance(alias_row, dict) else {}
+    query_api = str(alias_row.get("query_api") or UI_SEMANTIC_QUERY_API_BY_MODULE.get(module) or "")
+    control_api = str(alias_row.get("control_api") or UI_SEMANTIC_CONTROL_API_BY_MODULE.get(module) or "")
+    return query_api, control_api
+
+
+def _build_ui_device_semantic_rows(config, device_rows, alias_rows, control_capability_rows):
+    rows = []
+    seen = set()
+    capability_by_id = {
+        (str(row.get("module") or ""), str(row.get("device_id") or ""), str(row.get("name") or "")): row
+        for row in control_capability_rows
+    }
+
+    def add_row(text, source, source_file="", source_path="", alias_row=None, module_hint=""):
+        cleaned = _ui_semantic_clean_text(text)
+        if not cleaned:
+            return
+        normalized = normalize_alias_text(cleaned)
+        if len(normalized) < 2:
+            return
+        alias_row = alias_row if isinstance(alias_row, dict) else None
+        if alias_row is None:
+            matches = find_alias_rows(cleaned, alias_rows)
+            alias_row = matches[0] if matches else None
+        module = str((alias_row or {}).get("module") or module_hint or _module_hint_for_text(cleaned) or "")
+        if not module:
+            return
+        device_id = str((alias_row or {}).get("device_id") or "")
+        name = str((alias_row or {}).get("name") or "")
+        capability = capability_by_id.get((module, device_id, name)) or {}
+        risk = str((alias_row or {}).get("risk") or capability.get("risk") or UI_SEMANTIC_RISK_BY_MODULE.get(module) or "normal")
+        query_api, control_api = _semantic_apis_for_match(module, alias_row)
+        has_control_words = any(word in cleaned for word in UI_SEMANTIC_ACTION_WORDS)
+        has_query_words = any(word in cleaned for word in UI_SEMANTIC_QUERY_WORDS)
+        control_capability = bool((alias_row or {}).get("control_capability") or capability)
+        key = (normalized, source, source_file, module, device_id, name)
+        if key in seen:
+            return
+        seen.add(key)
+        rows.append({
+            "schema": "smart_center.ui_device_semantic.v1",
+            "kind": "ui_device_semantic",
+            "source": source,
+            "source_file": source_file,
+            "source_path": source_path,
+            "ui_text": cleaned,
+            "normalized_text": normalized,
+            "module": module,
+            "device_type": str((alias_row or {}).get("device_type") or ""),
+            "device_id": device_id,
+            "device_name": name,
+            "matched_aliases": [item for item in ((alias_row or {}).get("aliases") or []) if normalize_alias_text(item) in normalized][:12],
+            "query_api": query_api,
+            "control_api": control_api if control_capability else "",
+            "control_capability": control_capability,
+            "risk": risk,
+            "requires_confirmation": bool(risk == "high" or module in HIGH_RISK_CONTROL_TYPES),
+            "semantic_flags": {
+                "looks_like_query": has_query_words or not has_control_words,
+                "looks_like_control": has_control_words,
+            },
+            "route_contract": {
+                "model_role": "classify_and_map_text_only",
+                "backend_role": "validate_target_permission_risk_and_execute_or_read",
+                "query_allowed": bool(query_api),
+                "control_requires_backend": bool(control_capability),
+            },
+            "model_use": "把页面文字、设备名、别名映射到模块和设备；查询只允许走 query_api，控制只输出提案并交回后端安全链路。",
+        })
+
+    for alias in alias_rows:
+        add_row(alias.get("name"), "device_alias_name", alias_row=alias)
+        for item in (alias.get("aliases") or [])[:40]:
+            add_row(item, "device_alias", alias_row=alias)
+
+    for row in device_rows:
+        pseudo_alias = {
+            "module": _module_for_section(row.get("source_section")) or str(row.get("source_section") or ""),
+            "device_type": str(row.get("device_type") or ""),
+            "device_id": str(row.get("device_id") or ""),
+            "name": str(row.get("name") or row.get("device_id") or ""),
+            "aliases": [row.get("name"), row.get("device_id"), row.get("host"), row.get("hostname"), row.get("custom_name")],
+            "control_capability": False,
+            "query_capability": True,
+        }
+        add_row(row.get("name"), "device_inventory", alias_row=pseudo_alias)
+        add_row(row.get("host"), "device_inventory_host", alias_row=pseudo_alias)
+
+    for item in _iter_ui_literal_texts():
+        add_row(item.get("text"), "ui_literal", source_file=item.get("source_file") or "")
+
+    for item in _iter_config_ui_texts(config):
+        add_row(
+            item.get("text"),
+            "config_ui_text",
+            source_path=item.get("source_path") or "",
+            module_hint=_module_for_section(item.get("source_section")),
+        )
+
+    rows.sort(key=lambda row: (row.get("module") or "", row.get("device_name") or "", row.get("source") or "", row.get("ui_text") or ""))
+    return rows[:5000]
+
+
+def _build_runtime_system_map(config, device_rows, alias_rows, protocol_rows, log_rows, insight_rows, control_capability_rows, ui_semantic_rows, files, code_knowledge=None):
     sections = _count_by(device_rows, "source_section")
     control_by_module = _count_by(control_capability_rows, "module")
     query_only_modules = sorted(
@@ -1240,6 +1551,7 @@ def _build_runtime_system_map(config, device_rows, alias_rows, protocol_rows, lo
             "logs": len(log_rows),
             "insights": len(insight_rows),
             "control_capabilities": len(control_capability_rows),
+            "ui_device_semantics": len(ui_semantic_rows),
             **{f"code_{key}": value for key, value in code_counts.items()},
         },
         "device_sections": sections,
@@ -1254,11 +1566,12 @@ def _build_runtime_system_map(config, device_rows, alias_rows, protocol_rows, lo
                 "target": "用户提到或别名匹配出的设备/通道",
                 "action": "只允许后端白名单动作",
                 "confidence": "0-1",
-                "evidence": "引用 device_inventory/control_capabilities/nl_intent_examples/insights/code_system_map",
+                "evidence": "引用 ui_device_semantics/device_inventory/control_capabilities/nl_intent_examples/insights/code_system_map",
             },
         },
         "recommended_learning_order": [
             "system_map_*.json",
+            "ui_device_semantics_*.jsonl",
             "device_inventory_*.jsonl",
             "control_capabilities_*.jsonl",
             "nl_intent_examples_*.jsonl",
@@ -1336,6 +1649,7 @@ def build_training_export():
     nl_intent_example_rows = _build_nl_intent_example_rows(query_intent_rows, control_intent_rows)
     device_inventory_rows = _build_device_inventory_rows(device_rows, device_alias_rows)
     control_capability_rows = _build_control_capability_rows(device_alias_rows)
+    ui_semantic_rows = _build_ui_device_semantic_rows(config, device_rows, device_alias_rows, control_capability_rows)
     instruction_rows = [
         {
             "schema": "smart_center.training.v1",
@@ -1377,6 +1691,7 @@ def build_training_export():
         "devices": out_dir / f"devices_{stamp}.jsonl",
         "device_inventory": out_dir / f"device_inventory_{stamp}.jsonl",
         "device_aliases": out_dir / f"device_aliases_{stamp}.jsonl",
+        "ui_device_semantics": out_dir / f"ui_device_semantics_{stamp}.jsonl",
         "control_capabilities": out_dir / f"control_capabilities_{stamp}.jsonl",
         "protocols": out_dir / f"protocols_{stamp}.jsonl",
         "logs": out_dir / f"logs_{stamp}.jsonl",
@@ -1392,6 +1707,7 @@ def build_training_export():
     _jsonl_write(files["devices"], device_rows)
     _jsonl_write(files["device_inventory"], device_inventory_rows)
     _jsonl_write(files["device_aliases"], device_alias_rows)
+    _jsonl_write(files["ui_device_semantics"], ui_semantic_rows)
     _jsonl_write(files["control_capabilities"], control_capability_rows)
     _jsonl_write(files["protocols"], protocol_rows)
     _jsonl_write(files["logs"], log_rows)
@@ -1409,6 +1725,7 @@ def build_training_export():
         log_rows,
         insight_rows,
         control_capability_rows,
+        ui_semantic_rows,
         files,
     )
     files["system_map"].write_text(json.dumps(system_map, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -1421,6 +1738,7 @@ def build_training_export():
             "devices": len(device_rows),
             "device_inventory": len(device_inventory_rows),
             "device_aliases": len(device_alias_rows),
+            "ui_device_semantics": len(ui_semantic_rows),
             "server_machines": len(server_machine_rows),
             "control_capabilities": len(control_capability_rows),
             "protocol_records": len(protocol_rows),
@@ -1435,6 +1753,7 @@ def build_training_export():
         "server_machine_groups": _count_by(server_machine_rows, "asset_group"),
         "alias_modules": _count_by(device_alias_rows, "module"),
         "alias_device_types": _count_by(device_alias_rows, "device_type"),
+        "ui_semantic_modules": _count_by(ui_semantic_rows, "module"),
         "control_modules": _count_by(control_capability_rows, "module"),
         "insight_types": _count_by(insight_rows, "insight_type"),
         "daily_summary": daily_summary,
@@ -1517,6 +1836,7 @@ def build_knowledge_status():
     items = [
         _file_status_payload("system_map", "系统地图", ".json"),
         _file_status_payload("device_inventory", "设备清单", ".jsonl", count_jsonl=True),
+        _file_status_payload("ui_device_semantics", "UI设备语义索引", ".jsonl", count_jsonl=True),
         _file_status_payload("control_capabilities", "控制能力", ".jsonl", count_jsonl=True),
         _file_status_payload("nl_intent_examples", "自然语言意图样例", ".jsonl", count_jsonl=True),
         _file_status_payload("device_aliases", "自然语言别名", ".jsonl", count_jsonl=True),

@@ -141,10 +141,34 @@ def selected_code_modules(module_cards: list[dict]) -> list[str]:
     return rows
 
 
+def selected_ui_semantics(rows: list[dict]) -> list[str]:
+    wanted_modules = ["node_red", "hvac", "light", "power", "server", "projector", "sequencer", "door", "env", "current_collector", "meter", "ups", "snmp"]
+    picked: list[str] = []
+    seen = set()
+    for module in wanted_modules:
+        for row in rows:
+            if str(row.get("module") or "") != module:
+                continue
+            text = compact(row.get("ui_text"), 28)
+            target = compact(row.get("device_name") or row.get("device_id") or module, 34)
+            query_api = compact(row.get("query_api"), 52)
+            control_api = compact(row.get("control_api"), 52)
+            risk = compact(row.get("risk"), 10)
+            key = (module, text, target, query_api, control_api)
+            if not text or key in seen:
+                continue
+            seen.add(key)
+            suffix = f" control:{control_api} risk:{risk}" if control_api else ""
+            picked.append(f"- {text} -> {module}/{target} query:{query_api}{suffix}")
+            break
+    return picked[:24]
+
+
 def build_prompt() -> tuple[str, dict]:
     files = {
         "system_map": latest("system_map", ".json"),
         "device_inventory": latest("device_inventory", ".jsonl"),
+        "ui_device_semantics": latest("ui_device_semantics", ".jsonl"),
         "control_capabilities": latest("control_capabilities", ".jsonl"),
         "insights": latest("insights", ".jsonl"),
         "nl_intent_examples": latest("nl_intent_examples", ".jsonl"),
@@ -160,6 +184,7 @@ def build_prompt() -> tuple[str, dict]:
     summary = read_json(files["system_summary"])
     marker_coverage = read_json(files["ai_marker_coverage"])
     devices = read_jsonl(files["device_inventory"])
+    ui_semantics = read_jsonl(files["ui_device_semantics"])
     capabilities = read_jsonl(files["control_capabilities"])
     module_cards = read_jsonl(files["module_cards"])
 
@@ -174,6 +199,7 @@ def build_prompt() -> tuple[str, dict]:
     marker_counts = marker_coverage.get("counts") if isinstance(marker_coverage.get("counts"), dict) else {}
     summary_text = compact(summary.get("summary"), 800)
     device_lines = selected_devices(devices)
+    ui_semantic_lines = selected_ui_semantics(ui_semantics)
     module_lines = selected_code_modules(module_cards)
     generated_at = datetime.now().isoformat(timespec="seconds")
 
@@ -198,6 +224,9 @@ AI 标注覆盖: {json.dumps(marker_counts, ensure_ascii=False)}
 [关键设备索引]
 {chr(10).join(device_lines)}
 
+[UI文案与设备语义索引]
+{chr(10).join(ui_semantic_lines)}
+
 [关键代码索引]
 {chr(10).join(module_lines)}
 
@@ -215,6 +244,7 @@ AI 标注覆盖: {json.dumps(marker_counts, ensure_ascii=False)}
     meta.update(
         {
             "device_count": len(devices),
+            "ui_semantic_count": len(ui_semantics),
             "capability_count": len(capabilities),
             "module_card_count": len(module_cards),
             "prompt_chars": len(prompt),
