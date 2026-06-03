@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# AI_MODULE: collab_start_work
+# AI_PURPOSE: Create one task worktree/branch and acquire a module worklock for Smart Center collaboration.
+# AI_BOUNDARY: Coordinates Git/worklock state only; it does not deploy, publish, or edit production runtime files.
+# AI_DATA_FLOW: origin/main + coordination/worklocks -> task worktree, branch, .worktasks metadata, lock JSON.
+# AI_RUNTIME: Run before implementation work when a Smart Center task needs source edits.
+# AI_RISK: Medium. Wrong module names or branch reuse can block teammates or mix unrelated tasks.
+# AI_COMPAT: Keep --task, --module, --machine, --kind, and --base flags stable for existing workflows.
+# AI_SEARCH_KEYWORDS: start-work, worktree, branch, worklock, .worktasks.
 set -euo pipefail
 
 TASK=""

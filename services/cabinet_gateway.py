@@ -1,3 +1,11 @@
+# AI_MODULE: cabinet_gateway_service
+# AI_PURPOSE: Read remote cabinet status through HTTP gateways and maintain a short-lived cache for power views.
+# AI_BOUNDARY: Gateway reads should not bypass api/power.py permissions for real circuit control.
+# AI_DATA_FLOW: CONFIG cabinet gateway URLs -> HTTP status fetch -> REMOTE_CABINET_STATUS_CACHE -> power/meter APIs.
+# AI_RUNTIME: Called during power status reads on node-120.
+# AI_RISK: High. Incorrect cabinet status can misrepresent strong-current circuit state and affect control decisions.
+# AI_COMPAT: Preserve cache semantics and returned status shapes used by legacy and current power pages.
+# AI_SEARCH_KEYWORDS: cabinet gateway, strong current, remote status, cache, power.
 import json
 import time
 import urllib.error

@@ -1,3 +1,11 @@
+# AI_MODULE: legacy_power_routes
+# AI_PURPOSE: Legacy strong-current, meter, energy, and one-key control routes kept for compatibility with older templates and tools.
+# AI_BOUNDARY: New power APIs should prefer api/power.py and service helpers; this file should not absorb unrelated frontend layout work.
+# AI_DATA_FLOW: CONFIG cabinets/meters + DEVICE_STATUS/METER_STATUS/data_logger -> legacy Flask responses and CSV exports.
+# AI_RUNTIME: Imported where legacy blueprint/routes remain enabled for production compatibility.
+# AI_RISK: High. Strong-current and one-key actions can switch real circuits and must keep permissions, locks, and audit behavior intact.
+# AI_COMPAT: Preserve historical route names, cabinet/channel payloads, CSV exports, and energy display fields.
+# AI_SEARCH_KEYWORDS: legacy power, cabinet, meter, energy, onekey, strong current.
 import csv
 import io
 import json

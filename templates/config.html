@@ -1,4 +1,14 @@
 ﻿<!DOCTYPE html>
+<!--
+AI_MODULE: config_center_template
+AI_PURPOSE: Full Smart Center configuration UI for devices, modules, credentials placeholders, and system options.
+AI_BOUNDARY: This page renders and submits configuration; protocol execution, validation, and persistence belong in backend APIs/core services.
+AI_DATA_FLOW: Flask CONFIG -> tabbed config forms -> /api/config and module-specific config endpoints.
+AI_RUNTIME: Served at /config for authorized operators during maintenance.
+AI_RISK: High. Wrong fields can alter strong-current, HVAC, SNMP, server agent, authentication, and automation behavior.
+AI_COMPAT: Preserve form field names, tab ids, and legacy payload shapes expected by config.py migrations.
+AI_SEARCH_KEYWORDS: config center, device config, system settings, forms, credentials.
+-->
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8">

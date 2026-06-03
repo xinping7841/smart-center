@@ -1,3 +1,11 @@
+# AI_MODULE: meter_center_service
+# AI_PURPOSE: Decorate, aggregate, and compare meter/cabinet energy rows for the power and meter center views.
+# AI_BOUNDARY: Does not poll Modbus directly; raw collection lives in background, meter services, or cabinet gateways.
+# AI_DATA_FLOW: CONFIG + DEVICE_STATUS/METER_STATUS/data_logger history -> normalized meter rows, comparisons, summaries.
+# AI_RUNTIME: Called by api/power.py and dashboard/meter endpoints during read requests.
+# AI_RISK: Medium. Wrong display/raw energy calculations can mislead energy usage and reset interpretation.
+# AI_COMPAT: Preserve display_electric_energy/raw_electric_energy/effective_electric_energy fields consumed by frontend.
+# AI_SEARCH_KEYWORDS: meter center, energy, cabinet meter, display reset, comparison.
 from datetime import datetime, timedelta
 
 from config import CONFIG, DEVICE_STATUS, METER_STATUS, get_default_status

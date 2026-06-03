@@ -1,3 +1,11 @@
+# AI_MODULE: mqtt_env_bridge
+# AI_PURPOSE: Bridge MQTT environment sensor messages into normalized Smart Center temperature/humidity/contact status.
+# AI_BOUNDARY: Does not control HVAC or automation outcomes; it only ingests sensor telemetry and stale-state metadata.
+# AI_DATA_FLOW: CONFIG.mqtt_env + MQTT topics -> in-memory environment cache/logs -> env/HVAC/dashboard status consumers.
+# AI_RUNTIME: Background bridge service when MQTT environment integration is enabled.
+# AI_RISK: Medium. Stale or mis-mapped sensor data can mislead HA/HVAC freshness diagnosis and automation conditions.
+# AI_COMPAT: Preserve DEFAULT_MQTT_ENV field_map and normalized output fields expected by env APIs.
+# AI_SEARCH_KEYWORDS: mqtt, environment, temperature, humidity, stale, HA freshness.
 import json
 import threading
 import time

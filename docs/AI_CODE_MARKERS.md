@@ -28,6 +28,8 @@ AI_SEARCH_KEYWORDS: 给本地模型和人类搜索用的关键词。
 ## 使用规则
 
 - 新模块必须先写模块头，再写功能。
+- 修改已有模块时，如果触碰了职责、数据流、运行方式、真实控制、安全边界、兼容字段或搜索关键词，必须同步更新顶部 `AI_*` 标记。
+- 每次长期维护或发布前，运行代码知识导出并查看 `ai_marker_coverage_*.json`；核心文件至少要有 `AI_MODULE`、`AI_PURPOSE`、`AI_BOUNDARY`、`AI_RISK`。
 - 老模块拆分时，先在旧文件写清边界，再把实现迁移到 `services/`、`runtime/`、`static/js/views/` 或未来 `modules/`。
 - 对真实设备控制路径，必须写清楚锁、延迟确认、缓存刷新和外部兼容字段。
 - 不要写“把 value 赋给 x”这类无效注释，模型会学坏，人也会看烦。
@@ -39,4 +41,3 @@ AI_SEARCH_KEYWORDS: 给本地模型和人类搜索用的关键词。
 3. 当前文件顶部的 `AI_*` 标记
 4. 当前文件中的 `AI map:`、`Safety:`、`Compatibility:` 注释
 5. 相关 API 或 service/core 文件
-

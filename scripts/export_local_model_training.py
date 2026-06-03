@@ -1,4 +1,12 @@
 #!/usr/bin/env python3
+# AI_MODULE: local_model_training_export_cli
+# AI_PURPOSE: Export runtime device knowledge and source-code knowledge packages for Smart Center local-model learning.
+# AI_BOUNDARY: Calls export builders and copies artifacts only; it must not poll devices directly or execute control routes.
+# AI_DATA_FLOW: CONFIG/runtime logs/codebase -> training/local_model JSON/JSONL -> optional NAS backup mirror.
+# AI_RUNTIME: Manual or timer-driven maintenance command on node-120, often before refreshing node-123 summaries.
+# AI_RISK: Medium. Exports must keep secrets redacted and avoid treating runtime dumps or backups as source of truth.
+# AI_COMPAT: Output filenames and manifest counts are used by /api/local-model/knowledge-status and refresh scripts.
+# AI_SEARCH_KEYWORDS: local model training, export, runtime knowledge, code knowledge, NAS sync.
 import argparse
 import json
 import os

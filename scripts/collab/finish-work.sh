@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# AI_MODULE: collab_finish_work
+# AI_PURPOSE: Run final checks, optionally commit/push, and release a Smart Center module worklock.
+# AI_BOUNDARY: Does not deploy production by itself; release locks only after validation or explicit decision.
+# AI_DATA_FLOW: task worktree -> git status/diff/compileall -> optional commit/push -> coordination/worklocks unlock.
+# AI_RUNTIME: Last step of a Smart Center source-edit task.
+# AI_RISK: Medium. Releasing the wrong lock or committing unrelated files can disrupt parallel work.
+# AI_COMPAT: Keep --message and --release-lock flags stable for Codex and human runbooks.
+# AI_SEARCH_KEYWORDS: finish-work, release lock, compileall, commit, push.
 set -euo pipefail
 
 MESSAGE=""

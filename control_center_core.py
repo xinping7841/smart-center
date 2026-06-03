@@ -1,3 +1,11 @@
+# AI_MODULE: control_center_core
+# AI_PURPOSE: Generic protocol/device control center for packaged drivers, command templates, TCP/serial helpers, and driver hub exports.
+# AI_BOUNDARY: API authorization belongs in api/control_center.py or legacy adapters; this core owns protocol construction and parsing only.
+# AI_DATA_FLOW: CONFIG.control_center/control packs -> normalized devices/commands -> socket/serial/HTTP helpers -> status and command results.
+# AI_RUNTIME: Used by control-center APIs, universal compatibility routes, and driver bundle export scripts.
+# AI_RISK: High. It can emit real device commands through TCP/serial/custom protocol paths.
+# AI_COMPAT: Preserve control pack schema, universal legacy semantics, and driver hub bundle output formats.
+# AI_SEARCH_KEYWORDS: control center, generic device, driver pack, TCP, serial, universal.
 import hashlib
 import ipaddress
 import json

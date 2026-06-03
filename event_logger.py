@@ -1,3 +1,11 @@
+# AI_MODULE: event_logger
+# AI_PURPOSE: Central event-log database writer/query helper for device state changes, controls, audits, and diagnostics.
+# AI_BOUNDARY: Does not decide business actions or permissions; callers supply already-classified events and command metadata.
+# AI_DATA_FLOW: API/background/service events -> SQLite event log -> query_events and frontend log views.
+# AI_RUNTIME: Imported by many modules on node-120; initializes schema lazily under a process lock.
+# AI_RISK: Medium. Lost, duplicated, or misclassified events make HA/device freshness and control audits harder to diagnose.
+# AI_COMPAT: Preserve event_logs.db schema, category names, and query result fields used by /api/events and dashboards.
+# AI_SEARCH_KEYWORDS: event log, audit, SQLite, query_events, device freshness, pending command.
 import json
 import os
 import sqlite3

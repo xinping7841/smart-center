@@ -68,6 +68,7 @@ For production work:
 Add comments only where they help future humans or AI avoid mistakes:
 
 - Module header: what the file owns and what it must not own.
+- When changing code, update the touched file's `AI_*` header if the change affects ownership, data flow, runtime behavior, risk, compatibility, or search keywords.
 - Boundary comments: where route code calls service/core code.
 - Safety comments: physical device control, delayed verification, locks, or cache staleness.
 - Compatibility comments: legacy payload fields or routes that must not be removed.

@@ -1,3 +1,11 @@
+# AI_MODULE: miio_hvac_adapter
+# AI_PURPOSE: Normalize Xiaomi/MIIO HVAC device attributes and command results into Smart Center HVAC status fields.
+# AI_BOUNDARY: Home Assistant and API routing live elsewhere; this adapter should not own dashboard rendering or permission checks.
+# AI_DATA_FLOW: python-miio device objects/results -> normalized power/mode/temp/fan/swing status dictionaries.
+# AI_RUNTIME: Used by HVAC polling/control helpers when MIIO-backed air conditioners are configured.
+# AI_RISK: Medium. Bad normalization causes stale/offline or wrong HVAC state, but execution must still pass backend controls.
+# AI_COMPAT: Preserve status keys consumed by api/hvac.py and static/js/views/hvac-view.js.
+# AI_SEARCH_KEYWORDS: miio, xiaomi, hvac, air conditioner, normalize, HA freshness.
 from datetime import datetime
 
 

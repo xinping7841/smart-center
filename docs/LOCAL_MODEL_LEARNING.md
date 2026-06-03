@@ -37,12 +37,15 @@ or use `POST /api/local-model/export-training` from the local-model page.
 - `code_modules_*.jsonl`: module-level summaries assembled from files and routes.
 - `module_cards_*.jsonl`: compact module cards for local-model navigation.
 - `code_design_*.jsonl`: compact design notes for Feishu natural language, local-model knowledge, and physical-control safety.
+- `ai_marker_coverage_*.json`: coverage report for `AI_*` markers, including files missing required module/purpose/boundary/risk markers.
 - `code_system_map_*.json`: source-code entrypoints, route risk summary, and execution boundary notes.
 - `code_knowledge_*.jsonl`: combined file, route, module, and design records for RAG ingestion.
 - `full_code_context_*.jsonl`: redacted source chunks for high-context periodic refresh on the 3090 machine.
 - `code_manifest_*.json`: code-knowledge manifest and counts.
 
 4. Feed the latest runtime and code knowledge files to the local model knowledge proxy/RAG index. RAG is preferred for frequently changing facts such as online/offline server state, CPU/GPU metrics, logs, current code boundaries, and routes.
+
+Code changes should keep `AI_*` markers current in touched files. Treat the marker header as model-facing maintenance metadata: it should explain module ownership, safety boundaries, data flow, runtime, risk, compatibility, and search keywords for node-123.
 
 5. Optional high-context refresh can run on the 3090 local-model machine. It should read `system_map_*.json`, `device_inventory_*.jsonl`, `control_capabilities_*.jsonl`, `nl_intent_examples_*.jsonl`, `code_system_map_*.json`, `module_cards_*.jsonl`, and then `full_code_context_*.jsonl` to generate a reviewable `system_summary_*.json`. This is a manual or asynchronous understanding refresh, not a direct control path.
 

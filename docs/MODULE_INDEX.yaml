@@ -4,6 +4,14 @@ source_root: /srv/git-work/smart-center-main
 notes:
   - Keep this index small and current. It is used by local AI before broad search.
   - Runtime backups and generated files are not source of truth.
+# AI_MODULE: module_index
+# AI_PURPOSE: Canonical module ownership map for Smart Center routes, frontend files, backend files, and model-search keywords.
+# AI_BOUNDARY: Documentation/index only; do not treat it as runtime configuration or a source of device control truth.
+# AI_DATA_FLOW: Maintainer-curated module metadata -> local-model navigation, code knowledge export, and human search workflow.
+# AI_RUNTIME: Read by humans and local-model workflows before broad code search.
+# AI_RISK: Medium. Stale ownership data can send maintainers or node-123 to the wrong module during diagnostics.
+# AI_COMPAT: Keep module ids aligned with sidebar/view ids, Flask blueprints, docs/AI_NAVIGATION.md, and export_code_knowledge.py.
+# AI_SEARCH_KEYWORDS: module index, ownership, routes, frontend, backend, local model navigation.
 modules:
   core_frontend:
     purpose: Shared frontend namespace, module registry, API wrappers, permissions, formatting, toast, and frontend error guards.

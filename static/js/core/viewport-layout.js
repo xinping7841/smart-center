@@ -1,3 +1,11 @@
+// AI_MODULE: viewport_layout_core
+// AI_PURPOSE: Decide early viewport/body layout classes for desktop, tablet, mobile, dashboard fit, and sidebar carousel modes.
+// AI_BOUNDARY: Runs before app-runtime and CSS; it must only set layout classes/flags, not render views or trigger control buttons.
+// AI_DATA_FLOW: URL params + optional localStorage layout preference -> documentElement/body classes consumed by CSS/runtime.
+// AI_RUNTIME: Loaded synchronously in templates/index.html <head> before main styles.
+// AI_RISK: Medium. Wrong class decisions can resize sidebars, break 4K dashboard fit, or cause carousel layout jumps.
+// AI_COMPAT: Preserve display_mode/carousel/sidebar_carousel/auto_rotate URL semantics and existing body class names.
+// AI_SEARCH_KEYWORDS: viewport, layout, dashboard fit, carousel, sidebar, 4K.
 (function installSmartCenterViewportLayout(global) {
     'use strict';
 
