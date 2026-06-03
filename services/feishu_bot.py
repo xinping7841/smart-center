@@ -127,6 +127,18 @@ CONTROL_ACTION_WORDS = (
 CONTROL_STATUS_WORDS = ("状态", "日志", "记录", "历史", "有没有", "是否", "查询", "查看", "显示", "汇总", "吗", "么", "是不是")
 CONTROL_CONFIRM_WORDS = ("确认", "确认执行", "执行确认", "执行", "下发", "确认下发", "是的", "确定")
 CONTROL_CANCEL_WORDS = ("取消", "别执行", "不要执行", "撤销")
+OUTDOOR_LIGHT_QUERY_WORDS = ("庭院灯", "户外灯", "室外灯", "室外照明", "院子灯", "院子里的灯", "外墙灯", "院灯")
+NODE_RED_STATUS_TEXT = {
+    "on": "亮",
+    "off": "暗",
+    "starting": "开机中",
+    "stopping": "关机中",
+    "pending_ack": "执行中",
+    "partial": "部分开启",
+    "unknown": "未知",
+    "error": "异常",
+    "offline": "离线",
+}
 HIGH_RISK_CONTROL_TYPES = {"power", "sequencer"}
 PENDING_CONTROL_TTL_SEC = 10 * 60
 INFERRED_CONTROL_CONFIDENCE = {"medium", "low"}
@@ -2556,6 +2568,28 @@ class LocalSmartCenterClient:
             lines.append(f"- {extra.get('name') or device_id}：{online}，{state_text}")
         return "\n".join(lines)
 
+    def node_red_device_status_text(self, device_id: str, label: str = "") -> str:
+        safe_device_id = requests.utils.quote(str(device_id or "").strip(), safe="")
+        if not safe_device_id:
+            return "Node-RED 设备名称为空，无法查询状态。"
+        ok, payload = self.get_json(f"/api/node-red/device/{safe_device_id}/status", timeout_sec=4.0)
+        if not ok or not isinstance(payload, dict):
+            return f"{label or device_id} 状态接口暂时不可用：{payload}"
+        device = payload.get("device") if isinstance(payload.get("device"), dict) else payload
+        name = str(device.get("device_name") or device.get("name") or label or device_id)
+        display_status = str(device.get("display_status") or device.get("status") or "").strip().lower()
+        status = str(device.get("status") or display_status or "unknown").strip().lower()
+        display_text = str(device.get("display_text") or NODE_RED_STATUS_TEXT.get(display_status) or NODE_RED_STATUS_TEXT.get(status) or status or "未知")
+        online = "在线" if device.get("online") else "离线"
+        health = device.get("health") if isinstance(device.get("health"), dict) else {}
+        health_message = str(health.get("message") or "").strip()
+        updated = str(device.get("updated_at") or "--")
+        suffix = f"，{health_message}" if health_message and health_message not in {"normal", "ok"} else ""
+        return f"{name}状态：{online}，{display_text}，更新时间 {updated}{suffix}"
+
+    def outdoor_light_status_text(self) -> str:
+        return self.node_red_device_status_text("courtyard_light", "庭院灯")
+
     def automation_status_text(self) -> str:
         ok, payload = self.get_json("/api/automation/status", timeout_sec=4.0)
         if not ok or not isinstance(payload, dict):
@@ -2692,6 +2726,8 @@ class LocalSmartCenterClient:
         if intent == "hvac_status":
             return self.hvac_status_text(query)
         if intent == "lighting_status":
+            if _contains_any(query, OUTDOOR_LIGHT_QUERY_WORDS):
+                return self.outdoor_light_status_text()
             return self.lighting_status_text()
         if intent == "lighting_logs":
             return self.log_text(query, category="light")
@@ -2749,6 +2785,8 @@ class LocalSmartCenterClient:
             return self.environment_status_text(keyword)
         if _contains_any(keyword, ("空调", "hvac", "HVAC")):
             return self.hvac_status_text(keyword)
+        if _contains_any(keyword, OUTDOOR_LIGHT_QUERY_WORDS):
+            return self.outdoor_light_status_text()
         if _contains_any(keyword, ("灯光", "继电器", "灯状态", "哪些灯")):
             return self.lighting_status_text()
         if _contains_any(keyword, ("自动化", "场景", "联动", "规则")):

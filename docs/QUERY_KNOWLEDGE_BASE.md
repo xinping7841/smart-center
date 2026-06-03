@@ -39,6 +39,7 @@ Use deterministic routing first. A local model may classify query and control in
 | Environment | 温度, 湿度, 光照, 门磁, 环境, 传感器 | `GET /api/env/status`, `GET /api/dashboard/summary` | Use sensor names from config/dashboard. |
 | HVAC status | 空调, 制冷, 制热, 模式, 设定温度 | `GET /api/hvac/status`, `GET /api/hvac/devices` | Query-only; do not call `/api/hvac/control`. |
 | Lighting status | 灯光状态, 继电器状态, 哪些灯亮着 | `GET /api/light/status` | Query-only; do not call `/api/light/control`. |
+| Courtyard/outdoor light status | 庭院灯状态, 户外灯状态, 室外灯现在亮吗, 院子灯开着吗 | `GET /api/node-red/device/courtyard_light/status` | Specific Node-RED device query; route before generic lighting status. Query-only; do not call `/api/node-red/device/courtyard_light/control`. |
 | Lighting logs | 灯光日志, 最近开关灯, 庭院灯日志 | `GET /api/light/logs?limit=120`, `GET /api/logs/events?category=light` | Event log is richer; legacy log is useful for operation text. |
 | Automation status | 自动化, 规则, 场景, 联动状态 | `GET /api/automation/status` | Query-only; do not call toggle/test/update. |
 | Automation logs | 自动化日志, 场景失败, 最近触发 | `GET /api/automation/logs?limit=80`, `GET /api/logs/events?event_type=automation` | Filter by rule name when user mentions a rule. |
@@ -496,6 +497,7 @@ The first production natural-language integration should only call these GET rou
 /api/hvac/status
 /api/hvac/devices
 /api/light/status
+/api/node-red/device/courtyard_light/status
 /api/light/logs
 /api/automation/status
 /api/automation/logs

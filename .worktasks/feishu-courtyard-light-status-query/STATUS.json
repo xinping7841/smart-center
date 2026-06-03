@@ -1,0 +1,10 @@
+{
+  "task": "feishu-courtyard-light-status-query",
+  "module": "backend_api",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-feishu-courtyard-light-status-query-20260603",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-task-worktrees/feishu-courtyard-light-status-query",
+  "started_at": "2026-06-03 23:36:06",
+  "status": "in_progress"
+}
