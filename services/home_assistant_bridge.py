@@ -24,6 +24,7 @@ _STATE_CACHE_TTL_SEC = 1.2
 _STATE_CACHE_LOCK = threading.Lock()
 _STATE_MAP_CACHE = {}
 _ENTITY_STATE_CACHE = {}
+_ENTITY_REFRESH_CACHE = {}
 
 
 def _now_iso():
@@ -256,6 +257,11 @@ def _state_updated_iso(state):
     return updated.isoformat(timespec="seconds") if updated else None
 
 
+def _ha_state_timestamp_iso(state, key):
+    updated = _parse_ha_timestamp((state or {}).get(key))
+    return updated.isoformat(timespec="seconds") if updated else None
+
+
 def _state_should_ignore_staleness(entity_id):
     return _entity_domain(entity_id) in {"binary_sensor", "event", "lock"}
 
@@ -287,6 +293,24 @@ def _read_bool_like_from_state(state, attr_name=""):
     if text in {"off", "closed", "close", "false", "0", "关闭", "弱", "暗", "光暗", "环境光暗", "无光"}:
         return False
     return None
+
+
+def maybe_refresh_entity(entity_id, ha_cfg, min_interval_sec=300):
+    entity_id = str(entity_id or "").strip()
+    if not entity_id:
+        return False
+    key = (*_ha_cache_key(ha_cfg), entity_id)
+    now = time.monotonic()
+    with _STATE_CACHE_LOCK:
+        previous = float(_ENTITY_REFRESH_CACHE.get(key) or 0.0)
+        if previous and now - previous < max(30, float(min_interval_sec or 300)):
+            return False
+        _ENTITY_REFRESH_CACHE[key] = now
+    try:
+        call_service(ha_cfg, "homeassistant", "update_entity", {"entity_id": entity_id})
+        return True
+    except Exception:
+        return False
 
 
 def _format_contact_text(value, bool_value=None):
@@ -476,6 +500,7 @@ def get_env_debug(sensor_cfg, config=None):
 def get_hvac_status(device_cfg, config=None):
     ha_cfg = merge_ha_cfg(device_cfg or {}, config)
     entity_id = str(ha_cfg.get("entity_id") or "").strip()
+    polled_at = _now_iso()
     payload = {
         "id": str((device_cfg or {}).get("id") or ""),
         "name": str((device_cfg or {}).get("name") or entity_id or "Home Assistant HVAC"),
@@ -486,7 +511,8 @@ def get_hvac_status(device_cfg, config=None):
         "temp": None,
         "target_temp": None,
         "mode": "off",
-        "updated_at": _now_iso(),
+        "updated_at": polled_at,
+        "polled_at": polled_at,
     }
     try:
         ha_state = get_cached_state(entity_id, ha_cfg)
@@ -509,8 +535,11 @@ def get_hvac_status(device_cfg, config=None):
                 "target_temp": attrs.get("temperature") or attrs.get("target_temperature"),
                 "temp": attrs.get("current_temperature") or attrs.get("temperature"),
                 "hvac_action": attrs.get("hvac_action"),
-                "updated_at": (ha_state or {}).get("last_updated") or _now_iso(),
+                "updated_at": _ha_state_timestamp_iso(ha_state, "last_updated") or polled_at,
+                "last_updated": _ha_state_timestamp_iso(ha_state, "last_updated"),
+                "last_changed": _ha_state_timestamp_iso(ha_state, "last_changed"),
                 "age_sec": _state_age_sec(ha_state),
+                "ha_state_age_sec": _state_age_sec(ha_state),
             }
         )
         power_entity = str((device_cfg or {}).get("power_sensor_entity_id") or "").strip()
@@ -521,6 +550,9 @@ def get_hvac_status(device_cfg, config=None):
                 payload["electric_power_w"] = power_w
                 payload["electric_power_kw"] = round(power_w / 1000.0, 4)
                 payload["power_sensor_entity_id"] = power_entity
+                payload["power_polled_at"] = polled_at
+                payload["power_updated_at"] = _ha_state_timestamp_iso(power_state, "last_updated")
+                payload["power_age_sec"] = _state_age_sec(power_state)
     except Exception as exc:
         payload["online"] = False
         payload["error"] = str(exc)

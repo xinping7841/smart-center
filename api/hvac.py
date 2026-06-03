@@ -19,6 +19,8 @@ from data_logger import add_log
 from event_logger import record_event, record_state_change
 from services.home_assistant_bridge import control_hvac as ha_control_hvac
 from services.home_assistant_bridge import get_hvac_status as get_ha_hvac_status
+from services.home_assistant_bridge import maybe_refresh_entity as maybe_refresh_ha_entity
+from services.home_assistant_bridge import merge_ha_cfg
 from services.miio_hvac import miio_hvac_service
 from services.xiaomi_cloud import fetch_xiaomi_cloud_devices, filter_xiaomi_devices
 from api.node_red import control_node_red_device, get_node_red_device_status
@@ -94,6 +96,22 @@ def _poll_device_status(device):
     if protocol in {"node_red", "nodered", "node-red"}:
         return _node_red_hvac_status(device)
     return _default_status(device)
+
+
+def _maybe_refresh_stale_ha_device(device, status):
+    protocol = _device_protocol(device)
+    if protocol not in {"home_assistant", "homeassistant", "ha"}:
+        return False
+    age_sec = status.get("ha_state_age_sec", status.get("age_sec")) if isinstance(status, dict) else None
+    try:
+        age_value = float(age_sec)
+    except Exception:
+        return False
+    if age_value < 600:
+        return False
+    ha_cfg = merge_ha_cfg(device or {}, CONFIG)
+    entity_id = str(ha_cfg.get("entity_id") or "").strip()
+    return maybe_refresh_ha_entity(entity_id, ha_cfg, min_interval_sec=300)
 
 
 def _execute_control(device, action, payload):
@@ -183,17 +201,22 @@ def _log_hvac_status_change(device, previous, current):
     )
 
 
-def refresh_hvac_status():
+def refresh_hvac_status(refresh_stale=False, stale_refresh_limit=3):
     devices = list(CONFIG.get("hvac_devices", []))
     active_ids = {str(item.get("id")) for item in devices}
     for device_id in list(HVAC_STATUS.keys()):
         if device_id not in active_ids:
             HVAC_STATUS.pop(device_id, None)
 
+    stale_refresh_count = 0
     for device in devices:
         device_id = str(device.get("id"))
         previous = dict(HVAC_STATUS.get(device_id, {}) or {})
         current = _poll_device_status(device)
+        if refresh_stale and stale_refresh_count < stale_refresh_limit and _maybe_refresh_stale_ha_device(device, current):
+            stale_refresh_count += 1
+            time.sleep(0.15)
+            current = _poll_device_status(device)
         HVAC_STATUS[device_id] = current
         _log_hvac_status_change(device, previous, current)
 
@@ -208,7 +231,8 @@ def get_hvac_devices():
 @bp.route("/api/hvac/status")
 @require_permission("hvac.view")
 def get_hvac_status():
-    refresh_hvac_status()
+    refresh_stale = str(request.args.get("refresh_stale") or request.args.get("refresh_ha") or "").strip().lower() in {"1", "true", "yes", "on"}
+    refresh_hvac_status(refresh_stale=refresh_stale)
     device_id = request.args.get("device_id")
     if device_id:
         status = HVAC_STATUS.get(str(device_id), {"online": False, "temp": None, "mode": "off"})

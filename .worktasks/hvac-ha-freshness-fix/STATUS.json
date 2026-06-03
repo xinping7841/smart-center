@@ -1,0 +1,10 @@
+{
+  "task": "hvac-ha-freshness-fix",
+  "module": "hvac",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-hvac-ha-freshness-fix-20260603",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees-active/hvac-ha-freshness-fix",
+  "started_at": "2026-06-03 18:21:11",
+  "status": "in_progress"
+}
