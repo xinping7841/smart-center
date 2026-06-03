@@ -102,7 +102,7 @@
     }
 
     function getHvacAgeText(status) {
-        const ageSec = Number(status?.age_sec);
+        const ageSec = Number(status?.ha_state_age_sec ?? status?.age_sec);
         if (!Number.isFinite(ageSec)) return '--';
         if (ageSec < 60) return `${Math.round(ageSec)} 秒前`;
         if (ageSec < 3600) return `${Math.round(ageSec / 60)} 分钟前`;
@@ -359,7 +359,7 @@
         const ageText = getHvacAgeText(merged);
         const noteParts = [
             roomName,
-            ageText && ageText !== '--' ? ageText : '',
+            ageText && ageText !== '--' ? `未变化 ${ageText}` : '',
             powerText && powerText !== '--' ? powerText : '',
         ].filter(Boolean);
         const deviceId = String(merged.id || '');

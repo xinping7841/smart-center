@@ -210,11 +210,25 @@
     }
 
     function getHvacAgeText(status) {
-        const ageSec = Number(status?.age_sec);
+        const ageSec = Number(status?.ha_state_age_sec ?? status?.age_sec);
         if (!Number.isFinite(ageSec)) return '--';
         if (ageSec < 60) return `${Math.round(ageSec)} 秒前`;
         if (ageSec < 3600) return `${Math.round(ageSec / 60)} 分钟前`;
         return `${(ageSec / 3600).toFixed(1)} 小时前`;
+    }
+
+    function getHvacTimeText(value) {
+        if (!value) return '--:--:--';
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return '--:--:--';
+        return parsed.toLocaleTimeString('zh-CN', { hour12: false });
+    }
+
+    function getHvacFreshnessNote(status) {
+        const pollTime = getHvacTimeText(status?.polled_at);
+        const stateAge = getHvacAgeText(status);
+        if (!stateAge || stateAge === '--') return `HA拉取 ${pollTime}`;
+        return `HA拉取 ${pollTime} · 状态未变化 ${stateAge}`;
     }
 
     function formatCompactAgeFromSec(ageSec) {
@@ -536,7 +550,7 @@
         const ageText = getHvacAgeText(merged);
         const noteParts = [
             roomName,
-            ageText && ageText !== '--' ? ageText : '',
+            ageText && ageText !== '--' ? `未变化 ${ageText}` : '',
             powerText && powerText !== '--' ? powerText : '',
         ].filter(Boolean);
         const deviceId = String(merged.id || '');
@@ -644,7 +658,6 @@
             ? dashboardThermalText
             : (merged.power ? (state.modeText === '--' ? state.powerText : state.modeText) : '已关闭');
         const fanSpeedHtml = renderHvacFanInline(merged.fan_speed || '--');
-        const updatedAt = merged.updated_at ? new Date(merged.updated_at).toLocaleTimeString('zh-CN', { hour12: false }) : '--:--:--';
         const powerText = escapeHtml(formatHvacPower(merged));
         const modeText = escapeHtml(state.modeText);
         const actionText = escapeHtml(state.actionText);
@@ -652,7 +665,7 @@
         const actionIcon = getHvacModeIcon(modeClass === 'off' ? 'off' : modeClass || 'fan');
         const powerButtonClass = getHvacPowerButtonClass(merged);
         const powerButtonTitle = merged.power ? '当前开机，点击关机' : '当前关机，点击开机';
-        const noteText = `最后更新 ${escapeHtml(updatedAt)} · 数据年龄 ${escapeHtml(getHvacAgeText(merged))}`;
+        const noteText = escapeHtml(getHvacFreshnessNote(merged));
         const cardRoomName = getHvacRoomName(merged);
         const roomEnvCompactHtml = renderHvacRoomEnvChips(cardRoomName, { compact: true, limit: 1 });
         const safeCardRoomName = escapeHtml(cardRoomName);
@@ -775,6 +788,7 @@
         renderHvacModeOptions,
         getHvacTempBounds,
         getHvacAgeText,
+        getHvacFreshnessNote,
         formatCompactAgeFromSec,
         getHvacRoomName,
         getHvacSortOrder,

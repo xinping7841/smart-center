@@ -692,6 +692,18 @@
             line-height:1.2 !important;
         }
 
+#view-hvac .dashboard-mini-note {
+            margin-top:4px !important;
+            font-size:9px !important;
+            line-height:1.15 !important;
+            color:#8ba3bb !important;
+            font-weight:600 !important;
+            white-space:nowrap !important;
+            overflow:hidden !important;
+            text-overflow:ellipsis !important;
+            opacity:.78 !important;
+        }
+
 @media screen and (max-width: 1500px) {
             #view-hvac .hvac-grid { grid-template-columns:repeat(3, minmax(0, 1fr)) !important; }
             #view-hvac .hvac-group-count-4,
@@ -1067,6 +1079,18 @@
 
 #view-hvac .hvac-info-row {
             min-height:24px !important;
+        }
+
+#view-hvac .dashboard-mini-note {
+            margin-top:4px !important;
+            font-size:9px !important;
+            line-height:1.15 !important;
+            color:#8ba3bb !important;
+            font-weight:600 !important;
+            white-space:nowrap !important;
+            overflow:hidden !important;
+            text-overflow:ellipsis !important;
+            opacity:.78 !important;
         }
 
 @media screen and (max-width: 1720px) {

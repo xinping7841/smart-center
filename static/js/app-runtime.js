@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260603-sidebar-carousel-v2';
+        const lazyModuleVersion = '20260603-hvac-ha-freshness-v1';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const wideUiStyle = `/static/css/views/ui-wide-1080.css?v=${lazyModuleVersion}`;
         const withWideUiStyle = styles => [...styles, wideUiStyle];
@@ -1849,7 +1849,7 @@
         }
         function updateHvacStatus(showError = false) {
             if (!hvacConfigs.length) return Promise.resolve({});
-            return fetchJson('/api/hvac/status', {}, '空调状态读取失败')
+            return fetchJson('/api/hvac/status?refresh_stale=1', {}, '空调状态读取失败')
                 .then(data => {
                     hvacStatusCache = data || {};
                     renderHvacCards();
