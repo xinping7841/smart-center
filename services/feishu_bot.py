@@ -561,6 +561,67 @@ def _format_control_action(action: str) -> str:
     }.get(str(action or ""), str(action or "控制"))
 
 
+def _status_level_text(value: Any, *, online: Any = None) -> str:
+    text = str(value or "").strip().lower()
+    if online is False:
+        return "离线"
+    if online is True and not text:
+        return "在线"
+    return {
+        "online": "在线",
+        "ok": "正常",
+        "normal": "正常",
+        "healthy": "正常",
+        "offline": "离线",
+        "error": "异常",
+        "warn": "告警",
+        "warning": "告警",
+        "stale": "信息滞后",
+        "unknown": "未知",
+        "on": "开启",
+        "off": "关闭",
+        "open": "打开",
+        "closed": "关闭",
+        "up": "升起",
+        "down": "下降",
+        "moving": "运行中",
+        "idle": "待机",
+    }.get(text, str(value or ("在线" if online else "未知")))
+
+
+def _format_time_for_chat(value: Any) -> str:
+    raw = str(value or "").strip()
+    if not raw or raw == "--":
+        return "--"
+    text = raw.replace("Z", "+00:00")
+    try:
+        parsed = datetime.fromisoformat(text)
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone()
+        return parsed.strftime("%Y-%m-%d %H:%M:%S")
+    except Exception:
+        return raw.replace("T", " ").replace("Z", "")
+
+
+def _health_text(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text or text in {"normal", "ok", "healthy"}:
+        return "正常"
+    lowered = text.lower()
+    if lowered == "rf serial healthy":
+        return "RF 网关正常"
+    if lowered in {"rf serial unavailable", "rf serial unhealthy"}:
+        return "RF 网关异常"
+    return text
+
+
+def _specific_query_fragment(query: str, words: tuple[str, ...]) -> str:
+    fragment = str(query or "")
+    for word in words:
+        fragment = fragment.replace(word, "")
+    return normalize_alias_text(fragment)
+
+
 def _score_item_by_query(query: str, item: dict[str, Any], fields: tuple[str, ...] = ("name", "id")) -> tuple[int, list[str]]:
     normalized_query = _normalize_match_text(query)
     if not normalized_query or not isinstance(item, dict):
@@ -637,15 +698,14 @@ def _to_float(value: Any) -> float | None:
 
 
 def _device_name(device: dict[str, Any]) -> str:
-    return str(
-        device.get("display_name")
-        or device.get("custom_name")
-        or device.get("name")
-        or device.get("hostname")
-        or device.get("ip")
-        or device.get("id")
-        or "未命名设备"
-    )
+    config = device.get("config") if isinstance(device.get("config"), dict) else {}
+    for key in ("display_name", "custom_name", "name", "device_name", "hostname", "ip", "id"):
+        value = device.get(key)
+        if value:
+            return str(value)
+    if config.get("name"):
+        return str(config.get("name"))
+    return "未命名设备"
 
 
 def _normalize_match_text(value: Any) -> str:
@@ -1047,6 +1107,46 @@ class LocalSmartCenterClient:
             return build_device_alias_rows(CONFIG)
         except Exception:
             return []
+
+    def _best_alias_row(self, query: str, module: str, *, device_type: str = "") -> dict[str, Any] | None:
+        rows = find_alias_rows(query, self._device_alias_rows(), module=module, device_type=device_type)
+        return rows[0] if rows else None
+
+    def _specific_alias_requested(self, query: str, module: str) -> bool:
+        row = self._best_alias_row(query, module)
+        if not row:
+            return False
+        normalized = normalize_alias_text(query)
+        generic_words = {
+            "状态",
+            "查询",
+            "查看",
+            "显示",
+            "情况",
+            "现在",
+            "设备",
+            "是否",
+            "有没有",
+            "在线",
+        }
+        module_words = {
+            "hvac": {"空调", "温度", "模式"},
+            "env": {"环境", "温度", "湿度", "光照", "传感器"},
+            "ups": {"ups", "不间断电源", "备用电源", "电池", "负载"},
+            "snmp": {"snmp", "网络设备", "交换机", "网关", "nas", "存储"},
+            "projector": {"投影", "投影机"},
+            "screen": {"幕布", "投影幕", "升降幕"},
+            "sequencer": {"时序器", "时序电源"},
+            "power": {"电柜", "强电", "电源", "配电"},
+            "automation": {"自动化", "规则", "场景", "联动"},
+            "proxy": {"代理", "节点小宝", "异地访问"},
+        }.get(module, set())
+        generic = {normalize_alias_text(item) for item in (generic_words | module_words)}
+        for alias in row.get("aliases") or []:
+            alias_norm = normalize_alias_text(alias)
+            if alias_norm and len(alias_norm) >= 2 and alias_norm not in generic and alias_norm in normalized:
+                return True
+        return False
 
     def _summarize_api_result(self, payload: Any) -> str:
         if not isinstance(payload, dict):
@@ -2435,7 +2535,7 @@ class LocalSmartCenterClient:
             if item.get("lux") is not None:
                 parts.append(f"光照 {_fmt_number(item.get('lux'), 0)} lux")
             if item.get("updated_at"):
-                parts.append(f"更新 {item.get('updated_at')}")
+                parts.append(f"更新 {_format_time_for_chat(item.get('updated_at'))}")
             rows.append("，".join(parts))
         if not rows:
             return "没有匹配到环境传感器。"
@@ -2533,17 +2633,23 @@ class LocalSmartCenterClient:
         ok, payload = self.get_json("/api/hvac/status", timeout_sec=4.0)
         if not ok or not isinstance(payload, dict):
             return f"空调接口暂时不可用：{payload}"
+        alias_row = self._best_alias_row(query, "hvac") if query else None
+        target_id = str((alias_row or {}).get("device_id") or "")
+        query_fragment = _specific_query_fragment(query, ("空调", "hvac", "HVAC", "状态", "查询", "查看", "显示", "情况", "现在", "温度", "模式", "制冷", "制热"))
         rows = []
         for device_id, item in payload.items():
             if not isinstance(item, dict):
                 continue
             name = _device_name({"name": item.get("name"), "id": device_id})
-            if query and not _contains_any(query, ("空调", "制冷", "制热", "温度", "模式")) and query not in name:
+            if target_id and str(device_id) != target_id:
+                continue
+            if query_fragment and query_fragment not in normalize_alias_text(f"{device_id}{name}"):
                 continue
             online = "在线" if item.get("online", True) else "离线"
             power = "开机" if item.get("power") else "关机"
+            updated = _format_time_for_chat(item.get("updated_at") or item.get("last_success_at") or item.get("last_seen"))
             rows.append(
-                f"- {name}：{online}，{power}，模式 {item.get('mode') or '--'}，设定 {_fmt_number(item.get('target_temp'), 1)}°C，室温 {_fmt_number(item.get('temp'), 1)}°C"
+                f"- {name}：{online}，{power}，模式 {item.get('mode') or '--'}，设定 {_fmt_number(item.get('target_temp'), 1)}°C，室温 {_fmt_number(item.get('temp'), 1)}°C，更新 {updated}"
             )
         if not rows:
             return "没有匹配到空调设备。"
@@ -2660,25 +2766,37 @@ class LocalSmartCenterClient:
         display_text = str(device.get("display_text") or NODE_RED_STATUS_TEXT.get(display_status) or NODE_RED_STATUS_TEXT.get(status) or status or "未知")
         online = "在线" if device.get("online") else "离线"
         health = device.get("health") if isinstance(device.get("health"), dict) else {}
-        health_message = str(health.get("message") or "").strip()
-        updated = str(device.get("updated_at") or "--")
-        suffix = f"，{health_message}" if health_message and health_message not in {"normal", "ok"} else ""
-        return f"{name}状态：{online}，{display_text}，更新时间 {updated}{suffix}"
+        health_message = _health_text(health.get("message") or health.get("status"))
+        updated = _format_time_for_chat(device.get("updated_at"))
+        return "\n".join([
+            f"{name}状态",
+            f"- 在线：{online}",
+            f"- 开关：{display_text}",
+            f"- 更新：{updated}",
+            f"- 网关：{health_message}",
+        ])
 
     def outdoor_light_status_text(self) -> str:
         return self.node_red_device_status_text("courtyard_light", "庭院灯")
 
-    def automation_status_text(self) -> str:
+    def automation_status_text(self, query: str = "") -> str:
         ok, payload = self.get_json("/api/automation/status", timeout_sec=4.0)
         if not ok or not isinstance(payload, dict):
             return f"自动化接口暂时不可用：{payload}"
         rules = [item for item in payload.get("rules") or [] if isinstance(item, dict)]
+        query_fragment = _specific_query_fragment(query, ("自动化", "规则", "场景", "联动", "状态", "查询", "查看", "显示", "情况", "现在"))
+        if query:
+            matches = _match_items_by_query(query, rules, ("name", "id"))
+            if matches and (self._specific_alias_requested(query, "automation") or query_fragment):
+                rules = matches[:3]
         enabled = sum(1 for item in rules if item.get("enabled"))
-        lines = [f"自动化规则：启用 {enabled}/{len(rules)}"]
+        title = "自动化规则" if not query else "自动化规则状态"
+        lines = [f"{title}：启用 {enabled}/{len(rules)}"]
         for item in rules[:8]:
             state = item.get("state") if isinstance(item.get("state"), dict) else {}
             active = "触发中" if state.get("active") or state.get("active_since") else "待机"
-            lines.append(f"- {item.get('name') or item.get('id')}：{'启用' if item.get('enabled') else '停用'}，{active}")
+            updated = _format_time_for_chat(state.get("active_since") or state.get("last_triggered_at") or item.get("updated_at"))
+            lines.append(f"- {item.get('name') or item.get('id')}：{'启用' if item.get('enabled') else '停用'}，{active}，更新 {updated}")
         if len(rules) > 8:
             lines.append(f"... 还有 {len(rules) - 8} 条规则未显示")
         return "\n".join(lines)
@@ -2709,49 +2827,175 @@ class LocalSmartCenterClient:
             lines.append(f"- {when} [{label}] {message}")
         return "\n".join(lines)
 
-    def snmp_status_text(self) -> str:
+    def snmp_status_text(self, query: str = "") -> str:
         ok, payload = self.get_json("/api/snmp/status", timeout_sec=5.0)
         if not ok or not isinstance(payload, dict):
             return f"网络设备接口暂时不可用：{payload}"
+        query_fragment = _specific_query_fragment(query, ("snmp", "SNMP", "网络设备", "交换机", "网关", "nas", "NAS", "存储", "状态", "查询", "查看", "显示", "情况", "现在"))
+        if query and self._specific_alias_requested(query, "snmp"):
+            alias_row = self._best_alias_row(query, "snmp")
+            target_id = str((alias_row or {}).get("device_id") or "")
+            if target_id:
+                payload = {target_id: payload.get(target_id)} if isinstance(payload.get(target_id), dict) else {}
         lines = ["网络设备/SNMP 状态："]
         for device_id, item in list(payload.items())[:8]:
             if not isinstance(item, dict):
                 continue
             cfg = item.get("config") if isinstance(item.get("config"), dict) else {}
             name = cfg.get("name") or item.get("name") or device_id
-            online = "在线" if item.get("online", True) else "离线"
+            if query_fragment and query_fragment not in normalize_alias_text(f"{device_id}{name}{cfg.get('ip') or ''}{cfg.get('host') or ''}"):
+                continue
+            online = _status_level_text(item.get("status_level"), online=item.get("online", True))
             summary = item.get("summary") if isinstance(item.get("summary"), dict) else {}
-            extra = summary.get("status_text") or item.get("error") or ""
-            lines.append(f"- {name}：{online}{f'，{extra}' if extra else ''}")
+            extra = summary.get("status_text") or item.get("error") or item.get("last_error") or ""
+            updated = _format_time_for_chat(item.get("updated_at") or item.get("last_success_at") or item.get("last_checked_at"))
+            lines.append(f"- {name}：{online}{f'，{extra}' if extra else ''}，更新 {updated}")
         return "\n".join(lines)
 
-    def ups_status_text(self) -> str:
+    def ups_status_text(self, query: str = "") -> str:
         ok, payload = self.get_json("/api/ups/status", timeout_sec=4.0)
         if not ok or not isinstance(payload, dict):
             return f"UPS 接口暂时不可用：{payload}"
+        query_fragment = _specific_query_fragment(query, ("ups", "UPS", "不间断电源", "备用电源", "电池", "负载", "输入电压", "状态", "查询", "查看", "显示", "情况", "现在"))
+        if query and self._specific_alias_requested(query, "ups"):
+            alias_row = self._best_alias_row(query, "ups")
+            target_id = str((alias_row or {}).get("device_id") or "")
+            if target_id:
+                payload = {target_id: payload.get(target_id)} if isinstance(payload.get(target_id), dict) else {}
         lines = ["UPS 状态："]
         for device_id, item in payload.items():
             if not isinstance(item, dict):
                 continue
             cfg = item.get("config") if isinstance(item.get("config"), dict) else {}
             name = cfg.get("name") or item.get("name") or device_id
-            online = "在线" if item.get("online", True) else "离线"
+            if query_fragment and query_fragment not in normalize_alias_text(f"{device_id}{name}{cfg.get('ip') or ''}{cfg.get('host') or ''}"):
+                continue
+            online = _status_level_text(item.get("status_level"), online=item.get("online", True))
             alerts = "；".join(item.get("alerts") or []) or "无告警"
+            updated = _format_time_for_chat(item.get("updated_at") or item.get("last_success_at") or item.get("last_checked_at"))
             lines.append(
-                f"- {name}：{online}，电池 {_fmt_number(item.get('battery_capacity_percent'), 0)}%，负载 {_fmt_number(item.get('load_percent'), 0)}%，输入 {_fmt_number(item.get('input_voltage'), 1)}V，{alerts}"
+                f"- {name}：{online}，电池 {_fmt_number(item.get('battery_capacity_percent'), 0)}%，负载 {_fmt_number(item.get('load_percent'), 0)}%，输入 {_fmt_number(item.get('input_voltage'), 1)}V，{alerts}，更新 {updated}"
             )
         return "\n".join(lines)
+
+    def projector_status_text(self, query: str = "") -> str:
+        ok, payload = self.get_json("/api/projector/status", timeout_sec=5.0)
+        if not ok or not isinstance(payload, dict):
+            return f"投影机接口暂时不可用：{payload}"
+        alias_row = self._best_alias_row(query, "projector") if query else None
+        target_id = str((alias_row or {}).get("device_id") or "")
+        config_names = {str(row.get("id") or ""): _device_name(row) for row in self._config_section("projectors")}
+        lines = ["投影机状态："]
+        for device_id, item in payload.items():
+            if target_id and str(device_id) != target_id:
+                continue
+            if not isinstance(item, dict):
+                continue
+            name = config_names.get(str(device_id)) or _device_name({"name": item.get("name"), "id": device_id})
+            online = _status_level_text(item.get("status_level"), online=item.get("online", True))
+            power = _status_level_text(item.get("power") or item.get("power_state") or item.get("status"))
+            updated = _format_time_for_chat(item.get("updated_at") or item.get("last_success_at") or item.get("last_checked_at"))
+            extra = item.get("last_error") or item.get("error") or ""
+            lines.append(f"- {name}：{online}，电源 {power}，更新 {updated}{f'，{extra}' if extra else ''}")
+        return "\n".join(lines) if len(lines) > 1 else "没有匹配到投影机。"
+
+    def screen_status_text(self, query: str = "") -> str:
+        ok, payload = self.get_json("/api/screens", timeout_sec=5.0)
+        if not ok or not isinstance(payload, dict):
+            return f"幕布接口暂时不可用：{payload}"
+        screens = [item for item in payload.get("screens") or [] if isinstance(item, dict)]
+        if query and self._specific_alias_requested(query, "screen"):
+            alias_row = self._best_alias_row(query, "screen")
+            target_id = str((alias_row or {}).get("device_id") or "")
+            screens = [item for item in screens if str(item.get("id") or "") == target_id]
+        lines = ["幕布状态："]
+        for item in screens[:8]:
+            status = item.get("status") if isinstance(item.get("status"), dict) else {}
+            online = _status_level_text(status.get("status_level"), online=status.get("online", True))
+            moving = "运行中" if item.get("is_moving") or status.get("is_moving") else "静止"
+            position = item.get("current_position", status.get("position_percent"))
+            updated = _format_time_for_chat(status.get("last_success_at") or status.get("last_checked_at") or item.get("last_action_time"))
+            lines.append(f"- {_device_name(item)}：{online}，{moving}，位置 {_fmt_number(position, 0)}%，更新 {updated}")
+        return "\n".join(lines) if len(lines) > 1 else "没有匹配到幕布。"
+
+    def sequencer_status_text(self, query: str = "") -> str:
+        ok, payload = self.get_json("/api/sequencer/status", timeout_sec=5.0)
+        if not ok or not isinstance(payload, dict):
+            return f"时序电源接口暂时不可用：{payload}"
+        devices = [item for item in payload.get("devices") or [] if isinstance(item, dict)]
+        if query and self._specific_alias_requested(query, "sequencer"):
+            alias_row = self._best_alias_row(query, "sequencer")
+            target_id = str((alias_row or {}).get("device_id") or "")
+            devices = [item for item in devices if str(item.get("id") or "") == target_id]
+        lines = ["时序电源状态："]
+        for item in devices[:8]:
+            online = _status_level_text(item.get("status_level"), online=item.get("online", True))
+            channels = item.get("channels") or item.get("channel_states") or []
+            on_count = 0
+            known_count = 0
+            if isinstance(channels, list):
+                for channel in channels:
+                    state = channel.get("on") if isinstance(channel, dict) else channel
+                    if state is not None:
+                        known_count += 1
+                    if state is True or state == 1 or str(state).lower() in {"on", "true", "1"}:
+                        on_count += 1
+            updated = _format_time_for_chat(item.get("updated_at") or item.get("last_success_at") or item.get("last_checked_at"))
+            channel_text = f"{on_count}/{known_count} 路开启" if known_count else "通道未知"
+            lines.append(f"- {_device_name(item)}：{online}，{channel_text}，更新 {updated}")
+        return "\n".join(lines) if len(lines) > 1 else "没有匹配到时序电源。"
+
+    def power_status_text(self, query: str = "") -> str:
+        if not _contains_any(query, ("电源", "强电", "电柜", "配电", "插座", "供电", "第", "路", "回路", "通道")):
+            return ""
+        alias_row = self._best_alias_row(query, "power") if query else None
+        cab_idx = alias_row.get("cab_idx") if alias_row else None
+        channel = alias_row.get("channel") if alias_row else None
+        if cab_idx is None:
+            return ""
+        ok, payload = self.get_json(f"/api/status?cab={int(cab_idx)}", timeout_sec=4.0)
+        if not ok or not isinstance(payload, dict):
+            return f"强电柜接口暂时不可用：{payload}"
+        cab_name = str(alias_row.get("name") or f"强电柜{int(cab_idx) + 1}")
+        online = _status_level_text(payload.get("status_level"), online=payload.get("online", True))
+        channels = payload.get("channels_1_4") or payload.get("channels") or []
+        updated = _format_time_for_chat(payload.get("_last_success_at") or payload.get("updated_at") or payload.get("last_success_at"))
+        if channel:
+            try:
+                state = "开启" if bool(channels[int(channel) - 1]) else "关闭"
+            except Exception:
+                state = "--"
+            return f"{cab_name}状态：{online}，第{int(channel)}路 {state}，更新 {updated}"
+        if isinstance(channels, list):
+            on_count = sum(1 for value in channels if value in {1, True})
+            known_count = sum(1 for value in channels if value is not None)
+            return f"{cab_name}状态：{online}，{on_count}/{known_count} 路开启，更新 {updated}"
+        return f"{cab_name}状态：{online}，通道未知，更新 {updated}"
 
     def nvr_status_text(self) -> str:
         return "NVR/海康监控模块已从当前中控主服务归档移除，暂不在飞书机器人里查询。"
 
-    def proxy_status_text(self) -> str:
+    def proxy_status_text(self, query: str = "") -> str:
         ok, payload = self.get_json("/api/proxy/status", timeout_sec=4.0)
         if not ok or not isinstance(payload, dict):
             return f"代理接口暂时不可用：{payload}"
         online = "在线" if payload.get("online") else "离线"
+        checks = [item for item in payload.get("checks") or [] if isinstance(item, dict)]
+        query_fragment = _specific_query_fragment(query, ("代理", "节点小宝", "异地访问", "状态", "查询", "查看", "显示", "情况", "现在"))
+        if query and self._specific_alias_requested(query, "proxy"):
+            matches = _match_items_by_query(query, checks, ("name", "url", "target", "host"))
+            if matches:
+                checks = matches
+        elif query_fragment:
+            matched_checks = []
+            for item in checks:
+                haystack = normalize_alias_text(f"{item.get('name') or ''}{item.get('url') or ''}{item.get('target') or ''}{item.get('host') or ''}")
+                if query_fragment in haystack:
+                    matched_checks.append(item)
+            if matched_checks:
+                checks = matched_checks
         lines = [f"代理状态：{online}，目标健康 {payload.get('healthy_target_count', 0)}/{payload.get('check_count', 0)}"]
-        for item in payload.get("checks") or []:
+        for item in checks[:8]:
             if isinstance(item, dict):
                 lines.append(f"- {item.get('name')}：{'正常' if item.get('healthy') else '异常'}，{item.get('latency_ms') or '--'}ms")
         clients = payload.get("clients") if isinstance(payload.get("clients"), dict) else {}
@@ -2811,17 +3055,17 @@ class LocalSmartCenterClient:
         if intent == "lighting_logs":
             return self.log_text(query, category="light")
         if intent == "automation_status":
-            return self.automation_status_text()
+            return self.automation_status_text(query)
         if intent == "automation_logs":
             return self.log_text(query, event_type="automation")
         if intent == "event_logs":
             return self.log_text(query)
         if intent == "snmp_status":
-            return self.snmp_status_text()
+            return self.snmp_status_text(query)
         if intent == "ups_status":
-            return self.ups_status_text()
+            return self.ups_status_text(query)
         if intent == "proxy_status":
-            return self.proxy_status_text()
+            return self.proxy_status_text(query)
         if intent == "local_model_status":
             return self.local_model_status_text()
         if intent in {"control_request", "forbidden_control"}:
@@ -2843,6 +3087,8 @@ class LocalSmartCenterClient:
             if _contains_any(keyword, ("灯", "灯光", "庭院灯")):
                 return self.answer_intent("lighting_logs", keyword)
             return self.answer_intent("event_logs", keyword)
+        if _contains_any(keyword, ("自动化", "场景", "联动", "规则")):
+            return self.automation_status_text(keyword)
         if _contains_any(keyword, ("电流", "采集器")):
             return self.current_collector_text()
         if _contains_any(keyword, ("离线", "异常", "不在线", "掉线", "故障")):
@@ -2860,6 +3106,15 @@ class LocalSmartCenterClient:
             return self.meter_energy_text(keyword)
         if _server_like_query(keyword, lowered):
             return self.server_status_text(keyword)
+        if _contains_any(keyword, ("投影", "投影机", "pjlink", "PJLink")):
+            return self.projector_status_text(keyword)
+        if _contains_any(keyword, ("幕布", "投影幕", "升降幕")):
+            return self.screen_status_text(keyword)
+        if _contains_any(keyword, ("时序器", "时序电源", "时序")):
+            return self.sequencer_status_text(keyword)
+        power_specific = self.power_status_text(keyword)
+        if power_specific:
+            return power_specific
         if _contains_any(keyword, ("环境", "温度", "湿度", "光照", "传感器")):
             return self.environment_status_text(keyword)
         if _contains_any(keyword, ("空调", "hvac", "HVAC")):
@@ -2869,16 +3124,14 @@ class LocalSmartCenterClient:
         if _contains_any(keyword, ("灯光", "继电器", "灯状态", "哪些灯")):
             specific = self.specific_lighting_status_text(keyword)
             return specific or self.lighting_status_text()
-        if _contains_any(keyword, ("自动化", "场景", "联动", "规则")):
-            return self.automation_status_text()
         if _contains_any(keyword, ("ups", "UPS", "电池", "旁路", "输入电压", "负载", "续航")):
-            return self.ups_status_text()
+            return self.ups_status_text(keyword)
         if _contains_any(keyword, ("snmp", "SNMP", "nas", "NAS", "交换机", "网关", "网络设备", "存储")):
-            return self.snmp_status_text()
+            return self.snmp_status_text(keyword)
         if _contains_any(keyword, ("nvr", "NVR", "录像机", "摄像头")):
             return self.nvr_status_text()
         if _contains_any(keyword, ("代理", "chatgpt", "ChatGPT", "google", "Google", "youtube", "YouTube", "github", "GitHub")):
-            return self.proxy_status_text()
+            return self.proxy_status_text(keyword)
         if _contains_any(keyword, ("本地模型", "模型服务", "qwen", "Qwen", "知识模型")):
             return self.local_model_status_text()
         if _contains_any(keyword, ("设备", "概览", "状态", "在线", "情况", "现在")):
