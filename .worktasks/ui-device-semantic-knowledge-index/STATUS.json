@@ -1,0 +1,10 @@
+{
+  "task": "ui-device-semantic-knowledge-index",
+  "module": "local_model",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-ui-device-semantic-knowledge-index-20260603",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-task-worktrees/ui-device-semantic-knowledge-index",
+  "started_at": "2026-06-03 23:54:21",
+  "status": "in_progress"
+}
