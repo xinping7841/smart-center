@@ -134,6 +134,8 @@
 
 .apple-custom-playlist-form { display:flex; align-items:center; gap:8px; min-width:260px; }
 
+.apple-custom-playlist-form-right { margin-bottom:12px; min-width:0; flex-wrap:wrap; }
+
 .apple-playlist-input { width:170px; height:36px; border-radius:12px; border:1px solid rgba(148,163,184,0.18); background:rgba(15,23,42,0.55); color:#fff; padding:0 12px; font-size:12px; outline:none; }
 
 .apple-playlist-select { width:150px; height:36px; border-radius:12px; border:1px solid rgba(148,163,184,0.18); background:rgba(15,23,42,0.72); color:#fff; padding:0 10px; font-size:12px; outline:none; }
@@ -141,6 +143,24 @@
 .apple-playlist-actions { display:flex; align-items:center; gap:8px; min-height:38px; margin-top:8px; }
 
 .apple-result-list, .apple-queue-list { display:flex; flex-direction:column; gap:10px; margin-top:14px; max-height:318px; overflow:auto; padding-right:4px; }
+
+.apple-playlist-list { display:flex; flex-direction:column; gap:10px; max-height:254px; overflow:auto; padding-right:4px; }
+
+.apple-playlist-card { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:10px; align-items:center; padding:10px; border-radius:16px; background:rgba(15,23,42,0.42); border:1px solid rgba(255,255,255,0.07); }
+
+.apple-playlist-card.active { background:linear-gradient(135deg, rgba(59,130,246,0.18), rgba(15,23,42,0.58)); border-color:rgba(96,165,250,0.28); }
+
+.apple-playlist-main { min-width:0; border:none; background:transparent; color:inherit; padding:0; text-align:left; cursor:pointer; }
+
+.apple-playlist-name { display:block; color:#fff; font-size:14px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.apple-playlist-meta { display:block; margin-top:5px; color:#94a3b8; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.apple-playlist-card-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end; max-width:250px; }
+
+.apple-playlist-card-actions .apple-track-action { min-width:50px; padding:0 9px; }
+
+.apple-queue-head { margin-top:16px; margin-bottom:0; padding-top:14px; border-top:1px solid rgba(148,163,184,0.14); }
 
 .apple-scan-progress { margin-top:12px; border-radius:12px; padding:10px; background:rgba(2,6,23,0.36); border:1px solid rgba(148,163,184,0.16); }
 
@@ -234,4 +254,6 @@
             .apple-audio-hero { grid-template-columns:1fr; }
             .apple-cover { width:132px; height:132px; }
             .apple-grid-2 { grid-template-columns:1fr; }
+            .apple-playlist-card { grid-template-columns:1fr; }
+            .apple-playlist-card-actions { justify-content:flex-start; max-width:none; }
         }

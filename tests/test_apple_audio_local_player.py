@@ -1,7 +1,7 @@
 # AI_MODULE: apple_audio_local_player_tests
-# AI_PURPOSE: 验证音乐播放器本机播放模式的命令路由，不触发真实蓝牙连接或真实音频输出。
+# AI_PURPOSE: 验证音乐播放器本机播放模式、文件夹播放列表和列表作用域，不触发真实音频输出。
 # AI_BOUNDARY: 只 mock 播放进程；不访问 NAS、不连接蓝牙音箱、不播放真实音乐。
-# AI_SEARCH_KEYWORDS: apple audio, local player, node120 bluetooth, node120 analog, ffplay, ffmpeg, aplay.
+# AI_SEARCH_KEYWORDS: apple audio, local player, folder playlist, playlist scope, node120 analog, ffplay, ffmpeg, aplay.
 
 import os
 import pwd
@@ -225,6 +225,68 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
         self.assertEqual(state["current_track"]["id"], "track-1")
         self.assertEqual([item["id"] for item in state["queue"]], ["track-2"])
         self.assertTrue(state["is_playing"])
+
+    def test_folder_playlist_uses_directory_order(self):
+        service = self._service_with_tracks(1)
+        service.library = [
+            {
+                "id": "track-b",
+                "title": "B",
+                "path": "/tmp/Folder A/02-b.mp3",
+                "playable": True,
+                "category": "Old Category",
+                "relative_path": "Folder A/02-b.mp3",
+            },
+            {
+                "id": "track-a",
+                "title": "A",
+                "path": "/tmp/Folder A/01-a.mp3",
+                "playable": True,
+                "category": "Old Category",
+                "relative_path": "Folder A/01-a.mp3",
+            },
+        ]
+        service.library_by_id = {item["id"]: item for item in service.library}
+
+        folder = next(item for item in service.playlists_snapshot()["playlists"] if item["kind"] == "folder")
+        state = service.queue_playlist(folder["id"], play_now=True, mode="normal")
+
+        self.assertEqual(folder["name"], "Folder A")
+        self.assertEqual(folder["track_ids"], ["track-a", "track-b"])
+        self.assertEqual(state["current_track"]["id"], "track-a")
+        self.assertEqual([item["id"] for item in state["queue"]], ["track-b"])
+
+    def test_playlist_repeat_all_wraps_inside_playlist_scope(self):
+        service = self._service_with_tracks(3)
+        folder = next(item for item in service.playlists_snapshot()["playlists"] if item["kind"] == "folder" and item["name"] == "Folder A")
+
+        state = service.queue_playlist(folder["id"], play_now=True, mode="repeat_all")
+        self.assertEqual(state["playlist_scope"]["id"], folder["id"])
+        self.assertEqual(state["current_track"]["id"], "track-1")
+
+        state = service.transport("next")
+        self.assertEqual(state["current_track"]["id"], "track-2")
+
+        state = service.transport("next")
+        self.assertEqual(state["current_track"]["id"], "track-1")
+
+    def test_playlist_shuffle_stays_inside_playlist_scope(self):
+        service = self._service_with_tracks(3)
+        folder = next(item for item in service.playlists_snapshot()["playlists"] if item["kind"] == "folder" and item["name"] == "Folder A")
+
+        with patch("apple_audio_core.random.shuffle", side_effect=lambda ids: ids.reverse()):
+            state = service.queue_playlist(folder["id"], play_now=True, mode="shuffle")
+
+        self.assertEqual(state["playback_mode"], "shuffle")
+        self.assertEqual(state["playlist_scope"]["track_ids"], ["track-1", "track-2"])
+        self.assertEqual(state["current_track"]["id"], "track-2")
+        self.assertEqual([item["id"] for item in state["queue"]], ["track-1"])
+
+        with patch("apple_audio_core.random.choice", return_value="track-1") as choice:
+            state = service.transport("next")
+
+        self.assertEqual(state["current_track"]["id"], "track-1")
+        choice.assert_not_called()
 
     def test_browser_ended_stops_in_normal_mode_when_queue_empty(self):
         service = self._service_with_tracks(1)
