@@ -49,6 +49,9 @@ scripts/remote/setup_node120_apple_audio_bluetooth_20260604.sh
 - 增加顶部栏实时歌词：音乐播放器页有当前曲目时显示当前歌词行，离开音乐播放器页隐藏。
 - 增加页面音量调节：`apple_audio.volume_percent` 持久化，浏览器播放即时生效，120 本机 `ffplay`/`ffmpeg_aplay` 后续播放按音量输出。
 - 资源版本更新到 `20260604-apple-audio-lyrics-volume-v1`，并同步刷新 `critical.css.gz`、`apple_audio.css.gz`、`app-runtime.js.gz`。
+- 增加播放列表能力：默认按 NAS 文件夹生成播放列表；支持创建自定义列表、选择目标自定义列表、把歌曲加入列表、播放/加入整个列表。
+- 自定义列表保存到 `DATA_DIR/music_playlists.json`，只保存曲目 id，不修改 NAS 音频文件。
+- 资源版本更新到 `20260604-apple-audio-playlists-v1`，同步刷新 `apple_audio.css.gz`。
 
 ## 已验证
 
@@ -59,6 +62,7 @@ scripts/remote/setup_node120_apple_audio_bluetooth_20260604.sh
 - `git diff --check`
 - 本轮播放模式验证只使用 mock 本机播放器进程，不触发真实音频输出。
 - 顶部歌词和音量功能本地验证只做语法/单测/API 行为检查；真实播放听音需用户明确允许。
+- 播放列表本地验证只做后端队列逻辑和前端语法检查；未触发真实音乐播放。
 - 120 生产音频口测试：`Line Out Front Jack=on`，`plughw:CARD=PCH,DEV=0` 播放可听。
 - 120 素材库：`library_size=3413`，`/api/apple-audio/search?q=舒伯特` 正常，stream 返回 `206 audio/mpeg`。
 
@@ -69,6 +73,7 @@ scripts/remote/setup_node120_apple_audio_bluetooth_20260604.sh
 - 生产切到 `node120_analog` 后需用真实音乐短播验证后置绿色口。
 - 播放模式尚未发布生产；发布后需验证 `/api/apple-audio/status` 返回 `playback_mode`，并在用户明确允许时再做真实续播听音测试。
 - 发布后需验证生产 HTML/JS/CSS 资源版本为 `20260604-apple-audio-lyrics-volume-v1`，并验证 `/api/apple-audio/status` 返回 `volume_percent`。
+- 播放列表发布后需验证 `/api/apple-audio/status` 返回 `playlists`，且生产 JS 包含 `appleCustomPlaylistSelect` 和 playlist API 调用。
 
 ## 风险点
 

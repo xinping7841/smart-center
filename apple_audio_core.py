@@ -43,6 +43,7 @@ except Exception:
 
 
 MUSIC_CACHE_FILE = ensure_parent_dir(DATA_DIR / "music_tag_library.json")
+PLAYLISTS_FILE = ensure_parent_dir(DATA_DIR / "music_playlists.json")
 COVER_CACHE_DIR = ensure_directory(DATA_DIR / "music_tag_covers")
 
 SUPPORTED_AUDIO_EXTENSIONS = {
@@ -496,6 +497,13 @@ def _derive_category(relative_path: str, root_name: str):
     return rel or (root_name or "未分类")
 
 
+def _safe_playlist_id(value):
+    text = str(value or "").strip().lower()
+    text = re.sub(r"[^a-z0-9_-]+", "_", text)
+    text = re.sub(r"_+", "_", text).strip("_")
+    return text[:64] or hashlib.sha1(str(value or "").encode("utf-8", errors="ignore")).hexdigest()[:12]
+
+
 class AppleAudioService:
     def __init__(self):
         self.lock = threading.Lock()
@@ -503,6 +511,7 @@ class AppleAudioService:
         self.library = []
         self.library_by_id = {}
         self.lyrics_cache = {}
+        self.custom_playlists = []
         self.local_player_proc = None
         self.state = {
             "connected": True,
@@ -541,6 +550,7 @@ class AppleAudioService:
         }
         self.configure()
         self._load_library_cache()
+        self._load_custom_playlists()
         if self._config().get("nas_auto_scan_on_start", True):
             self.start_background_scan("startup")
 
@@ -1349,6 +1359,184 @@ class AppleAudioService:
         }
         MUSIC_CACHE_FILE.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    def _normalize_custom_playlist(self, item):
+        if not isinstance(item, dict):
+            return None
+        name = str(item.get("name") or "").strip()
+        raw_id = str(item.get("id") or name or "").strip()
+        playlist_id = _safe_playlist_id(raw_id or name)
+        if not name:
+            name = playlist_id or "未命名歌单"
+        seen = set()
+        track_ids = []
+        for raw in item.get("track_ids", []) or []:
+            track_id = str(raw or "").strip()
+            if not track_id or track_id in seen:
+                continue
+            seen.add(track_id)
+            track_ids.append(track_id)
+        return {
+            "id": playlist_id,
+            "name": name[:80],
+            "track_ids": track_ids,
+            "created_at": str(item.get("created_at") or datetime.now().isoformat()),
+            "updated_at": str(item.get("updated_at") or datetime.now().isoformat()),
+        }
+
+    def _load_custom_playlists(self):
+        try:
+            if not PLAYLISTS_FILE.exists():
+                return
+            payload = json.loads(PLAYLISTS_FILE.read_text(encoding="utf-8"))
+            rows = payload.get("playlists", []) if isinstance(payload, dict) else []
+            playlists = []
+            seen = set()
+            for item in rows:
+                normalized = self._normalize_custom_playlist(item)
+                if not normalized or normalized["id"] in seen:
+                    continue
+                seen.add(normalized["id"])
+                playlists.append(normalized)
+            with self.lock:
+                self.custom_playlists = playlists
+        except Exception:
+            return
+
+    def _save_custom_playlists_locked(self):
+        payload = {
+            "schema": "smart_center.apple_audio_playlists.v1",
+            "updated_at": datetime.now().isoformat(),
+            "playlists": self.custom_playlists,
+        }
+        PLAYLISTS_FILE.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    def _folder_playlist_rows_locked(self):
+        groups = {}
+        for item in self.library:
+            label = str(item.get("category") or "").strip() or _derive_category(item.get("relative_path", ""), item.get("root_name", ""))
+            playlist_id = f"folder:{_safe_playlist_id(label)}"
+            row = groups.setdefault(playlist_id, {
+                "id": playlist_id,
+                "kind": "folder",
+                "name": label or "未分类",
+                "track_ids": [],
+                "count": 0,
+                "duration": 0,
+            })
+            row["track_ids"].append(item.get("id"))
+            row["count"] += 1
+            row["duration"] += int(item.get("duration", 0) or 0)
+        return sorted(groups.values(), key=lambda row: (-int(row.get("count", 0) or 0), str(row.get("name") or "")))
+
+    def _custom_playlist_rows_locked(self):
+        rows = []
+        for item in self.custom_playlists:
+            track_ids = [tid for tid in item.get("track_ids", []) if tid in self.library_by_id]
+            duration = sum(int(self.library_by_id.get(tid, {}).get("duration", 0) or 0) for tid in track_ids)
+            rows.append({
+                "id": f"custom:{item['id']}",
+                "kind": "custom",
+                "custom_id": item["id"],
+                "name": item["name"],
+                "track_ids": track_ids,
+                "count": len(track_ids),
+                "duration": duration,
+                "updated_at": item.get("updated_at", ""),
+            })
+        return rows
+
+    def _playlist_rows_locked(self):
+        return self._folder_playlist_rows_locked() + self._custom_playlist_rows_locked()
+
+    def _resolve_playlist_track_ids_locked(self, playlist_id):
+        safe_id = str(playlist_id or "").strip()
+        for row in self._playlist_rows_locked():
+            if row.get("id") == safe_id:
+                return [tid for tid in row.get("track_ids", []) if tid in self.library_by_id]
+        return []
+
+    def playlists_snapshot(self):
+        with self.lock:
+            return {
+                "playlists": deepcopy(self._playlist_rows_locked()),
+                "updated_at": datetime.now().isoformat(),
+            }
+
+    def _playlists_snapshot_payload_locked(self):
+        return {
+            "playlists": deepcopy(self._playlist_rows_locked()),
+            "updated_at": datetime.now().isoformat(),
+        }
+
+    def create_custom_playlist(self, name):
+        name = str(name or "").strip()
+        if not name:
+            raise ValueError("playlist name required")
+        with self.lock:
+            base_id = _safe_playlist_id(name)
+            playlist_id = base_id
+            suffix = 2
+            existing = {item["id"] for item in self.custom_playlists}
+            while playlist_id in existing:
+                playlist_id = f"{base_id}_{suffix}"
+                suffix += 1
+            now = datetime.now().isoformat()
+            self.custom_playlists.append({
+                "id": playlist_id,
+                "name": name[:80],
+                "track_ids": [],
+                "created_at": now,
+                "updated_at": now,
+            })
+            self._save_custom_playlists_locked()
+            return self._playlists_snapshot_payload_locked()
+
+    def add_track_to_custom_playlist(self, playlist_id, track_id):
+        custom_id = str(playlist_id or "").strip()
+        if custom_id.startswith("custom:"):
+            custom_id = custom_id.split(":", 1)[1]
+        track_id = str(track_id or "").strip()
+        if not track_id:
+            raise ValueError("track id required")
+        with self.lock:
+            if track_id not in self.library_by_id:
+                raise ValueError("track not found")
+            for item in self.custom_playlists:
+                if item.get("id") != custom_id:
+                    continue
+                if track_id not in item["track_ids"]:
+                    item["track_ids"].append(track_id)
+                    item["updated_at"] = datetime.now().isoformat()
+                    self._save_custom_playlists_locked()
+                return self._playlists_snapshot_payload_locked()
+        raise ValueError("playlist not found")
+
+    def queue_playlist(self, playlist_id, play_now=False):
+        with self.lock:
+            self._tick_locked()
+            track_ids = self._resolve_playlist_track_ids_locked(playlist_id)
+            if not track_ids:
+                raise ValueError("playlist is empty")
+            if play_now:
+                current_id = str(self.state.get("current_track_id") or "").strip()
+                next_queue = list(track_ids[1:])
+                if current_id:
+                    next_queue.append(current_id)
+                self.state["current_track_id"] = track_ids[0]
+                self.state["queue_ids"] = next_queue
+                self.state["elapsed_sec"] = 0
+                self.state["is_playing"] = True
+                self.state["last_action"] = "Play playlist"
+                target_track_id = track_ids[0]
+            else:
+                self.state["queue_ids"].extend(track_ids)
+                self.state["last_action"] = "Queued playlist"
+                target_track_id = ""
+            self.state["updated_at"] = datetime.now().isoformat()
+        if play_now and self._local_player_enabled():
+            self._start_local_player_for_track(target_track_id)
+        return self.snapshot()
+
     def _cleanup_stale_cover_cache(self, valid_track_ids):
         valid = {str(item) for item in valid_track_ids}
         try:
@@ -1648,6 +1836,7 @@ class AppleAudioService:
             "current_track": deepcopy(current) if current else None,
             "queue": queue,
             "library": deepcopy(self.library),
+            "playlists": deepcopy(self._playlist_rows_locked()),
             "outputs": deepcopy(self.state.get("outputs", [])),
             "local_player": deepcopy(self.state.get("local_player", {})),
             "library_size": len(self.library),

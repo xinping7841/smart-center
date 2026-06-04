@@ -67,6 +67,8 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
                 "title": f"Track {index}",
                 "path": f"/tmp/track-{index}.mp3",
                 "playable": True,
+                "category": "Folder A" if index < count else "Folder B",
+                "relative_path": f"Folder {'A' if index < count else 'B'}/track-{index}.mp3",
             }
             for index in range(1, count + 1)
         ]
@@ -205,6 +207,24 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
 
         self.assertEqual(state["volume_percent"], 100)
         self.assertEqual(service.state["volume_percent"], 100)
+
+    def test_folder_and_custom_playlists_queue_tracks(self):
+        service = self._service_with_tracks(3)
+
+        playlists = service.playlists_snapshot()["playlists"]
+        folder = next(item for item in playlists if item["kind"] == "folder" and item["name"] == "Folder A")
+        self.assertEqual(folder["count"], 2)
+
+        payload = service.create_custom_playlist("晚间列表")
+        custom = next(item for item in payload["playlists"] if item["kind"] == "custom")
+        service.add_track_to_custom_playlist(custom["id"], "track-1")
+        service.add_track_to_custom_playlist(custom["id"], "track-2")
+
+        state = service.queue_playlist(custom["id"], play_now=True)
+
+        self.assertEqual(state["current_track"]["id"], "track-1")
+        self.assertEqual([item["id"] for item in state["queue"]], ["track-2"])
+        self.assertTrue(state["is_playing"])
 
     def test_browser_ended_stops_in_normal_mode_when_queue_empty(self):
         service = self._service_with_tracks(1)

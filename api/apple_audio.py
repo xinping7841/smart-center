@@ -275,6 +275,54 @@ def api_apple_audio_lyrics(track_id):
     return jsonify({"success": True, "lyrics": payload})
 
 
+@bp.route("/api/apple-audio/playlists")
+@require_permission("meter.view")
+def api_apple_audio_playlists():
+    return jsonify({"success": True, **apple_audio_service.playlists_snapshot()})
+
+
+@bp.route("/api/apple-audio/playlists", methods=["POST"])
+@require_permission("meter.view")
+def api_apple_audio_playlist_create():
+    data = request.json or {}
+    try:
+        payload = apple_audio_service.create_custom_playlist(data.get("name"))
+        add_log(-1, f"[MusicPlayer] playlist created {data.get('name')}")
+        return jsonify({"success": True, **payload})
+    except ValueError as ex:
+        return _error_payload(ex, 400)
+    except Exception as ex:
+        return _error_payload(ex, 500)
+
+
+@bp.route("/api/apple-audio/playlists/add-track", methods=["POST"])
+@require_permission("meter.view")
+def api_apple_audio_playlist_add_track():
+    data = request.json or {}
+    try:
+        payload = apple_audio_service.add_track_to_custom_playlist(data.get("playlist_id"), data.get("track_id"))
+        add_log(-1, f"[MusicPlayer] playlist add track {data.get('playlist_id')} {data.get('track_id')}")
+        return jsonify({"success": True, **payload})
+    except ValueError as ex:
+        return _error_payload(ex, 400)
+    except Exception as ex:
+        return _error_payload(ex, 500)
+
+
+@bp.route("/api/apple-audio/playlists/queue", methods=["POST"])
+@require_permission("meter.view")
+def api_apple_audio_playlist_queue():
+    data = request.json or {}
+    try:
+        snapshot = apple_audio_service.queue_playlist(data.get("playlist_id"), play_now=bool(data.get("play_now")))
+        add_log(-1, f"[MusicPlayer] playlist queue {data.get('playlist_id')} play_now={bool(data.get('play_now'))}")
+        return jsonify({"success": True, "state": snapshot})
+    except ValueError as ex:
+        return _error_payload(ex, 400)
+    except Exception as ex:
+        return _error_payload(ex, 500)
+
+
 @bp.route("/api/apple-audio/queue", methods=["POST"])
 @require_permission("meter.view")
 def api_apple_audio_queue():
