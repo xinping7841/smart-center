@@ -13,6 +13,7 @@ import math
 import mimetypes
 import os
 import pwd
+import random
 import re
 import shutil
 import signal
@@ -100,6 +101,8 @@ DEFAULT_CONFIG = {
     "player_mode": "nas_http",
     "player_host": "",
     "output_mode": "system_default",
+    "playback_mode": "normal",
+    "volume_percent": 70,
     "auth_state": "NAS music tag ready",
     "outputs": DEFAULT_OUTPUTS,
     "nas_music_roots": [],
@@ -120,6 +123,28 @@ JAMENDO_TRACKS_ENDPOINT = "https://api.jamendo.com/v3.0/tracks/"
 LOCAL_PLAYER_MODES = {"local_process", "node120_bluetooth", "bluetooth_local", "node120_analog"}
 LOCAL_PLAYER_COMMANDS = {"ffplay", "ffmpeg_aplay"}
 LOCAL_PLAYER_STATUS_TIMEOUT = 2.5
+PLAYBACK_MODES = {"normal", "shuffle", "repeat_all", "repeat_one"}
+PLAYBACK_MODE_ALIASES = {
+    "random": "shuffle",
+    "loop": "repeat_all",
+    "loop_all": "repeat_all",
+    "repeat": "repeat_all",
+    "single": "repeat_one",
+    "single_loop": "repeat_one",
+}
+
+
+def _normalize_playback_mode(value):
+    mode = str(value or "").strip().lower()
+    mode = PLAYBACK_MODE_ALIASES.get(mode, mode)
+    return mode if mode in PLAYBACK_MODES else "normal"
+
+
+def _coerce_volume_percent(value):
+    try:
+        return max(0, min(int(round(float(value))), 100))
+    except Exception:
+        return 70
 
 
 def _try_decode_text(raw):
@@ -485,6 +510,8 @@ class AppleAudioService:
             "player_mode": "nas_http",
             "player_host": "",
             "output_mode": "system_default",
+            "playback_mode": "normal",
+            "volume_percent": 70,
             "auth_state": "NAS music tag ready",
             "is_playing": False,
             "elapsed_sec": 0,
@@ -558,6 +585,8 @@ class AppleAudioService:
         merged["jamendo_enabled"] = bool(merged.get("jamendo_enabled", False))
         merged["jamendo_client_id"] = str(merged.get("jamendo_client_id") or "").strip()
         merged["jamendo_api_base"] = str(merged.get("jamendo_api_base") or JAMENDO_TRACKS_ENDPOINT.rsplit("/", 2)[0]).strip()
+        merged["playback_mode"] = _normalize_playback_mode(merged.get("playback_mode"))
+        merged["volume_percent"] = _coerce_volume_percent(merged.get("volume_percent", 70))
         try:
             merged["jamendo_limit"] = max(1, min(int(merged.get("jamendo_limit", 20) or 20), 50))
         except Exception:
@@ -573,6 +602,8 @@ class AppleAudioService:
             self.state["player_mode"] = str(cfg.get("player_mode", "nas_http") or "nas_http")
             self.state["player_host"] = str(cfg.get("player_host", "") or "").strip()
             self.state["output_mode"] = str(cfg.get("output_mode", "system_default") or "system_default")
+            self.state["playback_mode"] = _normalize_playback_mode(cfg.get("playback_mode", self.state.get("playback_mode")))
+            self.state["volume_percent"] = _coerce_volume_percent(cfg.get("volume_percent", self.state.get("volume_percent", 70)))
             self.state["auth_state"] = str(cfg.get("auth_state", "NAS music tag ready") or "NAS music tag ready")
             self.state["connected"] = bool(cfg.get("enabled", True))
             self.state["outputs"] = deepcopy(cfg.get("outputs", DEFAULT_OUTPUTS))
@@ -630,6 +661,7 @@ class AppleAudioService:
     def _build_local_player_command(self, track):
         cfg = self._config()
         command = self._local_player_command(cfg)
+        volume = max(0.0, min(_coerce_volume_percent(cfg.get("volume_percent", self.state.get("volume_percent", 70))) / 100.0, 1.0))
         path = str(track.get("path") or "").strip()
         if not path:
             raise RuntimeError("track has no local path")
@@ -643,7 +675,7 @@ class AppleAudioService:
             binary = shutil.which("ffplay")
             if not binary:
                 raise RuntimeError("ffplay is not installed on node-120")
-            return [binary, "-nodisp", "-autoexit", "-loglevel", "warning", source]
+            return [binary, "-nodisp", "-autoexit", "-loglevel", "warning", "-volume", str(int(round(volume * 100))), source]
         if command == "ffmpeg_aplay":
             ffmpeg = shutil.which("ffmpeg")
             aplay = shutil.which("aplay")
@@ -658,7 +690,7 @@ class AppleAudioService:
                 (
                     "set -o pipefail; "
                     '"$1" -hide_banner -loglevel warning -nostdin -i "$2" '
-                    "-vn -ar 48000 -ac 2 -f wav - | "
+                    '-vn -af "volume=$5" -ar 48000 -ac 2 -f wav - | '
                     '"$3" -D "$4"'
                 ),
                 "smart-center-ffmpeg-aplay",
@@ -666,6 +698,7 @@ class AppleAudioService:
                 source,
                 aplay,
                 device,
+                f"{volume:.3f}",
             ]
         raise RuntimeError("unsupported local player command")
 
@@ -720,17 +753,75 @@ class AppleAudioService:
         with self.lock:
             self._mark_local_player_locked("playing", f"Playing with {self._local_player_command()}: {track.get('title')}", pid=proc.pid)
 
-    def _refresh_local_player_locked(self):
+    def _next_library_track_id_locked(self, current_id):
+        ids = [str(item.get("id") or "").strip() for item in self.library if str(item.get("id") or "").strip()]
+        ids = [track_id for track_id in ids if track_id in self.library_by_id]
+        if not ids:
+            return ""
+        current_id = str(current_id or "").strip()
+        if current_id in ids and len(ids) > 1:
+            return ids[(ids.index(current_id) + 1) % len(ids)]
+        if current_id in ids:
+            return current_id
+        return ids[0]
+
+    def _shuffle_track_id_locked(self, current_id):
+        ids = [str(item.get("id") or "").strip() for item in self.library if str(item.get("id") or "").strip()]
+        ids = [track_id for track_id in ids if track_id in self.library_by_id]
+        if not ids:
+            return ""
+        current_id = str(current_id or "").strip()
+        choices = [track_id for track_id in ids if track_id != current_id]
+        return random.choice(choices or ids)
+
+    def _select_next_track_locked(self, *, manual=False):
+        mode = _normalize_playback_mode(self.state.get("playback_mode"))
+        queue = self.state.get("queue_ids", [])
+        current_id = str(self.state.get("current_track_id") or "").strip()
+        if mode == "repeat_one" and current_id:
+            return current_id
+        if mode == "shuffle":
+            return self._shuffle_track_id_locked(current_id)
+        if queue:
+            return str(queue.pop(0) or "").strip()
+        if mode == "repeat_all":
+            return self._next_library_track_id_locked(current_id)
+        if manual:
+            raise ValueError("queue is empty")
+        return ""
+
+    def _apply_selected_track_locked(self, track_id, action_text, *, playing=True):
+        track_id = str(track_id or "").strip()
+        if not track_id or track_id not in self.library_by_id:
+            return ""
+        self.state["current_track_id"] = track_id
+        self.state["elapsed_sec"] = 0
+        self.state["is_playing"] = bool(playing)
+        self.state["last_action"] = action_text
+        return track_id
+
+    def _refresh_local_player_locked(self, *, auto_advance=False):
         proc = self.local_player_proc
         if not proc:
-            return
+            return ""
         code = proc.poll()
         if code is None:
             self._mark_local_player_locked("playing", self.state.get("local_player", {}).get("message", ""), pid=proc.pid)
-            return
+            return ""
         self.local_player_proc = None
+        was_playing = bool(self.state.get("is_playing"))
+        next_track_id = ""
+        if auto_advance and was_playing and code == 0:
+            next_track_id = self._select_next_track_locked(manual=False)
+        if next_track_id:
+            title = self.library_by_id.get(next_track_id, {}).get("title") or next_track_id
+            self._apply_selected_track_locked(next_track_id, f"Auto next: {title}", playing=True)
+            self.state["updated_at"] = datetime.now().isoformat()
+            return next_track_id
         self.state["is_playing"] = False
+        self.state["updated_at"] = datetime.now().isoformat()
         self._mark_local_player_locked("idle", f"Local player exited: {code}")
+        return ""
 
     def local_output_status(self):
         cfg = self._config()
@@ -1535,61 +1626,79 @@ class AppleAudioService:
         if self.state["elapsed_sec"] > 24 * 3600:
             self.state["elapsed_sec"] = 0
 
+    def _snapshot_payload_locked(self):
+        current = self.library_by_id.get(str(self.state.get("current_track_id") or "").strip())
+        queue = []
+        for track_id in self.state.get("queue_ids", []):
+            item = self.library_by_id.get(str(track_id or "").strip())
+            if item:
+                queue.append(deepcopy(item))
+        scan_errors = list(self.state.get("scan_errors", []))
+        return {
+            "connected": bool(self.state.get("connected")),
+            "provider": self.state.get("provider", "nas_music_tag"),
+            "player_mode": self.state.get("player_mode", "nas_http"),
+            "player_host": self.state.get("player_host", ""),
+            "output_mode": self.state.get("output_mode", "system_default"),
+            "playback_mode": _normalize_playback_mode(self.state.get("playback_mode")),
+            "volume_percent": _coerce_volume_percent(self.state.get("volume_percent", 70)),
+            "auth_state": self.state.get("auth_state", "NAS music tag ready"),
+            "is_playing": bool(self.state.get("is_playing")),
+            "elapsed_sec": int(self.state.get("elapsed_sec", 0) or 0),
+            "current_track": deepcopy(current) if current else None,
+            "queue": queue,
+            "library": deepcopy(self.library),
+            "outputs": deepcopy(self.state.get("outputs", [])),
+            "local_player": deepcopy(self.state.get("local_player", {})),
+            "library_size": len(self.library),
+            "last_action": self.state.get("last_action", ""),
+            "updated_at": self.state.get("updated_at", ""),
+            "scan": {
+                "running": bool(self.state.get("scan_running")),
+                "count": int(self.state.get("scan_count", 0) or 0),
+                "stage": str(self.state.get("scan_stage") or "idle"),
+                "processed": int(self.state.get("scan_processed", 0) or 0),
+                "total": int(self.state.get("scan_total", 0) or 0),
+                "progress": int(self.state.get("scan_progress", 0) or 0),
+                "message": str(self.state.get("scan_message") or ""),
+                "last_scan_at": self.state.get("last_scan_at", ""),
+                "scan_ms": int(self.state.get("scan_ms", 0) or 0),
+                "errors": scan_errors,
+            },
+            "capabilities": {
+                "control_only": False,
+                "requires_audio_route": self._local_player_enabled(),
+                "cover_endpoint": "/api/apple-audio/cover/<track_id>",
+                "lyrics_endpoint": "/api/apple-audio/lyrics/<track_id>",
+                "category_field": "category",
+                "playback_modes": sorted(PLAYBACK_MODES),
+                "notes": [
+                    "Music source is provided by NAS local library.",
+                    "Track stream URL is exposed under /api/apple-audio/stream/<track_id>.",
+                    "Local node playback is available when player_mode is node120_bluetooth/node120_analog/local_process.",
+                    "Playback mode supports normal, shuffle, repeat_all, and repeat_one.",
+                    "Cover art and lyrics scraping is enabled for local files.",
+                    "Full-library lyrics scraping runs during rescan.",
+                ],
+            },
+        }
+
     def snapshot(self):
+        auto_start_track_id = ""
         with self.lock:
             self._tick_locked()
-            self._refresh_local_player_locked()
-            current = self.library_by_id.get(str(self.state.get("current_track_id") or "").strip())
-            queue = []
-            for track_id in self.state.get("queue_ids", []):
-                item = self.library_by_id.get(str(track_id or "").strip())
-                if item:
-                    queue.append(deepcopy(item))
-            scan_errors = list(self.state.get("scan_errors", []))
-            return {
-                "connected": bool(self.state.get("connected")),
-                "provider": self.state.get("provider", "nas_music_tag"),
-                "player_mode": self.state.get("player_mode", "nas_http"),
-                "player_host": self.state.get("player_host", ""),
-                "output_mode": self.state.get("output_mode", "system_default"),
-                "auth_state": self.state.get("auth_state", "NAS music tag ready"),
-                "is_playing": bool(self.state.get("is_playing")),
-                "elapsed_sec": int(self.state.get("elapsed_sec", 0) or 0),
-                "current_track": deepcopy(current) if current else None,
-                "queue": queue,
-                "library": deepcopy(self.library),
-                "outputs": deepcopy(self.state.get("outputs", [])),
-                "local_player": deepcopy(self.state.get("local_player", {})),
-                "library_size": len(self.library),
-                "last_action": self.state.get("last_action", ""),
-                "updated_at": self.state.get("updated_at", ""),
-                "scan": {
-                    "running": bool(self.state.get("scan_running")),
-                    "count": int(self.state.get("scan_count", 0) or 0),
-                    "stage": str(self.state.get("scan_stage") or "idle"),
-                    "processed": int(self.state.get("scan_processed", 0) or 0),
-                    "total": int(self.state.get("scan_total", 0) or 0),
-                    "progress": int(self.state.get("scan_progress", 0) or 0),
-                    "message": str(self.state.get("scan_message") or ""),
-                    "last_scan_at": self.state.get("last_scan_at", ""),
-                    "scan_ms": int(self.state.get("scan_ms", 0) or 0),
-                    "errors": scan_errors,
-                },
-                "capabilities": {
-                    "control_only": False,
-                    "requires_audio_route": self._local_player_enabled(),
-                    "cover_endpoint": "/api/apple-audio/cover/<track_id>",
-                    "lyrics_endpoint": "/api/apple-audio/lyrics/<track_id>",
-                    "category_field": "category",
-                    "notes": [
-                        "Music source is provided by NAS local library.",
-                        "Track stream URL is exposed under /api/apple-audio/stream/<track_id>.",
-                        "Local node playback is available when player_mode is node120_bluetooth/node120_analog/local_process.",
-                        "Cover art and lyrics scraping is enabled for local files.",
-                        "Full-library lyrics scraping runs during rescan.",
-                    ],
-                },
-            }
+            auto_start_track_id = self._refresh_local_player_locked(auto_advance=True)
+            if not auto_start_track_id:
+                return self._snapshot_payload_locked()
+        if self._local_player_enabled():
+            try:
+                self._start_local_player_for_track(auto_start_track_id)
+            except Exception:
+                pass
+        with self.lock:
+            self._tick_locked()
+            self._refresh_local_player_locked(auto_advance=False)
+            return self._snapshot_payload_locked()
 
     def search(self, query):
         text = str(query or "").strip().lower()
@@ -1783,13 +1892,23 @@ class AppleAudioService:
             self.state["updated_at"] = datetime.now().isoformat()
         return self.snapshot()
 
-    def transport(self, action):
+    def transport(self, action, mode=None):
         action = str(action or "").strip().lower()
         with self.lock:
             self._tick_locked()
             queue = self.state.get("queue_ids", [])
             current_id = str(self.state.get("current_track_id") or "").strip()
-            if action == "toggle":
+            if action in {"volume", "set_volume"}:
+                volume = _coerce_volume_percent(mode)
+                self.state["volume_percent"] = volume
+                self.state["last_action"] = f"Volume: {volume}%"
+                target_track_id = ""
+            elif action in {"playback_mode", "set_mode", "mode"}:
+                playback_mode = _normalize_playback_mode(mode)
+                self.state["playback_mode"] = playback_mode
+                self.state["last_action"] = f"Playback mode: {playback_mode}"
+                target_track_id = ""
+            elif action == "toggle":
                 if not current_id and queue:
                     self.state["current_track_id"] = queue.pop(0)
                     self.state["elapsed_sec"] = 0
@@ -1801,14 +1920,19 @@ class AppleAudioService:
                     self.state["is_playing"] = not bool(self.state.get("is_playing"))
                     self.state["last_action"] = "Play" if self.state["is_playing"] else "Pause"
                 target_track_id = str(self.state.get("current_track_id") or "").strip()
-            elif action == "next":
-                if not queue:
-                    raise ValueError("queue is empty")
-                self.state["current_track_id"] = queue.pop(0)
-                self.state["elapsed_sec"] = 0
-                self.state["is_playing"] = True
-                self.state["last_action"] = "Next track"
-                target_track_id = str(self.state.get("current_track_id") or "").strip()
+            elif action in {"next", "ended"}:
+                is_manual_next = action == "next"
+                target_track_id = self._select_next_track_locked(manual=is_manual_next)
+                if not target_track_id and action == "ended":
+                    self.state["is_playing"] = False
+                    self.state["elapsed_sec"] = 0
+                    self.state["last_action"] = "Playback ended"
+                    target_track_id = ""
+                elif not target_track_id:
+                    raise ValueError("no playable track available")
+                else:
+                    self._apply_selected_track_locked(target_track_id, "Next track", playing=True)
+                    self.state["last_action"] = "Next track"
             elif action == "prev":
                 if not current_id:
                     raise ValueError("no track selected")
