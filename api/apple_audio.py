@@ -50,6 +50,13 @@ def _normalize_playback_mode(value):
     return mode
 
 
+def _coerce_volume_percent(value):
+    try:
+        return max(0, min(int(round(float(value))), 100))
+    except Exception:
+        raise ValueError("unsupported volume")
+
+
 def _error_payload(message, status=400):
     return jsonify({"success": False, "message": str(message or "request failed")}), int(status)
 
@@ -92,6 +99,7 @@ def api_apple_audio_config():
         "player_host",
         "output_mode",
         "playback_mode",
+        "volume_percent",
         "auth_state",
         "nas_music_roots",
         "nas_music_exclude_dirs",
@@ -110,7 +118,12 @@ def api_apple_audio_config():
                 elif isinstance(value, str):
                     cfg[key] = [line.strip() for line in value.splitlines() if line.strip()]
             else:
-                cfg[key] = _normalize_playback_mode(value) if key == "playback_mode" else str(value or "").strip()
+                if key == "playback_mode":
+                    cfg[key] = _normalize_playback_mode(value)
+                elif key == "volume_percent":
+                    cfg[key] = _coerce_volume_percent(value)
+                else:
+                    cfg[key] = str(value or "").strip()
     for key in ["enabled"]:
         if key in data:
             cfg[key] = bool(data.get(key))
@@ -307,7 +320,15 @@ def api_apple_audio_transport():
     data = request.json or {}
     action = data.get("action", "")
     try:
-        if str(action or "").strip().lower() in {"playback_mode", "set_mode", "mode"}:
+        action_key = str(action or "").strip().lower()
+        if action_key in {"volume", "set_volume"}:
+            cfg = _cfg()
+            volume = _coerce_volume_percent(data.get("volume_percent", data.get("volume", data.get("mode"))))
+            cfg["volume_percent"] = volume
+            _save_cfg(cfg)
+            snapshot = apple_audio_service.transport(action, mode=volume)
+            add_log(-1, f"[MusicPlayer] volume {volume}%")
+        elif action_key in {"playback_mode", "set_mode", "mode"}:
             cfg = _cfg()
             mode = _normalize_playback_mode(data.get("mode"))
             cfg["playback_mode"] = mode

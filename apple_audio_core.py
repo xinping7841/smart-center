@@ -102,6 +102,7 @@ DEFAULT_CONFIG = {
     "player_host": "",
     "output_mode": "system_default",
     "playback_mode": "normal",
+    "volume_percent": 70,
     "auth_state": "NAS music tag ready",
     "outputs": DEFAULT_OUTPUTS,
     "nas_music_roots": [],
@@ -137,6 +138,13 @@ def _normalize_playback_mode(value):
     mode = str(value or "").strip().lower()
     mode = PLAYBACK_MODE_ALIASES.get(mode, mode)
     return mode if mode in PLAYBACK_MODES else "normal"
+
+
+def _coerce_volume_percent(value):
+    try:
+        return max(0, min(int(round(float(value))), 100))
+    except Exception:
+        return 70
 
 
 def _try_decode_text(raw):
@@ -503,6 +511,7 @@ class AppleAudioService:
             "player_host": "",
             "output_mode": "system_default",
             "playback_mode": "normal",
+            "volume_percent": 70,
             "auth_state": "NAS music tag ready",
             "is_playing": False,
             "elapsed_sec": 0,
@@ -577,6 +586,7 @@ class AppleAudioService:
         merged["jamendo_client_id"] = str(merged.get("jamendo_client_id") or "").strip()
         merged["jamendo_api_base"] = str(merged.get("jamendo_api_base") or JAMENDO_TRACKS_ENDPOINT.rsplit("/", 2)[0]).strip()
         merged["playback_mode"] = _normalize_playback_mode(merged.get("playback_mode"))
+        merged["volume_percent"] = _coerce_volume_percent(merged.get("volume_percent", 70))
         try:
             merged["jamendo_limit"] = max(1, min(int(merged.get("jamendo_limit", 20) or 20), 50))
         except Exception:
@@ -593,6 +603,7 @@ class AppleAudioService:
             self.state["player_host"] = str(cfg.get("player_host", "") or "").strip()
             self.state["output_mode"] = str(cfg.get("output_mode", "system_default") or "system_default")
             self.state["playback_mode"] = _normalize_playback_mode(cfg.get("playback_mode", self.state.get("playback_mode")))
+            self.state["volume_percent"] = _coerce_volume_percent(cfg.get("volume_percent", self.state.get("volume_percent", 70)))
             self.state["auth_state"] = str(cfg.get("auth_state", "NAS music tag ready") or "NAS music tag ready")
             self.state["connected"] = bool(cfg.get("enabled", True))
             self.state["outputs"] = deepcopy(cfg.get("outputs", DEFAULT_OUTPUTS))
@@ -650,6 +661,7 @@ class AppleAudioService:
     def _build_local_player_command(self, track):
         cfg = self._config()
         command = self._local_player_command(cfg)
+        volume = max(0.0, min(_coerce_volume_percent(cfg.get("volume_percent", self.state.get("volume_percent", 70))) / 100.0, 1.0))
         path = str(track.get("path") or "").strip()
         if not path:
             raise RuntimeError("track has no local path")
@@ -663,7 +675,7 @@ class AppleAudioService:
             binary = shutil.which("ffplay")
             if not binary:
                 raise RuntimeError("ffplay is not installed on node-120")
-            return [binary, "-nodisp", "-autoexit", "-loglevel", "warning", source]
+            return [binary, "-nodisp", "-autoexit", "-loglevel", "warning", "-volume", str(int(round(volume * 100))), source]
         if command == "ffmpeg_aplay":
             ffmpeg = shutil.which("ffmpeg")
             aplay = shutil.which("aplay")
@@ -678,7 +690,7 @@ class AppleAudioService:
                 (
                     "set -o pipefail; "
                     '"$1" -hide_banner -loglevel warning -nostdin -i "$2" '
-                    "-vn -ar 48000 -ac 2 -f wav - | "
+                    '-vn -af "volume=$5" -ar 48000 -ac 2 -f wav - | '
                     '"$3" -D "$4"'
                 ),
                 "smart-center-ffmpeg-aplay",
@@ -686,6 +698,7 @@ class AppleAudioService:
                 source,
                 aplay,
                 device,
+                f"{volume:.3f}",
             ]
         raise RuntimeError("unsupported local player command")
 
@@ -1628,6 +1641,7 @@ class AppleAudioService:
             "player_host": self.state.get("player_host", ""),
             "output_mode": self.state.get("output_mode", "system_default"),
             "playback_mode": _normalize_playback_mode(self.state.get("playback_mode")),
+            "volume_percent": _coerce_volume_percent(self.state.get("volume_percent", 70)),
             "auth_state": self.state.get("auth_state", "NAS music tag ready"),
             "is_playing": bool(self.state.get("is_playing")),
             "elapsed_sec": int(self.state.get("elapsed_sec", 0) or 0),
@@ -1884,7 +1898,12 @@ class AppleAudioService:
             self._tick_locked()
             queue = self.state.get("queue_ids", [])
             current_id = str(self.state.get("current_track_id") or "").strip()
-            if action in {"playback_mode", "set_mode", "mode"}:
+            if action in {"volume", "set_volume"}:
+                volume = _coerce_volume_percent(mode)
+                self.state["volume_percent"] = volume
+                self.state["last_action"] = f"Volume: {volume}%"
+                target_track_id = ""
+            elif action in {"playback_mode", "set_mode", "mode"}:
                 playback_mode = _normalize_playback_mode(mode)
                 self.state["playback_mode"] = playback_mode
                 self.state["last_action"] = f"Playback mode: {playback_mode}"

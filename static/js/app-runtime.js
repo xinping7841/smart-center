@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260604-server-hardware-v1';
+        const lazyModuleVersion = '20260604-apple-audio-lyrics-volume-v1';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const wideUiStyle = `/static/css/views/ui-wide-1080.css?v=${lazyModuleVersion}`;
         const withWideUiStyle = styles => [...styles, wideUiStyle];
@@ -1596,6 +1596,7 @@
             if (viewId === 'projector') setTimeout(() => { ensureViewReady('projector').then(() => updateProjectorStatus()).catch(() => {}); }, 80);
             if (viewId === 'logs') setTimeout(() => { refreshLogsViewNow('日志中心页面加载').catch(() => {}); }, 80);
             if (viewId === 'dashboard') preloadDashboardSupportModules();
+            window.SmartCenter?.appleAudio?.updateAppleTopLyrics?.();
             refreshPollingVisibility();
             syncSidebarCarouselIndex(viewId);
             if (sidebarCarouselActive) scheduleSidebarCarouselNext();

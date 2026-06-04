@@ -116,6 +116,7 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
                 "local_player_enabled": True,
                 "local_player_command": "ffmpeg_aplay",
                 "local_player_alsa_device": "plughw:CARD=PCH,DEV=0",
+                "volume_percent": 65,
                 "nas_music_roots": [],
                 "nas_auto_scan_on_start": False,
             }
@@ -138,12 +139,14 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
         self.assertEqual(state["local_player"]["command"], "ffmpeg_aplay")
         self.assertEqual(cmd[0:2], ["/bin/bash", "-c"])
         self.assertIn("set -o pipefail", cmd[2])
+        self.assertIn('volume=$5', cmd[2])
         self.assertIn("-f wav -", cmd[2])
         self.assertIn('"$3" -D "$4"', cmd[2])
         self.assertIn(str(audio_path), cmd)
         self.assertIn("/usr/bin/ffmpeg", cmd)
         self.assertIn("/usr/bin/aplay", cmd)
         self.assertIn("plughw:CARD=PCH,DEV=0", cmd)
+        self.assertIn("0.650", cmd)
 
     def test_audio_user_wraps_command_with_runtime_dir(self):
         CONFIG["apple_audio"] = {
@@ -194,6 +197,14 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
 
         self.assertEqual(state["current_track"]["id"], "track-3")
         self.assertTrue(state["is_playing"])
+
+    def test_volume_transport_clamps_and_reports_percent(self):
+        service = self._service_with_tracks(1)
+
+        state = service.transport("volume", mode=135)
+
+        self.assertEqual(state["volume_percent"], 100)
+        self.assertEqual(service.state["volume_percent"], 100)
 
     def test_browser_ended_stops_in_normal_mode_when_queue_empty(self):
         service = self._service_with_tracks(1)

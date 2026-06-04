@@ -92,6 +92,14 @@
 
 .apple-mode-btn.active { color:#fff; border-color:rgba(20,184,166,0.44); background:linear-gradient(135deg, rgba(20,184,166,0.30), rgba(59,130,246,0.22)); }
 
+.apple-volume-row { display:flex; align-items:center; gap:10px; margin-top:12px; min-height:36px; }
+
+.apple-volume-label, .apple-volume-value { flex:0 0 auto; color:#cbd5e1; font-size:12px; font-weight:900; }
+
+.apple-volume-value { width:42px; text-align:right; color:#f8fafc; }
+
+.apple-volume-slider { flex:1 1 160px; min-width:140px; max-width:360px; accent-color:#f472b6; cursor:pointer; }
+
 .apple-output-list { display:flex; flex-direction:column; gap:10px; }
 
 .apple-output-card { padding:14px 14px 12px; border-radius:18px; background:rgba(15,23,42,0.42); border:1px solid rgba(255,255,255,0.08); }

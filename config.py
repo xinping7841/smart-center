@@ -864,6 +864,7 @@ DEFAULT_APPLE_AUDIO = {
     "player_host": "",
     "output_mode": "system_default",
     "playback_mode": "normal",
+    "volume_percent": 70,
     "auth_state": "NAS ready",
     "outputs": [],
     "nas_music_roots": [],

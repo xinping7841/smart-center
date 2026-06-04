@@ -64,6 +64,7 @@ state.queue = Array.isArray(state.queue) ? state.queue : [];
 state.nowPlaying = state.nowPlaying || null;
 state.isPlaying = !!state.isPlaying;
 state.playbackMode = state.playbackMode || 'normal';
+state.volumePercent = Number.isFinite(Number(state.volumePercent)) ? Math.max(0, Math.min(100, Number(state.volumePercent))) : 70;
 state.elapsedSec = Number(state.elapsedSec || 0);
 state.stateCache = state.stateCache || null;
 state.stateLoading = !!state.stateLoading;
@@ -137,6 +138,11 @@ function renderAppleAudioPage(force = false) {
                                         <button class="apple-ctl-btn text" onclick="openAppleAudioConfig()">输出路由</button>
                                     </div>
                                     <div class="apple-mode-row" id="applePlaybackModeRow"></div>
+                                    <div class="apple-volume-row">
+                                        <span class="apple-volume-label">音量</span>
+                                        <input class="apple-volume-slider" id="appleVolumeSlider" type="range" min="0" max="100" step="1" value="70" oninput="previewAppleVolume(this.value)" onchange="setAppleVolume(this.value)">
+                                        <span class="apple-volume-value" id="appleVolumeValue">70%</span>
+                                    </div>
                                     <div class="apple-lyrics-card">
                                         <div class="apple-lyrics-head">
                                             <div class="apple-panel-title" style="font-size:13px;">歌词</div>
@@ -375,6 +381,42 @@ function getApplePlaybackModeLabel(mode) {
     };
     return map[String(mode || 'normal')] || map.normal;
 }
+function getAppleVolumePercent(value = state.volumePercent) {
+    const numeric = Number(value);
+    return Math.max(0, Math.min(100, Number.isFinite(numeric) ? Math.round(numeric) : 70));
+}
+function renderAppleVolume() {
+    const slider = document.getElementById('appleVolumeSlider');
+    const valueEl = document.getElementById('appleVolumeValue');
+    const volume = getAppleVolumePercent();
+    if (slider && document.activeElement !== slider) slider.value = String(volume);
+    if (valueEl) valueEl.innerText = `${volume}%`;
+}
+function applyAppleBrowserVolume() {
+    const audio = getAppleAudioEl();
+    audio.volume = getAppleVolumePercent() / 100;
+}
+function previewAppleVolume(value) {
+    state.volumePercent = getAppleVolumePercent(value);
+    renderAppleVolume();
+    applyAppleBrowserVolume();
+}
+function setAppleVolume(value) {
+    const volume = getAppleVolumePercent(value);
+    state.volumePercent = volume;
+    renderAppleVolume();
+    applyAppleBrowserVolume();
+    postJson('/api/apple-audio/transport', { action: 'volume', volume_percent: volume }, '音量设置失败')
+        .then(data => {
+            if (!data.success) {
+                notify(data.message || data.msg || '音量设置失败', true);
+                return;
+            }
+            syncAppleState(data.state);
+            notify(`音量已调整到 ${state.volumePercent}%`);
+        })
+        .catch(err => notify(translateError(err?.message, '音量设置失败'), true));
+}
 function renderApplePlaybackMode() {
     const row = document.getElementById('applePlaybackModeRow');
     if (!row) return;
@@ -388,6 +430,29 @@ function renderApplePlaybackMode() {
         <button type="button" class="apple-mode-btn ${state.playbackMode === mode ? 'active' : ''}" onclick="setApplePlaybackMode('${mode}')">${label}</button>
     `).join('');
 }
+function updateAppleTopLyrics() {
+    const bar = document.getElementById('top-lyrics-bar');
+    const textEl = document.getElementById('top-lyrics-text');
+    const kickerEl = document.getElementById('top-lyrics-kicker');
+    if (!bar || !textEl || !kickerEl) return;
+    const activeView = typeof global.getActiveViewId === 'function' ? global.getActiveViewId() : 'apple_audio';
+    const shouldShow = activeView === 'apple_audio' && !!state.nowPlaying;
+    if (!shouldShow) {
+        bar.classList.remove('visible');
+        textEl.innerText = '等待歌词';
+        return;
+    }
+    let lyricText = '';
+    if (state.lyricsType === 'synced' && state.lyricsActiveIndex >= 0 && state.lyricsLines[state.lyricsActiveIndex]) {
+        lyricText = String(state.lyricsLines[state.lyricsActiveIndex].text || '').trim();
+    }
+    if (!lyricText && state.lyricsPlain) {
+        lyricText = String(state.lyricsPlain).split(/\n+/).map(line => line.trim()).find(Boolean) || '';
+    }
+    textEl.innerText = lyricText || `${state.nowPlaying.title} · ${state.nowPlaying.artist}`;
+    kickerEl.innerText = state.isPlaying ? '正在播放' : '已暂停';
+    bar.classList.add('visible');
+}
 function getAppleAudioEl() {
     if (state.audioEl && document.body.contains(state.audioEl)) return state.audioEl;
     const audio = document.getElementById('appleAudioElement') || document.createElement('audio');
@@ -395,6 +460,7 @@ function getAppleAudioEl() {
     audio.preload = 'metadata';
     audio.style.display = 'none';
     if (!audio.parentNode) document.body.appendChild(audio);
+    audio.volume = getAppleVolumePercent() / 100;
     audio.onended = () => appleTransport('ended', { quiet: true });
     audio.ontimeupdate = () => {
         if (!state.nowPlaying) return;
@@ -442,6 +508,7 @@ function renderAppleLyrics() {
     if (!state.nowPlaying) {
         typeEl.innerText = '未加载';
         boxEl.innerHTML = '<div class="apple-lyrics-empty">当前曲目暂无歌词。</div>';
+        updateAppleTopLyrics();
         return;
     }
     const typeMap = {
@@ -463,6 +530,7 @@ function renderAppleLyrics() {
                 boxEl.scrollTop = top;
             }
         }
+        updateAppleTopLyrics();
         return;
     }
     if (state.lyricsPlain) {
@@ -470,9 +538,11 @@ function renderAppleLyrics() {
             .split(/\n+/)
             .map(line => `<div class="apple-lyrics-line">${html(line)}</div>`)
             .join('');
+        updateAppleTopLyrics();
         return;
     }
     boxEl.innerHTML = '<div class="apple-lyrics-empty">当前曲目暂无歌词。</div>';
+    updateAppleTopLyrics();
 }
 function updateAppleLyricsHighlight() {
     if (!state.nowPlaying || state.lyricsType !== 'synced' || !state.lyricsLines.length) {
@@ -490,6 +560,8 @@ function updateAppleLyricsHighlight() {
     if (idx !== state.lyricsActiveIndex) {
         state.lyricsActiveIndex = idx;
         renderAppleLyrics();
+    } else {
+        updateAppleTopLyrics();
     }
 }
 function loadAppleLyrics(trackId) {
@@ -551,6 +623,7 @@ function renderAppleNowPlaying() {
             coverWrap.classList.remove('has-image');
             coverWrap.innerHTML = '<div class="apple-cover-badge">♪</div>';
         }
+        updateAppleTopLyrics();
         return;
     }
     titleEl.innerText = state.nowPlaying.title;
@@ -572,6 +645,7 @@ function renderAppleNowPlaying() {
         coverWrap.classList.toggle('has-image', !!(state.nowPlaying.coverAvailable && state.nowPlaying.coverUrl));
         coverWrap.innerHTML = getAppleCoverHtml(state.nowPlaying);
     }
+    applyAppleBrowserVolume();
     updateAppleLyricsHighlight();
 }
 function renderAppleOutputs() {
@@ -780,10 +854,12 @@ function syncAppleState(nextStatePayload) {
     state.nowPlaying = nextState.current_track ? normalizeAppleTrack(nextState.current_track, 0) : null;
     state.isPlaying = !!nextState.is_playing;
     state.playbackMode = String(nextState.playback_mode || 'normal');
+    state.volumePercent = getAppleVolumePercent(nextState.volume_percent);
     state.elapsedSec = Number(nextState.elapsed_sec || 0);
     renderAppleScanProgress(nextState.scan || {});
     renderAppleCategoryFilters();
     renderApplePlaybackMode();
+    renderAppleVolume();
     renderAppleNowPlaying();
     renderAppleOutputs();
     renderAppleQueue();
@@ -797,6 +873,7 @@ function syncAppleState(nextStatePayload) {
     } else {
         updateAppleLyricsHighlight();
     }
+    updateAppleTopLyrics();
 }
 function openAppleAudioConfig() {
     if (!canOpenConfig()) {
@@ -821,6 +898,9 @@ function loadAppleAudioStatus(force = false) {
 }
 function initAppleAudioDemo() {
     renderAppleAudioPage();
+    renderApplePlaybackMode();
+    renderAppleVolume();
+    updateAppleTopLyrics();
     loadAppleAudioStatus(true);
 }
 
@@ -836,7 +916,12 @@ function initAppleAudioDemo() {
         getAppleRowArtHtml,
         resetAppleLyricsState,
         getApplePlaybackModeLabel,
+        getAppleVolumePercent,
+        renderAppleVolume,
+        previewAppleVolume,
+        setAppleVolume,
         renderApplePlaybackMode,
+        updateAppleTopLyrics,
         renderAppleLyrics,
         updateAppleLyricsHighlight,
         loadAppleLyrics,
