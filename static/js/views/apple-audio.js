@@ -73,7 +73,8 @@ state.lyricsType = state.lyricsType || 'none';
 state.lyricsPlain = state.lyricsPlain || '';
 state.lyricsLines = Array.isArray(state.lyricsLines) ? state.lyricsLines : [];
 state.lyricsActiveIndex = Number.isFinite(Number(state.lyricsActiveIndex)) ? Number(state.lyricsActiveIndex) : -1;
-state.categorySelected = state.categorySelected || 'all';
+state.playlists = Array.isArray(state.playlists) ? state.playlists : [];
+state.playlistSelected = state.playlistSelected || 'all';
 state.remoteResults = Array.isArray(state.remoteResults) ? state.remoteResults : [];
 state.searchSeq = Number(state.searchSeq || 0);
 state.audioEl = state.audioEl || null;
@@ -185,7 +186,16 @@ function renderAppleAudioPage(force = false) {
                                     <div class="apple-scan-bar"><div class="apple-scan-fill" id="appleScanProgressFill"></div></div>
                                     <div class="apple-scan-note" id="appleScanProgressNote">等待扫描</div>
                                 </div>
-                                <div class="apple-category-filters" id="appleCategoryFilters"></div>
+                                <div class="apple-playlist-tools">
+                                    <div class="apple-playlist-title">播放列表</div>
+                                    <div class="apple-custom-playlist-form">
+                                        <input id="appleCustomPlaylistInput" class="apple-playlist-input" placeholder="新建自定义列表">
+                                        <button class="apple-track-action" onclick="createAppleCustomPlaylist()">新建</button>
+                                        <select id="appleCustomPlaylistSelect" class="apple-playlist-select" title="选择歌曲加入的自定义列表"></select>
+                                    </div>
+                                </div>
+                                <div class="apple-category-filters" id="applePlaylistFilters"></div>
+                                <div class="apple-playlist-actions" id="applePlaylistActions"></div>
                                 <div class="apple-result-list" id="appleResultList"></div>
                             </div>
 
@@ -285,36 +295,54 @@ function normalizeAppleTrack(track, fallbackIndex = 0) {
         lyricsType: String(item.lyrics_type || 'none')
     };
 }
+function normalizeApplePlaylist(item, fallbackIndex = 0) {
+    const row = item || {};
+    const kind = String(row.kind || 'folder');
+    return {
+        id: String(row.id || `playlist_${fallbackIndex}`),
+        customId: String(row.custom_id || ''),
+        kind,
+        name: String(row.name || '未命名列表'),
+        count: Number(row.count || 0),
+        duration: Number(row.duration || 0),
+        trackIds: Array.isArray(row.track_ids) ? row.track_ids.map(id => String(id || '')).filter(Boolean) : [],
+        updatedAt: String(row.updated_at || '')
+    };
+}
 function getAppleCategoryLabel(value) {
     const text = String(value || '').trim();
     return text || '未分类';
 }
 function renderAppleCategoryFilters() {
-    const wrap = document.getElementById('appleCategoryFilters');
+    const wrap = document.getElementById('applePlaylistFilters');
+    const actions = document.getElementById('applePlaylistActions');
     if (!wrap) return;
-    const counts = new Map();
-    (state.library || []).forEach(item => {
-        const track = normalizeAppleTrack(item);
-        const key = getAppleCategoryLabel(track.category);
-        counts.set(key, (counts.get(key) || 0) + 1);
-    });
-    const options = [{ key: 'all', label: `全部 (${state.library.length})` }];
-    Array.from(counts.entries())
-        .sort((a, b) => a[0].localeCompare(b[0], 'zh-Hans-CN'))
-        .forEach(([key, count]) => {
-            options.push({ key, label: `${key} (${count})` });
-        });
-    if (state.categorySelected !== 'all' && !counts.has(state.categorySelected)) {
-        state.categorySelected = 'all';
+    const playlists = (state.playlists || []).map((item, index) => normalizeApplePlaylist(item, index));
+    const options = [{ id: 'all', label: `全部 (${state.library.length})`, kind: 'all', count: state.library.length }].concat(playlists.map(item => ({
+        id: item.id,
+        label: `${item.kind === 'custom' ? '★ ' : ''}${item.name} (${item.count})`,
+        kind: item.kind,
+        count: item.count
+    })));
+    if (state.playlistSelected !== 'all' && !options.find(item => item.id === state.playlistSelected)) {
+        state.playlistSelected = 'all';
     }
     wrap.innerHTML = options.map(opt => `
-        <button class="apple-cat-chip ${state.categorySelected === opt.key ? 'active' : ''}" onclick="setAppleCategoryFilter('${html(opt.key)}')">
+        <button class="apple-cat-chip ${state.playlistSelected === opt.id ? 'active' : ''}" onclick="setAppleCategoryFilter('${html(opt.id)}')">
             ${html(opt.label)}
         </button>
     `).join('');
+    if (actions) {
+        const selected = playlists.find(item => item.id === state.playlistSelected);
+        actions.innerHTML = selected ? `
+            <button class="apple-track-action primary" onclick="playApplePlaylist('${html(selected.id)}')">播放列表</button>
+            <button class="apple-track-action" onclick="queueApplePlaylist('${html(selected.id)}')">加入队列</button>
+        ` : '';
+    }
+    renderAppleCustomPlaylistSelect();
 }
 function setAppleCategoryFilter(value) {
-    state.categorySelected = String(value || 'all');
+    state.playlistSelected = String(value || 'all');
     renderAppleCategoryFilters();
     const inputEl = document.getElementById('appleSearchInput');
     renderAppleResults(inputEl ? inputEl.value : '');
@@ -674,12 +702,15 @@ function renderAppleResults(keyword='') {
     const list = document.getElementById('appleResultList');
     if (!list) return;
     const text = String(keyword || '').trim().toLowerCase();
+    const selectedPlaylist = (state.playlists || [])
+        .map((item, index) => normalizeApplePlaylist(item, index))
+        .find(item => item.id === state.playlistSelected);
+    const selectedTrackIds = selectedPlaylist ? new Set(selectedPlaylist.trackIds) : null;
     const sourceTracks = state.library
         .concat(text ? (state.remoteResults || []) : [])
         .map((item, index) => normalizeAppleTrack(item, index));
     const matched = sourceTracks.filter(item => {
-        const categoryOk = state.categorySelected === 'all' || getAppleCategoryLabel(item.category) === state.categorySelected;
-        if (!categoryOk) return false;
+        if (selectedTrackIds && !selectedTrackIds.has(item.id)) return false;
         if (!text) return true;
         const source = `${item.title} ${item.artist} ${item.album} ${item.tag} ${item.category}`.toLowerCase();
         return source.includes(text);
@@ -694,9 +725,10 @@ function renderAppleResults(keyword='') {
             <div class="apple-track-actions">
                 <button class="apple-track-action primary" onclick="playAppleTrackNow('${html(item.id)}')">播放</button>
                 <button class="apple-track-action" onclick="queueAppleTrack('${html(item.id)}')">加入</button>
+                <button class="apple-track-action" onclick="addAppleTrackToPlaylist('${html(item.id)}')">入列表</button>
             </div>
         </div>
-    `).join('') : '<div class="apple-empty-note">没有找到匹配曲目。可以换个关键词，或检查后端播放代理配置。</div>';
+    `).join('') : '<div class="apple-empty-note">没有找到匹配曲目。可以换个关键词，或检查播放列表。</div>';
 }
 function searchAppleSources(keyword='') {
     const text = String(keyword || '').trim();
@@ -719,6 +751,100 @@ function searchAppleSources(keyword='') {
                 console.warn('Jamendo search failed', err);
             });
     }, 360);
+}
+function getAppleCustomPlaylists() {
+    return (state.playlists || [])
+        .map((item, index) => normalizeApplePlaylist(item, index))
+        .filter(item => item.kind === 'custom');
+}
+function renderAppleCustomPlaylistSelect() {
+    const select = document.getElementById('appleCustomPlaylistSelect');
+    if (!select) return;
+    const custom = getAppleCustomPlaylists();
+    if (!custom.length) {
+        select.innerHTML = '<option value="">暂无自定义列表</option>';
+        select.disabled = true;
+        return;
+    }
+    select.disabled = false;
+    const selectedValue = custom.find(item => item.id === state.playlistSelected)?.id
+        || select.value
+        || custom[0].id;
+    select.innerHTML = custom.map(item => `
+        <option value="${html(item.id)}"${item.id === selectedValue ? ' selected' : ''}>${html(item.name)}</option>
+    `).join('');
+}
+function syncApplePlaylists(nextPlaylists) {
+    state.playlists = Array.isArray(nextPlaylists) ? nextPlaylists.map((item, index) => normalizeApplePlaylist(item, index)) : [];
+    renderAppleCategoryFilters();
+    const inputEl = document.getElementById('appleSearchInput');
+    renderAppleResults(inputEl ? inputEl.value : '');
+}
+function createAppleCustomPlaylist() {
+    const input = document.getElementById('appleCustomPlaylistInput');
+    const name = String(input?.value || '').trim();
+    if (!name) {
+        notify('请输入自定义列表名称', true);
+        return;
+    }
+    postJson('/api/apple-audio/playlists', { name }, '创建播放列表失败')
+        .then(data => {
+            if (!data.success) {
+                notify(data.message || data.msg || '创建播放列表失败', true);
+                return;
+            }
+            if (input) input.value = '';
+            syncApplePlaylists(data.playlists);
+            notify(`已创建列表：${name}`);
+        })
+        .catch(err => notify(translateError(err?.message, '创建播放列表失败'), true));
+}
+function addAppleTrackToPlaylist(trackId) {
+    const custom = getAppleCustomPlaylists();
+    if (!custom.length) {
+        notify('请先新建一个自定义列表', true);
+        return;
+    }
+    const select = document.getElementById('appleCustomPlaylistSelect');
+    const targetId = String(select?.value || '').trim();
+    const currentCustom = custom.find(item => item.id === targetId)
+        || custom.find(item => item.id === state.playlistSelected)
+        || custom[0];
+    postJson('/api/apple-audio/playlists/add-track', { playlist_id: currentCustom.id, track_id: trackId }, '加入自定义列表失败')
+        .then(data => {
+            if (!data.success) {
+                notify(data.message || data.msg || '加入自定义列表失败', true);
+                return;
+            }
+            syncApplePlaylists(data.playlists);
+            notify(`已加入列表：${currentCustom.name}`);
+        })
+        .catch(err => notify(translateError(err?.message, '加入自定义列表失败'), true));
+}
+function playApplePlaylist(playlistId) {
+    postJson('/api/apple-audio/playlists/queue', { playlist_id: playlistId, play_now: true }, '播放列表失败')
+        .then(data => {
+            if (!data.success) {
+                notify(data.message || data.msg || '播放列表失败', true);
+                return;
+            }
+            syncAppleState(data.state);
+            if (!isAppleLocalPlayerMode() && state.nowPlaying) playAppleTrackInBrowser(state.nowPlaying);
+            notify('已开始播放列表');
+        })
+        .catch(err => notify(translateError(err?.message, '播放列表失败'), true));
+}
+function queueApplePlaylist(playlistId) {
+    postJson('/api/apple-audio/playlists/queue', { playlist_id: playlistId }, '加入播放列表失败')
+        .then(data => {
+            if (!data.success) {
+                notify(data.message || data.msg || '加入播放列表失败', true);
+                return;
+            }
+            syncAppleState(data.state);
+            notify('播放列表已加入队列');
+        })
+        .catch(err => notify(translateError(err?.message, '加入播放列表失败'), true));
 }
 function renderAppleQueue() {
     const list = document.getElementById('appleQueueList');
@@ -842,6 +968,7 @@ function syncAppleState(nextStatePayload) {
     const prevTrackId = state.nowPlaying ? state.nowPlaying.id : '';
     state.stateCache = nextState;
     state.library = Array.isArray(nextState.library) ? nextState.library.map((item, index) => normalizeAppleTrack(item, index)) : state.library;
+    state.playlists = Array.isArray(nextState.playlists) ? nextState.playlists.map((item, index) => normalizeApplePlaylist(item, index)) : state.playlists;
     state.outputZones = Array.isArray(nextState.outputs) ? nextState.outputs.map((item, index) => ({
         id: String(item.id || `zone_${index}`),
         name: String(item.name || `区域 ${index + 1}`),
@@ -908,6 +1035,7 @@ function initAppleAudioDemo() {
         renderAppleAudioPage,
         formatAppleDuration,
         normalizeAppleTrack,
+        normalizeApplePlaylist,
         getAppleCategoryLabel,
         renderAppleCategoryFilters,
         setAppleCategoryFilter,
@@ -929,6 +1057,12 @@ function initAppleAudioDemo() {
         renderAppleOutputs,
         renderAppleResults,
         searchAppleSources,
+        getAppleCustomPlaylists,
+        syncApplePlaylists,
+        createAppleCustomPlaylist,
+        addAppleTrackToPlaylist,
+        playApplePlaylist,
+        queueApplePlaylist,
         renderAppleQueue,
         queueAppleTrack,
         playAppleTrackNow,
