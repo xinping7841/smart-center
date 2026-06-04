@@ -1,11 +1,11 @@
 # AI_MODULE: apple_audio_api
-# AI_PURPOSE: 音乐库、队列、播放/停止/进度跳转控制、歌词和封面接口。
+# AI_PURPOSE: 音乐库全量刮削、队列、播放/停止/进度跳转控制、歌词和封面接口。
 # AI_BOUNDARY: 播放器核心状态在 apple_audio_core.py；页面渲染在 apple-audio.js。
 # AI_DATA_FLOW: 本地音乐库/播放器 -> /api/apple-audio/* -> 前端音乐卡片。
 # AI_RUNTIME: 首页音乐模块和 Apple Audio 页面调用。
 # AI_RISK: 中，音乐扫描可能影响加载性能。
 # AI_COMPAT: queue/transport stop/seek/lyrics/cover 路由需保持。
-# AI_SEARCH_KEYWORDS: apple audio, music, queue, stop, seek, lyrics, cover.
+# AI_SEARCH_KEYWORDS: apple audio, music, full scrape, rescan, queue, stop, seek, lyrics, cover.
 
 import mimetypes
 from pathlib import Path
@@ -180,8 +180,11 @@ def api_apple_audio_library():
 @bp.route("/api/apple-audio/rescan", methods=["POST"])
 @require_permission("meter.config")
 def api_apple_audio_rescan():
-    state = apple_audio_service.start_background_scan("api")
-    add_log(-1, f"[MusicTag] rescan queued, tracks={state.get('library_size', 0)}")
+    data = request.json or {}
+    full_scrape = bool(data.get("full_scrape", data.get("scrape_all", True)))
+    force = bool(data.get("force", data.get("rebuild", False)))
+    state = apple_audio_service.start_background_scan("api", full_scrape=full_scrape, force=force)
+    add_log(-1, f"[MusicTag] rescan queued full_scrape={full_scrape} force={force}, tracks={state.get('library_size', 0)}")
     return jsonify({"success": True, "state": state})
 
 

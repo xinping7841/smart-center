@@ -1,10 +1,10 @@
 // AI_MODULE: apple_audio_view
-// AI_PURPOSE: 音乐库、文件夹默认播放列表、播放/停止/进度跳转、播放队列、歌词和封面的前端展示。
+// AI_PURPOSE: 音乐库全量刮削、文件夹默认播放列表、播放/停止/进度跳转、播放队列、歌词和封面的前端展示。
 // AI_BOUNDARY: 不直接控制音频设备；所有动作走 /api/apple-audio/*。
 // AI_DATA_FLOW: /api/apple-audio/status/playlists/queue/transport -> 音乐卡片、文件夹列表、进度条和控制按钮。
 // AI_RUNTIME: 首页或音乐页面加载。
 // AI_RISK: 中，音乐扫描和播放控制会影响首页加载与现场播放体验。
-// AI_SEARCH_KEYWORDS: apple audio, music, folder playlist, stop, seek, progress slider, playlist cards, queue, lyrics, cover.
+// AI_SEARCH_KEYWORDS: apple audio, music, full scrape, rescan, folder playlist, stop, seek, progress slider, playlist cards, queue, lyrics, cover.
 
 (function installSmartCenterAppleAudio(global) {
     'use strict';
@@ -80,6 +80,7 @@ state.playlistSelected = state.playlistSelected || 'all';
 state.remoteResults = Array.isArray(state.remoteResults) ? state.remoteResults : [];
 state.searchSeq = Number(state.searchSeq || 0);
 state.audioEl = state.audioEl || null;
+state.scanRunning = !!state.scanRunning;
 
 function renderAppleAudioPage(force = false) {
     const root = document.getElementById('apple-audio-page-root');
@@ -185,7 +186,10 @@ function renderAppleAudioPage(force = false) {
                                 <div class="apple-scan-progress" id="appleScanProgressWrap">
                                     <div class="apple-scan-head">
                                         <div class="apple-scan-title">刮削进度</div>
-                                        <div class="apple-scan-meta" id="appleScanProgressMeta">0%</div>
+                                        <div class="apple-scan-actions">
+                                            <div class="apple-scan-meta" id="appleScanProgressMeta">0%</div>
+                                            <button class="apple-track-action" id="appleFullScrapeBtn" onclick="startAppleFullScrape()">全部刮削</button>
+                                        </div>
                                     </div>
                                     <div class="apple-scan-bar"><div class="apple-scan-fill" id="appleScanProgressFill"></div></div>
                                     <div class="apple-scan-note" id="appleScanProgressNote">等待扫描</div>
@@ -354,6 +358,7 @@ function renderAppleScanProgress(scanState = {}) {
     const noteEl = document.getElementById('appleScanProgressNote');
     if (!wrap || !fillEl || !metaEl || !noteEl) return;
     const running = !!scanState.running;
+    state.scanRunning = running;
     const stage = String(scanState.stage || '');
     const processed = Number(scanState.processed || 0);
     const total = Number(scanState.total || 0);
@@ -365,7 +370,17 @@ function renderAppleScanProgress(scanState = {}) {
         metaEl.innerText = `${progress}% · ${processed}/${total || '--'}`;
         noteEl.innerText = message || (stage === 'scrape' ? '正在刮削封面和歌词...' : '正在扫描音频文件...');
         wrap.style.display = '';
+        const fullScrapeBtn = document.getElementById('appleFullScrapeBtn');
+        if (fullScrapeBtn) {
+            fullScrapeBtn.disabled = true;
+            fullScrapeBtn.innerText = '刮削中';
+        }
         return;
+    }
+    const fullScrapeBtn = document.getElementById('appleFullScrapeBtn');
+    if (fullScrapeBtn) {
+        fullScrapeBtn.disabled = false;
+        fullScrapeBtn.innerText = '全部刮削';
     }
     if (stage === 'done' && total > 0) {
         metaEl.innerText = `100% · ${total} 首`;
@@ -377,6 +392,22 @@ function renderAppleScanProgress(scanState = {}) {
     metaEl.innerText = count > 0 ? `${count} 首` : '0 首';
     noteEl.innerText = scanState.last_scan_at ? `最近扫描：${formatDateTime(scanState.last_scan_at)}` : '等待扫描';
     wrap.style.display = '';
+}
+function startAppleFullScrape() {
+    if (state.scanRunning) {
+        notify('音乐库正在刮削中', true);
+        return;
+    }
+    postJson('/api/apple-audio/rescan', { full_scrape: true, force: true }, '启动全部刮削失败')
+        .then(data => {
+            if (!data.success) {
+                notify(data.message || data.msg || '启动全部刮削失败', true);
+                return;
+            }
+            syncAppleState(data.state);
+            notify('已开始全部刮削');
+        })
+        .catch(err => notify(translateError(err?.message, '启动全部刮削失败'), true));
 }
 function getAppleCoverHtml(track) {
     const item = track || {};
@@ -1157,6 +1188,7 @@ function initAppleAudioDemo() {
         renderAppleCategoryFilters,
         setAppleCategoryFilter,
         renderAppleScanProgress,
+        startAppleFullScrape,
         getAppleCoverHtml,
         getAppleRowArtHtml,
         resetAppleLyricsState,

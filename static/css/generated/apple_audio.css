@@ -184,6 +184,8 @@
 
 .apple-scan-title { font-size:12px; color:#cbd5e1; }
 
+.apple-scan-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+
 .apple-scan-meta { font-size:11px; color:#93c5fd; font-family:Consolas, monospace; }
 
 .apple-scan-bar { height:7px; border-radius:999px; background:rgba(148,163,184,0.25); overflow:hidden; }
