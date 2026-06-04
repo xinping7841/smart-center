@@ -776,3 +776,187 @@
 #view-meter .meter-summary-grid > * { flex:0 0 260px !important; }
 
 #view-meter .meter-center-grid > * { flex:0 0 360px !important; }
+
+/* 4K meter wall: use the extra canvas for readable cards and a useful trend area. */
+@media screen and (min-width: 2200px) and (min-height: 1200px) {
+    #view-meter {
+        min-height: calc(100dvh - 92px);
+    }
+
+    #view-meter #meter-center-shell.card {
+        max-width: none;
+        min-height: calc(100dvh - 122px);
+        padding: 18px 20px 20px !important;
+    }
+
+    #view-meter .card-title {
+        margin-bottom: 14px !important;
+    }
+
+    #view-meter .meter-summary-grid {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 12px !important;
+        margin-bottom: 12px !important;
+    }
+
+    #view-meter .meter-summary-card {
+        min-height: 92px !important;
+        padding: 14px 16px !important;
+        border-radius: 8px !important;
+    }
+
+    #view-meter .meter-summary-card .label {
+        font-size: 12px !important;
+    }
+
+    #view-meter .meter-summary-card .value {
+        font-size: 28px !important;
+    }
+
+    #view-meter .meter-summary-card .sub,
+    #view-meter .meter-summary-card .meta {
+        font-size: 11px !important;
+        line-height: 1.35 !important;
+    }
+
+    #view-meter .meter-summary-badgebar,
+    #view-meter .meter-type-chip-row {
+        gap: 8px !important;
+        margin-bottom: 10px !important;
+    }
+
+    #view-meter .meter-summary-badge,
+    #view-meter .meter-type-chip {
+        padding: 5px 10px !important;
+        font-size: 11px !important;
+    }
+
+    #view-meter #meter-center-grid {
+        margin-top: 10px !important;
+    }
+
+    #view-meter .meter-center-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+        align-items: stretch !important;
+    }
+
+    #view-meter .meter-card-dense {
+        min-height: 82px !important;
+        padding: 9px 12px !important;
+        border-radius: 8px !important;
+        grid-template-columns: minmax(178px, .88fr) minmax(330px, 1.65fr) minmax(140px, .62fr) !important;
+        grid-template-areas:
+            "head main extra"
+            "foot foot foot" !important;
+        gap: 7px 10px !important;
+        align-items: center !important;
+    }
+
+    #view-meter .meter-card-dense .meter-card-title {
+        font-size: 15px !important;
+        line-height: 1.15 !important;
+    }
+
+    #view-meter .meter-card-dense .meter-card-subtitle {
+        display: block !important;
+        font-size: 10px !important;
+        line-height: 1.2 !important;
+    }
+
+    #view-meter .meter-card-dense .meter-status-chip {
+        padding: 3px 7px !important;
+        font-size: 10px !important;
+    }
+
+    #view-meter .meter-dense-main {
+        grid-template-columns: minmax(112px, .7fr) repeat(3, minmax(104px, 1fr)) !important;
+        gap: 7px !important;
+    }
+
+    #view-meter .meter-dense-power,
+    #view-meter .meter-card-dense .meter-kpi-card {
+        min-height: 52px !important;
+        padding: 8px 9px !important;
+        border-radius: 8px !important;
+    }
+
+    #view-meter .meter-dense-power span,
+    #view-meter .meter-card-dense .meter-kpi-card .label {
+        font-size: 9px !important;
+        margin-bottom: 5px !important;
+    }
+
+    #view-meter .meter-dense-power strong {
+        font-size: 20px !important;
+    }
+
+    #view-meter .meter-card-dense .meter-kpi-card .value {
+        font-size: 13px !important;
+    }
+
+    #view-meter .meter-card-dense .meter-extra-grid {
+        max-height: 54px !important;
+        gap: 5px !important;
+    }
+
+    #view-meter .meter-card-dense .meter-extra-card {
+        padding: 4px 7px !important;
+    }
+
+    #view-meter .meter-card-dense .meter-extra-card .label,
+    #view-meter .meter-card-dense .meter-extra-card .value {
+        font-size: 9px !important;
+    }
+
+    #view-meter .meter-card-dense .meter-foot {
+        padding-top: 6px !important;
+        border-top: 1px dashed rgba(148,163,184,0.12) !important;
+        font-size: 9px !important;
+        line-height: 1.2 !important;
+        opacity: .82;
+    }
+
+    #view-meter .meter-card-dense .meter-foot span:first-child {
+        max-width: 180px !important;
+    }
+
+    #view-meter .meter-card-dense .meter-foot span:last-child {
+        max-width: 420px !important;
+    }
+
+    #view-meter .meter-trend-layout {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) 260px !important;
+        gap: 12px !important;
+        margin-top: 14px !important;
+    }
+
+    #view-meter .meter-chart-shell,
+    #view-meter .meter-side-note {
+        padding: 12px !important;
+        border-radius: 8px !important;
+    }
+
+    #view-meter .meter-chart-box {
+        height: clamp(320px, 20vh, 460px) !important;
+        min-height: 320px !important;
+    }
+
+    #view-meter .meter-side-note-title {
+        font-size: 13px !important;
+    }
+
+    #view-meter .meter-side-note-item {
+        padding: 9px 10px !important;
+        border-radius: 8px !important;
+    }
+
+    #view-meter .meter-side-note-item .label {
+        font-size: 10px !important;
+    }
+
+    #view-meter .meter-side-note-item .value {
+        font-size: 12px !important;
+    }
+}
