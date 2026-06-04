@@ -562,7 +562,7 @@ class AppleAudioService:
         self._load_library_cache()
         self._load_custom_playlists()
         if self._config().get("nas_auto_scan_on_start", True):
-            self.start_background_scan("startup")
+            self.start_background_scan("startup", full_scrape=False, force=False)
 
     def start_background_scan(self, reason="manual", full_scrape=True, force=False):
         with self.lock:
