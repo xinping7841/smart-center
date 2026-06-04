@@ -15,6 +15,7 @@ import os
 import pwd
 import re
 import shutil
+import signal
 import struct
 import subprocess
 import threading
@@ -108,6 +109,7 @@ DEFAULT_CONFIG = {
     "local_player_command": "ffplay",
     "local_player_audio_user": "",
     "local_player_sink": "",
+    "local_player_alsa_device": "",
     "jamendo_enabled": False,
     "jamendo_client_id": "",
     "jamendo_limit": 20,
@@ -115,8 +117,8 @@ DEFAULT_CONFIG = {
 }
 
 JAMENDO_TRACKS_ENDPOINT = "https://api.jamendo.com/v3.0/tracks/"
-LOCAL_PLAYER_MODES = {"local_process", "node120_bluetooth", "bluetooth_local"}
-LOCAL_PLAYER_COMMANDS = {"ffplay"}
+LOCAL_PLAYER_MODES = {"local_process", "node120_bluetooth", "bluetooth_local", "node120_analog"}
+LOCAL_PLAYER_COMMANDS = {"ffplay", "ffmpeg_aplay"}
 LOCAL_PLAYER_STATUS_TIMEOUT = 2.5
 
 
@@ -558,6 +560,7 @@ class AppleAudioService:
                 "command": self._local_player_command(cfg),
                 "audio_user": str(cfg.get("local_player_audio_user", "") or "").strip(),
                 "sink": str(cfg.get("local_player_sink", "") or "").strip(),
+                "alsa_device": str(cfg.get("local_player_alsa_device", "") or "").strip(),
             }
             self.state["updated_at"] = datetime.now().isoformat()
 
@@ -587,21 +590,22 @@ class AppleAudioService:
         self.local_player_proc = None
         if proc and proc.poll() is None:
             try:
-                proc.terminate()
+                os.killpg(proc.pid, signal.SIGTERM)
                 proc.wait(timeout=2.0)
             except Exception:
                 try:
-                    proc.kill()
+                    os.killpg(proc.pid, signal.SIGKILL)
                 except Exception:
-                    pass
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
         with self.lock:
             self._mark_local_player_locked("idle", message)
 
     def _build_local_player_command(self, track):
         cfg = self._config()
         command = self._local_player_command(cfg)
-        if command != "ffplay":
-            raise RuntimeError("unsupported local player command")
         path = str(track.get("path") or "").strip()
         if not path:
             raise RuntimeError("track has no local path")
@@ -611,10 +615,35 @@ class AppleAudioService:
             source = path
             if not Path(source).exists():
                 raise RuntimeError(f"audio file missing on node-120: {source}")
-        binary = shutil.which("ffplay")
-        if not binary:
-            raise RuntimeError("ffplay is not installed on node-120")
-        return [binary, "-nodisp", "-autoexit", "-loglevel", "warning", source]
+        if command == "ffplay":
+            binary = shutil.which("ffplay")
+            if not binary:
+                raise RuntimeError("ffplay is not installed on node-120")
+            return [binary, "-nodisp", "-autoexit", "-loglevel", "warning", source]
+        if command == "ffmpeg_aplay":
+            ffmpeg = shutil.which("ffmpeg")
+            aplay = shutil.which("aplay")
+            if not ffmpeg:
+                raise RuntimeError("ffmpeg is not installed on node-120")
+            if not aplay:
+                raise RuntimeError("aplay is not installed on node-120")
+            device = str(cfg.get("local_player_alsa_device", "") or "").strip() or "plughw:CARD=PCH,DEV=0"
+            return [
+                "/bin/bash",
+                "-c",
+                (
+                    "set -o pipefail; "
+                    '"$1" -hide_banner -loglevel warning -nostdin -i "$2" '
+                    "-vn -ar 48000 -ac 2 -f wav - | "
+                    '"$3" -D "$4"'
+                ),
+                "smart-center-ffmpeg-aplay",
+                ffmpeg,
+                source,
+                aplay,
+                device,
+            ]
+        raise RuntimeError("unsupported local player command")
 
     def _local_player_env(self):
         cfg = self._config()
@@ -714,6 +743,8 @@ class AppleAudioService:
             }
         audio = {
             "ffplay": shutil.which("ffplay") or "",
+            "ffmpeg": shutil.which("ffmpeg") or "",
+            "aplay": shutil.which("aplay") or "",
             "pactl": run(["pactl", "list", "short", "sinks"], audio_user=True) if shutil.which("pactl") else {"ok": False, "stderr": "pactl missing"},
             "wpctl": run(["wpctl", "status"], audio_user=True) if shutil.which("wpctl") else {"ok": False, "stderr": "wpctl missing"},
         }
@@ -1529,7 +1560,7 @@ class AppleAudioService:
                     "notes": [
                         "Music source is provided by NAS local library.",
                         "Track stream URL is exposed under /api/apple-audio/stream/<track_id>.",
-                        "Local node playback is available when player_mode is node120_bluetooth/local_process.",
+                        "Local node playback is available when player_mode is node120_bluetooth/node120_analog/local_process.",
                         "Cover art and lyrics scraping is enabled for local files.",
                         "Full-library lyrics scraping runs during rescan.",
                     ],

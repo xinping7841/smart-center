@@ -1,7 +1,7 @@
 # AI_MODULE: apple_audio_local_player_tests
 # AI_PURPOSE: 验证音乐播放器本机播放模式的命令路由，不触发真实蓝牙连接或真实音频输出。
-# AI_BOUNDARY: 只 mock ffplay 进程；不访问 NAS、不连接蓝牙音箱、不播放真实音乐。
-# AI_SEARCH_KEYWORDS: apple audio, local player, node120 bluetooth, ffplay.
+# AI_BOUNDARY: 只 mock 播放进程；不访问 NAS、不连接蓝牙音箱、不播放真实音乐。
+# AI_SEARCH_KEYWORDS: apple audio, local player, node120 bluetooth, node120 analog, ffplay, ffmpeg, aplay.
 
 import os
 import pwd
@@ -64,6 +64,46 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
         self.assertEqual(state["local_player"]["state"], "playing")
         self.assertEqual(state["local_player"]["pid"], 4242)
         self.assertIn(str(audio_path), popen.call_args.args[0])
+
+    def test_node120_analog_uses_ffmpeg_aplay_alsa_device(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            audio_path = Path(tmp) / "track.mp3"
+            audio_path.write_bytes(b"fake")
+            CONFIG["apple_audio"] = {
+                "enabled": True,
+                "provider": "nas_music_tag",
+                "player_mode": "node120_analog",
+                "local_player_enabled": True,
+                "local_player_command": "ffmpeg_aplay",
+                "local_player_alsa_device": "plughw:CARD=PCH,DEV=0",
+                "nas_music_roots": [],
+                "nas_auto_scan_on_start": False,
+            }
+            with patch.object(AppleAudioService, "scan_library", return_value={}):
+                service = AppleAudioService()
+            service.library = [{
+                "id": "track-1",
+                "title": "Test Track",
+                "path": str(audio_path),
+                "playable": True,
+            }]
+            service.library_by_id = {"track-1": service.library[0]}
+
+            with patch("apple_audio_core.shutil.which", side_effect=lambda name: f"/usr/bin/{name}"), \
+                    patch("apple_audio_core.subprocess.Popen", return_value=FakeProcess()) as popen:
+                state = service.queue_track("track-1", play_now=True)
+
+        cmd = popen.call_args.args[0]
+        self.assertTrue(state["is_playing"])
+        self.assertEqual(state["local_player"]["command"], "ffmpeg_aplay")
+        self.assertEqual(cmd[0:2], ["/bin/bash", "-c"])
+        self.assertIn("set -o pipefail", cmd[2])
+        self.assertIn("-f wav -", cmd[2])
+        self.assertIn('"$3" -D "$4"', cmd[2])
+        self.assertIn(str(audio_path), cmd)
+        self.assertIn("/usr/bin/ffmpeg", cmd)
+        self.assertIn("/usr/bin/aplay", cmd)
+        self.assertIn("plughw:CARD=PCH,DEV=0", cmd)
 
     def test_audio_user_wraps_command_with_runtime_dir(self):
         CONFIG["apple_audio"] = {

@@ -81,6 +81,7 @@ def api_apple_audio_config():
         "local_player_command",
         "local_player_audio_user",
         "local_player_sink",
+        "local_player_alsa_device",
         "jamendo_client_id",
         "jamendo_api_base",
     ]:

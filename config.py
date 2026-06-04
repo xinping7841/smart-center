@@ -872,6 +872,7 @@ DEFAULT_APPLE_AUDIO = {
     "local_player_command": "ffplay",
     "local_player_audio_user": "",
     "local_player_sink": "",
+    "local_player_alsa_device": "",
     "jamendo_enabled": False,
     "jamendo_client_id": "",
     "jamendo_limit": 20,

@@ -405,7 +405,7 @@ function playAppleTrackInBrowser(track) {
 function isAppleLocalPlayerMode() {
     const mode = String(state.stateCache?.player_mode || '').toLowerCase();
     const local = state.stateCache?.local_player || {};
-    return !!local.enabled || ['local_process', 'node120_bluetooth', 'bluetooth_local'].includes(mode);
+    return !!local.enabled || ['local_process', 'node120_bluetooth', 'bluetooth_local', 'node120_analog'].includes(mode);
 }
 function pauseAppleBrowserAudio() {
     const audio = getAppleAudioEl();
