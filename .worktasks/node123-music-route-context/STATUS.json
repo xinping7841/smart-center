@@ -1,0 +1,10 @@
+{
+  "task": "node123-music-route-context",
+  "module": "local_model",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-node123-music-route-context-20260604",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/node123-music-route-context",
+  "started_at": "2026-06-04 16:56:04",
+  "status": "in_progress"
+}
