@@ -1,7 +1,7 @@
 # AI_MODULE: apple_audio_local_player_tests
-# AI_PURPOSE: 验证音乐播放器本机播放模式、文件夹播放列表、停止和进度跳转，不触发真实音频输出。
+# AI_PURPOSE: 验证音乐播放器本机播放模式、全量刮削、文件夹播放列表、停止和进度跳转，不触发真实音频输出。
 # AI_BOUNDARY: 只 mock 播放进程；不访问 NAS、不连接蓝牙音箱、不播放真实音乐。
-# AI_SEARCH_KEYWORDS: apple audio, local player, folder playlist, playlist scope, stop, seek, node120 analog, ffplay, ffmpeg, aplay.
+# AI_SEARCH_KEYWORDS: apple audio, local player, full scrape, folder playlist, playlist scope, stop, seek, node120 analog, ffplay, ffmpeg, aplay.
 
 import os
 import pwd
@@ -286,6 +286,39 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
         self.assertEqual(state["current_track"]["id"], "track-1")
         self.assertEqual([item["id"] for item in state["queue"]], ["track-2"])
         self.assertTrue(state["is_playing"])
+
+    def test_full_scrape_force_clears_lyrics_cache_and_updates_status(self):
+        service = self._service_with_tracks(2)
+        service.lyrics_cache = {"track-1": {"payload": {"lyrics_type": "plain"}, "mtime": 1}}
+
+        with patch.object(service, "_config", return_value={
+            "nas_music_roots": ["/tmp/music"],
+            "nas_music_exclude_dirs": [],
+        }), patch.object(service, "_scan_root", return_value=(service.library, [], len(service.library))), \
+                patch.object(service, "_scrape_track_lyrics_payload") as scrape:
+            state = service.scan_library(full_scrape=True, force=True)
+
+        self.assertEqual(service.lyrics_cache, {})
+        self.assertEqual(scrape.call_count, 2)
+        self.assertFalse(state["scan"]["running"])
+        self.assertEqual(state["scan"]["stage"], "done")
+        self.assertEqual(state["scan"]["progress"], 100)
+        self.assertEqual(state["last_action"], "Library fully scraped")
+
+    def test_scan_without_full_scrape_skips_eager_lyrics_scrape(self):
+        service = self._service_with_tracks(2)
+
+        with patch.object(service, "_config", return_value={
+            "nas_music_roots": ["/tmp/music"],
+            "nas_music_exclude_dirs": [],
+        }), patch.object(service, "_scan_root", return_value=(service.library, [], len(service.library))), \
+                patch.object(service, "_scrape_track_lyrics_payload") as scrape:
+            state = service.scan_library(full_scrape=False, force=False)
+
+        scrape.assert_not_called()
+        self.assertFalse(state["scan"]["running"])
+        self.assertEqual(state["scan"]["stage"], "done")
+        self.assertEqual(state["scan"]["progress"], 100)
 
     def test_folder_playlist_uses_directory_order(self):
         service = self._service_with_tracks(1)

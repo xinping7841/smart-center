@@ -1,11 +1,11 @@
 # AI_MODULE: apple_audio_core
-# AI_PURPOSE: Scan local music files, maintain folder/default playlists, queue/transport metadata, seek/stop state, lyrics, covers, and playback state helpers.
+# AI_PURPOSE: Scan and full-scrape local music files, maintain folder/default playlists, queue/transport metadata, seek/stop state, lyrics, covers, and playback state helpers.
 # AI_BOUNDARY: Flask routes live in api/apple_audio.py and frontend rendering lives in static/js/views/apple-audio.js.
 # AI_DATA_FLOW: CONFIG/apple audio library files -> DATA_DIR runtime caches -> API payloads for music cards and transport.
 # AI_RUNTIME: Imported by api/apple_audio.py during page/API requests and background-style scan operations.
 # AI_RISK: Medium. Heavy scans or bad metadata parsing can slow the dashboard and disrupt live playback; startup scans must not block Flask binding.
 # AI_COMPAT: Preserve queue, playlist_scope, transport stop/seek, lyrics, cover, and library payload shapes used by existing frontend.
-# AI_SEARCH_KEYWORDS: apple audio, music library, folder playlist, playlist scope, stop, seek, queue, lyrics, cover, transport.
+# AI_SEARCH_KEYWORDS: apple audio, music library, full scrape, rescan, folder playlist, playlist scope, stop, seek, queue, lyrics, cover, transport.
 import base64
 import hashlib
 import json
@@ -564,18 +564,18 @@ class AppleAudioService:
         if self._config().get("nas_auto_scan_on_start", True):
             self.start_background_scan("startup")
 
-    def start_background_scan(self, reason="manual"):
+    def start_background_scan(self, reason="manual", full_scrape=True, force=False):
         with self.lock:
             if self.state.get("scan_running"):
                 return self.snapshot()
             self.state["scan_running"] = True
             self.state["scan_stage"] = "queued"
-            self.state["scan_message"] = f"Scan queued: {reason}"
+            self.state["scan_message"] = f"{'Full scrape' if full_scrape else 'Scan'} queued: {reason}"
             self.state["updated_at"] = datetime.now().isoformat()
 
         def run():
             try:
-                self.scan_library()
+                self.scan_library(full_scrape=full_scrape, force=force)
             except Exception as exc:
                 with self.lock:
                     self.state["scan_running"] = False
@@ -1615,12 +1615,15 @@ class AppleAudioService:
         except Exception:
             pass
 
-    def _scrape_track_lyrics_payload(self, track):
+    def _scrape_track_lyrics_payload(self, track, force=False):
         if not isinstance(track, dict):
             return
         track_id = str(track.get("id") or "").strip()
         if not track_id:
             return
+        if force:
+            with self.lock:
+                self.lyrics_cache.pop(track_id, None)
         payload = self.get_track_lyrics(track_id)
         if not payload:
             return
@@ -1631,7 +1634,7 @@ class AppleAudioService:
                 fresh["lyrics_type"] = str(payload.get("lyrics_type") or "none")
                 fresh["lyrics_url"] = f"/api/apple-audio/lyrics/{track_id}"
 
-    def scan_library(self):
+    def scan_library(self, full_scrape=True, force=False):
         cfg = self._config()
         roots = cfg.get("nas_music_roots", [])
         excludes = cfg.get("nas_music_exclude_dirs", [])
@@ -1639,12 +1642,14 @@ class AppleAudioService:
         started = time.monotonic()
         folder_cover_cache = {}
         with self.lock:
+            if force:
+                self.lyrics_cache = {}
             self.state["scan_running"] = True
             self.state["scan_stage"] = "scan"
             self.state["scan_processed"] = 0
             self.state["scan_total"] = 0
             self.state["scan_progress"] = 0
-            self.state["scan_message"] = "Scanning files..."
+            self.state["scan_message"] = "Full scraping music library..." if full_scrape else "Scanning files..."
             self.state["scan_errors"] = []
             self.state["updated_at"] = datetime.now().isoformat()
 
@@ -1688,23 +1693,27 @@ class AppleAudioService:
             self.state["queue_ids"] = [tid for tid in self.state.get("queue_ids", []) if tid in by_id]
             self.state["last_scan_at"] = datetime.now().isoformat()
             self.state["scan_count"] = len(all_tracks)
-            self.state["scan_stage"] = "scrape"
-            self.state["scan_processed"] = 0
+            self.state["scan_stage"] = "scrape" if full_scrape else "done"
+            self.state["scan_processed"] = 0 if full_scrape else len(all_tracks)
             self.state["scan_total"] = len(all_tracks)
-            self.state["scan_progress"] = 0
-            self.state["scan_message"] = "Scraping cover and lyrics..."
+            self.state["scan_progress"] = 0 if full_scrape else 100
+            self.state["scan_message"] = "Scraping cover and lyrics for all tracks..." if full_scrape else "Scan complete"
             self.state["scan_errors"] = all_errors[:50]
             self.state["scan_ms"] = scan_ms
             self.state["last_action"] = "Library scanned"
+            self.state["scan_running"] = bool(full_scrape)
             self.state["updated_at"] = datetime.now().isoformat()
             self._save_library_cache()
+        if not full_scrape:
+            self._cleanup_stale_cover_cache(by_id.keys())
+            return self.snapshot()
         # Full scraping: eagerly parse lyrics for every track during rescan.
         scrape_started = time.monotonic()
         scrape_errors = []
         total_tracks = len(all_tracks)
         for idx, item in enumerate(all_tracks, start=1):
             try:
-                self._scrape_track_lyrics_payload(item)
+                self._scrape_track_lyrics_payload(item, force=force)
             except Exception as ex:
                 scrape_errors.append(str(ex))
                 if len(scrape_errors) >= 20:
@@ -1728,9 +1737,9 @@ class AppleAudioService:
             self.state["scan_total"] = total_tracks
             self.state["scan_progress"] = 100
             self.state["scan_stage"] = "done"
-            self.state["scan_message"] = "Scan complete"
+            self.state["scan_message"] = "Full scrape complete"
             self.state["scan_running"] = False
-            self.state["last_action"] = "Library scanned + metadata scraped"
+            self.state["last_action"] = "Library fully scraped"
             self.state["updated_at"] = datetime.now().isoformat()
             self._save_library_cache()
         self._cleanup_stale_cover_cache(by_id.keys())
