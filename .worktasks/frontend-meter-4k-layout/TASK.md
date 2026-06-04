@@ -17,9 +17,7 @@ Improve the meter center layout on 4K displays so the 14 meter rows and trend ch
 
 ## Current Phase
 
-`	ext
-in_progress
-`
+deployed_and_verified
 
 ## Change Scope
 
@@ -37,11 +35,18 @@ in_progress
 
 ## Verified
 
--
+- git diff --check
+- node --check static/js/views/power-meter-runtime.js
+- node --check static/js/views/power-meter.js
+- powershell finish-work compileall check
+- Production deploy to /srv/smart-center/releases/smart-center-release-20260604_171829-main-09a4c00
+- smart-center.service active after deploy
+- Browser 3840x2160 metrics: 14 rendered meter cards, 2 grid columns, trend chart 3261x432, no horizontal overflow
+- /api/meters returns data successfully; production summary reports 15 / 15 online
 
 ## Not Verified
 
-- Browser visual QA on 3840x2160 is still pending.
+- 4K screenshot capture timed out in the in-app browser, so validation used DOM layout metrics instead.
 
 ## Risks
 
@@ -55,4 +60,4 @@ If this task touches templates/index.html, config.py, background.py, app.py, api
 
 ## Next
 
-- Run CSS diff checks and browser QA.
+- Release frontend_assets lock.
