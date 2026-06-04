@@ -521,6 +521,10 @@ class AppleAudioService:
         with self.lock:
             if self.state.get("scan_running"):
                 return self.snapshot()
+            self.state["scan_running"] = True
+            self.state["scan_stage"] = "queued"
+            self.state["scan_message"] = f"Scan queued: {reason}"
+            self.state["updated_at"] = datetime.now().isoformat()
 
         def run():
             try:
@@ -535,11 +539,6 @@ class AppleAudioService:
 
         thread = threading.Thread(target=run, name=f"apple-audio-scan-{reason}", daemon=True)
         thread.start()
-        with self.lock:
-            self.state["scan_running"] = True
-            self.state["scan_stage"] = "queued"
-            self.state["scan_message"] = f"Scan queued: {reason}"
-            self.state["updated_at"] = datetime.now().isoformat()
         return self.snapshot()
 
     def _config(self):
