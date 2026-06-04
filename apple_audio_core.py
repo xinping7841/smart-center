@@ -3,7 +3,7 @@
 # AI_BOUNDARY: Flask routes live in api/apple_audio.py and frontend rendering lives in static/js/views/apple-audio.js.
 # AI_DATA_FLOW: CONFIG/apple audio library files -> DATA_DIR runtime caches -> API payloads for music cards and transport.
 # AI_RUNTIME: Imported by api/apple_audio.py during page/API requests and background-style scan operations.
-# AI_RISK: Medium. Heavy scans or bad metadata parsing can slow the dashboard and disrupt live playback.
+# AI_RISK: Medium. Heavy scans or bad metadata parsing can slow the dashboard and disrupt live playback; startup scans must not block Flask binding.
 # AI_COMPAT: Preserve queue, transport, lyrics, cover, and library payload shapes used by existing frontend.
 # AI_SEARCH_KEYWORDS: apple audio, music library, queue, lyrics, cover, transport.
 import base64
@@ -515,7 +515,32 @@ class AppleAudioService:
         self.configure()
         self._load_library_cache()
         if self._config().get("nas_auto_scan_on_start", True):
-            self.scan_library()
+            self.start_background_scan("startup")
+
+    def start_background_scan(self, reason="manual"):
+        with self.lock:
+            if self.state.get("scan_running"):
+                return self.snapshot()
+
+        def run():
+            try:
+                self.scan_library()
+            except Exception as exc:
+                with self.lock:
+                    self.state["scan_running"] = False
+                    self.state["scan_stage"] = "error"
+                    self.state["scan_message"] = f"Scan failed: {exc}"
+                    self.state["scan_errors"] = [str(exc)]
+                    self.state["updated_at"] = datetime.now().isoformat()
+
+        thread = threading.Thread(target=run, name=f"apple-audio-scan-{reason}", daemon=True)
+        thread.start()
+        with self.lock:
+            self.state["scan_running"] = True
+            self.state["scan_stage"] = "queued"
+            self.state["scan_message"] = f"Scan queued: {reason}"
+            self.state["updated_at"] = datetime.now().isoformat()
+        return self.snapshot()
 
     def _config(self):
         cfg = CONFIG.get("apple_audio", {}) or {}
