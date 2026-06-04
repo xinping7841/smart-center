@@ -142,7 +142,7 @@ def selected_code_modules(module_cards: list[dict]) -> list[str]:
 
 
 def selected_ui_semantics(rows: list[dict]) -> list[str]:
-    wanted_modules = ["node_red", "hvac", "light", "power", "server", "projector", "sequencer", "door", "env", "current_collector", "meter", "ups", "snmp"]
+    wanted_modules = ["node_red", "hvac", "light", "power", "server", "projector", "sequencer", "door", "env", "current_collector", "meter", "ups", "snmp", "apple_audio"]
     picked: list[str] = []
     seen = set()
     for module in wanted_modules:
@@ -162,6 +162,15 @@ def selected_ui_semantics(rows: list[dict]) -> list[str]:
             picked.append(f"- {text} -> {module}/{target} query:{query_api}{suffix}")
             break
     return picked[:24]
+
+
+def query_route_hints() -> list[str]:
+    return [
+        "- 音乐播放器状态/主界面音乐状态/当前歌曲/播放模式/音量/队列: 首选只读 GET /api/dashboard/summary 的 modules.apple_audio；字段 connected、is_playing、track.title/artist、playlist.name、queue_size、volume、playback_mode、library_size、scan。只有需要完整队列、曲库、歌词或输出设备详情时再读 GET /api/apple-audio/status。不要猜 /api/apple-audio/library。",
+        "- 中控总体状态/首页状态/离线异常: 首选只读 GET /api/dashboard/summary，按 counts 与 modules.* 摘要回答。",
+        "- 服务器/主机硬件详情: 首选只读 GET /api/machines；首页卡片只需 GET /api/dashboard/summary 的 modules.server。",
+        "- 环境/门磁/温湿度/光照: 首选只读 GET /api/env/status；首页摘要可用 GET /api/dashboard/summary。",
+    ]
 
 
 def build_prompt() -> tuple[str, dict]:
@@ -201,6 +210,7 @@ def build_prompt() -> tuple[str, dict]:
     device_lines = selected_devices(devices)
     ui_semantic_lines = selected_ui_semantics(ui_semantics)
     module_lines = selected_code_modules(module_cards)
+    route_hint_lines = query_route_hints()
     generated_at = datetime.now().isoformat(timespec="seconds")
 
     ha_chain = [
@@ -226,6 +236,9 @@ AI 标注覆盖: {json.dumps(marker_counts, ensure_ascii=False)}
 
 [UI文案与设备语义索引]
 {chr(10).join(ui_semantic_lines)}
+
+[只读查询路由索引]
+{chr(10).join(route_hint_lines)}
 
 [关键代码索引]
 {chr(10).join(module_lines)}
