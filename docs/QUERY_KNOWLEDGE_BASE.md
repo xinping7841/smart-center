@@ -1,6 +1,6 @@
 # Smart Center Query Knowledge Base
 
-Last updated: 2026-05-24
+Last updated: 2026-06-04
 
 This document is the single reference for Feishu natural-language replies and local-model tool routing. Query intents use deterministic read APIs; control intents are enabled but must enter the Smart Center safety chain: permission, audit, target matching, risk classification, and confirmation policy.
 
@@ -50,6 +50,7 @@ Use deterministic routing first. A local model may classify query and control in
 | NVR and cameras | 录像机, 摄像头, NVR, 通道 | `GET /api/nvr/status` | Snapshot/live APIs are read-like media endpoints but should be explicitly requested. |
 | Proxy | 代理, 网络代理, ChatGPT, Google, YouTube, GitHub, 流量 | `GET /api/proxy/status` | Report target checks, clients, traffic. |
 | Driver health | 驱动, 驱动中心, Node-RED, driver | `GET /api/driver_hub/snapshot`, `GET /api/driver_hub/manifest` | Useful for protocol/driver health summaries. |
+| Music player status | 音乐, 播放器, 当前歌曲, 队列, 随机播放, 循环播放, 单曲循环 | `GET /api/apple-audio/status` | Query current track, queue, output route, library size, and `playback_mode`. Changing modes or transport uses the controlled music route. |
 | Local model service | 本地模型, AI, 模型健康, knowledge proxy | `GET /api/local-model/config`, `GET /api/local-model/health` | Health may be slow; config endpoint is cheap and redacts secrets. |
 
 ## Response Style
@@ -530,6 +531,7 @@ Control routes. Call only through the Smart Center safety chain, never directly 
 /api/automation/toggle
 /api/automation/test
 /api/automation/update
+/api/apple-audio/transport
 /api/wake/<mac>
 /api/machines/<mac>/command
 /door_control/<action>

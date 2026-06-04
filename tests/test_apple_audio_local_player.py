@@ -32,7 +32,47 @@ class FakeProcess:
         return 0
 
 
+class ExitedProcess:
+    pid = 4343
+
+    def __init__(self, code=0):
+        self.code = code
+
+    def poll(self):
+        return self.code
+
+    def terminate(self):
+        return None
+
+    def wait(self, timeout=None):
+        return self.code
+
+
 class AppleAudioLocalPlayerTest(unittest.TestCase):
+    def setUp(self):
+        CONFIG["apple_audio"] = {
+            "enabled": True,
+            "provider": "nas_music_tag",
+            "player_mode": "nas_http",
+            "nas_music_roots": [],
+            "nas_auto_scan_on_start": False,
+        }
+
+    def _service_with_tracks(self, count=3):
+        with patch.object(AppleAudioService, "scan_library", return_value={}):
+            service = AppleAudioService()
+        service.library = [
+            {
+                "id": f"track-{index}",
+                "title": f"Track {index}",
+                "path": f"/tmp/track-{index}.mp3",
+                "playable": True,
+            }
+            for index in range(1, count + 1)
+        ]
+        service.library_by_id = {item["id"]: item for item in service.library}
+        return service
+
     def test_play_now_starts_local_ffplay_when_enabled(self):
         with tempfile.TemporaryDirectory() as tmp:
             audio_path = Path(tmp) / "track.mp3"
@@ -123,6 +163,64 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
         self.assertEqual(cmd[:6], ["sudo", "-n", "-u", "audio_user", "env", "XDG_RUNTIME_DIR=/run/user/1234"])
         self.assertIn("/usr/bin/ffplay", cmd)
         self.assertEqual(env["XDG_RUNTIME_DIR"], "/run/user/1234")
+
+    def test_playback_mode_repeat_one_restarts_current_track(self):
+        service = self._service_with_tracks(2)
+        service.state["current_track_id"] = "track-1"
+        service.state["playback_mode"] = "repeat_one"
+
+        state = service.transport("next")
+
+        self.assertEqual(state["current_track"]["id"], "track-1")
+        self.assertTrue(state["is_playing"])
+
+    def test_playback_mode_repeat_all_wraps_library_when_queue_empty(self):
+        service = self._service_with_tracks(2)
+        service.state["current_track_id"] = "track-2"
+        service.state["playback_mode"] = "repeat_all"
+
+        state = service.transport("next")
+
+        self.assertEqual(state["current_track"]["id"], "track-1")
+        self.assertTrue(state["is_playing"])
+
+    def test_playback_mode_shuffle_avoids_current_when_possible(self):
+        service = self._service_with_tracks(3)
+        service.state["current_track_id"] = "track-1"
+        service.state["playback_mode"] = "shuffle"
+
+        with patch("apple_audio_core.random.choice", return_value="track-3"):
+            state = service.transport("next")
+
+        self.assertEqual(state["current_track"]["id"], "track-3")
+        self.assertTrue(state["is_playing"])
+
+    def test_browser_ended_stops_in_normal_mode_when_queue_empty(self):
+        service = self._service_with_tracks(1)
+        service.state["current_track_id"] = "track-1"
+        service.state["is_playing"] = True
+        service.state["playback_mode"] = "normal"
+
+        state = service.transport("ended")
+
+        self.assertEqual(state["current_track"]["id"], "track-1")
+        self.assertFalse(state["is_playing"])
+        self.assertEqual(state["last_action"], "Playback ended")
+
+    def test_local_player_exit_auto_advances_repeat_all_without_real_audio(self):
+        service = self._service_with_tracks(2)
+        service.state["current_track_id"] = "track-1"
+        service.state["is_playing"] = True
+        service.state["playback_mode"] = "repeat_all"
+        service.local_player_proc = ExitedProcess(0)
+
+        with patch.object(service, "_local_player_enabled", return_value=True), \
+                patch.object(service, "_start_local_player_for_track") as start_track:
+            state = service.snapshot()
+
+        self.assertEqual(state["current_track"]["id"], "track-2")
+        self.assertTrue(state["is_playing"])
+        start_track.assert_called_once_with("track-2")
 
 
 if __name__ == "__main__":

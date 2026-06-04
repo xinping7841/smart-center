@@ -63,6 +63,7 @@ state.outputZones = Array.isArray(state.outputZones) ? state.outputZones : [];
 state.queue = Array.isArray(state.queue) ? state.queue : [];
 state.nowPlaying = state.nowPlaying || null;
 state.isPlaying = !!state.isPlaying;
+state.playbackMode = state.playbackMode || 'normal';
 state.elapsedSec = Number(state.elapsedSec || 0);
 state.stateCache = state.stateCache || null;
 state.stateLoading = !!state.stateLoading;
@@ -135,6 +136,7 @@ function renderAppleAudioPage(force = false) {
                                         <button class="apple-ctl-btn text" onclick="appleTransport('favorite')">收藏当前曲目</button>
                                         <button class="apple-ctl-btn text" onclick="openAppleAudioConfig()">输出路由</button>
                                     </div>
+                                    <div class="apple-mode-row" id="applePlaybackModeRow"></div>
                                     <div class="apple-lyrics-card">
                                         <div class="apple-lyrics-head">
                                             <div class="apple-panel-title" style="font-size:13px;">歌词</div>
@@ -364,6 +366,28 @@ function resetAppleLyricsState() {
     state.lyricsLines = [];
     state.lyricsActiveIndex = -1;
 }
+function getApplePlaybackModeLabel(mode) {
+    const map = {
+        normal: '顺序播放',
+        shuffle: '随机播放',
+        repeat_all: '循环播放',
+        repeat_one: '单曲循环'
+    };
+    return map[String(mode || 'normal')] || map.normal;
+}
+function renderApplePlaybackMode() {
+    const row = document.getElementById('applePlaybackModeRow');
+    if (!row) return;
+    const modes = [
+        ['normal', '顺序'],
+        ['shuffle', '随机'],
+        ['repeat_all', '循环'],
+        ['repeat_one', '单曲']
+    ];
+    row.innerHTML = modes.map(([mode, label]) => `
+        <button type="button" class="apple-mode-btn ${state.playbackMode === mode ? 'active' : ''}" onclick="setApplePlaybackMode('${mode}')">${label}</button>
+    `).join('');
+}
 function getAppleAudioEl() {
     if (state.audioEl && document.body.contains(state.audioEl)) return state.audioEl;
     const audio = document.getElementById('appleAudioElement') || document.createElement('audio');
@@ -371,7 +395,7 @@ function getAppleAudioEl() {
     audio.preload = 'metadata';
     audio.style.display = 'none';
     if (!audio.parentNode) document.body.appendChild(audio);
-    audio.onended = () => appleTransport('next');
+    audio.onended = () => appleTransport('ended', { quiet: true });
     audio.ontimeupdate = () => {
         if (!state.nowPlaying) return;
         state.elapsedSec = Math.floor(audio.currentTime || 0);
@@ -695,11 +719,24 @@ function clearAppleQueue() {
         })
         .catch(err => notify(translateError(err?.message, '清空播放队列失败'), true));
 }
-function appleTransport(action) {
+function setApplePlaybackMode(mode) {
+    const nextMode = String(mode || 'normal');
+    postJson('/api/apple-audio/transport', { action: 'playback_mode', mode: nextMode }, '播放模式设置失败')
+        .then(data => {
+            if (!data.success) {
+                notify(data.message || data.msg || '播放模式设置失败', true);
+                return;
+            }
+            syncAppleState(data.state);
+            notify(`已切换为${getApplePlaybackModeLabel(state.playbackMode)}`);
+        })
+        .catch(err => notify(translateError(err?.message, '播放模式设置失败'), true));
+}
+function appleTransport(action, options = {}) {
     postJson('/api/apple-audio/transport', { action }, '音乐播放器控制失败')
         .then(data => {
             if (!data.success) {
-                notify(data.message || data.msg || '音乐播放器控制失败', true);
+                if (!options.quiet) notify(data.message || data.msg || '音乐播放器控制失败', true);
                 return;
             }
             const beforeTrackId = state.nowPlaying ? state.nowPlaying.id : '';
@@ -709,19 +746,22 @@ function appleTransport(action) {
                 if (isAppleLocalPlayerMode()) pauseAppleBrowserAudio();
                 else if (state.isPlaying && state.nowPlaying) playAppleTrackInBrowser(state.nowPlaying);
                 else pauseAppleBrowserAudio();
-            } else if (['next', 'prev'].includes(action) && state.nowPlaying) {
+            } else if (['next', 'prev', 'ended'].includes(action) && state.nowPlaying) {
                 if (isAppleLocalPlayerMode()) pauseAppleBrowserAudio();
                 else if (afterTrackId !== beforeTrackId || action === 'prev') playAppleTrackInBrowser(state.nowPlaying);
             }
             const actionMap = {
                 toggle: state.isPlaying ? '已开始播放' : '已暂停播放',
                 next: '已切到下一首',
+                ended: state.isPlaying ? '已自动续播' : '播放已结束',
                 prev: '已回到当前曲目开头',
                 favorite: `已收藏：${state.nowPlaying ? state.nowPlaying.title : '当前曲目'}`
             };
-            notify(actionMap[action] || '操作已执行');
+            if (!options.quiet) notify(actionMap[action] || '操作已执行');
         })
-        .catch(err => notify(translateError(err?.message, '音乐播放器控制失败'), true));
+        .catch(err => {
+            if (!options.quiet) notify(translateError(err?.message, '音乐播放器控制失败'), true);
+        });
 }
 function syncAppleState(nextStatePayload) {
     const nextState = nextStatePayload || {};
@@ -739,9 +779,11 @@ function syncAppleState(nextStatePayload) {
     state.queue = Array.isArray(nextState.queue) ? nextState.queue.map((item, index) => normalizeAppleTrack(item, index)) : [];
     state.nowPlaying = nextState.current_track ? normalizeAppleTrack(nextState.current_track, 0) : null;
     state.isPlaying = !!nextState.is_playing;
+    state.playbackMode = String(nextState.playback_mode || 'normal');
     state.elapsedSec = Number(nextState.elapsed_sec || 0);
     renderAppleScanProgress(nextState.scan || {});
     renderAppleCategoryFilters();
+    renderApplePlaybackMode();
     renderAppleNowPlaying();
     renderAppleOutputs();
     renderAppleQueue();
@@ -793,6 +835,8 @@ function initAppleAudioDemo() {
         getAppleCoverHtml,
         getAppleRowArtHtml,
         resetAppleLyricsState,
+        getApplePlaybackModeLabel,
+        renderApplePlaybackMode,
         renderAppleLyrics,
         updateAppleLyricsHighlight,
         loadAppleLyrics,
@@ -805,6 +849,7 @@ function initAppleAudioDemo() {
         playAppleTrackNow,
         promoteAppleTrack,
         clearAppleQueue,
+        setApplePlaybackMode,
         appleTransport,
         syncAppleState,
         openAppleAudioConfig,

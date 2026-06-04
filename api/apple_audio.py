@@ -34,6 +34,22 @@ def _save_cfg(cfg):
     apple_audio_service.configure(cfg)
 
 
+def _normalize_playback_mode(value):
+    aliases = {
+        "random": "shuffle",
+        "loop": "repeat_all",
+        "loop_all": "repeat_all",
+        "repeat": "repeat_all",
+        "single": "repeat_one",
+        "single_loop": "repeat_one",
+    }
+    mode = str(value or "").strip().lower()
+    mode = aliases.get(mode, mode)
+    if mode not in {"normal", "shuffle", "repeat_all", "repeat_one"}:
+        raise ValueError("unsupported playback mode")
+    return mode
+
+
 def _error_payload(message, status=400):
     return jsonify({"success": False, "message": str(message or "request failed")}), int(status)
 
@@ -75,6 +91,7 @@ def api_apple_audio_config():
         "player_mode",
         "player_host",
         "output_mode",
+        "playback_mode",
         "auth_state",
         "nas_music_roots",
         "nas_music_exclude_dirs",
@@ -93,7 +110,7 @@ def api_apple_audio_config():
                 elif isinstance(value, str):
                     cfg[key] = [line.strip() for line in value.splitlines() if line.strip()]
             else:
-                cfg[key] = str(value or "").strip()
+                cfg[key] = _normalize_playback_mode(value) if key == "playback_mode" else str(value or "").strip()
     for key in ["enabled"]:
         if key in data:
             cfg[key] = bool(data.get(key))
@@ -290,8 +307,16 @@ def api_apple_audio_transport():
     data = request.json or {}
     action = data.get("action", "")
     try:
-        snapshot = apple_audio_service.transport(action)
-        add_log(-1, f"[MusicPlayer] transport {action}")
+        if str(action or "").strip().lower() in {"playback_mode", "set_mode", "mode"}:
+            cfg = _cfg()
+            mode = _normalize_playback_mode(data.get("mode"))
+            cfg["playback_mode"] = mode
+            _save_cfg(cfg)
+            snapshot = apple_audio_service.transport(action, mode=mode)
+            add_log(-1, f"[MusicPlayer] playback mode {mode}")
+        else:
+            snapshot = apple_audio_service.transport(action)
+            add_log(-1, f"[MusicPlayer] transport {action}")
         return jsonify({"success": True, "state": snapshot})
     except ValueError as ex:
         return _error_payload(ex, 400)

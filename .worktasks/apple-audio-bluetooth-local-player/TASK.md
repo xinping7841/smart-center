@@ -43,6 +43,9 @@ scripts/remote/setup_node120_apple_audio_bluetooth_20260604.sh
 - 通过 sshfs 只读挂载 NAS `/vol2/1000/Audio` 到 node-120 `/mnt/fnnas-audio`。
 - 导入播放器素材库，扫描到 3413 首，搜索和 stream 接口验证通过。
 - 增加 `node120_analog`/`ffmpeg_aplay` 本机播放路径，用 `ffmpeg | aplay -D plughw:CARD=PCH,DEV=0` 输出到 120 后置绿色口。
+- 增加音乐播放器播放模式：顺序播放、随机播放、循环播放、单曲循环。
+- 播放模式写入 `apple_audio.playback_mode` 配置并从 `/api/apple-audio/status` 返回；前端播放结束和 120 本机播放进程退出都会按模式续播或停止。
+- 更新查询知识库，标注音乐播放器状态查询走 `/api/apple-audio/status`，播放/模式变更属于 `/api/apple-audio/transport` 控制边界。
 
 ## 已验证
 
@@ -51,6 +54,7 @@ scripts/remote/setup_node120_apple_audio_bluetooth_20260604.sh
 - `python3 -m compileall apple_audio_core.py api/apple_audio.py config.py tests/test_apple_audio_local_player.py`
 - `node --check static/js/views/apple-audio.js`
 - `git diff --check`
+- 本轮播放模式验证只使用 mock 本机播放器进程，不触发真实音频输出。
 - 120 生产音频口测试：`Line Out Front Jack=on`，`plughw:CARD=PCH,DEV=0` 播放可听。
 - 120 素材库：`library_size=3413`，`/api/apple-audio/search?q=舒伯特` 正常，stream 返回 `206 audio/mpeg`。
 
@@ -59,6 +63,7 @@ scripts/remote/setup_node120_apple_audio_bluetooth_20260604.sh
 - 
 - `sshfs` NAS 音频挂载当前为运行时挂载，发布后应固化为 systemd mount，避免 node-120 重启后丢失。
 - 生产切到 `node120_analog` 后需用真实音乐短播验证后置绿色口。
+- 播放模式尚未发布生产；发布后需验证 `/api/apple-audio/status` 返回 `playback_mode`，并在用户明确允许时再做真实续播听音测试。
 
 ## 风险点
 
