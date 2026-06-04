@@ -402,6 +402,11 @@ function playAppleTrackInBrowser(track) {
     }
     audio.play().catch(err => notify(translateError(err?.message, '浏览器播放失败'), true));
 }
+function isAppleLocalPlayerMode() {
+    const mode = String(state.stateCache?.player_mode || '').toLowerCase();
+    const local = state.stateCache?.local_player || {};
+    return !!local.enabled || ['local_process', 'node120_bluetooth', 'bluetooth_local'].includes(mode);
+}
 function pauseAppleBrowserAudio() {
     const audio = getAppleAudioEl();
     audio.pause();
@@ -533,7 +538,10 @@ function renderAppleNowPlaying() {
     } else {
         fillEl.style.width = '0%';
     }
-    stateTag.innerText = state.isPlaying ? '播放中' : '已暂停';
+    const localPlayer = state.stateCache?.local_player || {};
+    stateTag.innerText = state.isPlaying
+        ? (isAppleLocalPlayerMode() ? '120播放中' : '播放中')
+        : (localPlayer.state === 'error' ? '播放异常' : '已暂停');
     playBtn.innerText = state.isPlaying ? '❚❚' : '▶';
     if (authEl) authEl.innerText = state.stateCache?.auth_state || '未连接';
     if (coverWrap) {
@@ -545,16 +553,24 @@ function renderAppleNowPlaying() {
 function renderAppleOutputs() {
     const list = document.getElementById('appleOutputList');
     if (!list) return;
-    if (!state.outputZones.length) {
+    const local = state.stateCache?.local_player || {};
+    const localEnabled = isAppleLocalPlayerMode();
+    const localCard = localEnabled ? `
+        <div class="apple-output-card ${local.state === 'playing' ? 'active' : ''}">
+            <div class="apple-output-title"><span>120 本机播放器</span><span>${html(local.state || 'idle')}</span></div>
+            <div class="apple-output-meta">${html(local.message || '等待蓝牙音箱连接和本机音频输出')} ${local.pid ? `· PID ${html(local.pid)}` : ''}</div>
+        </div>
+    ` : '';
+    if (!state.outputZones.length && !localCard) {
         list.innerHTML = '<div class="apple-empty-note">暂未配置输出区域。可在配置页补充播放主机、输出模式和分区。</div>';
         return;
     }
-    list.innerHTML = state.outputZones.map(zone => `
+    list.innerHTML = `${localCard}${state.outputZones.map(zone => `
         <div class="apple-output-card ${zone.active ? 'active' : ''}">
             <div class="apple-output-title"><span>${zone.name}</span><span>${zone.level}</span></div>
             <div class="apple-output-meta">${zone.host} · ${zone.mode}</div>
         </div>
-    `).join('');
+    `).join('')}`;
 }
 function renderAppleResults(keyword='') {
     const list = document.getElementById('appleResultList');
@@ -649,7 +665,7 @@ function playAppleTrackNow(trackId) {
             }
             syncAppleState(data.state);
             const track = state.nowPlaying || findAppleTrackById(trackId);
-            playAppleTrackInBrowser(track);
+            if (!isAppleLocalPlayerMode()) playAppleTrackInBrowser(track);
         })
         .catch(err => notify(translateError(err?.message, '播放曲目失败'), true));
 }
@@ -690,10 +706,12 @@ function appleTransport(action) {
             syncAppleState(data.state);
             const afterTrackId = state.nowPlaying ? state.nowPlaying.id : '';
             if (action === 'toggle') {
-                if (state.isPlaying && state.nowPlaying) playAppleTrackInBrowser(state.nowPlaying);
+                if (isAppleLocalPlayerMode()) pauseAppleBrowserAudio();
+                else if (state.isPlaying && state.nowPlaying) playAppleTrackInBrowser(state.nowPlaying);
                 else pauseAppleBrowserAudio();
             } else if (['next', 'prev'].includes(action) && state.nowPlaying) {
-                if (afterTrackId !== beforeTrackId || action === 'prev') playAppleTrackInBrowser(state.nowPlaying);
+                if (isAppleLocalPlayerMode()) pauseAppleBrowserAudio();
+                else if (afterTrackId !== beforeTrackId || action === 'prev') playAppleTrackInBrowser(state.nowPlaying);
             }
             const actionMap = {
                 toggle: state.isPlaying ? '已开始播放' : '已暂停播放',

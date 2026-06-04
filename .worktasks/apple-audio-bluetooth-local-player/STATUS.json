@@ -1,0 +1,10 @@
+{
+  "task": "apple-audio-bluetooth-local-player",
+  "module": "apple_audio",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-apple-audio-bluetooth-local-player-20260604",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/apple-audio-bluetooth-local-player",
+  "started_at": "2026-06-04 12:04:14",
+  "status": "validated_local"
+}
