@@ -25,7 +25,7 @@ from paths import DB_FILE as DB_FILE_PATH, ensure_parent_dir
 
 bp = Blueprint('server', __name__)
 DB_FILE = str(DB_FILE_PATH)
-AGENT_VERSION = "2026.05.30.01"
+AGENT_VERSION = "2026.06.04.01"
 REPORT_MAX_BYTES = 8 * 1024 * 1024
 REPORT_MIN_INTERVAL_SEC = 2.0
 REPORT_CACHE = {}
@@ -1407,6 +1407,64 @@ def _parse_linux_size_bytes(text):
         return 0
 
 
+def _infer_linux_memory_channel_from_label(label):
+    text = str(label or "").strip()
+    patterns = (
+        r"channel\s*([a-z0-9]+)",
+        r"channel([a-z])",
+        r"\bDIMM[_\s-]*([A-Z])\d+\b",
+        r"\b([A-Z])\d+[_\s-]*DIMM\b",
+        r"\bP\d+[_\s-]*DIMM[_\s-]*([A-Z])\d+\b",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            value = str(match.group(1) or "").upper()
+            if value:
+                return value
+    return ""
+
+
+def _linux_memory_channel_mode(channel_count, installed_count):
+    if channel_count >= 4:
+        return "quad"
+    if channel_count == 3:
+        return "triple"
+    if channel_count == 2:
+        return "dual"
+    if channel_count == 1 and installed_count:
+        return "single"
+    return "unknown"
+
+
+def _read_linux_cpu_topology():
+    physical_core_ids = set()
+    physical_ids = set()
+    logical_count = 0
+    for block in _read_text_file("/proc/cpuinfo").split("\n\n"):
+        current = {}
+        for line in block.splitlines():
+            if ":" not in line:
+                continue
+            key, value = line.split(":", 1)
+            current[key.strip().lower()] = value.strip()
+        if not current:
+            continue
+        logical_count += 1
+        physical_id = current.get("physical id") or "0"
+        core_id = current.get("core id")
+        if core_id is not None:
+            physical_core_ids.add((physical_id, core_id))
+            physical_ids.add(physical_id)
+    fallback_logical = os.cpu_count() or logical_count or 0
+    core_count = len(physical_core_ids) if physical_core_ids else fallback_logical
+    return {
+        "core_count": int(core_count or 0),
+        "thread_count": int(logical_count or fallback_logical or 0),
+        "socket_count": max(1, len(physical_ids)) if physical_core_ids else 1,
+    }
+
+
 def _read_linux_memory_topology():
     text = _linux_command_output(["dmidecode", "-t", "memory"], timeout=4)
     modules = []
@@ -1436,18 +1494,11 @@ def _read_linux_memory_topology():
     channels = []
     for item in installed:
         label = " ".join([str(item.get("locator") or ""), str(item.get("bank_locator") or "")])
-        match = re.search(r"channel\s*([a-z0-9]+)", label, flags=re.IGNORECASE) or re.search(r"channel([a-z])", label, flags=re.IGNORECASE)
-        if match:
-            channel = match.group(1).upper()
-            if channel and channel not in channels:
-                channels.append(channel)
+        channel = _infer_linux_memory_channel_from_label(label)
+        if channel and channel not in channels:
+            channels.append(channel)
     channel_count = len(channels)
-    if channel_count >= 2:
-        mode = "dual"
-    elif channel_count == 1 and installed:
-        mode = "single"
-    else:
-        mode = "unknown"
+    mode = _linux_memory_channel_mode(channel_count, len(installed))
     total_bytes = sum(int(item.get("size_bytes") or 0) for item in installed)
     summary_bits = [f"{len(installed)} DIMM"]
     if total_bytes:
@@ -1673,6 +1724,7 @@ def _read_linux_hardware_profile():
     network = _read_linux_network_adapters()
     payload = {
         "cpu_name": cpu_name or platform.processor() or platform.machine() or "Linux Host",
+        "cpu_topology": _read_linux_cpu_topology(),
         "motherboard": motherboard,
         "mem_speed": _read_linux_memory_speed(),
         "os_info": _read_linux_os_info(),
@@ -1687,6 +1739,15 @@ def _read_linux_hardware_profile():
         "gpu_list": _read_linux_gpu_snapshot(),
     }
     with LOCAL_MACHINE_STATE_LOCK:
+        if not payload.get("mem_speed"):
+            for module in (payload.get("memory_topology") or {}).get("modules") or []:
+                for key in ("configured_memory_speed", "speed"):
+                    value = _parse_linux_memory_speed(module.get(key))
+                    if value:
+                        payload["mem_speed"] = value
+                        break
+                if payload.get("mem_speed"):
+                    break
         LOCAL_MACHINE_HW_CACHE["payload"] = payload
         LOCAL_MACHINE_HW_CACHE["expires_at"] = now_ts + 300.0
     return payload
@@ -2060,6 +2121,7 @@ def _build_local_machine_status():
     ntp_state = _read_local_ntp_state()
     return {
         "cpu_name": hardware.get("cpu_name"),
+        "cpu_topology": hardware.get("cpu_topology") or {},
         "motherboard": hardware.get("motherboard"),
         "mem_speed": hardware.get("mem_speed"),
         "os_info": hardware.get("os_info") or {},
@@ -5993,8 +6055,14 @@ function Get-HardwareSnapshot {{
         $board = @(Get-AgentInstances 'Win32_BaseBoard') | Select-Object -First 1
         $storage = Get-StorageInventory
         $network = Get-NetworkInventory
+        $cpuSockets = @($cpu).Count
         $script:HardwareCache = @{{
             cpu_name = if ($cpu -and $cpu.Name) {{ $cpu.Name }} else {{ 'Unknown CPU' }}
+            cpu_topology = if ($cpu) {{ @{{
+                core_count = [int]($cpu.NumberOfCores)
+                thread_count = [int]($cpu.NumberOfLogicalProcessors)
+                socket_count = [int]$cpuSockets
+            }} }} else {{ @{{ core_count = 0; thread_count = 0; socket_count = 0 }} }}
             motherboard = if ($board) {{ Get-BoardText $board }} else {{ 'Unknown motherboard' }}
             mem_speed = Get-MemorySpeed
             memory_topology = Get-MemoryTopology

@@ -159,8 +159,21 @@
             return text || 'CPU';
         }
 
-    function memoryChannelText(topology) {
+        function cpuTopologyText(topology) {
+            const cores = Number(topology?.core_count);
+            const threads = Number(topology?.thread_count);
+            const sockets = Number(topology?.socket_count);
+            const parts = [];
+            if (Number.isFinite(cores) && cores > 0) parts.push(`${cores}核心`);
+            if (Number.isFinite(threads) && threads > 0) parts.push(`${threads}线程`);
+            if (Number.isFinite(sockets) && sockets > 1) parts.push(`${sockets}路`);
+            return parts.join(' / ');
+        }
+
+        function memoryChannelText(topology) {
             const mode = String(topology?.channel_mode || '').toLowerCase();
+            if (mode === 'quad') return '四通道';
+            if (mode === 'triple') return '三通道';
             if (mode === 'dual') return '双通道';
             if (mode === 'single') return '单通道';
             return '通道未知';
@@ -220,12 +233,14 @@
             const wifi = st.wireless || {};
             const bt = st.bluetooth || {};
             const osText = os.name || st.os_caption || st.os_version || '';
+            const cpuText = cpuTopologyText(st.cpu_topology);
             const memText = mem.installed_count ? `${mem.installed_count}条 ${memoryChannelText(mem)}` : '';
             const diskCount = storage.disk_count ?? (Array.isArray(st.storage_devices) ? st.storage_devices.length : 0);
             const nicText = `${network.active_count ?? 0}/${network.physical_count ?? 0}网卡`;
             const wirelessText = wifi.present ? (wifi.connected ? `Wi-Fi ${wifi.ssid || '已连接'}` : 'Wi-Fi未连') : '';
             const bluetoothText = bt.present ? (bt.blocked ? '蓝牙阻塞' : '蓝牙') : '';
             const items = [
+                ['CPU', cpuText],
                 ['系统', osText],
                 ['内存', memText],
                 ['硬盘', diskCount ? `${diskCount}盘` : ''],
