@@ -1,7 +1,7 @@
 # AI_MODULE: home_assistant_bridge
 # AI_PURPOSE: 与 121 Home Assistant 对接，读取米家/HA 实体状态并执行空调等实体控制。
 # AI_BOUNDARY: 不做前端展示；房间/卡片布局由前端和 CONFIG 映射处理。
-# AI_DATA_FLOW: CONFIG.home_assistant/entity_id -> HA REST API -> env/hvac 状态 -> api/hvac.py、api/env.py。
+# AI_DATA_FLOW: CONFIG.home_assistant/entity_id -> HA REST API -> env/hvac 状态 -> api/hvac.py、api/env.py；HVAC updated_at 表示本次成功拉取，HA 原始时间保留在 ha_* 字段。
 # AI_RUNTIME: 后台轮询和手动控制都会调用；网络超时必须短，避免拖慢首页。
 # AI_RISK: 高，control_hvac 会真实控制空调；token 必须脱敏，错误实体会控制错设备。
 # AI_COMPAT: HA entity_id、attribute_map、stale_after_sec 和返回字段需兼容现有配置。
@@ -260,6 +260,22 @@ def _state_updated_iso(state):
 def _ha_state_timestamp_iso(state, key):
     updated = _parse_ha_timestamp((state or {}).get(key))
     return updated.isoformat(timespec="seconds") if updated else None
+
+
+def _ha_state_time_fields(state):
+    last_updated = _ha_state_timestamp_iso(state, "last_updated")
+    last_changed = _ha_state_timestamp_iso(state, "last_changed")
+    last_reported = _ha_state_timestamp_iso(state, "last_reported")
+    return {
+        "ha_last_updated": last_updated,
+        "ha_last_changed": last_changed,
+        "ha_last_reported": last_reported,
+        "last_updated": last_updated,
+        "last_changed": last_changed,
+        "last_reported": last_reported,
+        "age_sec": _state_age_sec(state),
+        "ha_state_age_sec": _state_age_sec(state),
+    }
 
 
 def _state_should_ignore_staleness(entity_id):
@@ -535,13 +551,11 @@ def get_hvac_status(device_cfg, config=None):
                 "target_temp": attrs.get("temperature") or attrs.get("target_temperature"),
                 "temp": attrs.get("current_temperature") or attrs.get("temperature"),
                 "hvac_action": attrs.get("hvac_action"),
-                "updated_at": _ha_state_timestamp_iso(ha_state, "last_updated") or polled_at,
-                "last_updated": _ha_state_timestamp_iso(ha_state, "last_updated"),
-                "last_changed": _ha_state_timestamp_iso(ha_state, "last_changed"),
-                "age_sec": _state_age_sec(ha_state),
-                "ha_state_age_sec": _state_age_sec(ha_state),
+                "updated_at": polled_at,
+                **_ha_state_time_fields(ha_state),
             }
         )
+        payload["updated_at"] = polled_at
         power_entity = str((device_cfg or {}).get("power_sensor_entity_id") or "").strip()
         if power_entity:
             power_state = get_cached_state(power_entity, ha_cfg)

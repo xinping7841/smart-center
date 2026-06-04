@@ -1,0 +1,10 @@
+{
+  "task": "ha-root-cause-check",
+  "module": "ha-hvac-freshness",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-ha-root-cause-check-20260603",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees-active/ha-root-cause-check",
+  "started_at": "2026-06-03 19:50:34",
+  "status": "in_progress"
+}
