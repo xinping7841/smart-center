@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# AI_MODULE: smart_center_linux_agent
+# AI_PURPOSE: Linux 服务器监控 Agent，采集 CPU/内存/硬件/网络/GPU/CodeMeter 并上报中控。
+# AI_BOUNDARY: 只采集和执行中控下发的服务器命令；不包含前端展示布局。
+# AI_DATA_FLOW: Linux host sensors/dmidecode/procfs -> /report payload -> server_monitor_api -> 服务器看板。
+# AI_RISK: 高，包含自更新、命令轮询和关机/重启/WOL 状态反馈，采集字段要保持兼容。
+# AI_SEARCH_KEYWORDS: linux agent, memory topology, cpu topology, dimm channel, server monitor.
 import hashlib
 import json
 import os
@@ -635,6 +641,64 @@ def read_memory_speed():
     return None
 
 
+def infer_memory_channel_from_label(label):
+    text = str(label or "").strip()
+    patterns = (
+        r"channel\s*([a-z0-9]+)",
+        r"channel([a-z])",
+        r"\bDIMM[_\s-]*([A-Z])\d+\b",
+        r"\b([A-Z])\d+[_\s-]*DIMM\b",
+        r"\bP\d+[_\s-]*DIMM[_\s-]*([A-Z])\d+\b",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            value = str(match.group(1) or "").upper()
+            if value:
+                return value
+    return ""
+
+
+def memory_channel_mode(channel_count, installed_count):
+    if channel_count >= 4:
+        return "quad"
+    if channel_count == 3:
+        return "triple"
+    if channel_count == 2:
+        return "dual"
+    if channel_count == 1 and installed_count:
+        return "single"
+    return "unknown"
+
+
+def read_cpu_topology():
+    physical_core_ids = set()
+    physical_ids = set()
+    logical_count = 0
+    for block in read_text("/proc/cpuinfo").split("\n\n"):
+        current = {}
+        for line in block.splitlines():
+            if ":" not in line:
+                continue
+            key, value = line.split(":", 1)
+            current[key.strip().lower()] = value.strip()
+        if not current:
+            continue
+        logical_count += 1
+        physical_id = current.get("physical id") or "0"
+        core_id = current.get("core id")
+        if core_id is not None:
+            physical_core_ids.add((physical_id, core_id))
+            physical_ids.add(physical_id)
+    fallback_logical = os.cpu_count() or logical_count or 0
+    core_count = len(physical_core_ids) if physical_core_ids else fallback_logical
+    return {
+        "core_count": int(core_count or 0),
+        "thread_count": int(logical_count or fallback_logical or 0),
+        "socket_count": max(1, len(physical_ids)) if physical_core_ids else 1,
+    }
+
+
 def read_lspci_gpus():
     gpu_list = []
     try:
@@ -871,18 +935,11 @@ def read_memory_topology():
     channels = []
     for item in installed:
         label = " ".join([str(item.get("locator") or ""), str(item.get("bank_locator") or "")])
-        match = re.search(r"channel\s*([a-z0-9]+)", label, flags=re.IGNORECASE) or re.search(r"channel([a-z])", label, flags=re.IGNORECASE)
-        if match:
-            channel = match.group(1).upper()
-            if channel and channel not in channels:
-                channels.append(channel)
+        channel = infer_memory_channel_from_label(label)
+        if channel and channel not in channels:
+            channels.append(channel)
     channel_count = len(channels)
-    if channel_count >= 2:
-        mode = "dual"
-    elif channel_count == 1 and installed:
-        mode = "single"
-    else:
-        mode = "unknown"
+    mode = memory_channel_mode(channel_count, len(installed))
     total_bytes = sum(int(item.get("size_bytes") or 0) for item in installed)
     summary_bits = [f"{len(installed)} DIMM"]
     if total_bytes:
@@ -1111,12 +1168,24 @@ def read_hardware_profile():
     motherboard = " / ".join([item for item in [board_vendor, board_name] if item]) or platform.platform()
     storage = read_storage_devices()
     network = read_network_adapters()
+    memory_topology = read_memory_topology()
+    mem_speed = read_memory_speed()
+    if not mem_speed:
+        for module in memory_topology.get("modules") or []:
+            for key in ("configured_memory_speed", "speed"):
+                value = parse_memory_speed(module.get(key))
+                if value:
+                    mem_speed = value
+                    break
+            if mem_speed:
+                break
     payload = {
         "cpu_name": cpu_name or platform.processor() or platform.machine() or "Linux Host",
+        "cpu_topology": read_cpu_topology(),
         "motherboard": motherboard,
-        "mem_speed": read_memory_speed(),
+        "mem_speed": mem_speed,
         "os_info": read_os_info(),
-        "memory_topology": read_memory_topology(),
+        "memory_topology": memory_topology,
         "storage_devices": storage.get("devices") or [],
         "storage_filesystems": storage.get("filesystems") or [],
         "storage_summary": {"disk_count": storage.get("disk_count") or 0, "mounted_count": storage.get("mounted_count") or 0},
@@ -1144,6 +1213,7 @@ def build_status():
     physical_mac = format_mac(network_primary.get("adapter_mac"))
     return {
         "cpu_name": hardware.get("cpu_name"),
+        "cpu_topology": hardware.get("cpu_topology") or {},
         "motherboard": hardware.get("motherboard"),
         "mem_speed": hardware.get("mem_speed"),
         "os_info": hardware.get("os_info") or {},

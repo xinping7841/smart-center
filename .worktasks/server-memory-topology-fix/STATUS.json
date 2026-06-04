@@ -1,0 +1,7 @@
+{
+  "task": "server-memory-topology-fix",
+  "status": "validated_local",
+  "updated_at": "2026-06-04",
+  "branch": "codex/mac-server-memory-topology-fix-20260604",
+  "worklock": "server_monitor"
+}
