@@ -45,6 +45,26 @@ def api_apple_audio_status():
     return jsonify({"success": True, "state": apple_audio_service.snapshot()})
 
 
+@bp.route("/api/apple-audio/local-output/status")
+@require_permission("meter.view")
+def api_apple_audio_local_output_status():
+    return jsonify({"success": True, "status": apple_audio_service.local_output_status()})
+
+
+@bp.route("/api/apple-audio/bluetooth/connect", methods=["POST"])
+@require_permission("meter.config")
+def api_apple_audio_bluetooth_connect():
+    data = request.json or {}
+    try:
+        result = apple_audio_service.bluetooth_connect(data.get("mac"), trust=bool(data.get("trust", True)))
+        add_log(-1, f"[MusicPlayer] bluetooth connect {result.get('target')} ok={result.get('ok')}")
+        return jsonify({"success": bool(result.get("ok")), "result": result})
+    except ValueError as ex:
+        return _error_payload(ex, 400)
+    except Exception as ex:
+        return _error_payload(ex, 500)
+
+
 @bp.route("/api/apple-audio/config", methods=["POST"])
 @require_permission("meter.config")
 def api_apple_audio_config():
@@ -58,6 +78,10 @@ def api_apple_audio_config():
         "auth_state",
         "nas_music_roots",
         "nas_music_exclude_dirs",
+        "local_player_command",
+        "local_player_audio_user",
+        "local_player_sink",
+        "local_player_alsa_device",
         "jamendo_client_id",
         "jamendo_api_base",
     ]:
@@ -75,6 +99,8 @@ def api_apple_audio_config():
             cfg[key] = bool(data.get(key))
     if "nas_auto_scan_on_start" in data:
         cfg["nas_auto_scan_on_start"] = bool(data.get("nas_auto_scan_on_start"))
+    if "local_player_enabled" in data:
+        cfg["local_player_enabled"] = bool(data.get("local_player_enabled"))
     if "jamendo_enabled" in data:
         cfg["jamendo_enabled"] = bool(data.get("jamendo_enabled"))
     if "jamendo_limit" in data:
@@ -271,4 +297,3 @@ def api_apple_audio_transport():
         return _error_payload(ex, 400)
     except Exception as ex:
         return _error_payload(ex, 500)
-

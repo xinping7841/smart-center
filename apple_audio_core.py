@@ -12,8 +12,12 @@ import json
 import math
 import mimetypes
 import os
+import pwd
 import re
+import shutil
+import signal
 import struct
+import subprocess
 import threading
 import time
 import urllib.error
@@ -101,6 +105,11 @@ DEFAULT_CONFIG = {
     "nas_music_roots": [],
     "nas_music_exclude_dirs": [],
     "nas_auto_scan_on_start": True,
+    "local_player_enabled": False,
+    "local_player_command": "ffplay",
+    "local_player_audio_user": "",
+    "local_player_sink": "",
+    "local_player_alsa_device": "",
     "jamendo_enabled": False,
     "jamendo_client_id": "",
     "jamendo_limit": 20,
@@ -108,6 +117,9 @@ DEFAULT_CONFIG = {
 }
 
 JAMENDO_TRACKS_ENDPOINT = "https://api.jamendo.com/v3.0/tracks/"
+LOCAL_PLAYER_MODES = {"local_process", "node120_bluetooth", "bluetooth_local", "node120_analog"}
+LOCAL_PLAYER_COMMANDS = {"ffplay", "ffmpeg_aplay"}
+LOCAL_PLAYER_STATUS_TIMEOUT = 2.5
 
 
 def _try_decode_text(raw):
@@ -466,6 +478,7 @@ class AppleAudioService:
         self.library = []
         self.library_by_id = {}
         self.lyrics_cache = {}
+        self.local_player_proc = None
         self.state = {
             "connected": True,
             "provider": "nas_music_tag",
@@ -490,6 +503,14 @@ class AppleAudioService:
             "scan_message": "",
             "scan_errors": [],
             "scan_ms": 0,
+            "local_player": {
+                "enabled": False,
+                "mode": "nas_http",
+                "state": "idle",
+                "pid": 0,
+                "message": "",
+                "updated_at": "",
+            },
         }
         self.configure()
         self._load_library_cache()
@@ -531,7 +552,244 @@ class AppleAudioService:
             self.state["auth_state"] = str(cfg.get("auth_state", "NAS music tag ready") or "NAS music tag ready")
             self.state["connected"] = bool(cfg.get("enabled", True))
             self.state["outputs"] = deepcopy(cfg.get("outputs", DEFAULT_OUTPUTS))
+            local_enabled = self._local_player_enabled(cfg)
+            self.state["local_player"] = {
+                **(self.state.get("local_player") or {}),
+                "enabled": local_enabled,
+                "mode": self.state["player_mode"],
+                "command": self._local_player_command(cfg),
+                "audio_user": str(cfg.get("local_player_audio_user", "") or "").strip(),
+                "sink": str(cfg.get("local_player_sink", "") or "").strip(),
+                "alsa_device": str(cfg.get("local_player_alsa_device", "") or "").strip(),
+            }
             self.state["updated_at"] = datetime.now().isoformat()
+
+    def _local_player_enabled(self, cfg=None):
+        cfg = cfg or self._config()
+        mode = str(cfg.get("player_mode", "") or "").strip().lower()
+        return bool(cfg.get("local_player_enabled", False)) or mode in LOCAL_PLAYER_MODES
+
+    def _local_player_command(self, cfg=None):
+        cfg = cfg or self._config()
+        command = str(cfg.get("local_player_command", "ffplay") or "ffplay").strip().lower()
+        return command if command in LOCAL_PLAYER_COMMANDS else "ffplay"
+
+    def _mark_local_player_locked(self, state, message="", pid=0):
+        self.state["local_player"] = {
+            **(self.state.get("local_player") or {}),
+            "enabled": self._local_player_enabled(),
+            "mode": self.state.get("player_mode", "nas_http"),
+            "state": state,
+            "pid": int(pid or 0),
+            "message": str(message or ""),
+            "updated_at": datetime.now().isoformat(),
+        }
+
+    def _stop_local_player(self, message="Stopped"):
+        proc = self.local_player_proc
+        self.local_player_proc = None
+        if proc and proc.poll() is None:
+            try:
+                os.killpg(proc.pid, signal.SIGTERM)
+                proc.wait(timeout=2.0)
+            except Exception:
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except Exception:
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+        with self.lock:
+            self._mark_local_player_locked("idle", message)
+
+    def _build_local_player_command(self, track):
+        cfg = self._config()
+        command = self._local_player_command(cfg)
+        path = str(track.get("path") or "").strip()
+        if not path:
+            raise RuntimeError("track has no local path")
+        if _is_remote_track(track):
+            source = str(track.get("stream_url") or "").strip()
+        else:
+            source = path
+            if not Path(source).exists():
+                raise RuntimeError(f"audio file missing on node-120: {source}")
+        if command == "ffplay":
+            binary = shutil.which("ffplay")
+            if not binary:
+                raise RuntimeError("ffplay is not installed on node-120")
+            return [binary, "-nodisp", "-autoexit", "-loglevel", "warning", source]
+        if command == "ffmpeg_aplay":
+            ffmpeg = shutil.which("ffmpeg")
+            aplay = shutil.which("aplay")
+            if not ffmpeg:
+                raise RuntimeError("ffmpeg is not installed on node-120")
+            if not aplay:
+                raise RuntimeError("aplay is not installed on node-120")
+            device = str(cfg.get("local_player_alsa_device", "") or "").strip() or "plughw:CARD=PCH,DEV=0"
+            return [
+                "/bin/bash",
+                "-c",
+                (
+                    "set -o pipefail; "
+                    '"$1" -hide_banner -loglevel warning -nostdin -i "$2" '
+                    "-vn -ar 48000 -ac 2 -f wav - | "
+                    '"$3" -D "$4"'
+                ),
+                "smart-center-ffmpeg-aplay",
+                ffmpeg,
+                source,
+                aplay,
+                device,
+            ]
+        raise RuntimeError("unsupported local player command")
+
+    def _local_player_env(self):
+        cfg = self._config()
+        env = os.environ.copy()
+        sink = str(cfg.get("local_player_sink", "") or "").strip()
+        if sink:
+            env["PULSE_SINK"] = sink
+        return env
+
+    def _audio_user_command(self, base_cmd):
+        cfg = self._config()
+        user = str(cfg.get("local_player_audio_user", "") or "").strip()
+        if not user:
+            return list(base_cmd), self._local_player_env()
+        if not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", user):
+            raise RuntimeError("invalid local_player_audio_user")
+        try:
+            info = pwd.getpwnam(user)
+        except KeyError as exc:
+            raise RuntimeError(f"audio user not found: {user}") from exc
+        env = self._local_player_env()
+        env["XDG_RUNTIME_DIR"] = f"/run/user/{info.pw_uid}"
+        prefix = ["sudo", "-n", "-u", user, "env", f"XDG_RUNTIME_DIR={env['XDG_RUNTIME_DIR']}"]
+        if env.get("PULSE_SINK"):
+            prefix.append(f"PULSE_SINK={env['PULSE_SINK']}")
+        return prefix + list(base_cmd), env
+
+    def _start_local_player_for_track(self, track_id):
+        track = self._find_track(track_id)
+        if not track:
+            raise RuntimeError("track not found")
+        self._stop_local_player("Switching track")
+        cmd = self._build_local_player_command(track)
+        cmd, env = self._audio_user_command(cmd)
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                stdin=subprocess.DEVNULL,
+                env=env,
+                start_new_session=True,
+            )
+        except Exception as exc:
+            with self.lock:
+                self.state["is_playing"] = False
+                self._mark_local_player_locked("error", str(exc))
+            raise
+        self.local_player_proc = proc
+        with self.lock:
+            self._mark_local_player_locked("playing", f"Playing with ffplay: {track.get('title')}", pid=proc.pid)
+
+    def _refresh_local_player_locked(self):
+        proc = self.local_player_proc
+        if not proc:
+            return
+        code = proc.poll()
+        if code is None:
+            self._mark_local_player_locked("playing", self.state.get("local_player", {}).get("message", ""), pid=proc.pid)
+            return
+        self.local_player_proc = None
+        self.state["is_playing"] = False
+        self._mark_local_player_locked("idle", f"Local player exited: {code}")
+
+    def local_output_status(self):
+        cfg = self._config()
+
+        def run(cmd, audio_user=False):
+            try:
+                env = None
+                if audio_user:
+                    cmd, env = self._audio_user_command(cmd)
+                result = subprocess.run(cmd, text=True, capture_output=True, timeout=LOCAL_PLAYER_STATUS_TIMEOUT, env=env)
+                return {
+                    "ok": result.returncode == 0,
+                    "returncode": result.returncode,
+                    "stdout": (result.stdout or "").strip()[-4000:],
+                    "stderr": (result.stderr or "").strip()[-1200:],
+                }
+            except Exception as exc:
+                return {"ok": False, "returncode": -1, "stdout": "", "stderr": str(exc)}
+
+        roots = []
+        for raw in cfg.get("nas_music_roots", []) or []:
+            path = Path(str(raw or "")).expanduser()
+            roots.append({
+                "path": str(path),
+                "exists": path.exists(),
+                "is_dir": path.is_dir(),
+            })
+        bluetooth = {}
+        if shutil.which("bluetoothctl"):
+            bluetooth = {
+                "controllers": run(["bluetoothctl", "list"]),
+                "devices": run(["bluetoothctl", "devices"]),
+                "connected": run(["bluetoothctl", "devices", "Connected"]),
+            }
+        audio = {
+            "ffplay": shutil.which("ffplay") or "",
+            "ffmpeg": shutil.which("ffmpeg") or "",
+            "aplay": shutil.which("aplay") or "",
+            "pactl": run(["pactl", "list", "short", "sinks"], audio_user=True) if shutil.which("pactl") else {"ok": False, "stderr": "pactl missing"},
+            "wpctl": run(["wpctl", "status"], audio_user=True) if shutil.which("wpctl") else {"ok": False, "stderr": "wpctl missing"},
+        }
+        with self.lock:
+            self._refresh_local_player_locked()
+            local_player = deepcopy(self.state.get("local_player") or {})
+        return {
+            "player_mode": str(cfg.get("player_mode", "nas_http") or "nas_http"),
+            "local_player_enabled": self._local_player_enabled(cfg),
+            "local_player": local_player,
+            "roots": roots,
+            "bluetooth": bluetooth,
+            "audio": audio,
+        }
+
+    def bluetooth_connect(self, mac, trust=True):
+        target = str(mac or "").strip().upper().replace("-", ":")
+        if not re.fullmatch(r"[0-9A-F]{2}(:[0-9A-F]{2}){5}", target):
+            raise ValueError("valid bluetooth mac required")
+        if not shutil.which("bluetoothctl"):
+            raise RuntimeError("bluetoothctl is not installed")
+        commands = [["bluetoothctl", "power", "on"]]
+        if trust:
+            commands.append(["bluetoothctl", "trust", target])
+        commands.append(["bluetoothctl", "connect", target])
+        results = []
+        for cmd in commands:
+            try:
+                result = subprocess.run(cmd, text=True, capture_output=True, timeout=12.0)
+                results.append({
+                    "cmd": cmd[1],
+                    "ok": result.returncode == 0,
+                    "returncode": result.returncode,
+                    "stdout": (result.stdout or "").strip()[-1600:],
+                    "stderr": (result.stderr or "").strip()[-1200:],
+                })
+            except Exception as exc:
+                results.append({"cmd": cmd[1], "ok": False, "returncode": -1, "stdout": "", "stderr": str(exc)})
+                break
+        return {
+            "target": target,
+            "ok": bool(results and results[-1].get("ok")),
+            "results": results,
+            "status": self.local_output_status(),
+        }
 
     def _detect_lyrics_flags(self, path: Path, tags):
         has_plain = False
@@ -1256,6 +1514,7 @@ class AppleAudioService:
     def snapshot(self):
         with self.lock:
             self._tick_locked()
+            self._refresh_local_player_locked()
             current = self.library_by_id.get(str(self.state.get("current_track_id") or "").strip())
             queue = []
             for track_id in self.state.get("queue_ids", []):
@@ -1276,6 +1535,7 @@ class AppleAudioService:
                 "queue": queue,
                 "library": deepcopy(self.library),
                 "outputs": deepcopy(self.state.get("outputs", [])),
+                "local_player": deepcopy(self.state.get("local_player", {})),
                 "library_size": len(self.library),
                 "last_action": self.state.get("last_action", ""),
                 "updated_at": self.state.get("updated_at", ""),
@@ -1293,13 +1553,14 @@ class AppleAudioService:
                 },
                 "capabilities": {
                     "control_only": False,
-                    "requires_audio_route": False,
+                    "requires_audio_route": self._local_player_enabled(),
                     "cover_endpoint": "/api/apple-audio/cover/<track_id>",
                     "lyrics_endpoint": "/api/apple-audio/lyrics/<track_id>",
                     "category_field": "category",
                     "notes": [
                         "Music source is provided by NAS local library.",
                         "Track stream URL is exposed under /api/apple-audio/stream/<track_id>.",
+                        "Local node playback is available when player_mode is node120_bluetooth/node120_analog/local_process.",
                         "Cover art and lyrics scraping is enabled for local files.",
                         "Full-library lyrics scraping runs during rescan.",
                     ],
@@ -1473,6 +1734,8 @@ class AppleAudioService:
                 self.state["queue_ids"].append(track_id)
                 self.state["last_action"] = f"Queued: {self.library_by_id[track_id].get('title')}"
             self.state["updated_at"] = datetime.now().isoformat()
+        if play_now and self._local_player_enabled():
+            self._start_local_player_for_track(track_id)
         return self.snapshot()
 
     def promote_queue(self, index):
@@ -1513,6 +1776,7 @@ class AppleAudioService:
                 else:
                     self.state["is_playing"] = not bool(self.state.get("is_playing"))
                     self.state["last_action"] = "Play" if self.state["is_playing"] else "Pause"
+                target_track_id = str(self.state.get("current_track_id") or "").strip()
             elif action == "next":
                 if not queue:
                     raise ValueError("queue is empty")
@@ -1520,19 +1784,28 @@ class AppleAudioService:
                 self.state["elapsed_sec"] = 0
                 self.state["is_playing"] = True
                 self.state["last_action"] = "Next track"
+                target_track_id = str(self.state.get("current_track_id") or "").strip()
             elif action == "prev":
                 if not current_id:
                     raise ValueError("no track selected")
                 self.state["elapsed_sec"] = 0
                 self.state["last_action"] = "Restart track"
+                target_track_id = current_id
             elif action == "favorite":
                 if not current_id:
                     raise ValueError("no track selected")
                 name = self.library_by_id.get(current_id, {}).get("title") or current_id
                 self.state["last_action"] = f"Favorite: {name}"
+                target_track_id = ""
             else:
                 raise ValueError("unsupported transport action")
             self.state["updated_at"] = datetime.now().isoformat()
+            should_play = self._local_player_enabled() and bool(self.state.get("is_playing")) and bool(target_track_id)
+            should_stop = self._local_player_enabled() and action == "toggle" and not bool(self.state.get("is_playing"))
+        if should_stop:
+            self._stop_local_player("Paused")
+        elif should_play:
+            self._start_local_player_for_track(target_track_id)
         return self.snapshot()
 
 
