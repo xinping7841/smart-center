@@ -331,6 +331,7 @@ body.dashboard-wide-mode #view-dashboard.view-section.active > .dash-grid {
 }
 
 #dashboard-section-ai_model,
+#dashboard-section-apple_audio,
 #dashboard-section-alerts,
 #dashboard-section-snmp,
 #dashboard-section-server_compact,
@@ -789,6 +790,67 @@ body.dashboard-wide-mode #view-dashboard.view-section.active > .dash-grid {
     white-space: nowrap;
 }
 
+.dashboard-audio-now {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+    padding: 10px 11px;
+    border: 1px solid rgba(139, 165, 186, 0.13);
+    border-radius: 8px;
+    background: rgba(8, 16, 24, 0.36);
+}
+
+.dashboard-audio-now span,
+.dashboard-audio-now em {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    color: #96a9bb;
+    font-size: 10px;
+    font-style: normal;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dashboard-audio-now strong {
+    display: block;
+    min-width: 0;
+    margin: 4px 0;
+    overflow: hidden;
+    color: #eef6ff;
+    font-size: 18px;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dashboard-audio-badge {
+    min-width: 72px;
+    padding: 6px 9px;
+    border: 1px solid rgba(52, 211, 153, 0.22);
+    border-radius: 999px;
+    color: #a7f3d0;
+    background: rgba(6, 78, 59, 0.18);
+    font-size: 11px;
+    font-weight: 760;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.dashboard-audio-card.is-offline .dashboard-audio-badge {
+    border-color: rgba(248, 113, 113, 0.28);
+    color: #fecaca;
+    background: rgba(127, 29, 29, 0.18);
+}
+
+.dashboard-audio-card.is-playing .dashboard-audio-now {
+    border-color: rgba(52, 211, 153, 0.22);
+    box-shadow: inset 0 1px rgba(255, 255, 255, 0.04);
+}
+
 .home-total-log-subtitle {
     margin: -2px 0 8px;
     color: #8fa3b7;
@@ -1012,6 +1074,7 @@ body.dashboard-wide-mode #view-dashboard.view-section.active > .dash-grid {
     }
 
     #dashboard-section-ai_model,
+    #dashboard-section-apple_audio,
     #dashboard-section-alerts,
     #dashboard-section-snmp,
     #dashboard-section-server_compact,
@@ -1220,6 +1283,7 @@ body.dashboard-wide-mode #view-dashboard.view-section.active > .dash-grid {
     }
 
     #dashboard-section-ai_model,
+    #dashboard-section-apple_audio,
     #dashboard-section-alerts,
     #dashboard-section-snmp,
     #dashboard-section-server_compact,
@@ -1471,6 +1535,7 @@ body.dashboard-wide-mode #view-dashboard.view-section.active > #dashboard-sectio
 body.dashboard-wide-mode #view-dashboard.view-section.active > #dashboard-section-status_matrix,
 body.dashboard-wide-mode #view-dashboard.view-section.active > #dashboard-section-device_focus,
 body.dashboard-wide-mode #view-dashboard.view-section.active > #dashboard-section-ai_model,
+body.dashboard-wide-mode #view-dashboard.view-section.active > #dashboard-section-apple_audio,
 body.dashboard-wide-mode #view-dashboard.view-section.active > #dashboard-section-alerts,
 body.dashboard-wide-mode #view-dashboard.view-section.active > #dashboard-section-snmp,
 body.dashboard-wide-mode #view-dashboard.view-section.active > #dashboard-section-server_compact,
@@ -1507,23 +1572,28 @@ body.dashboard-wide-mode #view-dashboard.view-section.active > #dashboard-sectio
     grid-row: 3 !important;
 }
 
+body.dashboard-wide-mode #view-dashboard.view-section.active > #dashboard-section-apple_audio {
+    grid-column: 17 / span 4 !important;
+    grid-row: 4 !important;
+}
+
 body.dashboard-wide-mode #view-dashboard.view-section.active > #dashboard-section-alerts {
     grid-column: 21 / span 4 !important;
     grid-row: 3 !important;
 }
 
 body.dashboard-wide-mode #view-dashboard.view-section.active > #dashboard-section-snmp {
-    grid-column: 17 / span 4 !important;
-    grid-row: 4 !important;
-}
-
-body.dashboard-wide-mode #view-dashboard.view-section.active > #dashboard-section-server_compact {
     grid-column: 21 / span 4 !important;
     grid-row: 4 !important;
 }
 
+body.dashboard-wide-mode #view-dashboard.view-section.active > #dashboard-section-server_compact {
+    grid-column: 17 / span 4 !important;
+    grid-row: 5 !important;
+}
+
 body.dashboard-wide-mode #view-dashboard.view-section.active > #dashboard-section-energy_trend {
-    grid-column: 17 / span 8 !important;
+    grid-column: 21 / span 4 !important;
     grid-row: 5 !important;
 }
 
@@ -2256,6 +2326,7 @@ body.dashboard-wide-mode .monitor-empty {
     body.dashboard-wide-mode #dashboard-section-status_matrix,
     body.dashboard-wide-mode #dashboard-section-device_focus,
     body.dashboard-wide-mode #dashboard-section-ai_model,
+    body.dashboard-wide-mode #dashboard-section-apple_audio,
     body.dashboard-wide-mode #dashboard-section-alerts,
     body.dashboard-wide-mode #dashboard-section-snmp,
     body.dashboard-wide-mode #dashboard-section-server_compact,

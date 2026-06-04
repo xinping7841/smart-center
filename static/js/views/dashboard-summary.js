@@ -1,7 +1,7 @@
 // AI_MODULE: dashboard_summary_view
 // AI_PURPOSE: 首页监控大屏摘要渲染，使用 /api/dashboard/summary 的只读轻量快照。
 // AI_BOUNDARY: 不直接请求控制接口，不触发真实设备动作。
-// AI_DATA_FLOW: /api/dashboard/summary -> 首页 DOM。
+// AI_DATA_FLOW: /api/dashboard/summary -> 首页 DOM，包括设备、AI 和音乐播放器只读状态。
 // AI_RUNTIME: 首页加载后执行，要求首屏快、布局稳定。
 
 (function installSmartCenterDashboardSummary(global) {
@@ -66,7 +66,7 @@
     }
 
     function aggregateCounts(counts = {}) {
-        const keys = ['power', 'light', 'projector', 'screen', 'hvac', 'sequencer', 'ups', 'snmp', 'server', 'door'];
+        const keys = ['power', 'light', 'projector', 'screen', 'hvac', 'sequencer', 'ups', 'snmp', 'server', 'door', 'apple_audio'];
         return keys.reduce((acc, key) => {
             const item = getCount(counts, key);
             acc.total += countTotal(item);
@@ -116,6 +116,24 @@
         const n = Number(value);
         if (!Number.isFinite(n)) return String(value);
         return `${Math.round(n * 10) / 10}${suffix}`;
+    }
+
+    function formatDuration(seconds) {
+        const total = Math.max(0, Math.floor(Number(seconds || 0)));
+        if (!Number.isFinite(total) || total <= 0) return '--';
+        const minutes = Math.floor(total / 60);
+        const rest = String(total % 60).padStart(2, '0');
+        return `${minutes}:${rest}`;
+    }
+
+    function playbackModeText(mode) {
+        const value = String(mode || '').toLowerCase();
+        return {
+            normal: '顺序',
+            shuffle: '随机',
+            repeat_all: '循环',
+            repeat_one: '单曲循环',
+        }[value] || (value || '--');
     }
 
     function setHeroChip(id, label, count = {}) {
@@ -240,6 +258,7 @@
             server: '服务器',
             door: '门禁',
             automation: '自动化',
+            apple_audio: '音乐播放器',
         };
         Object.entries(domainLabels).forEach(([key, label]) => {
             const count = getCount(counts, key);
@@ -254,6 +273,10 @@
         setDomainTile('door', '门禁', getCount(counts, 'door'), `${door.text || '状态未知'} · 摄像头 ${door.camera_online ?? 0}/${door.camera_total ?? 0}`);
         const aiCount = { total: 2, online: (modules.local_model?.enabled ? 1 : 0) + (modules.local_model?.cloud_enabled ? 1 : 0), offline: 0, error: 0, stale: 0 };
         setDomainTile('local_model', 'AI 自然语言', aiCount, `${modules.local_model?.cloud_priority || '--'} · ${modules.local_model?.compare_with_local ? '本地对照开启' : '本地对照关闭'}`);
+        const audio = modules.apple_audio || {};
+        const audioCount = getCount(counts, 'apple_audio');
+        const audioTrack = audio.current_track || {};
+        setDomainTile('apple_audio', '音乐播放器', audioCount, audio.is_playing ? `播放中 · ${audioTrack.title || '未知曲目'}` : `曲库 ${audio.library_size || 0} · ${audio.scan?.message || '空闲'}`);
         const logItems = Array.isArray(modules.logs?.items) ? modules.logs.items.filter(shouldShowDashboardLog) : [];
         const logTotal = Number(modules.logs?.total ?? logItems.length);
         const logsCount = { total: Math.max(1, logTotal || logItems.length), online: logItems.length ? 1 : 0, offline: 0, error: 0, stale: 0 };
@@ -314,11 +337,14 @@
         appendDeviceRows(infraRows, modules.snmp?.devices, 5, item => feedRow(item.name || item.id || 'SNMP', item.online ? '在线' : '离线', `评分 ${item.summary?.health_score ?? '--'} · ${item.device_type || '--'}`, deviceTone(item)));
         appendDeviceRows(infraRows, modules.sequencer?.devices, 3, item => feedRow(item.name || item.id || '时序电源', item.online ? '在线' : '离线', `通道 ${item.channel_on_count || 0}/${item.channel_count || 0}`, deviceTone(item)));
         const localModel = modules.local_model || {};
+        const appleAudio = modules.apple_audio || {};
         const auto = modules.automation || {};
         const door = modules.door || {};
+        const audioTrack = appleAudio.current_track || {};
         const intelRows = [
             feedRow('AI 策略', localModel.cloud_priority || '--', `${localModel.cloud_enabled ? '云端启用' : '云端关闭'} · ${localModel.compare_with_local ? '本地对照' : '单路理解'}`, localModel.cloud_enabled ? 'ok' : 'warn'),
             feedRow('飞书控制', localModel.feishu_control_enabled ? '已开启' : '查询模式', localModel.feishu_require_confirmation ? '所有控制需确认' : '高风险控制需确认', localModel.feishu_control_enabled ? 'ok' : 'warn'),
+            feedRow('音乐播放器', appleAudio.is_playing ? '播放中' : (appleAudio.connected ? '待机' : '离线'), audioTrack.title ? `${audioTrack.title} · ${audioTrack.artist || '--'}` : `曲库 ${appleAudio.library_size || 0} 首`, appleAudio.is_playing ? 'ok' : (appleAudio.connected ? 'warn' : 'danger')),
             feedRow('自动化规则', `${auto.enabled || 0}/${auto.total || 0}`, `异常 ${auto.error || 0}`, Number(auto.error || 0) ? 'danger' : 'ok'),
             feedRow('门禁状态', door.text || '--', `摄像头 ${door.camera_online ?? 0}/${door.camera_total ?? 0} · ${door.engine || '--'}`, door.status_level === 'error' ? 'danger' : (door.online ? 'ok' : 'warn')),
             feedRow('本地模型', localModel.model || '--', localModel.training_export_enabled ? '训练导出开启' : '训练导出关闭', localModel.enabled ? 'ok' : 'warn'),
@@ -445,6 +471,52 @@
         setText('dashboard-footer-stability', stability);
     }
 
+    function renderAppleAudioDashboardStatus(payload) {
+        const data = normalizeDashboardSummaryPayload(payload);
+        const audio = data.modules?.apple_audio || {};
+        const track = audio.current_track || {};
+        const scan = audio.scan || {};
+        const localPlayer = audio.local_player || {};
+        const playlist = audio.playlist_scope || {};
+        const connected = !!audio.connected;
+        const playing = !!audio.is_playing;
+        const stateText = playing ? '播放中' : (connected ? '待机' : '离线');
+        const trackText = track.title
+            ? `${track.title}${track.artist ? ` · ${track.artist}` : ''}`
+            : '暂无播放曲目';
+        const playlistName = playlist.name || (playlist.count ? '当前列表' : '未选择列表');
+        const elapsed = formatDuration(audio.elapsed_sec);
+        const duration = formatDuration(audio.duration || track.duration);
+        const progressText = duration === '--' ? elapsed : `${elapsed} / ${duration}`;
+        const scanText = scan.running
+            ? `${scan.message || '扫描中'} · ${scan.progress ?? 0}%`
+            : (scan.message || '扫描空闲');
+        const outputParts = [
+            audio.player_mode || '',
+            localPlayer.state || '',
+        ].filter(Boolean);
+
+        setText('dashboard-audio-state', stateText);
+        setText('dashboard-audio-track', trackText);
+        setText('dashboard-audio-mode', playbackModeText(audio.playback_mode));
+        setText('dashboard-audio-note', scan.running ? scanText : `曲库 ${audio.library_size || 0} 首`);
+        setText('dashboard-audio-playlist', playlistName);
+        setText('dashboard-audio-queue', `队列 ${audio.queue_count || 0} · 列表 ${playlist.count || 0}`);
+        setText('dashboard-audio-volume', `${audio.volume_percent ?? '--'}%`);
+        setText('dashboard-audio-output', outputParts.join(' · ') || audio.output_mode || '--');
+        setText('dashboard-audio-library', `${audio.library_size || 0} 首`);
+        setText('dashboard-audio-scan', scanText);
+        setText('dashboard-audio-progress', progressText);
+        setText('dashboard-audio-updated', audio.updated_at ? `更新 ${formatTimeShort(audio.updated_at)}` : '--');
+
+        setClass('dashboard-audio-state', playing ? 'ok' : (connected ? 'warn' : 'danger'));
+        const card = document.getElementById('dashboard-section-apple_audio');
+        if (card) {
+            card.classList.toggle('is-playing', playing);
+            card.classList.toggle('is-offline', !connected);
+        }
+    }
+
     function renderDashboardSummaryTopStats(payload, context = {}) {
         const data = normalizeDashboardSummaryPayload(payload);
         const counts = data.counts || {};
@@ -523,6 +595,7 @@
         renderNetworkAndServerLists(data);
         renderDashboardLogsFromSummary(data);
         renderDashboardFooterStatus(data, derived);
+        renderAppleAudioDashboardStatus(data);
     }
 
     const api = {
@@ -536,6 +609,7 @@
         renderAlertList,
         renderNetworkAndServerLists,
         renderDashboardLogsFromSummary,
+        renderAppleAudioDashboardStatus,
     };
 
     SmartCenter.dashboardSummary = Object.assign({}, SmartCenter.dashboardSummary || {}, api);

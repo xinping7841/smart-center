@@ -1,11 +1,11 @@
 # AI_MODULE: apple_audio_core
-# AI_PURPOSE: Scan and full-scrape local music files, maintain folder/default playlists, queue/transport metadata, seek/stop state, lyrics, covers, and playback state helpers.
+# AI_PURPOSE: Scan and full-scrape local music files, maintain folder/default playlists, queue/transport metadata, dashboard compact status, seek/stop state, lyrics, covers, and playback state helpers.
 # AI_BOUNDARY: Flask routes live in api/apple_audio.py and frontend rendering lives in static/js/views/apple-audio.js.
 # AI_DATA_FLOW: CONFIG/apple audio library files -> DATA_DIR runtime caches -> API payloads for music cards and transport.
 # AI_RUNTIME: Imported by api/apple_audio.py during page/API requests and background-style scan operations.
 # AI_RISK: Medium. Heavy scans or bad metadata parsing can slow the dashboard and disrupt live playback; startup scans must not block Flask binding.
-# AI_COMPAT: Preserve queue, playlist_scope, transport stop/seek, lyrics, cover, and library payload shapes used by existing frontend.
-# AI_SEARCH_KEYWORDS: apple audio, music library, full scrape, rescan, folder playlist, playlist scope, stop, seek, queue, lyrics, cover, transport.
+# AI_COMPAT: Preserve queue, playlist_scope, dashboard_snapshot, transport stop/seek, lyrics, cover, and library payload shapes used by existing frontend.
+# AI_SEARCH_KEYWORDS: apple audio, music library, dashboard status, full scrape, rescan, folder playlist, playlist scope, stop, seek, queue, lyrics, cover, transport.
 import base64
 import hashlib
 import json
@@ -1895,6 +1895,58 @@ class AppleAudioService:
             return max(0, int(self.library_by_id.get(track_id, {}).get("duration", 0) or 0))
         except Exception:
             return 0
+
+    def dashboard_snapshot(self):
+        """Return a compact read-only player status for dashboard polling."""
+        with self.lock:
+            self._tick_locked()
+            self._refresh_local_player_locked(auto_advance=False)
+            current = self.library_by_id.get(str(self.state.get("current_track_id") or "").strip()) or {}
+            local_player = dict(self.state.get("local_player", {}) or {})
+            scan_errors = list(self.state.get("scan_errors", []) or [])
+            return {
+                "connected": bool(self.state.get("connected")),
+                "provider": self.state.get("provider", "nas_music_tag"),
+                "player_mode": self.state.get("player_mode", "nas_http"),
+                "output_mode": self.state.get("output_mode", "system_default"),
+                "playback_mode": _normalize_playback_mode(self.state.get("playback_mode")),
+                "volume_percent": _coerce_volume_percent(self.state.get("volume_percent", 70)),
+                "is_playing": bool(self.state.get("is_playing")),
+                "elapsed_sec": int(self.state.get("elapsed_sec", 0) or 0),
+                "duration": self._current_track_duration_locked(),
+                "current_track": {
+                    "id": current.get("id"),
+                    "title": current.get("title"),
+                    "artist": current.get("artist"),
+                    "album": current.get("album"),
+                    "category": current.get("category"),
+                    "duration": current.get("duration"),
+                } if current else None,
+                "queue_count": len(self.state.get("queue_ids", []) or []),
+                "playlist_scope": {
+                    "id": self.state.get("playlist_scope_id", ""),
+                    "name": self.state.get("playlist_scope_name", ""),
+                    "count": len(self.state.get("playlist_scope_ids", []) or []),
+                },
+                "library_size": len(self.library),
+                "last_action": self.state.get("last_action", ""),
+                "updated_at": self.state.get("updated_at", ""),
+                "local_player": {
+                    "enabled": bool(local_player.get("enabled")),
+                    "state": local_player.get("state"),
+                    "message": local_player.get("message"),
+                    "updated_at": local_player.get("updated_at"),
+                },
+                "scan": {
+                    "running": bool(self.state.get("scan_running")),
+                    "count": int(self.state.get("scan_count", 0) or 0),
+                    "stage": str(self.state.get("scan_stage") or "idle"),
+                    "progress": int(self.state.get("scan_progress", 0) or 0),
+                    "message": str(self.state.get("scan_message") or ""),
+                    "last_scan_at": self.state.get("last_scan_at", ""),
+                    "error_count": len(scan_errors),
+                },
+            }
 
     def _seek_elapsed_locked(self, value):
         try:

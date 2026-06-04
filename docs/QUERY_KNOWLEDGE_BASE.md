@@ -50,7 +50,7 @@ Use deterministic routing first. A local model may classify query and control in
 | NVR and cameras | 录像机, 摄像头, NVR, 通道 | `GET /api/nvr/status` | Snapshot/live APIs are read-like media endpoints but should be explicitly requested. |
 | Proxy | 代理, 网络代理, ChatGPT, Google, YouTube, GitHub, 流量 | `GET /api/proxy/status` | Report target checks, clients, traffic. |
 | Driver health | 驱动, 驱动中心, Node-RED, driver | `GET /api/driver_hub/snapshot`, `GET /api/driver_hub/manifest` | Useful for protocol/driver health summaries. |
-| Music player status | 音乐, 播放器, 当前歌曲, 队列, 随机播放, 循环播放, 单曲循环 | `GET /api/apple-audio/status` | Query current track, queue, output route, library size, and `playback_mode`. Changing modes or transport uses the controlled music route. |
+| Music player status | 音乐, 播放器, 当前歌曲, 队列, 随机播放, 循环播放, 单曲循环 | `GET /api/dashboard/summary`, `GET /api/apple-audio/status` | Prefer `modules.apple_audio` in dashboard summary for compact status: playing/idle, track, playlist, queue, volume, mode, library size, scan state. Use `/api/apple-audio/status` only when full queue/library detail is needed. Changing modes or transport uses the controlled music route. |
 | Local model service | 本地模型, AI, 模型健康, knowledge proxy | `GET /api/local-model/config`, `GET /api/local-model/health` | Health may be slow; config endpoint is cheap and redacts secrets. |
 
 ## Response Style
@@ -510,6 +510,7 @@ The first production natural-language integration should only call these GET rou
 /api/proxy/status
 /api/driver_hub/snapshot
 /api/driver_hub/manifest
+/api/apple-audio/status
 /api/local-model/config
 /api/local-model/health
 ```

@@ -1,7 +1,7 @@
 # AI_MODULE: dashboard_api
 # AI_PURPOSE: 为首页提供轻量总览摘要，聚合各模块在线数、告警数和快速状态。
 # AI_BOUNDARY: 不直接轮询硬件；只读取 CONFIG 和 runtime/cache 中已有状态。
-# AI_DATA_FLOW: runtime.state/CONFIG -> /api/dashboard/summary -> static/js/views/dashboard-summary.js。
+# AI_DATA_FLOW: runtime.state/CONFIG + apple_audio compact snapshot -> /api/dashboard/summary -> static/js/views/dashboard-summary.js。
 # AI_RUNTIME: 首页加载和定时刷新调用，必须保持快速返回。
 # AI_RISK: 中，接口慢会拖慢主页；字段变化会影响首页统计和底部状态栏。
 # AI_COMPAT: /api/dashboard/summary 的 ok/counts/modules 字段需保持兼容。
@@ -498,6 +498,22 @@ def _local_model_snapshot():
     }
 
 
+def _apple_audio_snapshot():
+    try:
+        from apple_audio_core import apple_audio_service
+
+        return apple_audio_service.dashboard_snapshot()
+    except Exception as exc:
+        return {
+            "connected": False,
+            "is_playing": False,
+            "status_level": "error",
+            "library_size": 0,
+            "queue_count": 0,
+            "last_error": str(exc),
+        }
+
+
 @bp.route("/api/dashboard/summary")
 @require_permission("dashboard.view")
 def api_dashboard_summary():
@@ -525,6 +541,7 @@ def api_dashboard_summary():
     servers = _server_snapshot()
     proxy = _proxy_snapshot()
     local_model = _local_model_snapshot()
+    apple_audio = _apple_audio_snapshot()
     door = _door_snapshot()
     logs = _recent_logs_snapshot()
     payload = {
@@ -566,6 +583,15 @@ def api_dashboard_summary():
                 "error": 1 if door.get("status_level") == "error" else 0,
                 "stale": 1 if door.get("status_level") == "stale" else 0,
             },
+            "apple_audio": {
+                "total": 1,
+                "online": 1 if apple_audio.get("connected") else 0,
+                "offline": 0 if apple_audio.get("connected") else 1,
+                "error": 1 if apple_audio.get("status_level") == "error" or apple_audio.get("last_error") else 0,
+                "stale": 0,
+                "playing": 1 if apple_audio.get("is_playing") else 0,
+                "library_size": int(apple_audio.get("library_size") or 0),
+            },
         },
         "modules": {
             "power": {"devices": cabinets},
@@ -580,6 +606,7 @@ def api_dashboard_summary():
             "server": servers,
             "proxy": proxy,
             "local_model": local_model,
+            "apple_audio": apple_audio,
             "door": door,
             "logs": {"items": logs, "total": len(logs)},
         },
