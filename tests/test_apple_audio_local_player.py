@@ -1,7 +1,7 @@
 # AI_MODULE: apple_audio_local_player_tests
-# AI_PURPOSE: 验证音乐播放器本机播放模式、文件夹播放列表和列表作用域，不触发真实音频输出。
+# AI_PURPOSE: 验证音乐播放器本机播放模式、文件夹播放列表、停止和进度跳转，不触发真实音频输出。
 # AI_BOUNDARY: 只 mock 播放进程；不访问 NAS、不连接蓝牙音箱、不播放真实音乐。
-# AI_SEARCH_KEYWORDS: apple audio, local player, folder playlist, playlist scope, node120 analog, ffplay, ffmpeg, aplay.
+# AI_SEARCH_KEYWORDS: apple audio, local player, folder playlist, playlist scope, stop, seek, node120 analog, ffplay, ffmpeg, aplay.
 
 import os
 import pwd
@@ -95,6 +95,7 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
                 "title": "Test Track",
                 "path": str(audio_path),
                 "playable": True,
+                "duration": 120,
             }]
             service.library_by_id = {"track-1": service.library[0]}
 
@@ -129,6 +130,7 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
                 "title": "Test Track",
                 "path": str(audio_path),
                 "playable": True,
+                "duration": 120,
             }]
             service.library_by_id = {"track-1": service.library[0]}
 
@@ -207,6 +209,65 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
 
         self.assertEqual(state["volume_percent"], 100)
         self.assertEqual(service.state["volume_percent"], 100)
+
+    def test_transport_stop_pauses_and_resets_elapsed(self):
+        service = self._service_with_tracks(1)
+        service.state["current_track_id"] = "track-1"
+        service.state["is_playing"] = True
+        service.state["elapsed_sec"] = 42
+
+        state = service.transport("stop")
+
+        self.assertFalse(state["is_playing"])
+        self.assertEqual(state["elapsed_sec"], 0)
+        self.assertEqual(state["last_action"], "Stopped")
+
+    def test_transport_seek_clamps_to_current_duration(self):
+        service = self._service_with_tracks(1)
+        service.library[0]["duration"] = 120
+        service.library_by_id = {item["id"]: item for item in service.library}
+        service.state["current_track_id"] = "track-1"
+        service.state["is_playing"] = False
+
+        state = service.transport("seek", mode=999)
+
+        self.assertEqual(state["elapsed_sec"], 120)
+        self.assertEqual(state["last_action"], "Seek: 120s")
+
+    def test_local_ffplay_seek_restarts_with_start_offset_without_real_audio(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            audio_path = Path(tmp) / "track.mp3"
+            audio_path.write_bytes(b"fake")
+            CONFIG["apple_audio"] = {
+                "enabled": True,
+                "provider": "nas_music_tag",
+                "player_mode": "node120_bluetooth",
+                "local_player_enabled": True,
+                "local_player_command": "ffplay",
+                "nas_music_roots": [],
+                "nas_auto_scan_on_start": False,
+            }
+            with patch.object(AppleAudioService, "scan_library", return_value={}):
+                service = AppleAudioService()
+            service.library = [{
+                "id": "track-1",
+                "title": "Test Track",
+                "path": str(audio_path),
+                "playable": True,
+                "duration": 120,
+            }]
+            service.library_by_id = {"track-1": service.library[0]}
+            service.state["current_track_id"] = "track-1"
+            service.state["is_playing"] = True
+
+            with patch("apple_audio_core.shutil.which", return_value="/usr/bin/ffplay"), \
+                    patch("apple_audio_core.subprocess.Popen", return_value=FakeProcess()) as popen:
+                state = service.transport("seek", mode=37)
+
+        cmd = popen.call_args.args[0]
+        self.assertEqual(state["elapsed_sec"], 37)
+        self.assertIn("-ss", cmd)
+        self.assertIn("37", cmd)
 
     def test_folder_and_custom_playlists_queue_tracks(self):
         service = self._service_with_tracks(3)

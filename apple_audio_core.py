@@ -1,11 +1,11 @@
 # AI_MODULE: apple_audio_core
-# AI_PURPOSE: Scan local music files, maintain folder/default playlists, queue/transport metadata, lyrics, covers, and playback state helpers.
+# AI_PURPOSE: Scan local music files, maintain folder/default playlists, queue/transport metadata, seek/stop state, lyrics, covers, and playback state helpers.
 # AI_BOUNDARY: Flask routes live in api/apple_audio.py and frontend rendering lives in static/js/views/apple-audio.js.
 # AI_DATA_FLOW: CONFIG/apple audio library files -> DATA_DIR runtime caches -> API payloads for music cards and transport.
 # AI_RUNTIME: Imported by api/apple_audio.py during page/API requests and background-style scan operations.
 # AI_RISK: Medium. Heavy scans or bad metadata parsing can slow the dashboard and disrupt live playback; startup scans must not block Flask binding.
-# AI_COMPAT: Preserve queue, playlist_scope, transport, lyrics, cover, and library payload shapes used by existing frontend.
-# AI_SEARCH_KEYWORDS: apple audio, music library, folder playlist, playlist scope, queue, lyrics, cover, transport.
+# AI_COMPAT: Preserve queue, playlist_scope, transport stop/seek, lyrics, cover, and library payload shapes used by existing frontend.
+# AI_SEARCH_KEYWORDS: apple audio, music library, folder playlist, playlist scope, stop, seek, queue, lyrics, cover, transport.
 import base64
 import hashlib
 import json
@@ -678,10 +678,14 @@ class AppleAudioService:
         with self.lock:
             self._mark_local_player_locked("idle", message)
 
-    def _build_local_player_command(self, track):
+    def _build_local_player_command(self, track, start_sec=0):
         cfg = self._config()
         command = self._local_player_command(cfg)
         volume = max(0.0, min(_coerce_volume_percent(cfg.get("volume_percent", self.state.get("volume_percent", 70))) / 100.0, 1.0))
+        try:
+            start_sec = max(0, int(round(float(start_sec or 0))))
+        except Exception:
+            start_sec = 0
         path = str(track.get("path") or "").strip()
         if not path:
             raise RuntimeError("track has no local path")
@@ -695,7 +699,11 @@ class AppleAudioService:
             binary = shutil.which("ffplay")
             if not binary:
                 raise RuntimeError("ffplay is not installed on node-120")
-            return [binary, "-nodisp", "-autoexit", "-loglevel", "warning", "-volume", str(int(round(volume * 100))), source]
+            cmd = [binary, "-nodisp", "-autoexit", "-loglevel", "warning", "-volume", str(int(round(volume * 100)))]
+            if start_sec > 0:
+                cmd.extend(["-ss", str(start_sec)])
+            cmd.append(source)
+            return cmd
         if command == "ffmpeg_aplay":
             ffmpeg = shutil.which("ffmpeg")
             aplay = shutil.which("aplay")
@@ -709,7 +717,7 @@ class AppleAudioService:
                 "-c",
                 (
                     "set -o pipefail; "
-                    '"$1" -hide_banner -loglevel warning -nostdin -i "$2" '
+                    '"$1" -hide_banner -loglevel warning -nostdin $6 -i "$2" '
                     '-vn -af "volume=$5" -ar 48000 -ac 2 -f wav - | '
                     '"$3" -D "$4"'
                 ),
@@ -719,6 +727,7 @@ class AppleAudioService:
                 aplay,
                 device,
                 f"{volume:.3f}",
+                f"-ss {start_sec}" if start_sec > 0 else "",
             ]
         raise RuntimeError("unsupported local player command")
 
@@ -748,12 +757,13 @@ class AppleAudioService:
             prefix.append(f"PULSE_SINK={env['PULSE_SINK']}")
         return prefix + list(base_cmd), env
 
-    def _start_local_player_for_track(self, track_id):
+    def _start_local_player_for_track(self, track_id, start_sec=None):
         track = self._find_track(track_id)
         if not track:
             raise RuntimeError("track not found")
         self._stop_local_player("Switching track")
-        cmd = self._build_local_player_command(track)
+        start_sec = self.state.get("elapsed_sec", 0) if start_sec is None else start_sec
+        cmd = self._build_local_player_command(track, start_sec=start_sec)
         cmd, env = self._audio_user_command(cmd)
         try:
             proc = subprocess.Popen(
@@ -1868,6 +1878,28 @@ class AppleAudioService:
         if self.state["elapsed_sec"] > 24 * 3600:
             self.state["elapsed_sec"] = 0
 
+    def _current_track_duration_locked(self):
+        track_id = str(self.state.get("current_track_id") or "").strip()
+        if not track_id:
+            return 0
+        try:
+            return max(0, int(self.library_by_id.get(track_id, {}).get("duration", 0) or 0))
+        except Exception:
+            return 0
+
+    def _seek_elapsed_locked(self, value):
+        try:
+            elapsed = int(round(float(value)))
+        except Exception:
+            raise ValueError("unsupported seek position")
+        duration = self._current_track_duration_locked()
+        if duration > 0:
+            elapsed = max(0, min(elapsed, duration))
+        else:
+            elapsed = max(0, elapsed)
+        self.state["elapsed_sec"] = elapsed
+        return elapsed
+
     def _snapshot_payload_locked(self):
         current = self.library_by_id.get(str(self.state.get("current_track_id") or "").strip())
         queue = []
@@ -2158,6 +2190,17 @@ class AppleAudioService:
                 self.state["playback_mode"] = playback_mode
                 self.state["last_action"] = f"Playback mode: {playback_mode}"
                 target_track_id = ""
+            elif action == "seek":
+                if not current_id:
+                    raise ValueError("no track selected")
+                elapsed = self._seek_elapsed_locked(mode)
+                self.state["last_action"] = f"Seek: {elapsed}s"
+                target_track_id = current_id
+            elif action == "stop":
+                self.state["is_playing"] = False
+                self.state["elapsed_sec"] = 0
+                self.state["last_action"] = "Stopped"
+                target_track_id = ""
             elif action == "toggle":
                 if not current_id and queue:
                     self.state["current_track_id"] = queue.pop(0)
@@ -2199,11 +2242,12 @@ class AppleAudioService:
                 raise ValueError("unsupported transport action")
             self.state["updated_at"] = datetime.now().isoformat()
             should_play = self._local_player_enabled() and bool(self.state.get("is_playing")) and bool(target_track_id)
-            should_stop = self._local_player_enabled() and action == "toggle" and not bool(self.state.get("is_playing"))
+            should_stop = self._local_player_enabled() and (action == "stop" or (action == "toggle" and not bool(self.state.get("is_playing"))))
+            start_sec = int(self.state.get("elapsed_sec", 0) or 0) if action == "seek" else None
         if should_stop:
-            self._stop_local_player("Paused")
+            self._stop_local_player("Stopped" if action == "stop" else "Paused")
         elif should_play:
-            self._start_local_player_for_track(target_track_id)
+            self._start_local_player_for_track(target_track_id, start_sec=start_sec)
         return self.snapshot()
 
 
