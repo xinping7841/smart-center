@@ -1,7 +1,7 @@
 // AI_MODULE: dashboard_shell_view
 // AI_PURPOSE: 生成首页监控大屏骨架，主页只做实时数据展示，不承载真实设备控制按钮。
 // AI_BOUNDARY: 只生成首页容器和占位内容；不拉取接口、不执行控制、不改变任何设备状态。
-// AI_DATA_FLOW: window.configData -> #view-dashboard shell -> dashboard-summary/app-runtime 填充实时数据。
+// AI_DATA_FLOW: window.configData -> #view-dashboard shell -> dashboard-summary/app-runtime 填充设备、AI 和音乐播放器只读状态。
 // AI_RUNTIME: app-runtime 初始化首页排序/轮询前必须可用；保留关键 DOM id 供摘要渲染。
 // AI_RISK: 中，首页首屏依赖这些 id；修改时必须同步检查 dashboard-summary 引用。
 
@@ -147,6 +147,7 @@
             ['automation', '自动化', '等待规则快照'],
             ['proxy', '代理出口', '等待代理探活'],
             ['local_model', 'AI 自然语言', '等待 AI 配置'],
+            ['apple_audio', '音乐播放器', '等待音乐状态'],
             ['logs', '日志流', '等待运行日志'],
         ];
         return `
@@ -228,6 +229,46 @@
                 </section>`;
     }
 
+    function buildAppleAudioStatusSection() {
+        return `
+                <section class="monitor-panel dashboard-audio-card" id="dashboard-section-apple_audio" data-section-id="apple_audio">
+                    <div class="monitor-panel-head">
+                        <div><span class="monitor-panel-kicker">MUSIC</span><strong>音乐播放器</strong></div>
+                        <span class="monitor-panel-note" id="dashboard-audio-note">等待播放器状态</span>
+                    </div>
+                    <div class="dashboard-audio-now">
+                        <div>
+                            <span>当前状态</span>
+                            <strong id="dashboard-audio-state">--</strong>
+                            <em id="dashboard-audio-track">暂无播放曲目</em>
+                        </div>
+                        <div class="dashboard-audio-badge" id="dashboard-audio-mode">--</div>
+                    </div>
+                    <div class="dashboard-ai-grid dashboard-audio-grid">
+                        <div class="dashboard-ai-tile">
+                            <span>播放列表</span>
+                            <strong id="dashboard-audio-playlist">--</strong>
+                            <em id="dashboard-audio-queue">队列 --</em>
+                        </div>
+                        <div class="dashboard-ai-tile">
+                            <span>音量 / 输出</span>
+                            <strong id="dashboard-audio-volume">--</strong>
+                            <em id="dashboard-audio-output">--</em>
+                        </div>
+                        <div class="dashboard-ai-tile">
+                            <span>曲库</span>
+                            <strong id="dashboard-audio-library">--</strong>
+                            <em id="dashboard-audio-scan">等待扫描状态</em>
+                        </div>
+                        <div class="dashboard-ai-tile">
+                            <span>进度</span>
+                            <strong id="dashboard-audio-progress">--</strong>
+                            <em id="dashboard-audio-updated">--</em>
+                        </div>
+                    </div>
+                </section>`;
+    }
+
     function buildMonitorAlertsSection() {
         return `
                 <section class="monitor-panel" id="dashboard-section-alerts" data-section-id="alerts">
@@ -288,6 +329,7 @@
             buildMonitorDomainMatrix(),
             buildMonitorFocusSection(),
             buildAiModelSection(),
+            buildAppleAudioStatusSection(),
             buildMonitorAlertsSection(),
             buildMonitorSnmpSection(),
             buildMonitorServerSection(),

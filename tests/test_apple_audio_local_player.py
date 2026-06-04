@@ -1,7 +1,7 @@
 # AI_MODULE: apple_audio_local_player_tests
-# AI_PURPOSE: 验证音乐播放器本机播放模式、全量刮削、文件夹播放列表、停止和进度跳转，不触发真实音频输出。
+# AI_PURPOSE: 验证音乐播放器本机播放模式、首页轻量状态、全量刮削、文件夹播放列表、停止和进度跳转，不触发真实音频输出。
 # AI_BOUNDARY: 只 mock 播放进程；不访问 NAS、不连接蓝牙音箱、不播放真实音乐。
-# AI_SEARCH_KEYWORDS: apple audio, local player, full scrape, folder playlist, playlist scope, stop, seek, node120 analog, ffplay, ffmpeg, aplay.
+# AI_SEARCH_KEYWORDS: apple audio, local player, dashboard status, full scrape, folder playlist, playlist scope, stop, seek, node120 analog, ffplay, ffmpeg, aplay.
 
 import os
 import pwd
@@ -319,6 +319,22 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
         self.assertFalse(state["scan"]["running"])
         self.assertEqual(state["scan"]["stage"], "done")
         self.assertEqual(state["scan"]["progress"], 100)
+
+    def test_dashboard_snapshot_is_compact_without_library_payload(self):
+        service = self._service_with_tracks(3)
+        service.state["current_track_id"] = "track-2"
+        service.state["is_playing"] = True
+        service.state["playback_mode"] = "shuffle"
+        service.state["volume_percent"] = 80
+
+        payload = service.dashboard_snapshot()
+
+        self.assertTrue(payload["is_playing"])
+        self.assertEqual(payload["current_track"]["id"], "track-2")
+        self.assertEqual(payload["playback_mode"], "shuffle")
+        self.assertEqual(payload["volume_percent"], 80)
+        self.assertEqual(payload["library_size"], 3)
+        self.assertNotIn("library", payload)
 
     def test_folder_playlist_uses_directory_order(self):
         service = self._service_with_tracks(1)
