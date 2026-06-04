@@ -143,8 +143,8 @@ def api_apple_audio_library():
 @bp.route("/api/apple-audio/rescan", methods=["POST"])
 @require_permission("meter.config")
 def api_apple_audio_rescan():
-    state = apple_audio_service.scan_library()
-    add_log(-1, f"[MusicTag] rescan complete, tracks={state.get('library_size', 0)}")
+    state = apple_audio_service.start_background_scan("api")
+    add_log(-1, f"[MusicTag] rescan queued, tracks={state.get('library_size', 0)}")
     return jsonify({"success": True, "state": state})
 
 
