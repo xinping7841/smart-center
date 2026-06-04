@@ -1,10 +1,10 @@
 // AI_MODULE: apple_audio_view
-// AI_PURPOSE: 音乐库、播放队列、歌词和封面的前端展示。
+// AI_PURPOSE: 音乐库、文件夹默认播放列表、播放队列、歌词和封面的前端展示。
 // AI_BOUNDARY: 不直接控制音频设备；所有动作走 /api/apple-audio/*。
-// AI_DATA_FLOW: /api/apple-audio/status/queue/transport -> 音乐卡片和控制按钮。
+// AI_DATA_FLOW: /api/apple-audio/status/playlists/queue/transport -> 音乐卡片、文件夹列表和控制按钮。
 // AI_RUNTIME: 首页或音乐页面加载。
 // AI_RISK: 中，音乐扫描和播放控制会影响首页加载与现场播放体验。
-// AI_SEARCH_KEYWORDS: apple audio, music, queue, lyrics, cover.
+// AI_SEARCH_KEYWORDS: apple audio, music, folder playlist, playlist cards, queue, lyrics, cover.
 
 (function installSmartCenterAppleAudio(global) {
     'use strict';
@@ -186,24 +186,27 @@ function renderAppleAudioPage(force = false) {
                                     <div class="apple-scan-bar"><div class="apple-scan-fill" id="appleScanProgressFill"></div></div>
                                     <div class="apple-scan-note" id="appleScanProgressNote">等待扫描</div>
                                 </div>
-                                <div class="apple-playlist-tools">
-                                    <div class="apple-playlist-title">播放列表</div>
-                                    <div class="apple-custom-playlist-form">
-                                        <input id="appleCustomPlaylistInput" class="apple-playlist-input" placeholder="新建自定义列表">
-                                        <button class="apple-track-action" onclick="createAppleCustomPlaylist()">新建</button>
-                                        <select id="appleCustomPlaylistSelect" class="apple-playlist-select" title="选择歌曲加入的自定义列表"></select>
-                                    </div>
-                                </div>
                                 <div class="apple-category-filters" id="applePlaylistFilters"></div>
-                                <div class="apple-playlist-actions" id="applePlaylistActions"></div>
                                 <div class="apple-result-list" id="appleResultList"></div>
                             </div>
 
                             <div class="apple-audio-panel" style="padding:18px 20px;">
                                 <div class="apple-panel-head">
                                     <div>
-                                        <div class="apple-panel-title">播放队列</div>
-                                        <div class="apple-panel-note">支持插队、下一首、分时节目单</div>
+                                        <div class="apple-panel-title">播放列表</div>
+                                        <div class="apple-panel-note">默认按文件夹生成，可直接播放整个列表</div>
+                                    </div>
+                                </div>
+                                <div class="apple-custom-playlist-form apple-custom-playlist-form-right">
+                                    <input id="appleCustomPlaylistInput" class="apple-playlist-input" placeholder="新建自定义列表">
+                                    <button class="apple-track-action" onclick="createAppleCustomPlaylist()">新建</button>
+                                    <select id="appleCustomPlaylistSelect" class="apple-playlist-select" title="选择歌曲加入的自定义列表"></select>
+                                </div>
+                                <div class="apple-playlist-list" id="applePlaylistList"></div>
+                                <div class="apple-panel-head apple-queue-head">
+                                    <div>
+                                        <div class="apple-panel-title">当前队列</div>
+                                        <div class="apple-panel-note">下一首播放顺序</div>
                                     </div>
                                     <button class="apple-ctl-btn text" style="min-width:108px;" onclick="clearAppleQueue()">清空队列</button>
                                 </div>
@@ -315,30 +318,23 @@ function getAppleCategoryLabel(value) {
 }
 function renderAppleCategoryFilters() {
     const wrap = document.getElementById('applePlaylistFilters');
-    const actions = document.getElementById('applePlaylistActions');
     if (!wrap) return;
     const playlists = (state.playlists || []).map((item, index) => normalizeApplePlaylist(item, index));
-    const options = [{ id: 'all', label: `全部 (${state.library.length})`, kind: 'all', count: state.library.length }].concat(playlists.map(item => ({
+    const folderOptions = playlists.filter(item => item.kind === 'folder').map(item => ({
         id: item.id,
-        label: `${item.kind === 'custom' ? '★ ' : ''}${item.name} (${item.count})`,
+        label: `${item.name} (${item.count})`,
         kind: item.kind,
         count: item.count
-    })));
-    if (state.playlistSelected !== 'all' && !options.find(item => item.id === state.playlistSelected)) {
+    }));
+    const displayedOptions = [{ id: 'all', label: `全部 (${state.library.length})`, kind: 'all', count: state.library.length }].concat(folderOptions);
+    if (state.playlistSelected !== 'all' && !playlists.find(item => item.id === state.playlistSelected)) {
         state.playlistSelected = 'all';
     }
-    wrap.innerHTML = options.map(opt => `
+    wrap.innerHTML = displayedOptions.map(opt => `
         <button class="apple-cat-chip ${state.playlistSelected === opt.id ? 'active' : ''}" onclick="setAppleCategoryFilter('${html(opt.id)}')">
             ${html(opt.label)}
         </button>
     `).join('');
-    if (actions) {
-        const selected = playlists.find(item => item.id === state.playlistSelected);
-        actions.innerHTML = selected ? `
-            <button class="apple-track-action primary" onclick="playApplePlaylist('${html(selected.id)}')">播放列表</button>
-            <button class="apple-track-action" onclick="queueApplePlaylist('${html(selected.id)}')">加入队列</button>
-        ` : '';
-    }
     renderAppleCustomPlaylistSelect();
 }
 function setAppleCategoryFilter(value) {
@@ -777,6 +773,7 @@ function renderAppleCustomPlaylistSelect() {
 function syncApplePlaylists(nextPlaylists) {
     state.playlists = Array.isArray(nextPlaylists) ? nextPlaylists.map((item, index) => normalizeApplePlaylist(item, index)) : [];
     renderAppleCategoryFilters();
+    renderApplePlaylists();
     const inputEl = document.getElementById('appleSearchInput');
     renderAppleResults(inputEl ? inputEl.value : '');
 }
@@ -821,8 +818,9 @@ function addAppleTrackToPlaylist(trackId) {
         })
         .catch(err => notify(translateError(err?.message, '加入自定义列表失败'), true));
 }
-function playApplePlaylist(playlistId) {
-    postJson('/api/apple-audio/playlists/queue', { playlist_id: playlistId, play_now: true }, '播放列表失败')
+function playApplePlaylist(playlistId, mode = 'normal') {
+    const playbackMode = String(mode || 'normal');
+    postJson('/api/apple-audio/playlists/queue', { playlist_id: playlistId, play_now: true, mode: playbackMode }, '播放列表失败')
         .then(data => {
             if (!data.success) {
                 notify(data.message || data.msg || '播放列表失败', true);
@@ -830,7 +828,8 @@ function playApplePlaylist(playlistId) {
             }
             syncAppleState(data.state);
             if (!isAppleLocalPlayerMode() && state.nowPlaying) playAppleTrackInBrowser(state.nowPlaying);
-            notify('已开始播放列表');
+            const label = playbackMode === 'shuffle' ? '已随机播放列表' : (playbackMode === 'repeat_all' ? '已循环播放列表' : '已开始播放列表');
+            notify(label);
         })
         .catch(err => notify(translateError(err?.message, '播放列表失败'), true));
 }
@@ -846,6 +845,28 @@ function queueApplePlaylist(playlistId) {
         })
         .catch(err => notify(translateError(err?.message, '加入播放列表失败'), true));
 }
+function getApplePlaylistKindLabel(item) {
+    return item.kind === 'custom' ? '自定义列表' : '文件夹列表';
+}
+function renderApplePlaylists() {
+    const list = document.getElementById('applePlaylistList');
+    if (!list) return;
+    const playlists = (state.playlists || []).map((item, index) => normalizeApplePlaylist(item, index));
+    list.innerHTML = playlists.length ? playlists.map(item => `
+        <div class="apple-playlist-card ${state.playlistSelected === item.id ? 'active' : ''}">
+            <button class="apple-playlist-main" onclick="setAppleCategoryFilter('${html(item.id)}')" title="查看此列表中的歌曲">
+                <span class="apple-playlist-name">${html(item.name)}</span>
+                <span class="apple-playlist-meta">${html(getApplePlaylistKindLabel(item))} · ${item.count} 首 · ${formatAppleDuration(item.duration)}</span>
+            </button>
+            <div class="apple-playlist-card-actions">
+                <button class="apple-track-action primary" onclick="playApplePlaylist('${html(item.id)}', 'normal')">播放</button>
+                <button class="apple-track-action" onclick="playApplePlaylist('${html(item.id)}', 'shuffle')">随机</button>
+                <button class="apple-track-action" onclick="playApplePlaylist('${html(item.id)}', 'repeat_all')">循环</button>
+                <button class="apple-track-action" onclick="queueApplePlaylist('${html(item.id)}')">加入</button>
+            </div>
+        </div>
+    `).join('') : '<div class="apple-empty-note">未生成播放列表。请先扫描 NAS 音乐目录。</div>';
+}
 function renderAppleQueue() {
     const list = document.getElementById('appleQueueList');
     const heroCount = document.getElementById('appleQueueCountHero');
@@ -860,7 +881,7 @@ function renderAppleQueue() {
             </div>
             <button class="apple-track-action" onclick="promoteAppleTrack(${index})">${index === 0 ? '下一首' : '提前'}</button>
         </div>
-    `).join('') : '<div class="apple-empty-note">当前队列为空。你可以从左侧检索结果中添加曲目。</div>';
+    `).join('') : '<div class="apple-empty-note">当前队列为空。可从上方播放整个文件夹列表，或从搜索结果加入歌曲。</div>';
 }
 function queueAppleTrack(trackId) {
     postJson('/api/apple-audio/queue', { track_id: trackId }, '加入播放队列失败')
@@ -985,6 +1006,7 @@ function syncAppleState(nextStatePayload) {
     state.elapsedSec = Number(nextState.elapsed_sec || 0);
     renderAppleScanProgress(nextState.scan || {});
     renderAppleCategoryFilters();
+    renderApplePlaylists();
     renderApplePlaybackMode();
     renderAppleVolume();
     renderAppleNowPlaying();
@@ -1063,6 +1085,7 @@ function initAppleAudioDemo() {
         addAppleTrackToPlaylist,
         playApplePlaylist,
         queueApplePlaylist,
+        renderApplePlaylists,
         renderAppleQueue,
         queueAppleTrack,
         playAppleTrackNow,

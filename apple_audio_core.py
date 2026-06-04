@@ -1,11 +1,11 @@
 # AI_MODULE: apple_audio_core
-# AI_PURPOSE: Scan local music files, maintain queue/transport metadata, lyrics, covers, and playback state helpers.
+# AI_PURPOSE: Scan local music files, maintain folder/default playlists, queue/transport metadata, lyrics, covers, and playback state helpers.
 # AI_BOUNDARY: Flask routes live in api/apple_audio.py and frontend rendering lives in static/js/views/apple-audio.js.
 # AI_DATA_FLOW: CONFIG/apple audio library files -> DATA_DIR runtime caches -> API payloads for music cards and transport.
 # AI_RUNTIME: Imported by api/apple_audio.py during page/API requests and background-style scan operations.
 # AI_RISK: Medium. Heavy scans or bad metadata parsing can slow the dashboard and disrupt live playback; startup scans must not block Flask binding.
-# AI_COMPAT: Preserve queue, transport, lyrics, cover, and library payload shapes used by existing frontend.
-# AI_SEARCH_KEYWORDS: apple audio, music library, queue, lyrics, cover, transport.
+# AI_COMPAT: Preserve queue, playlist_scope, transport, lyrics, cover, and library payload shapes used by existing frontend.
+# AI_SEARCH_KEYWORDS: apple audio, music library, folder playlist, playlist scope, queue, lyrics, cover, transport.
 import base64
 import hashlib
 import json
@@ -497,6 +497,13 @@ def _derive_category(relative_path: str, root_name: str):
     return rel or (root_name or "未分类")
 
 
+def _derive_folder_playlist_label(item):
+    label = _derive_category((item or {}).get("relative_path", ""), (item or {}).get("root_name", ""))
+    if label and label != "未分类":
+        return label
+    return str((item or {}).get("category") or "").strip() or label or "未分类"
+
+
 def _safe_playlist_id(value):
     text = str(value or "").strip().lower()
     text = re.sub(r"[^a-z0-9_-]+", "_", text)
@@ -526,6 +533,9 @@ class AppleAudioService:
             "elapsed_sec": 0,
             "current_track_id": "",
             "queue_ids": [],
+            "playlist_scope_ids": [],
+            "playlist_scope_id": "",
+            "playlist_scope_name": "",
             "outputs": deepcopy(DEFAULT_OUTPUTS),
             "last_action": "",
             "updated_at": datetime.now().isoformat(),
@@ -775,9 +785,27 @@ class AppleAudioService:
             return current_id
         return ids[0]
 
-    def _shuffle_track_id_locked(self, current_id):
-        ids = [str(item.get("id") or "").strip() for item in self.library if str(item.get("id") or "").strip()]
+    def _scoped_track_ids_locked(self):
+        ids = [str(item or "").strip() for item in self.state.get("playlist_scope_ids", [])]
         ids = [track_id for track_id in ids if track_id in self.library_by_id]
+        return ids
+
+    def _next_scoped_track_id_locked(self, current_id):
+        ids = self._scoped_track_ids_locked()
+        if not ids:
+            return ""
+        current_id = str(current_id or "").strip()
+        if current_id in ids and len(ids) > 1:
+            return ids[(ids.index(current_id) + 1) % len(ids)]
+        if current_id in ids:
+            return current_id
+        return ids[0]
+
+    def _shuffle_track_id_locked(self, current_id, ids=None):
+        ids = list(ids or [])
+        if not ids:
+            ids = [str(item.get("id") or "").strip() for item in self.library if str(item.get("id") or "").strip()]
+            ids = [track_id for track_id in ids if track_id in self.library_by_id]
         if not ids:
             return ""
         current_id = str(current_id or "").strip()
@@ -790,11 +818,14 @@ class AppleAudioService:
         current_id = str(self.state.get("current_track_id") or "").strip()
         if mode == "repeat_one" and current_id:
             return current_id
-        if mode == "shuffle":
-            return self._shuffle_track_id_locked(current_id)
         if queue:
             return str(queue.pop(0) or "").strip()
+        if mode == "shuffle":
+            return self._shuffle_track_id_locked(current_id, self._scoped_track_ids_locked())
         if mode == "repeat_all":
+            scoped_next = self._next_scoped_track_id_locked(current_id)
+            if scoped_next:
+                return scoped_next
             return self._next_library_track_id_locked(current_id)
         if manual:
             raise ValueError("queue is empty")
@@ -1413,7 +1444,7 @@ class AppleAudioService:
     def _folder_playlist_rows_locked(self):
         groups = {}
         for item in self.library:
-            label = str(item.get("category") or "").strip() or _derive_category(item.get("relative_path", ""), item.get("root_name", ""))
+            label = _derive_folder_playlist_label(item)
             playlist_id = f"folder:{_safe_playlist_id(label)}"
             row = groups.setdefault(playlist_id, {
                 "id": playlist_id,
@@ -1426,6 +1457,11 @@ class AppleAudioService:
             row["track_ids"].append(item.get("id"))
             row["count"] += 1
             row["duration"] += int(item.get("duration", 0) or 0)
+        for row in groups.values():
+            row["track_ids"] = sorted(
+                [tid for tid in row.get("track_ids", []) if tid in self.library_by_id],
+                key=lambda tid: str(self.library_by_id.get(tid, {}).get("relative_path") or self.library_by_id.get(tid, {}).get("title") or tid),
+            )
         return sorted(groups.values(), key=lambda row: (-int(row.get("count", 0) or 0), str(row.get("name") or "")))
 
     def _custom_playlist_rows_locked(self):
@@ -1454,6 +1490,18 @@ class AppleAudioService:
             if row.get("id") == safe_id:
                 return [tid for tid in row.get("track_ids", []) if tid in self.library_by_id]
         return []
+
+    def _resolve_playlist_row_locked(self, playlist_id):
+        safe_id = str(playlist_id or "").strip()
+        for row in self._playlist_rows_locked():
+            if row.get("id") == safe_id:
+                return deepcopy(row)
+        return None
+
+    def _clear_playlist_scope_locked(self):
+        self.state["playlist_scope_ids"] = []
+        self.state["playlist_scope_id"] = ""
+        self.state["playlist_scope_name"] = ""
 
     def playlists_snapshot(self):
         with self.lock:
@@ -1511,23 +1559,29 @@ class AppleAudioService:
                 return self._playlists_snapshot_payload_locked()
         raise ValueError("playlist not found")
 
-    def queue_playlist(self, playlist_id, play_now=False):
+    def queue_playlist(self, playlist_id, play_now=False, mode=None):
         with self.lock:
             self._tick_locked()
-            track_ids = self._resolve_playlist_track_ids_locked(playlist_id)
+            row = self._resolve_playlist_row_locked(playlist_id)
+            track_ids = [tid for tid in (row or {}).get("track_ids", []) if tid in self.library_by_id]
             if not track_ids:
                 raise ValueError("playlist is empty")
+            playback_mode = _normalize_playback_mode(mode or self.state.get("playback_mode"))
+            ordered_ids = list(track_ids)
+            if play_now and playback_mode == "shuffle":
+                random.shuffle(ordered_ids)
             if play_now:
-                current_id = str(self.state.get("current_track_id") or "").strip()
-                next_queue = list(track_ids[1:])
-                if current_id:
-                    next_queue.append(current_id)
-                self.state["current_track_id"] = track_ids[0]
+                next_queue = list(ordered_ids[1:])
+                self.state["current_track_id"] = ordered_ids[0]
                 self.state["queue_ids"] = next_queue
+                self.state["playlist_scope_ids"] = list(track_ids)
+                self.state["playlist_scope_id"] = str((row or {}).get("id") or playlist_id)
+                self.state["playlist_scope_name"] = str((row or {}).get("name") or "")
+                self.state["playback_mode"] = playback_mode
                 self.state["elapsed_sec"] = 0
                 self.state["is_playing"] = True
-                self.state["last_action"] = "Play playlist"
-                target_track_id = track_ids[0]
+                self.state["last_action"] = f"Play playlist: {self.state['playlist_scope_name']}"
+                target_track_id = ordered_ids[0]
             else:
                 self.state["queue_ids"].extend(track_ids)
                 self.state["last_action"] = "Queued playlist"
@@ -1837,6 +1891,11 @@ class AppleAudioService:
             "queue": queue,
             "library": deepcopy(self.library),
             "playlists": deepcopy(self._playlist_rows_locked()),
+            "playlist_scope": {
+                "id": self.state.get("playlist_scope_id", ""),
+                "name": self.state.get("playlist_scope_name", ""),
+                "track_ids": list(self.state.get("playlist_scope_ids", [])),
+            },
             "outputs": deepcopy(self.state.get("outputs", [])),
             "local_player": deepcopy(self.state.get("local_player", {})),
             "library_size": len(self.library),
@@ -2048,6 +2107,7 @@ class AppleAudioService:
                 current_id = str(self.state.get("current_track_id") or "").strip()
                 if current_id:
                     self.state["queue_ids"].insert(0, current_id)
+                self._clear_playlist_scope_locked()
                 self.state["current_track_id"] = track_id
                 self.state["elapsed_sec"] = 0
                 self.state["is_playing"] = True
@@ -2077,6 +2137,7 @@ class AppleAudioService:
     def clear_queue(self):
         with self.lock:
             self.state["queue_ids"] = []
+            self._clear_playlist_scope_locked()
             self.state["last_action"] = "Queue cleared"
             self.state["updated_at"] = datetime.now().isoformat()
         return self.snapshot()

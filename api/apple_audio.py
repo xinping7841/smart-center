@@ -314,7 +314,11 @@ def api_apple_audio_playlist_add_track():
 def api_apple_audio_playlist_queue():
     data = request.json or {}
     try:
-        snapshot = apple_audio_service.queue_playlist(data.get("playlist_id"), play_now=bool(data.get("play_now")))
+        snapshot = apple_audio_service.queue_playlist(
+            data.get("playlist_id"),
+            play_now=bool(data.get("play_now")),
+            mode=data.get("mode"),
+        )
         add_log(-1, f"[MusicPlayer] playlist queue {data.get('playlist_id')} play_now={bool(data.get('play_now'))}")
         return jsonify({"success": True, "state": snapshot})
     except ValueError as ex:
