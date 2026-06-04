@@ -719,7 +719,7 @@ class AppleAudioService:
             raise
         self.local_player_proc = proc
         with self.lock:
-            self._mark_local_player_locked("playing", f"Playing with ffplay: {track.get('title')}", pid=proc.pid)
+            self._mark_local_player_locked("playing", f"Playing with {self._local_player_command()}: {track.get('title')}", pid=proc.pid)
 
     def _refresh_local_player_locked(self):
         proc = self.local_player_proc
