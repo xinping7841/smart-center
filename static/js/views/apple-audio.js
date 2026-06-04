@@ -1,10 +1,10 @@
 // AI_MODULE: apple_audio_view
-// AI_PURPOSE: 音乐库、文件夹默认播放列表、播放队列、歌词和封面的前端展示。
+// AI_PURPOSE: 音乐库、文件夹默认播放列表、播放/停止/进度跳转、播放队列、歌词和封面的前端展示。
 // AI_BOUNDARY: 不直接控制音频设备；所有动作走 /api/apple-audio/*。
-// AI_DATA_FLOW: /api/apple-audio/status/playlists/queue/transport -> 音乐卡片、文件夹列表和控制按钮。
+// AI_DATA_FLOW: /api/apple-audio/status/playlists/queue/transport -> 音乐卡片、文件夹列表、进度条和控制按钮。
 // AI_RUNTIME: 首页或音乐页面加载。
 // AI_RISK: 中，音乐扫描和播放控制会影响首页加载与现场播放体验。
-// AI_SEARCH_KEYWORDS: apple audio, music, folder playlist, playlist cards, queue, lyrics, cover.
+// AI_SEARCH_KEYWORDS: apple audio, music, folder playlist, stop, seek, progress slider, playlist cards, queue, lyrics, cover.
 
 (function installSmartCenterAppleAudio(global) {
     'use strict';
@@ -66,6 +66,8 @@ state.isPlaying = !!state.isPlaying;
 state.playbackMode = state.playbackMode || 'normal';
 state.volumePercent = Number.isFinite(Number(state.volumePercent)) ? Math.max(0, Math.min(100, Number(state.volumePercent))) : 70;
 state.elapsedSec = Number(state.elapsedSec || 0);
+state.seekPreviewSec = Number.isFinite(Number(state.seekPreviewSec)) ? Number(state.seekPreviewSec) : null;
+state.seekDragging = !!state.seekDragging;
 state.stateCache = state.stateCache || null;
 state.stateLoading = !!state.stateLoading;
 state.lyricsTrackId = state.lyricsTrackId || '';
@@ -125,6 +127,7 @@ function renderAppleAudioPage(force = false) {
                                     <div class="apple-track-title" id="appleNowTitle">等待选择音源</div>
                                     <div class="apple-track-meta" id="appleNowMeta">请选择 NAS 曲目或播放列表，或接入远程播放代理。</div>
                                     <div class="apple-progress-wrap">
+                                        <input class="apple-progress-slider" id="appleProgressSlider" type="range" min="0" max="0" step="1" value="0" oninput="previewAppleSeek(this.value)" onchange="setAppleSeek(this.value)" onpointerdown="startAppleSeekDrag()" onkeydown="startAppleSeekDrag()">
                                         <div class="apple-progress-bar"><div class="apple-progress-fill" id="appleProgressFill"></div></div>
                                         <div class="apple-progress-meta">
                                             <span id="appleProgressCurrent">00:00</span>
@@ -135,6 +138,7 @@ function renderAppleAudioPage(force = false) {
                                         <button class="apple-ctl-btn secondary" onclick="appleTransport('prev')">⏮</button>
                                         <button class="apple-ctl-btn primary" id="applePlayToggleBtn" onclick="appleTransport('toggle')">▶</button>
                                         <button class="apple-ctl-btn secondary" onclick="appleTransport('next')">⏭</button>
+                                        <button class="apple-ctl-btn secondary" onclick="stopApplePlayback()" title="停止播放">■</button>
                                         <button class="apple-ctl-btn text" onclick="appleTransport('favorite')">收藏当前曲目</button>
                                         <button class="apple-ctl-btn text" onclick="openAppleAudioConfig()">输出路由</button>
                                     </div>
@@ -525,6 +529,66 @@ function pauseAppleBrowserAudio() {
     const audio = getAppleAudioEl();
     audio.pause();
 }
+function stopAppleBrowserAudio() {
+    const audio = getAppleAudioEl();
+    audio.pause();
+    try {
+        audio.currentTime = 0;
+    } catch (err) {
+        console.warn('reset browser audio failed', err);
+    }
+}
+function startAppleSeekDrag() {
+    state.seekDragging = true;
+}
+function getAppleSeekSeconds(value) {
+    const duration = state.nowPlaying ? Math.max(0, Number(state.nowPlaying.duration || 0)) : 0;
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return 0;
+    return Math.max(0, Math.min(Math.round(numeric), duration || Math.round(numeric)));
+}
+function previewAppleSeek(value) {
+    state.seekDragging = true;
+    state.seekPreviewSec = getAppleSeekSeconds(value);
+    renderAppleNowPlaying();
+}
+function setAppleSeek(value) {
+    if (!state.nowPlaying) {
+        state.seekDragging = false;
+        state.seekPreviewSec = null;
+        renderAppleNowPlaying();
+        return;
+    }
+    const elapsed = getAppleSeekSeconds(value);
+    state.seekPreviewSec = elapsed;
+    state.elapsedSec = elapsed;
+    renderAppleNowPlaying();
+    if (!isAppleLocalPlayerMode()) {
+        const audio = getAppleAudioEl();
+        try {
+            audio.currentTime = elapsed;
+        } catch (err) {
+            console.warn('browser seek failed', err);
+        }
+    }
+    postJson('/api/apple-audio/transport', { action: 'seek', elapsed_sec: elapsed }, '调整播放进度失败')
+        .then(data => {
+            state.seekDragging = false;
+            state.seekPreviewSec = null;
+            if (!data.success) {
+                notify(data.message || data.msg || '调整播放进度失败', true);
+                renderAppleNowPlaying();
+                return;
+            }
+            syncAppleState(data.state);
+        })
+        .catch(err => {
+            state.seekDragging = false;
+            state.seekPreviewSec = null;
+            notify(translateError(err?.message, '调整播放进度失败'), true);
+            renderAppleNowPlaying();
+        });
+}
 function renderAppleLyrics() {
     const boxEl = document.getElementById('appleLyricsBox');
     const typeEl = document.getElementById('appleLyricsType');
@@ -629,6 +693,7 @@ function renderAppleNowPlaying() {
     const currentEl = document.getElementById('appleProgressCurrent');
     const totalEl = document.getElementById('appleProgressTotal');
     const fillEl = document.getElementById('appleProgressFill');
+    const sliderEl = document.getElementById('appleProgressSlider');
     const stateTag = document.getElementById('applePlaybackStateTag');
     const playBtn = document.getElementById('applePlayToggleBtn');
     const authEl = document.getElementById('appleAuthState');
@@ -640,6 +705,12 @@ function renderAppleNowPlaying() {
         currentEl.innerText = '00:00';
         totalEl.innerText = '00:00';
         fillEl.style.width = '0%';
+        if (sliderEl) {
+            sliderEl.disabled = true;
+            sliderEl.max = '0';
+            sliderEl.value = '0';
+            sliderEl.style.setProperty('--apple-progress-percent', '0%');
+        }
         stateTag.innerText = '待连接';
         playBtn.innerText = '▶';
         if (authEl) authEl.innerText = state.stateCache?.auth_state || '未连接';
@@ -652,12 +723,23 @@ function renderAppleNowPlaying() {
     }
     titleEl.innerText = state.nowPlaying.title;
     metaEl.innerText = `${state.nowPlaying.artist} · ${state.nowPlaying.album} · ${state.nowPlaying.tag}`;
-    currentEl.innerText = formatAppleDuration(state.elapsedSec);
-    totalEl.innerText = formatAppleDuration(state.nowPlaying.duration);
-    if (state.nowPlaying.duration > 0) {
-        fillEl.style.width = `${Math.min(100, (state.elapsedSec / state.nowPlaying.duration) * 100)}%`;
+    const duration = Math.max(0, Number(state.nowPlaying.duration || 0));
+    const displayedElapsed = state.seekDragging && state.seekPreviewSec !== null ? state.seekPreviewSec : state.elapsedSec;
+    const progressPercent = duration > 0 ? `${Math.min(100, (displayedElapsed / duration) * 100)}%` : '0%';
+    currentEl.innerText = formatAppleDuration(displayedElapsed);
+    totalEl.innerText = formatAppleDuration(duration);
+    if (duration > 0) {
+        fillEl.style.width = progressPercent;
     } else {
         fillEl.style.width = '0%';
+    }
+    if (sliderEl) {
+        sliderEl.disabled = duration <= 0;
+        sliderEl.max = String(duration || 0);
+        if (!state.seekDragging || document.activeElement !== sliderEl) {
+            sliderEl.value = String(Math.max(0, Math.min(Math.round(displayedElapsed), duration || Math.round(displayedElapsed))));
+        }
+        sliderEl.style.setProperty('--apple-progress-percent', progressPercent);
     }
     const localPlayer = state.stateCache?.local_player || {};
     stateTag.innerText = state.isPlaying
@@ -854,10 +936,10 @@ function renderApplePlaylists() {
     const playlists = (state.playlists || []).map((item, index) => normalizeApplePlaylist(item, index));
     list.innerHTML = playlists.length ? playlists.map(item => `
         <div class="apple-playlist-card ${state.playlistSelected === item.id ? 'active' : ''}">
-            <button class="apple-playlist-main" onclick="setAppleCategoryFilter('${html(item.id)}')" title="查看此列表中的歌曲">
+            <div class="apple-playlist-main" onclick="setAppleCategoryFilter('${html(item.id)}')" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setAppleCategoryFilter('${html(item.id)}');}" title="查看此列表中的歌曲">
                 <span class="apple-playlist-name">${html(item.name)}</span>
                 <span class="apple-playlist-meta">${html(getApplePlaylistKindLabel(item))} · ${item.count} 首 · ${formatAppleDuration(item.duration)}</span>
-            </button>
+            </div>
             <div class="apple-playlist-card-actions">
                 <button class="apple-track-action primary" onclick="playApplePlaylist('${html(item.id)}', 'normal')">播放</button>
                 <button class="apple-track-action" onclick="playApplePlaylist('${html(item.id)}', 'shuffle')">随机</button>
@@ -952,6 +1034,19 @@ function setApplePlaybackMode(mode) {
             notify(`已切换为${getApplePlaybackModeLabel(state.playbackMode)}`);
         })
         .catch(err => notify(translateError(err?.message, '播放模式设置失败'), true));
+}
+function stopApplePlayback() {
+    postJson('/api/apple-audio/transport', { action: 'stop' }, '停止播放失败')
+        .then(data => {
+            if (!data.success) {
+                notify(data.message || data.msg || '停止播放失败', true);
+                return;
+            }
+            stopAppleBrowserAudio();
+            syncAppleState(data.state);
+            notify('已停止播放');
+        })
+        .catch(err => notify(translateError(err?.message, '停止播放失败'), true));
 }
 function appleTransport(action, options = {}) {
     postJson('/api/apple-audio/transport', { action }, '音乐播放器控制失败')
@@ -1070,6 +1165,9 @@ function initAppleAudioDemo() {
         renderAppleVolume,
         previewAppleVolume,
         setAppleVolume,
+        startAppleSeekDrag,
+        previewAppleSeek,
+        setAppleSeek,
         renderApplePlaybackMode,
         updateAppleTopLyrics,
         renderAppleLyrics,
@@ -1092,6 +1190,7 @@ function initAppleAudioDemo() {
         promoteAppleTrack,
         clearAppleQueue,
         setApplePlaybackMode,
+        stopApplePlayback,
         appleTransport,
         syncAppleState,
         openAppleAudioConfig,

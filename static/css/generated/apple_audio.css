@@ -64,9 +64,23 @@
 
 .apple-track-meta { margin-top:8px; color:#cbd5e1; font-size:14px; }
 
-.apple-progress-wrap { margin-top:18px; }
+.apple-progress-wrap { margin-top:18px; position:relative; padding-top:3px; }
 
-.apple-progress-bar { height:8px; border-radius:999px; background:rgba(148,163,184,0.20); overflow:hidden; }
+.apple-progress-slider { position:absolute; left:0; right:0; top:0; z-index:2; width:100%; height:18px; margin:0; appearance:none; -webkit-appearance:none; background:transparent; cursor:pointer; display:block; }
+
+.apple-progress-slider:disabled { cursor:not-allowed; opacity:.55; }
+
+.apple-progress-slider::-webkit-slider-runnable-track { height:8px; border-radius:999px; background:transparent; }
+
+.apple-progress-slider::-webkit-slider-thumb { appearance:none; -webkit-appearance:none; width:18px; height:18px; margin-top:-5px; border-radius:50%; background:#f8fafc; border:3px solid #38bdf8; box-shadow:0 4px 14px rgba(56,189,248,0.32); }
+
+.apple-progress-slider::-moz-range-track { height:8px; border-radius:999px; background:transparent; }
+
+.apple-progress-slider::-moz-range-progress { height:8px; border-radius:999px; background:transparent; }
+
+.apple-progress-slider::-moz-range-thumb { width:18px; height:18px; border-radius:50%; background:#f8fafc; border:3px solid #38bdf8; box-shadow:0 4px 14px rgba(56,189,248,0.32); }
+
+.apple-progress-bar { height:8px; border-radius:999px; background:rgba(148,163,184,0.20); overflow:hidden; margin-top:5px; }
 
 .apple-progress-fill { height:100%; width:42%; border-radius:999px; background:linear-gradient(90deg, #fb7185, #f472b6 55%, #60a5fa); box-shadow:0 0 18px rgba(244,114,182,0.3); }
 
@@ -146,17 +160,19 @@
 
 .apple-playlist-list { display:flex; flex-direction:column; gap:10px; max-height:254px; overflow:auto; padding-right:4px; }
 
-.apple-playlist-card { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:10px; align-items:center; padding:10px; border-radius:16px; background:rgba(15,23,42,0.42); border:1px solid rgba(255,255,255,0.07); }
+.apple-playlist-card { display:grid; grid-template-columns:minmax(0, 1fr); gap:9px; align-items:start; padding:10px; border-radius:16px; background:rgba(15,23,42,0.42); border:1px solid rgba(255,255,255,0.07); user-select:none; -webkit-user-select:none; }
 
 .apple-playlist-card.active { background:linear-gradient(135deg, rgba(59,130,246,0.18), rgba(15,23,42,0.58)); border-color:rgba(96,165,250,0.28); }
 
-.apple-playlist-main { min-width:0; border:none; background:transparent; color:inherit; padding:0; text-align:left; cursor:pointer; }
+.apple-playlist-main { min-width:0; border:none; background:transparent; color:inherit; padding:0; text-align:left; cursor:pointer; user-select:none; -webkit-user-select:none; }
+
+.apple-playlist-main:focus-visible { outline:2px solid rgba(56,189,248,0.62); outline-offset:3px; border-radius:10px; }
 
 .apple-playlist-name { display:block; color:#fff; font-size:14px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 .apple-playlist-meta { display:block; margin-top:5px; color:#94a3b8; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-.apple-playlist-card-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-end; max-width:250px; }
+.apple-playlist-card-actions { display:flex; align-items:center; gap:6px; flex-wrap:wrap; justify-content:flex-start; max-width:none; }
 
 .apple-playlist-card-actions .apple-track-action { min-width:50px; padding:0 9px; }
 

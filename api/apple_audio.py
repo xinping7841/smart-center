@@ -1,11 +1,11 @@
 # AI_MODULE: apple_audio_api
-# AI_PURPOSE: 音乐库、队列、播放控制、歌词和封面接口。
+# AI_PURPOSE: 音乐库、队列、播放/停止/进度跳转控制、歌词和封面接口。
 # AI_BOUNDARY: 播放器核心状态在 apple_audio_core.py；页面渲染在 apple-audio.js。
 # AI_DATA_FLOW: 本地音乐库/播放器 -> /api/apple-audio/* -> 前端音乐卡片。
 # AI_RUNTIME: 首页音乐模块和 Apple Audio 页面调用。
 # AI_RISK: 中，音乐扫描可能影响加载性能。
-# AI_COMPAT: queue/transport/lyrics/cover 路由需保持。
-# AI_SEARCH_KEYWORDS: apple audio, music, queue, lyrics, cover.
+# AI_COMPAT: queue/transport stop/seek/lyrics/cover 路由需保持。
+# AI_SEARCH_KEYWORDS: apple audio, music, queue, stop, seek, lyrics, cover.
 
 import mimetypes
 from pathlib import Path
@@ -55,6 +55,13 @@ def _coerce_volume_percent(value):
         return max(0, min(int(round(float(value))), 100))
     except Exception:
         raise ValueError("unsupported volume")
+
+
+def _coerce_seek_seconds(value):
+    try:
+        return max(0, int(round(float(value))))
+    except Exception:
+        raise ValueError("unsupported seek position")
 
 
 def _error_payload(message, status=400):
@@ -387,6 +394,10 @@ def api_apple_audio_transport():
             _save_cfg(cfg)
             snapshot = apple_audio_service.transport(action, mode=mode)
             add_log(-1, f"[MusicPlayer] playback mode {mode}")
+        elif action_key == "seek":
+            seconds = _coerce_seek_seconds(data.get("elapsed_sec", data.get("position", data.get("mode"))))
+            snapshot = apple_audio_service.transport(action, mode=seconds)
+            add_log(-1, f"[MusicPlayer] seek {seconds}s")
         else:
             snapshot = apple_audio_service.transport(action)
             add_log(-1, f"[MusicPlayer] transport {action}")
