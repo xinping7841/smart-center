@@ -2073,7 +2073,6 @@ class AppleAudioService:
                 pass
         with self.lock:
             self._tick_locked()
-            self._refresh_local_player_locked(auto_advance=False)
             return self._snapshot_payload_locked()
 
     def search(self, query):

@@ -493,6 +493,27 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
         self.assertTrue(state["is_playing"])
         start_track.assert_called_once_with("track-2")
 
+    def test_local_player_auto_advance_does_not_stop_after_restart_probe(self):
+        service = self._service_with_tracks(2)
+        service.state["current_track_id"] = "track-1"
+        service.state["is_playing"] = True
+        service.state["playback_mode"] = "repeat_all"
+        service.local_player_proc = ExitedProcess(0)
+
+        def mark_restarted(track_id):
+            service.local_player_proc = ExitedProcess(0)
+
+        with patch.object(service, "_local_player_enabled", return_value=True), \
+                patch.object(service, "_start_local_player_for_track", side_effect=mark_restarted):
+            state = service.snapshot()
+            self.assertEqual(state["current_track"]["id"], "track-2")
+            self.assertTrue(state["is_playing"])
+
+            state = service.snapshot()
+
+        self.assertEqual(state["current_track"]["id"], "track-1")
+        self.assertTrue(state["is_playing"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,10 @@
+{
+  "task": "apple-audio-auto-advance-fix",
+  "module": "apple_audio",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-apple-audio-auto-advance-fix-20260605",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/apple-audio-auto-advance-fix",
+  "started_at": "2026-06-05 10:27:12",
+  "status": "in_progress"
+}
