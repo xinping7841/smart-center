@@ -466,6 +466,54 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
         self.assertTrue(service.state["is_playing"])
         self.assertEqual(service.state["playback_mode"], "shuffle")
 
+    def test_configure_keeps_playlist_runtime_mode_after_track_exit(self):
+        service = self._service_with_tracks(3)
+        service.state["is_playing"] = False
+        service.state["playback_mode"] = "shuffle"
+        service.state["queue_ids"] = ["track-2"]
+        service.state["playlist_scope_ids"] = ["track-1", "track-2"]
+
+        CONFIG["apple_audio"]["playback_mode"] = "normal"
+        service.configure()
+
+        self.assertEqual(service.state["playback_mode"], "shuffle")
+
+    def test_local_player_retries_when_alsa_device_is_busy(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            audio_path = Path(tmp) / "track.mp3"
+            audio_path.write_bytes(b"fake")
+            CONFIG["apple_audio"] = {
+                "enabled": True,
+                "provider": "nas_music_tag",
+                "player_mode": "node120_analog",
+                "local_player_enabled": True,
+                "local_player_command": "ffmpeg_aplay",
+                "local_player_alsa_device": "plughw:CARD=PCH,DEV=0",
+                "nas_music_roots": [],
+                "nas_auto_scan_on_start": False,
+            }
+            with patch.object(AppleAudioService, "scan_library", return_value={}):
+                service = AppleAudioService()
+            service.library = [{
+                "id": "track-1",
+                "title": "Test Track",
+                "path": str(audio_path),
+                "playable": True,
+                "duration": 120,
+            }]
+            service.library_by_id = {"track-1": service.library[0]}
+            attempts = [ExitedProcess(1), FakeProcess()]
+
+            with patch("apple_audio_core.shutil.which", side_effect=lambda name: f"/usr/bin/{name}"), \
+                    patch.object(service, "_local_player_device_busy", return_value=True), \
+                    patch.object(service, "_spawn_local_player_process", side_effect=lambda *args, **kwargs: attempts.pop(0)) as spawn, \
+                    patch("apple_audio_core.time.sleep", return_value=None):
+                service._start_local_player_for_track("track-1")
+
+        self.assertEqual(spawn.call_count, 2)
+        self.assertEqual(service.state["local_player"]["state"], "playing")
+        self.assertEqual(service.state["local_player"]["pid"], 4242)
+
     def test_browser_ended_stops_in_normal_mode_when_queue_empty(self):
         service = self._service_with_tracks(1)
         service.state["current_track_id"] = "track-1"

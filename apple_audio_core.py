@@ -623,7 +623,8 @@ class AppleAudioService:
             self.state["player_mode"] = str(cfg.get("player_mode", "nas_http") or "nas_http")
             self.state["player_host"] = str(cfg.get("player_host", "") or "").strip()
             self.state["output_mode"] = str(cfg.get("output_mode", "system_default") or "system_default")
-            if not self.state.get("is_playing"):
+            keep_runtime_mode = bool(self.state.get("is_playing") or self.state.get("queue_ids") or self.state.get("playlist_scope_ids"))
+            if not keep_runtime_mode:
                 self.state["playback_mode"] = _normalize_playback_mode(
                     cfg.get("playback_mode", self.state.get("playback_mode"))
                 )
@@ -784,6 +785,32 @@ class AppleAudioService:
             prefix.append(f"PULSE_SINK={env['PULSE_SINK']}")
         return prefix + list(base_cmd), env
 
+    def _spawn_local_player_process(self, cmd, env, stderr_path):
+        stderr_handle = open(stderr_path, "wb")
+        try:
+            proc = subprocess.Popen(
+                cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=stderr_handle,
+                stdin=subprocess.DEVNULL,
+                env=env,
+                start_new_session=True,
+            )
+        finally:
+            stderr_handle.close()
+        return proc
+
+    def _local_player_device_busy(self):
+        tail = self._read_local_player_error_tail(limit=1600).lower()
+        busy_markers = [
+            "device or resource busy",
+            "设备或资源忙",
+            "audio open error",
+            "音乐打开错误",
+            "resource busy",
+        ]
+        return any(marker in tail for marker in busy_markers)
+
     def _start_local_player_for_track(self, track_id, start_sec=None):
         track = self._find_track(track_id)
         if not track:
@@ -793,26 +820,33 @@ class AppleAudioService:
         cmd = self._build_local_player_command(track, start_sec=start_sec)
         cmd, env = self._audio_user_command(cmd)
         stderr_path = self._local_player_log_path()
-        try:
-            stderr_handle = open(stderr_path, "wb")
-            proc = subprocess.Popen(
-                cmd,
-                stdout=subprocess.DEVNULL,
-                stderr=stderr_handle,
-                stdin=subprocess.DEVNULL,
-                env=env,
-                start_new_session=True,
-            )
-            stderr_handle.close()
-        except Exception as exc:
+        proc = None
+        last_exc = None
+        for attempt in range(4):
             try:
-                stderr_handle.close()
+                proc = self._spawn_local_player_process(cmd, env, stderr_path)
+            except Exception as exc:
+                last_exc = exc
+                break
+            time.sleep(0.2)
+            if proc.poll() is None:
+                break
+            if not self._local_player_device_busy():
+                break
+            try:
+                proc.wait(timeout=0.5)
             except Exception:
                 pass
+            proc = None
+            time.sleep(0.35 + attempt * 0.25)
+        if proc is None:
+            message = str(last_exc) if last_exc else self._local_player_exit_message(1)
             with self.lock:
                 self.state["is_playing"] = False
-                self._mark_local_player_locked("error", str(exc))
-            raise
+                self._mark_local_player_locked("error", message)
+            if last_exc:
+                raise last_exc
+            raise RuntimeError(message)
         self.local_player_proc = proc
         self.local_player_stderr_path = stderr_path
         with self.lock:
