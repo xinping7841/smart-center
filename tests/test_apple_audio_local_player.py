@@ -541,6 +541,23 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
         self.assertTrue(state["is_playing"])
         start_track.assert_called_once_with("track-2")
 
+    def test_dashboard_snapshot_auto_advances_local_player_exit(self):
+        service = self._service_with_tracks(2)
+        service.state["current_track_id"] = "track-1"
+        service.state["is_playing"] = True
+        service.state["playback_mode"] = "repeat_all"
+        service.local_player_proc = ExitedProcess(0)
+
+        with patch.object(service, "_local_player_enabled", return_value=True), \
+                patch.object(service, "_start_local_player_for_track") as start_track:
+            state = service.dashboard_snapshot()
+
+        self.assertEqual(state["current_track"]["id"], "track-2")
+        self.assertTrue(state["is_playing"])
+        self.assertEqual(state["last_action"], "Auto next: Track 2")
+        self.assertNotIn("library", state)
+        start_track.assert_called_once_with("track-2")
+
     def test_local_player_auto_advance_does_not_stop_after_restart_probe(self):
         service = self._service_with_tracks(2)
         service.state["current_track_id"] = "track-1"
