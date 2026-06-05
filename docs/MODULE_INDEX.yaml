@@ -83,14 +83,14 @@ modules:
     ai_keywords: ['snmp','qnap','ikuai','h3c','switch','storage','interface','oid']
   automation:
     frontend_module: 'static/js/views/automation-view.js'
-    purpose: Scene automation rules, node canvas display, condition evaluation and execution logs.
+    purpose: Scene automation rules, node canvas display, condition/schedule evaluation, music playback scheduling, and execution logs.
     routes: ['/api/automation/status','/api/automation/logs','/api/automation/toggle','/api/automation/update']
     backend: ['api/automation.py','runtime/automation.py','background.py']
     frontend: ['templates/index.html','templates/config.html','static/js/views/automation-view.js']
     config_keys: ['automation_rules','scene_links']
     runtime_state: ['automation runtime snapshot','operation_logs.json']
     split_priority: high
-    ai_keywords: ['automation','scene','condition','rule','node canvas']
+    ai_keywords: ['automation','scene','condition','rule','node canvas','workday music schedule','apple audio automation']
   hvac:
     frontend_module: 'static/js/views/hvac-view.js'
     purpose: Air conditioner control and room environment sensor display.
@@ -178,7 +178,7 @@ modules:
     split_priority: low
     ai_keywords: ['hy','edge','HY506','remote room','edge node']
   apple_audio:
-    purpose: Music player UI, library search, queue, lyrics, and output zones.
+    purpose: Music player UI, library search, queue, lyrics, output zones, and automation-triggered playback/stop scenes.
     routes: ['/api/apple-audio/status','/api/apple-audio/queue','/api/apple-audio/transport','/api/apple-audio/lyrics/*']
     backend: ['api/apple_audio.py','apple_audio_core.py']
     frontend: ['templates/index.html','static/js/views/apple-audio.js']
