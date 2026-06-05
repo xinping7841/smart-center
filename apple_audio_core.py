@@ -1,11 +1,11 @@
 # AI_MODULE: apple_audio_core
-# AI_PURPOSE: Scan and full-scrape local music files, maintain folder/default playlists, queue/transport metadata, dashboard compact status, seek/stop state, lyrics, covers, and playback state helpers.
+# AI_PURPOSE: Scan and full-scrape local music files, maintain folder/default playlists, queue/transport metadata, dashboard compact status, local playback diagnostics, seek/stop state, lyrics, covers, and playback state helpers.
 # AI_BOUNDARY: Flask routes live in api/apple_audio.py and frontend rendering lives in static/js/views/apple-audio.js.
 # AI_DATA_FLOW: CONFIG/apple audio library files -> DATA_DIR runtime caches -> API payloads for music cards and transport.
 # AI_RUNTIME: Imported by api/apple_audio.py during page/API requests and background-style scan operations.
 # AI_RISK: Medium. Heavy scans or bad metadata parsing can slow the dashboard and disrupt live playback; startup scans must not block Flask binding.
 # AI_COMPAT: Preserve queue, playlist_scope, dashboard_snapshot, transport stop/seek, lyrics, cover, and library payload shapes used by existing frontend.
-# AI_SEARCH_KEYWORDS: apple audio, music library, dashboard status, full scrape, rescan, folder playlist, playlist scope, stop, seek, queue, lyrics, cover, transport.
+# AI_SEARCH_KEYWORDS: apple audio, music library, dashboard status, local player stderr, playback failure, full scrape, rescan, folder playlist, playlist scope, stop, seek, queue, lyrics, cover, transport.
 import base64
 import hashlib
 import json
@@ -520,6 +520,7 @@ class AppleAudioService:
         self.lyrics_cache = {}
         self.custom_playlists = []
         self.local_player_proc = None
+        self.local_player_stderr_path = None
         self.state = {
             "connected": True,
             "provider": "nas_music_tag",
@@ -678,6 +679,25 @@ class AppleAudioService:
         with self.lock:
             self._mark_local_player_locked("idle", message)
 
+    def _local_player_log_path(self):
+        ensure_directory(DATA_DIR / "runtime")
+        return DATA_DIR / "runtime" / "apple_audio_local_player.stderr.log"
+
+    def _read_local_player_error_tail(self, limit=1200):
+        path = self.local_player_stderr_path or self._local_player_log_path()
+        try:
+            raw = Path(path).read_bytes()[-max(int(limit or 0), 200):]
+        except Exception:
+            return ""
+        return raw.decode("utf-8", errors="replace").strip()
+
+    def _local_player_exit_message(self, code):
+        tail = self._read_local_player_error_tail()
+        message = f"Local player exited: {code}"
+        if tail:
+            message = f"{message}; {tail[-900:]}"
+        return message
+
     def _build_local_player_command(self, track, start_sec=0):
         cfg = self._config()
         command = self._local_player_command(cfg)
@@ -712,14 +732,18 @@ class AppleAudioService:
             if not aplay:
                 raise RuntimeError("aplay is not installed on node-120")
             device = str(cfg.get("local_player_alsa_device", "") or "").strip() or "plughw:CARD=PCH,DEV=0"
+            seek_args = []
+            if start_sec > 0:
+                seek_args = ["-ss", str(start_sec)]
             return [
                 "/bin/bash",
                 "-c",
                 (
                     "set -o pipefail; "
-                    '"$1" -hide_banner -loglevel warning -nostdin $6 -i "$2" '
-                    '-vn -af "volume=$5" -ar 48000 -ac 2 -f wav - | '
-                    '"$3" -D "$4"'
+                    'ffmpeg_bin="$1"; source_path="$2"; aplay_bin="$3"; device="$4"; volume="$5"; shift 5; '
+                    '"$ffmpeg_bin" -hide_banner -loglevel warning -nostdin "$@" -i "$source_path" '
+                    '-vn -af "volume=$volume" -ar 48000 -ac 2 -f wav - | '
+                    '"$aplay_bin" -D "$device"'
                 ),
                 "smart-center-ffmpeg-aplay",
                 ffmpeg,
@@ -727,7 +751,7 @@ class AppleAudioService:
                 aplay,
                 device,
                 f"{volume:.3f}",
-                f"-ss {start_sec}" if start_sec > 0 else "",
+                *seek_args,
             ]
         raise RuntimeError("unsupported local player command")
 
@@ -765,21 +789,29 @@ class AppleAudioService:
         start_sec = self.state.get("elapsed_sec", 0) if start_sec is None else start_sec
         cmd = self._build_local_player_command(track, start_sec=start_sec)
         cmd, env = self._audio_user_command(cmd)
+        stderr_path = self._local_player_log_path()
         try:
+            stderr_handle = open(stderr_path, "wb")
             proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stderr=stderr_handle,
                 stdin=subprocess.DEVNULL,
                 env=env,
                 start_new_session=True,
             )
+            stderr_handle.close()
         except Exception as exc:
+            try:
+                stderr_handle.close()
+            except Exception:
+                pass
             with self.lock:
                 self.state["is_playing"] = False
                 self._mark_local_player_locked("error", str(exc))
             raise
         self.local_player_proc = proc
+        self.local_player_stderr_path = stderr_path
         with self.lock:
             self._mark_local_player_locked("playing", f"Playing with {self._local_player_command()}: {track.get('title')}", pid=proc.pid)
 
@@ -871,7 +903,7 @@ class AppleAudioService:
             return next_track_id
         self.state["is_playing"] = False
         self.state["updated_at"] = datetime.now().isoformat()
-        self._mark_local_player_locked("idle", f"Local player exited: {code}")
+        self._mark_local_player_locked("idle", self._local_player_exit_message(code))
         return ""
 
     def local_output_status(self):

@@ -143,14 +143,15 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
         self.assertEqual(state["local_player"]["command"], "ffmpeg_aplay")
         self.assertEqual(cmd[0:2], ["/bin/bash", "-c"])
         self.assertIn("set -o pipefail", cmd[2])
-        self.assertIn('volume=$5', cmd[2])
+        self.assertIn('volume="$5"', cmd[2])
         self.assertIn("-f wav -", cmd[2])
-        self.assertIn('"$3" -D "$4"', cmd[2])
+        self.assertIn('"$aplay_bin" -D "$device"', cmd[2])
         self.assertIn(str(audio_path), cmd)
         self.assertIn("/usr/bin/ffmpeg", cmd)
         self.assertIn("/usr/bin/aplay", cmd)
         self.assertIn("plughw:CARD=PCH,DEV=0", cmd)
         self.assertIn("0.650", cmd)
+        self.assertNotIn("", cmd)
 
     def test_audio_user_wraps_command_with_runtime_dir(self):
         CONFIG["apple_audio"] = {
@@ -268,6 +269,60 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
         self.assertEqual(state["elapsed_sec"], 37)
         self.assertIn("-ss", cmd)
         self.assertIn("37", cmd)
+
+    def test_local_ffmpeg_aplay_seek_uses_split_seek_args(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            audio_path = Path(tmp) / "track.mp3"
+            audio_path.write_bytes(b"fake")
+            CONFIG["apple_audio"] = {
+                "enabled": True,
+                "provider": "nas_music_tag",
+                "player_mode": "node120_analog",
+                "local_player_enabled": True,
+                "local_player_command": "ffmpeg_aplay",
+                "local_player_alsa_device": "plughw:CARD=PCH,DEV=0",
+                "nas_music_roots": [],
+                "nas_auto_scan_on_start": False,
+            }
+            with patch.object(AppleAudioService, "scan_library", return_value={}):
+                service = AppleAudioService()
+            service.library = [{
+                "id": "track-1",
+                "title": "Test Track",
+                "path": str(audio_path),
+                "playable": True,
+                "duration": 120,
+            }]
+            service.library_by_id = {"track-1": service.library[0]}
+            service.state["current_track_id"] = "track-1"
+            service.state["is_playing"] = True
+
+            with patch("apple_audio_core.shutil.which", side_effect=lambda name: f"/usr/bin/{name}"), \
+                    patch("apple_audio_core.subprocess.Popen", return_value=FakeProcess()) as popen:
+                state = service.transport("seek", mode=37)
+
+        cmd = popen.call_args.args[0]
+        self.assertEqual(state["elapsed_sec"], 37)
+        self.assertIn("-ss", cmd)
+        self.assertIn("37", cmd)
+        self.assertNotIn("-ss 37", cmd)
+        self.assertNotIn("", cmd)
+
+    def test_local_player_exit_reports_stderr_tail(self):
+        service = self._service_with_tracks(1)
+        log_path = Path(_TEST_DATA_DIR) / "runtime" / "apple-audio-test.stderr.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.write_text("ALSA lib pcm.c: device busy\naplay: main: audio open error\n", encoding="utf-8")
+        service.local_player_stderr_path = log_path
+        service.local_player_proc = ExitedProcess(1)
+        service.state["current_track_id"] = "track-1"
+        service.state["is_playing"] = True
+
+        state = service.snapshot()
+
+        self.assertFalse(state["is_playing"])
+        self.assertIn("Local player exited: 1", state["local_player"]["message"])
+        self.assertIn("audio open error", state["local_player"]["message"])
 
     def test_folder_and_custom_playlists_queue_tracks(self):
         service = self._service_with_tracks(3)
