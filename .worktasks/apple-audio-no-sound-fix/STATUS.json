@@ -1,0 +1,10 @@
+{
+  "task": "apple-audio-no-sound-fix",
+  "module": "apple_audio",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-apple-audio-no-sound-fix-20260605",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/apple-audio-no-sound-fix",
+  "started_at": "2026-06-05 09:55:27",
+  "status": "in_progress"
+}
