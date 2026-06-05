@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import json
 import os
-import shutil
+import subprocess
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -21,6 +22,21 @@ CONFIG_PATH = Path(os.environ.get("SMART_CENTER_CONFIG_FILE", "/srv/smart-center
 PLAYLIST_ID = os.environ.get("SMART_CENTER_WORKDAY_MUSIC_PLAYLIST_ID", "folder:e38a08cca65f")
 PLAYLIST_NAME = os.environ.get("SMART_CENTER_WORKDAY_MUSIC_PLAYLIST_NAME", "器乐+轻音乐")
 PLAYBACK_MODE = os.environ.get("SMART_CENTER_WORKDAY_MUSIC_MODE", "shuffle")
+
+
+def run_sudo(args: list[str]) -> None:
+    subprocess.run(["sudo", "-n", *args], check=True)
+
+
+def stat_config() -> tuple[str, str, str]:
+    result = subprocess.run(
+        ["stat", "-c", "%a %u %g", str(CONFIG_PATH)],
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+    mode, owner, group = result.stdout.strip().split()
+    return mode, owner, group
 
 
 def upsert_by_id(rows: list[dict], item: dict) -> bool:
@@ -122,10 +138,32 @@ def main() -> int:
     if changed:
         stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_path = CONFIG_PATH.with_name(f"{CONFIG_PATH.name}.pre-apple-audio-workday-automation-{stamp}")
-        shutil.copy2(CONFIG_PATH, backup_path)
-        tmp_path = CONFIG_PATH.with_suffix(".tmp")
-        tmp_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        tmp_path.replace(CONFIG_PATH)
+        mode, owner, group = stat_config()
+        run_sudo(["cp", "-a", str(CONFIG_PATH), str(backup_path)])
+        with tempfile.NamedTemporaryFile(
+            "w",
+            encoding="utf-8",
+            dir="/tmp",
+            prefix="smart-center-config.",
+            suffix=".json",
+            delete=False,
+        ) as tmp_file:
+            tmp_path = Path(tmp_file.name)
+            tmp_file.write(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+        try:
+            run_sudo([
+                "install",
+                "-m",
+                mode,
+                "-o",
+                owner,
+                "-g",
+                group,
+                str(tmp_path),
+                str(CONFIG_PATH),
+            ])
+        finally:
+            tmp_path.unlink(missing_ok=True)
         backup = str(backup_path)
 
     print(json.dumps(
@@ -147,4 +185,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
