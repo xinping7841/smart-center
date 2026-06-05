@@ -1,0 +1,10 @@
+{
+  "task": "apple-audio-playback-mode-runtime-fix",
+  "module": "apple_audio",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-apple-audio-playback-mode-runtime-fix-20260605",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/apple-audio-playback-mode-runtime-fix",
+  "started_at": "2026-06-05 10:02:41",
+  "status": "in_progress"
+}
