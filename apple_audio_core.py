@@ -623,7 +623,10 @@ class AppleAudioService:
             self.state["player_mode"] = str(cfg.get("player_mode", "nas_http") or "nas_http")
             self.state["player_host"] = str(cfg.get("player_host", "") or "").strip()
             self.state["output_mode"] = str(cfg.get("output_mode", "system_default") or "system_default")
-            self.state["playback_mode"] = _normalize_playback_mode(cfg.get("playback_mode", self.state.get("playback_mode")))
+            if not self.state.get("is_playing"):
+                self.state["playback_mode"] = _normalize_playback_mode(
+                    cfg.get("playback_mode", self.state.get("playback_mode"))
+                )
             self.state["volume_percent"] = _coerce_volume_percent(cfg.get("volume_percent", self.state.get("volume_percent", 70)))
             self.state["auth_state"] = str(cfg.get("auth_state", "NAS music tag ready") or "NAS music tag ready")
             self.state["connected"] = bool(cfg.get("enabled", True))

@@ -453,6 +453,19 @@ class AppleAudioLocalPlayerTest(unittest.TestCase):
         self.assertEqual(state["current_track"]["id"], "track-1")
         choice.assert_not_called()
 
+    def test_configure_keeps_runtime_shuffle_while_playing(self):
+        service = self._service_with_tracks(3)
+        folder = next(item for item in service.playlists_snapshot()["playlists"] if item["kind"] == "folder" and item["name"] == "Folder A")
+
+        state = service.queue_playlist(folder["id"], play_now=True, mode="shuffle")
+        self.assertEqual(state["playback_mode"], "shuffle")
+
+        CONFIG["apple_audio"]["playback_mode"] = "normal"
+        service.configure()
+
+        self.assertTrue(service.state["is_playing"])
+        self.assertEqual(service.state["playback_mode"], "shuffle")
+
     def test_browser_ended_stops_in_normal_mode_when_queue_empty(self):
         service = self._service_with_tracks(1)
         service.state["current_track_id"] = "track-1"
