@@ -1,0 +1,10 @@
+{
+  "task": "apple-audio-dashboard-auto-advance",
+  "module": "apple_audio",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-apple-audio-dashboard-auto-advance-20260605",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/apple-audio-dashboard-auto-advance",
+  "started_at": "2026-06-05 10:40:38",
+  "status": "in_progress"
+}

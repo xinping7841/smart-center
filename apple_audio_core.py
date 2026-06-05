@@ -1965,57 +1965,70 @@ class AppleAudioService:
         except Exception:
             return 0
 
+    def _dashboard_payload_locked(self):
+        current = self.library_by_id.get(str(self.state.get("current_track_id") or "").strip()) or {}
+        local_player = dict(self.state.get("local_player", {}) or {})
+        scan_errors = list(self.state.get("scan_errors", []) or [])
+        return {
+            "connected": bool(self.state.get("connected")),
+            "provider": self.state.get("provider", "nas_music_tag"),
+            "player_mode": self.state.get("player_mode", "nas_http"),
+            "output_mode": self.state.get("output_mode", "system_default"),
+            "playback_mode": _normalize_playback_mode(self.state.get("playback_mode")),
+            "volume_percent": _coerce_volume_percent(self.state.get("volume_percent", 70)),
+            "is_playing": bool(self.state.get("is_playing")),
+            "elapsed_sec": int(self.state.get("elapsed_sec", 0) or 0),
+            "duration": self._current_track_duration_locked(),
+            "current_track": {
+                "id": current.get("id"),
+                "title": current.get("title"),
+                "artist": current.get("artist"),
+                "album": current.get("album"),
+                "category": current.get("category"),
+                "duration": current.get("duration"),
+            } if current else None,
+            "queue_count": len(self.state.get("queue_ids", []) or []),
+            "playlist_scope": {
+                "id": self.state.get("playlist_scope_id", ""),
+                "name": self.state.get("playlist_scope_name", ""),
+                "count": len(self.state.get("playlist_scope_ids", []) or []),
+            },
+            "library_size": len(self.library),
+            "last_action": self.state.get("last_action", ""),
+            "updated_at": self.state.get("updated_at", ""),
+            "local_player": {
+                "enabled": bool(local_player.get("enabled")),
+                "state": local_player.get("state"),
+                "message": local_player.get("message"),
+                "updated_at": local_player.get("updated_at"),
+            },
+            "scan": {
+                "running": bool(self.state.get("scan_running")),
+                "count": int(self.state.get("scan_count", 0) or 0),
+                "stage": str(self.state.get("scan_stage") or "idle"),
+                "progress": int(self.state.get("scan_progress", 0) or 0),
+                "message": str(self.state.get("scan_message") or ""),
+                "last_scan_at": self.state.get("last_scan_at", ""),
+                "error_count": len(scan_errors),
+            },
+        }
+
     def dashboard_snapshot(self):
         """Return a compact read-only player status for dashboard polling."""
+        auto_start_track_id = ""
         with self.lock:
             self._tick_locked()
-            self._refresh_local_player_locked(auto_advance=False)
-            current = self.library_by_id.get(str(self.state.get("current_track_id") or "").strip()) or {}
-            local_player = dict(self.state.get("local_player", {}) or {})
-            scan_errors = list(self.state.get("scan_errors", []) or [])
-            return {
-                "connected": bool(self.state.get("connected")),
-                "provider": self.state.get("provider", "nas_music_tag"),
-                "player_mode": self.state.get("player_mode", "nas_http"),
-                "output_mode": self.state.get("output_mode", "system_default"),
-                "playback_mode": _normalize_playback_mode(self.state.get("playback_mode")),
-                "volume_percent": _coerce_volume_percent(self.state.get("volume_percent", 70)),
-                "is_playing": bool(self.state.get("is_playing")),
-                "elapsed_sec": int(self.state.get("elapsed_sec", 0) or 0),
-                "duration": self._current_track_duration_locked(),
-                "current_track": {
-                    "id": current.get("id"),
-                    "title": current.get("title"),
-                    "artist": current.get("artist"),
-                    "album": current.get("album"),
-                    "category": current.get("category"),
-                    "duration": current.get("duration"),
-                } if current else None,
-                "queue_count": len(self.state.get("queue_ids", []) or []),
-                "playlist_scope": {
-                    "id": self.state.get("playlist_scope_id", ""),
-                    "name": self.state.get("playlist_scope_name", ""),
-                    "count": len(self.state.get("playlist_scope_ids", []) or []),
-                },
-                "library_size": len(self.library),
-                "last_action": self.state.get("last_action", ""),
-                "updated_at": self.state.get("updated_at", ""),
-                "local_player": {
-                    "enabled": bool(local_player.get("enabled")),
-                    "state": local_player.get("state"),
-                    "message": local_player.get("message"),
-                    "updated_at": local_player.get("updated_at"),
-                },
-                "scan": {
-                    "running": bool(self.state.get("scan_running")),
-                    "count": int(self.state.get("scan_count", 0) or 0),
-                    "stage": str(self.state.get("scan_stage") or "idle"),
-                    "progress": int(self.state.get("scan_progress", 0) or 0),
-                    "message": str(self.state.get("scan_message") or ""),
-                    "last_scan_at": self.state.get("last_scan_at", ""),
-                    "error_count": len(scan_errors),
-                },
-            }
+            auto_start_track_id = self._refresh_local_player_locked(auto_advance=True)
+            if not auto_start_track_id:
+                return self._dashboard_payload_locked()
+        if self._local_player_enabled():
+            try:
+                self._start_local_player_for_track(auto_start_track_id)
+            except Exception:
+                pass
+        with self.lock:
+            self._tick_locked()
+            return self._dashboard_payload_locked()
 
     def _seek_elapsed_locked(self, value):
         try:
