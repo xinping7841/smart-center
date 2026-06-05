@@ -1,9 +1,9 @@
 # AI_MODULE: automation_runtime
-# AI_PURPOSE: 自动化规则的条件求值、触发去抖、执行状态缓存和运行日志生成。
+# AI_PURPOSE: 自动化规则的条件求值、触发去抖、音乐播放器定时场景、执行状态缓存和运行日志生成。
 # AI_BOUNDARY: 不处理配置表单保存；API 层负责保存 CONFIG，本模块只消费已归一化规则。
 # AI_DATA_FLOW: CONFIG.automation_rules + runtime caches -> trigger decision -> scene/control action -> operation/event logs。
 # AI_RUNTIME: background.py 周期调用，前端自动化页读取 snapshot 展示节点状态。
-# AI_RISK: 高，可能间接触发灯光、空调、强电、时序电源、投影等真实动作。
+# AI_RISK: 高，可能间接触发灯光、空调、强电、时序电源、投影、音乐播放等真实动作。
 # AI_COMPAT: 规则 state、last_* 字段和 snapshot 结构会被 static/js/views/automation-view.js 使用。
 # AI_SEARCH_KEYWORDS: automation runtime, condition evaluate, compound trigger, scene link, debounce.
 
@@ -308,6 +308,39 @@ def _execute_node_red_action(action):
     return True, f"[自动化] Node-RED {device_name} 已执行 {normalized_action} ({driver_class})"
 
 
+def _execute_apple_audio_action(action):
+    action_type = str(action.get("action_type") or action.get("action") or "").strip().lower()
+    if not action_type:
+        action_type = "play_playlist" if action.get("playlist_id") else "stop"
+
+    try:
+        from apple_audio_core import apple_audio_service
+    except Exception as exc:
+        return False, f"[自动化] 音乐播放器不可用: {exc}"
+
+    if action_type in {"play_playlist", "playlist", "play"}:
+        playlist_id = str(action.get("playlist_id") or "").strip()
+        if not playlist_id:
+            return False, "[自动化] 音乐播放器未配置播放列表"
+        mode = str(action.get("mode") or action.get("playback_mode") or "shuffle").strip() or "shuffle"
+        try:
+            snapshot = apple_audio_service.queue_playlist(playlist_id, play_now=True, mode=mode)
+        except Exception as exc:
+            return False, f"[自动化] 音乐播放器播放列表失败: {playlist_id} -> {exc}"
+        scope = snapshot.get("playlist_scope") if isinstance(snapshot, dict) else {}
+        playlist_name = str((scope or {}).get("name") or action.get("playlist_name") or playlist_id)
+        return True, f"[自动化] 音乐播放器开始播放 {playlist_name} ({mode})"
+
+    if action_type in {"stop", "pause"}:
+        try:
+            apple_audio_service.transport("stop")
+        except Exception as exc:
+            return False, f"[自动化] 音乐播放器停止失败: {exc}"
+        return True, "[自动化] 音乐播放器已停止"
+
+    return False, f"[自动化] 音乐播放器不支持动作: {action_type}"
+
+
 def _execute_scene_action(action):
     sys_type = action.get("sub_system", "light")
     act_type = action.get("action_type", "on" if action.get("is_open", True) else "off")
@@ -318,6 +351,9 @@ def _execute_scene_action(action):
 
     if str(sys_type).strip().lower() in {"node_red", "node-red", "nodered"}:
         return _execute_node_red_action(action)
+
+    if str(sys_type).strip().lower() in {"apple_audio", "apple-audio", "music", "music_player"}:
+        return _execute_apple_audio_action(action)
 
     if sys_type == "server":
         mac = str(action.get("device_id"))

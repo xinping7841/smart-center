@@ -1,0 +1,10 @@
+{
+  "task": "apple-audio-workday-automation",
+  "module": "automation",
+  "machine": "mac",
+  "kind": "light",
+  "branch": "codex/mac-apple-audio-workday-automation-20260605",
+  "worktree": "/Users/wanghongyu/Documents/New project/smart-center-worktrees/apple-audio-workday-automation",
+  "started_at": "2026-06-05 07:52:13",
+  "status": "in_progress"
+}

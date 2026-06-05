@@ -362,6 +362,13 @@ Controlled related actions:
 - `POST /api/automation/update`
 - Any scene execution.
 
+Music automation note:
+
+- Workday scheduled music playback uses automation rules bound to Apple Audio scenes.
+- Current production convention: `auto_apple_audio_workday_0910_play` triggers `scene_apple_audio_workday_play` at workday `09:10`; `auto_apple_audio_workday_1810_stop` triggers `scene_apple_audio_workday_stop` at workday `18:10`.
+- The play scene uses `sub_system=apple_audio`, `action_type=play_playlist`, playlist `folder:e38a08cca65f` (`器乐+轻音乐`), mode `shuffle`.
+- Query with `GET /api/automation/status` and `GET /api/apple-audio/status`; do not call `POST /api/automation/test`, `/api/apple-audio/transport`, or playlist queue endpoints unless an operator explicitly asks to execute playback/control.
+
 ### 10. Unified Event And Operation Logs
 
 Structured event API:
