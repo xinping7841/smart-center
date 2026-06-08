@@ -1,11 +1,11 @@
 /* AI_MODULE: ui_dark_ops_palette
-   AI_PURPOSE: Final visual override layer for the Smart Center dark operations dashboard palette.
+   AI_PURPOSE: Final visual override layer for the Smart Center dark operations dashboard palette and homepage carousel switch.
    AI_BOUNDARY: Presentation-only CSS. Do not add DOM structure, JavaScript, API calls, permissions, or device-control behavior here.
-   AI_DATA_FLOW: Loaded after core-theme, dashboard-inline, hotfix-overrides, and ui-wide-1080; maps existing shell/dashboard/page classes to the approved dark ops color tokens.
+   AI_DATA_FLOW: Loaded after core-theme, dashboard-inline, hotfix-overrides, and ui-wide-1080; maps existing shell/dashboard/page classes and carousel lockout states to the approved dark ops color tokens.
    AI_RUNTIME: Served by templates/index.html on the main Smart Center page; affects local preview and production browsers after cache version update.
-   AI_RISK: Medium visual risk. Broad selectors intentionally restyle dashboards and cards, but must not hide control labels, confirmations, stale-state signals, or warning colors.
+   AI_RISK: Medium visual risk. Broad selectors intentionally restyle dashboards and cards, but must not hide control labels, confirmations, carousel lockout signals, stale-state signals, or warning colors.
    AI_COMPAT: Preserve all existing class names, ids, layout display rules, responsive breakpoints, and data attributes used by JavaScript renderers.
-   AI_SEARCH_KEYWORDS: dark ops palette, operations dashboard, final css cascade, blue accent, status colors, Smart Center UI polish. */
+   AI_SEARCH_KEYWORDS: dark ops palette, operations dashboard, home carousel toggle, rolling playback lockout, final css cascade, blue accent, status colors, Smart Center UI polish. */
 
 :root {
     color-scheme: dark;
@@ -153,6 +153,98 @@ textarea {
 .top-time-main,
 .top-lyrics-text {
     color: #f4f8ff !important;
+}
+
+.home-carousel-toggle {
+    min-height: 44px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 7px 10px !important;
+    border-radius: 8px !important;
+    border: 1px solid rgba(134, 154, 178, 0.18) !important;
+    background: #111923 !important;
+    color: #f4f8ff !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    flex: 0 0 auto !important;
+}
+
+.home-carousel-toggle input {
+    position: absolute !important;
+    opacity: 0 !important;
+    width: 1px !important;
+    height: 1px !important;
+    pointer-events: none !important;
+}
+
+.home-carousel-track {
+    position: relative !important;
+    width: 38px !important;
+    height: 22px !important;
+    border-radius: 999px !important;
+    background: #253244 !important;
+    border: 1px solid rgba(134, 154, 178, 0.22) !important;
+    transition: background .18s ease, border-color .18s ease !important;
+    flex: 0 0 auto !important;
+}
+
+.home-carousel-thumb {
+    position: absolute !important;
+    width: 16px !important;
+    height: 16px !important;
+    left: 3px !important;
+    top: 2px !important;
+    border-radius: 50% !important;
+    background: #cbd5e1 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, .28) !important;
+    transition: transform .18s ease, background .18s ease !important;
+}
+
+.home-carousel-toggle input:checked + .home-carousel-track {
+    background: rgba(59, 120, 255, 0.34) !important;
+    border-color: rgba(96, 165, 250, 0.62) !important;
+}
+
+.home-carousel-toggle input:checked + .home-carousel-track .home-carousel-thumb {
+    transform: translateX(16px) !important;
+    background: #eaf2ff !important;
+}
+
+.home-carousel-copy {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1px !important;
+    line-height: 1.08 !important;
+}
+
+.home-carousel-label {
+    font-size: 12px !important;
+    font-weight: 900 !important;
+    color: #f4f8ff !important;
+    white-space: nowrap !important;
+}
+
+.home-carousel-state {
+    font-size: 10px !important;
+    font-weight: 800 !important;
+    color: #8ea4bb !important;
+    white-space: nowrap !important;
+}
+
+body.home-carousel-active .home-carousel-toggle {
+    border-color: rgba(96, 165, 250, 0.62) !important;
+    background: #132033 !important;
+}
+
+body.home-carousel-active .home-carousel-state {
+    color: #8bb7ff !important;
+}
+
+body.home-carousel-active .home-carousel-disabled {
+    opacity: .45 !important;
+    cursor: not-allowed !important;
+    filter: grayscale(.16) !important;
 }
 
 .top-env-icon {

@@ -19,6 +19,7 @@ Control boundary:
 
 - Query answers should use the read API allowlist below.
 - Real control must go through the existing Smart Center control APIs, permission checks, audit logs, target matching, risk classification, and confirmation policy.
+- When homepage rolling playback / 巡屏 / 滚动播放 is enabled, Smart Center UI is in display-only mode: do not control devices or open system configuration until the operator turns rolling playback off.
 - Strong-current cabinets, sequencers, server shutdown/restart, batch scene actions, and unclear inferred targets must require confirmation.
 - The model must not invent a direct device-control path or bypass the Smart Center safety chain.
 
