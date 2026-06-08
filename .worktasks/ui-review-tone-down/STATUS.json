@@ -1,0 +1,15 @@
+{
+  "task": "ui-review-tone-down",
+  "machine": "12700k",
+  "kind": "light",
+  "branch": "codex/12700k-ui-review-tone-down-20260608",
+  "worktree": "D:/SmartCenter/smart-center-worktrees/ui-review-tone-down",
+  "locks": [
+    "frontend_assets",
+    "templates_index"
+  ],
+  "status": "in_progress",
+  "started_at": "2026-06-08 12:23:33",
+  "goal": "Tone down Apple and Meizu temporary UI review themes and bump cache version.",
+  "device_control": "not touched; no real device actions authorized or executed"
+}

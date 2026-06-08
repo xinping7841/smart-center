@@ -1,9 +1,9 @@
 /* AI_MODULE: ui_style_review_switcher
-   AI_PURPOSE: Temporary removable UI style comparison layer for Smart Center homepage review.
+   AI_PURPOSE: Temporary removable UI style comparison layer for Smart Center homepage review, including toned-down light variants for dense control-room dashboards.
    AI_BOUNDARY: Presentation-only CSS for review variants and the switcher control; do not add business state, API calls, permissions, or device-control behavior here.
    AI_DATA_FLOW: body[data-ui-review-style] set by ui-style-review.js -> CSS variables and scoped overrides -> existing shell/dashboard DOM.
    AI_RUNTIME: Loaded after ui-dark-ops-palette.css from templates/index.html while the team compares Apple, Meizu, Smartisan, and Ops visual directions.
-   AI_RISK: Medium visual risk. Broad scoped selectors can change contrast; keep warning/danger/success meanings intact and preserve labels.
+   AI_RISK: Medium visual risk. Broad scoped selectors can change contrast; keep warning/danger/success meanings intact, preserve labels, and avoid over-bright backgrounds in dense views.
    AI_COMPAT: Every rule is scoped to the temporary review switcher. Remove this file plus index.html links marked data-ui-review-remove after the final style is chosen.
    AI_SEARCH_KEYWORDS: UI review switcher, Apple style, Meizu style, Smartisan style, removable review CSS, homepage style compare. */
 
@@ -56,44 +56,44 @@
 
 body[data-ui-review-style="apple"] {
     color-scheme: light;
-    --review-bg: #f5f6f8;
-    --review-page-bg: linear-gradient(180deg, #fbfcfe 0%, #eef2f7 100%);
-    --review-sidebar: rgba(250, 251, 253, 0.96);
-    --review-header: rgba(250, 251, 253, 0.86);
-    --review-panel: rgba(255, 255, 255, 0.88);
-    --review-panel-soft: rgba(245, 247, 250, 0.92);
-    --review-border: rgba(17, 24, 39, 0.10);
-    --review-border-strong: rgba(17, 24, 39, 0.16);
-    --review-text: #111827;
-    --review-muted: #697586;
-    --review-soft: #334155;
-    --review-accent: #1473e6;
-    --review-accent-soft: rgba(20, 115, 230, 0.11);
+    --review-bg: #dfe4eb;
+    --review-page-bg: linear-gradient(180deg, #e8ecf2 0%, #d6dce5 100%);
+    --review-sidebar: rgba(232, 236, 243, 0.97);
+    --review-header: rgba(225, 230, 238, 0.94);
+    --review-panel: rgba(242, 245, 249, 0.94);
+    --review-panel-soft: rgba(225, 230, 237, 0.96);
+    --review-border: rgba(47, 62, 82, 0.18);
+    --review-border-strong: rgba(47, 62, 82, 0.28);
+    --review-text: #101722;
+    --review-muted: #536172;
+    --review-soft: #263545;
+    --review-accent: #1f6fe5;
+    --review-accent-soft: rgba(31, 111, 229, 0.13);
     --review-success: #0a8f64;
     --review-warning: #b7791f;
     --review-danger: #d92d20;
-    --review-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+    --review-shadow: 0 14px 32px rgba(33, 43, 58, 0.12);
 }
 
 body[data-ui-review-style="meizu"] {
     color-scheme: light;
-    --review-bg: #f2f9fb;
-    --review-page-bg: linear-gradient(180deg, #f8feff 0%, #edf8fa 100%);
-    --review-sidebar: rgba(250, 254, 255, 0.94);
-    --review-header: rgba(248, 253, 255, 0.88);
-    --review-panel: rgba(255, 255, 255, 0.90);
-    --review-panel-soft: rgba(237, 249, 251, 0.94);
-    --review-border: rgba(12, 84, 96, 0.13);
-    --review-border-strong: rgba(12, 84, 96, 0.22);
-    --review-text: #10242b;
-    --review-muted: #55707a;
-    --review-soft: #254752;
-    --review-accent: #00a9c8;
-    --review-accent-soft: rgba(0, 169, 200, 0.12);
+    --review-bg: #d7e4e8;
+    --review-page-bg: linear-gradient(180deg, #e4eef1 0%, #cbdce1 100%);
+    --review-sidebar: rgba(224, 235, 239, 0.96);
+    --review-header: rgba(218, 231, 236, 0.94);
+    --review-panel: rgba(239, 247, 249, 0.94);
+    --review-panel-soft: rgba(217, 232, 237, 0.96);
+    --review-border: rgba(23, 76, 88, 0.20);
+    --review-border-strong: rgba(23, 76, 88, 0.32);
+    --review-text: #0d2229;
+    --review-muted: #496873;
+    --review-soft: #213f49;
+    --review-accent: #0498b5;
+    --review-accent-soft: rgba(4, 152, 181, 0.14);
     --review-success: #14a66f;
     --review-warning: #d19a22;
     --review-danger: #e05b5b;
-    --review-shadow: 0 18px 44px rgba(12, 84, 96, 0.10);
+    --review-shadow: 0 14px 34px rgba(16, 78, 92, 0.14);
 }
 
 body[data-ui-review-style="smartisan"] {
