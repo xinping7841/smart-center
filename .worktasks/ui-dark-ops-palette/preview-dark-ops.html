@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<!--
+AI_MODULE: ui_dark_ops_palette_preview
+AI_PURPOSE: Read-only static preview for validating the approved Smart Center dark operations dashboard palette.
+AI_BOUNDARY: Preview artifact only; no JavaScript, APIs, auth, audit, polling, production deploy, or device-control behavior.
+AI_DATA_FLOW: Representative dashboard DOM/classes -> current CSS cascade -> browser screenshot review.
+AI_RUNTIME: Opened locally for visual QA during the ui-dark-ops-palette worktask; not linked from production templates.
+AI_RISK: Low runtime risk because it is not served by app.py; medium review risk if preview diverges from real dashboard class names.
+AI_COMPAT: Keep class names aligned with existing dashboard/sidebar CSS selectors so the visual check exercises the same override layer.
+AI_SEARCH_KEYWORDS: dark ops preview, visual QA, read-only dashboard mock, Smart Center palette.
+-->
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Smart Center Dark Ops Preview</title>
+    <link rel="stylesheet" href="../../static/css/generated/core-theme.css">
+    <link rel="stylesheet" href="../../static/css/views/dashboard-inline.css">
+    <link rel="stylesheet" href="../../static/css/views/hotfix-overrides.css">
+    <link rel="stylesheet" href="../../static/css/views/ui-wide-1080.css">
+    <link rel="stylesheet" href="../../static/css/views/ui-dark-ops-palette.css">
+    <style>
+        body {
+            display: flex;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .preview-main {
+            display: flex;
+            flex: 1;
+            min-width: 0;
+            min-height: 0;
+        }
+
+        .preview-shell {
+            display: grid;
+            gap: 12px;
+            min-width: 0;
+        }
+
+        .preview-tabs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .preview-tabs button {
+            min-height: 30px;
+            padding: 0 14px;
+            border-radius: 8px;
+            border: 1px solid rgba(134, 154, 178, 0.18);
+            background: #111923;
+            color: #a9bdd2;
+            font-weight: 700;
+        }
+
+        .preview-tabs button.active {
+            border-color: rgba(59, 120, 255, 0.44);
+            background: #2f6df6;
+            color: #fff;
+        }
+
+        .preview-hero-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.35fr) minmax(420px, 1fr);
+            gap: 12px;
+        }
+
+        .preview-kpis,
+        .preview-strategy-grid,
+        .preview-status-grid,
+        .preview-bottom-grid {
+            display: grid;
+            gap: 10px;
+        }
+
+        .preview-kpis {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .preview-strategy-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .preview-status-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .preview-bottom-grid {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        .preview-kpi,
+        .preview-strategy,
+        .preview-list-row {
+            border: 1px solid rgba(134, 154, 178, 0.18);
+            border-radius: 8px;
+            background: #121b26;
+            padding: 11px;
+            min-width: 0;
+        }
+
+        .preview-kpi span,
+        .preview-strategy span,
+        .preview-list-row span {
+            display: block;
+            color: #8ea4bb;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .preview-kpi strong,
+        .preview-strategy strong {
+            display: block;
+            margin-top: 6px;
+            color: #f4f8ff;
+            font-size: 21px;
+            line-height: 1;
+        }
+
+        .preview-kpi em,
+        .preview-strategy em,
+        .preview-list-row em {
+            display: block;
+            margin-top: 6px;
+            color: #8ea4bb;
+            font-size: 10px;
+            font-style: normal;
+        }
+
+        .monitor-domain-tile {
+            display: grid;
+            align-content: space-between;
+            gap: 10px;
+        }
+
+        .preview-topline,
+        .preview-list-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .preview-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #f4bd45;
+            flex: 0 0 auto;
+        }
+
+        .preview-dot.danger {
+            background: #ff5f62;
+        }
+
+        .preview-dot.info {
+            background: #60a5fa;
+        }
+
+        .preview-bottom-card {
+            min-height: 158px;
+        }
+
+        .preview-bottom-card .preview-list-row {
+            border-radius: 0;
+            border-width: 1px 0 0;
+            background: transparent;
+            padding: 10px 0;
+        }
+
+        @media (max-width: 1180px) {
+            body {
+                overflow: auto;
+            }
+
+            .preview-hero-grid,
+            .preview-bottom-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .preview-kpis,
+            .preview-strategy-grid,
+            .preview-status-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="logo">Smart Center</div>
+        <ul class="nav-menu">
+            <li class="active"><span>01</span> 总览</li>
+            <li><span>02</span> 强电柜</li>
+            <li><span>03</span> 灯光模块</li>
+            <li><span>04</span> 投影与幕布</li>
+            <li><span>05</span> 环境与空调</li>
+            <li><span>06</span> 服务器</li>
+            <li><span>07</span> 网络 SNMP</li>
+            <li><span>08</span> 自动化</li>
+            <li><span>09</span> 日志中心</li>
+        </ul>
+        <div class="sys-info">node-120 active<br>release bd61f0b<br>read-only preview</div>
+    </div>
+    <main class="main-content preview-main">
+        <header class="top-header">
+            <div class="top-header-left">
+                <div class="page-title">场馆运行总览</div>
+            </div>
+            <div class="top-header-right">
+                <div class="top-env-summary">
+                    <div class="top-env-badge"><span class="top-env-label">温度</span><span class="top-env-value">23.8°C</span></div>
+                    <div class="top-env-badge"><span class="top-env-label">湿度</span><span class="top-env-value">48%</span></div>
+                </div>
+                <div class="preview-tabs">
+                    <button class="active" type="button">推荐版</button>
+                    <button type="button">监控墙</button>
+                    <button type="button">控制台</button>
+                </div>
+            </div>
+        </header>
+        <section class="view-container preview-shell">
+            <div class="preview-hero-grid dashboard-monitor-hero">
+                <section class="monitor-panel monitor-hero-primary">
+                    <div class="monitor-panel-head">
+                        <div>
+                            <span class="monitor-panel-kicker">SMART CENTER MONITOR</span>
+                            <strong>先看异常，再看设备；控制动作单独确认</strong>
+                        </div>
+                    </div>
+                    <div class="preview-kpis">
+                        <div class="preview-kpi"><span>综合在线率</span><strong>52%</strong><em>30 / 58 online</em></div>
+                        <div class="preview-kpi"><span>异常总数</span><strong style="color:#f4bd45">28</strong><em>offline / stale</em></div>
+                        <div class="preview-kpi"><span>今日用电</span><strong>17.4</strong><em>kWh</em></div>
+                        <div class="preview-kpi"><span>接口延迟</span><strong>86ms</strong><em>dashboard summary</em></div>
+                    </div>
+                </section>
+                <section class="monitor-panel monitor-hero-secondary">
+                    <div class="preview-strategy-grid">
+                        <div class="preview-strategy"><span>AI 策略</span><strong>云端优先</strong></div>
+                        <div class="preview-strategy"><span>飞书控制</span><strong>需确认</strong></div>
+                        <div class="preview-strategy"><span>代理出口</span><strong>正常</strong></div>
+                        <div class="preview-strategy"><span>缓存新鲜度</span><strong>18s</strong></div>
+                        <div class="preview-strategy"><span>强电柜</span><strong>5 / 5</strong></div>
+                        <div class="preview-strategy"><span>空调</span><strong>3 / 4</strong></div>
+                        <div class="preview-strategy"><span>UPS</span><strong>正常</strong></div>
+                        <div class="preview-strategy"><span>服务器</span><strong>5 / 30</strong></div>
+                    </div>
+                </section>
+            </div>
+            <div class="preview-hero-grid">
+                <section class="monitor-panel">
+                    <div class="monitor-panel-head">
+                        <strong>运行状态矩阵</strong>
+                        <span class="monitor-panel-note">按风险和新鲜度排序</span>
+                    </div>
+                    <div class="preview-status-grid">
+                        <div class="monitor-domain-tile ok"><div class="monitor-domain-top"><span>强电柜</span><em class="tag normal">正常</em></div><strong>5 / 5</strong><small class="monitor-domain-note">全在线</small></div>
+                        <div class="monitor-domain-tile ok"><div class="monitor-domain-top"><span>灯光</span><em class="tag normal">正常</em></div><strong>12 / 12</strong><small class="monitor-domain-note">回路正常</small></div>
+                        <div class="monitor-domain-tile warn"><div class="monitor-domain-top"><span>投影</span><em class="tag warn">注意</em></div><strong>2 / 3</strong><small class="monitor-domain-note">1 台待确认</small></div>
+                        <div class="monitor-domain-tile ok"><div class="monitor-domain-top"><span>幕布</span><em class="tag normal">正常</em></div><strong>2 / 2</strong><small class="monitor-domain-note">正常</small></div>
+                        <div class="monitor-domain-tile warn"><div class="monitor-domain-top"><span>空调</span><em class="tag warn">注意</em></div><strong>3 / 4</strong><small class="monitor-domain-note">1 台离线</small></div>
+                        <div class="monitor-domain-tile ok"><div class="monitor-domain-top"><span>时序</span><em class="tag normal">正常</em></div><strong>4 / 4</strong><small class="monitor-domain-note">正常</small></div>
+                        <div class="monitor-domain-tile ok"><div class="monitor-domain-top"><span>UPS</span><em class="tag normal">正常</em></div><strong>在线</strong><small class="monitor-domain-note">负载 31%</small></div>
+                        <div class="monitor-domain-tile warn"><div class="monitor-domain-top"><span>SNMP</span><em class="tag warn">注意</em></div><strong>7 / 9</strong><small class="monitor-domain-note">2 个告警</small></div>
+                        <div class="monitor-domain-tile danger"><div class="monitor-domain-top"><span>服务器</span><em class="tag error">危险</em></div><strong>5 / 30</strong><small class="monitor-domain-note">多台离线</small></div>
+                        <div class="monitor-domain-tile ok"><div class="monitor-domain-top"><span>门禁</span><em class="tag normal">正常</em></div><strong>关闭</strong><small class="monitor-domain-note">18s 前</small></div>
+                        <div class="monitor-domain-tile warn"><div class="monitor-domain-top"><span>自动化</span><em class="tag warn">注意</em></div><strong>14</strong><small class="monitor-domain-note">2 条暂停</small></div>
+                        <div class="monitor-domain-tile"><div class="monitor-domain-top"><span>AI 自然语言</span><em class="tag info">信息</em></div><strong>可用</strong><small class="monitor-domain-note">本地 / 云端</small></div>
+                    </div>
+                </section>
+                <section class="monitor-panel">
+                    <div class="monitor-panel-head">
+                        <strong>异常优先</strong>
+                        <span class="monitor-panel-note">最近 10 分钟</span>
+                    </div>
+                    <div class="monitor-alert-list">
+                        <div class="monitor-alert-item danger"><span><span class="preview-dot danger"></span> 服务器 node-122</span><strong>00:02</strong><em>report offline，最近在线时间超过阈值</em></div>
+                        <div class="monitor-alert-item warn"><span><span class="preview-dot"></span> 空调 2 号厅</span><strong>00:04</strong><em>HA 状态 4m 未刷新，建议先查 freshness</em></div>
+                        <div class="monitor-alert-item warn"><span><span class="preview-dot"></span> SNMP 交换机</span><strong>00:07</strong><em>端口错误计数升高，未触发控制动作</em></div>
+                        <div class="monitor-alert-item warn"><span><span class="preview-dot"></span> 投影机 AB 厅</span><strong>00:09</strong><em>状态推断不完整，禁止直接控制</em></div>
+                        <div class="monitor-alert-item"><span><span class="preview-dot info"></span> 日志流</span><strong>00:10</strong><em>自动化规则有 1 条失败记录</em></div>
+                    </div>
+                </section>
+            </div>
+            <div class="preview-bottom-grid">
+                <section class="monitor-panel preview-bottom-card"><div class="monitor-panel-head"><strong>场馆设备</strong><span class="tag info">live</span></div><div class="preview-list-row"><span>投影机 A</span><strong>待机</strong></div><div class="preview-list-row"><span>幕布 A</span><strong>收起</strong></div><div class="preview-list-row"><span>灯光主继电器</span><strong>在线</strong></div></section>
+                <section class="monitor-panel preview-bottom-card"><div class="monitor-panel-head"><strong>电力与环境</strong><span class="tag info">live</span></div><div class="preview-list-row"><span>总功率</span><strong>2.8 kW</strong></div><div class="preview-list-row"><span>今日电量</span><strong>17.4 kWh</strong></div><div class="preview-list-row"><span>大门</span><strong>关闭</strong></div></section>
+                <section class="monitor-panel preview-bottom-card"><div class="monitor-panel-head"><strong>网络与算力</strong><span class="tag info">live</span></div><div class="preview-list-row"><span>node-120</span><strong>active</strong></div><div class="preview-list-row"><span>NAS</span><strong>在线</strong></div><div class="preview-list-row"><span>CodeMeter</span><strong>许可正常</strong></div></section>
+                <section class="monitor-panel preview-bottom-card"><div class="monitor-panel-head"><strong>自动化与 AI</strong><span class="tag info">live</span></div><div class="preview-list-row"><span>飞书控制</span><strong>高风险需确认</strong></div><div class="preview-list-row"><span>本地模型</span><strong>可用</strong></div><div class="preview-list-row"><span>最近场景</span><strong>只读展示</strong></div></section>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

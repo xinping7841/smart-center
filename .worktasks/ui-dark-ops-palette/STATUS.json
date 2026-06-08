@@ -1,0 +1,42 @@
+{
+  "task": "ui-dark-ops-palette",
+  "module": "frontend_assets",
+  "machine": "12700k",
+  "kind": "light",
+  "branch": "codex/12700k-ui-dark-ops-palette-20260608",
+  "worktree": "/d/SmartCenter/smart-center-worktrees/ui-dark-ops-palette",
+  "started_at": "2026-06-08 10:34:15",
+  "status": "in_progress",
+  "locks": [
+    "frontend_assets",
+    "templates_index"
+  ],
+  "scope": [
+    "static/css/views/ui-dark-ops-palette.css",
+    "templates/index.html",
+    ".worktasks/ui-dark-ops-palette/TASK.md",
+    ".worktasks/ui-dark-ops-palette/STATUS.json",
+    ".worktasks/ui-dark-ops-palette/preview-dark-ops.html"
+  ],
+  "validation": {
+    "mode": "local static preview only",
+    "flask_app_started": false,
+    "real_device_control": false,
+    "preview_url": "http://127.0.0.1:8787/.worktasks/ui-dark-ops-palette/preview-dark-ops.html",
+    "screenshot": "C:/Users/gaoxi/AppData/Local/Temp/smart-center-ui-dark-ops-preview-1920-refined.png",
+    "desktop_1920": {
+      "body_background": "rgb(7, 11, 16)",
+      "panel_background": "rgb(17, 25, 35)",
+      "active_nav_background": "rgb(16, 26, 49)",
+      "panel_border": "rgba(134, 154, 178, 0.18)",
+      "horizontal_overflow": false
+    }
+  },
+  "safety": {
+    "real_device_control": "not authorized",
+    "validation_mode": "read-only visual checks",
+    "production_deploy": "not requested"
+  },
+  "ai_markers": "maintained in new CSS, template header, task memory, and static preview",
+  "updated_at": "2026-06-08 10:49:20 +08:00"
+}
