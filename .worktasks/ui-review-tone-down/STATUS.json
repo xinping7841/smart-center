@@ -10,6 +10,6 @@
   ],
   "status": "in_progress",
   "started_at": "2026-06-08 12:23:33",
-  "goal": "Tone down Apple and Meizu temporary UI review themes and bump cache version.",
+  "goal": "Replace Apple and Meizu light UI review themes with mid/dark control-room palettes and bump cache version.",
   "device_control": "not touched; no real device actions authorized or executed"
 }

@@ -11,7 +11,7 @@
 
 ## Goal
 
-Tone down the Apple and Meizu temporary UI review themes because the first production preview was too white for the dense Smart Center homepage.
+Replace the Apple and Meizu temporary UI review themes because the light/near-white direction still looks washed out on the dense Smart Center homepage.
 
 ## Scope
 
@@ -26,18 +26,18 @@ Tone down the Apple and Meizu temporary UI review themes because the first produ
 
 ## Implemented
 
-- Changed Apple from near-white to a graphite light-gray control-room palette.
-- Changed Meizu from near-white cyan to a cooler blue-green gray palette.
-- Increased panel/border contrast and slightly stronger shadowing so dense cards read as separate surfaces.
+- Replaced Apple from the toned-down light-gray palette with a mid/dark graphite blue-gray control-room palette.
+- Replaced Meizu from the pale blue-green palette with a deep teal/blue control-room palette.
+- Increased text/panel/border contrast while preserving the existing status color meanings.
 - Preserved the temporary removable review layer and all cleanup markers.
-- Bumped `ui-style-review.css/js` asset version from `v1` to `v2` so production browsers fetch the adjusted CSS.
+- Bumped `ui-style-review.css/js` asset version from `v2` to `v3` so production browsers fetch the adjusted CSS.
 
 ## Verified
 
 - `node --check static/js/views/ui-style-review.js`
 - `python -m compileall app.py api services runtime config.py background.py power.py snmp_core.py`
 - `git diff --check`
-- Text scan confirmed `ui-style-review-v2` asset references and retained `UI_STYLE_REVIEW_REMOVE_*` cleanup markers.
+- Text scan confirmed `ui-style-review-v3` asset references, no lingering `ui-style-review-v2` references, and retained `UI_STYLE_REVIEW_REMOVE_*` cleanup markers.
 
 ## Risk Notes
 
