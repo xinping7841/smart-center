@@ -1,0 +1,11 @@
+{
+  "task": "stable-shell-sidebar",
+  "branch": "codex/12700k-stable-shell-sidebar-20260608",
+  "status": "local_verified",
+  "locks": [
+    "frontend_assets",
+    "templates_index"
+  ],
+  "risk": "frontend visual layout only; no real device control during verification",
+  "updated_at": "2026-06-08T17:28:00Z"
+}
