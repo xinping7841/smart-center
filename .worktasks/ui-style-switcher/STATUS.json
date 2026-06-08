@@ -1,0 +1,28 @@
+{
+  "task": "ui-style-switcher",
+  "machine": "12700k",
+  "kind": "light",
+  "branch": "codex/12700k-ui-style-switcher-20260608",
+  "worktree": "D:/SmartCenter/smart-center-worktrees/ui-style-switcher",
+  "locks": [
+    "frontend_assets",
+    "templates_index"
+  ],
+  "status": "complete_pending_commit_push_lock_release",
+  "started_at": "2026-06-08 11:52:45",
+  "goal": "Temporary removable homepage UI style switcher for Ops, Apple, Meizu, and Smartisan comparison.",
+  "cleanup_markers": [
+    "UI_STYLE_REVIEW_REMOVE_START",
+    "UI_STYLE_REVIEW_REMOVE_END",
+    "data-ui-review-remove",
+    "ui-style-review",
+    "ui-style-switcher"
+  ],
+  "verification": [
+    "node --check static/js/views/ui-style-review.js",
+    "static Node DOM harness for click, keyboard, localStorage, and no-switcher defensive path",
+    "python -m compileall app.py api services runtime config.py background.py power.py snmp_core.py",
+    "git diff --check"
+  ],
+  "device_control": "not touched; no real device actions authorized or executed"
+}

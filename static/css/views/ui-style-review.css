@@ -1,0 +1,335 @@
+/* AI_MODULE: ui_style_review_switcher
+   AI_PURPOSE: Temporary removable UI style comparison layer for Smart Center homepage review.
+   AI_BOUNDARY: Presentation-only CSS for review variants and the switcher control; do not add business state, API calls, permissions, or device-control behavior here.
+   AI_DATA_FLOW: body[data-ui-review-style] set by ui-style-review.js -> CSS variables and scoped overrides -> existing shell/dashboard DOM.
+   AI_RUNTIME: Loaded after ui-dark-ops-palette.css from templates/index.html while the team compares Apple, Meizu, Smartisan, and Ops visual directions.
+   AI_RISK: Medium visual risk. Broad scoped selectors can change contrast; keep warning/danger/success meanings intact and preserve labels.
+   AI_COMPAT: Every rule is scoped to the temporary review switcher. Remove this file plus index.html links marked data-ui-review-remove after the final style is chosen.
+   AI_SEARCH_KEYWORDS: UI review switcher, Apple style, Meizu style, Smartisan style, removable review CSS, homepage style compare. */
+
+.ui-style-switcher {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 48px;
+    padding: 5px;
+    border: 1px solid rgba(134, 154, 178, 0.18);
+    border-radius: 8px;
+    background: #111923;
+    box-shadow: none;
+}
+
+.ui-style-switcher-label {
+    padding: 0 7px 0 8px;
+    color: #8ea4bb;
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: 0;
+    white-space: nowrap;
+}
+
+.ui-style-option {
+    min-width: 54px;
+    min-height: 36px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: #a9bdd2;
+    font-size: 12px;
+    font-weight: 850;
+    letter-spacing: 0;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.ui-style-option:hover {
+    color: #f4f8ff;
+    background: rgba(59, 120, 255, 0.12);
+}
+
+.ui-style-option.active,
+.ui-style-option[aria-pressed="true"] {
+    border-color: rgba(59, 120, 255, 0.42);
+    background: #2f6df6;
+    color: #ffffff;
+}
+
+body[data-ui-review-style="apple"] {
+    color-scheme: light;
+    --review-bg: #f5f6f8;
+    --review-page-bg: linear-gradient(180deg, #fbfcfe 0%, #eef2f7 100%);
+    --review-sidebar: rgba(250, 251, 253, 0.96);
+    --review-header: rgba(250, 251, 253, 0.86);
+    --review-panel: rgba(255, 255, 255, 0.88);
+    --review-panel-soft: rgba(245, 247, 250, 0.92);
+    --review-border: rgba(17, 24, 39, 0.10);
+    --review-border-strong: rgba(17, 24, 39, 0.16);
+    --review-text: #111827;
+    --review-muted: #697586;
+    --review-soft: #334155;
+    --review-accent: #1473e6;
+    --review-accent-soft: rgba(20, 115, 230, 0.11);
+    --review-success: #0a8f64;
+    --review-warning: #b7791f;
+    --review-danger: #d92d20;
+    --review-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+}
+
+body[data-ui-review-style="meizu"] {
+    color-scheme: light;
+    --review-bg: #f2f9fb;
+    --review-page-bg: linear-gradient(180deg, #f8feff 0%, #edf8fa 100%);
+    --review-sidebar: rgba(250, 254, 255, 0.94);
+    --review-header: rgba(248, 253, 255, 0.88);
+    --review-panel: rgba(255, 255, 255, 0.90);
+    --review-panel-soft: rgba(237, 249, 251, 0.94);
+    --review-border: rgba(12, 84, 96, 0.13);
+    --review-border-strong: rgba(12, 84, 96, 0.22);
+    --review-text: #10242b;
+    --review-muted: #55707a;
+    --review-soft: #254752;
+    --review-accent: #00a9c8;
+    --review-accent-soft: rgba(0, 169, 200, 0.12);
+    --review-success: #14a66f;
+    --review-warning: #d19a22;
+    --review-danger: #e05b5b;
+    --review-shadow: 0 18px 44px rgba(12, 84, 96, 0.10);
+}
+
+body[data-ui-review-style="smartisan"] {
+    color-scheme: dark;
+    --review-bg: #0f1115;
+    --review-page-bg: linear-gradient(180deg, #17191f 0%, #0f1115 100%);
+    --review-sidebar: #111318;
+    --review-header: #171a20;
+    --review-panel: #1b1e25;
+    --review-panel-soft: #20242c;
+    --review-border: rgba(232, 226, 216, 0.12);
+    --review-border-strong: rgba(232, 226, 216, 0.22);
+    --review-text: #f2eee8;
+    --review-muted: #a8a096;
+    --review-soft: #d9d1c6;
+    --review-accent: #c9463d;
+    --review-accent-soft: rgba(201, 70, 61, 0.16);
+    --review-success: #4db47d;
+    --review-warning: #d9a441;
+    --review-danger: #d9574f;
+    --review-shadow: 0 18px 46px rgba(0, 0, 0, 0.28);
+}
+
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) {
+    background: var(--review-bg) !important;
+    color: var(--review-text) !important;
+}
+
+body[data-ui-review-style]:not([data-ui-review-style="ops"])::before {
+    background: var(--review-page-bg) !important;
+}
+
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .sidebar {
+    border-right-color: var(--review-border) !important;
+    background: var(--review-sidebar) !important;
+    box-shadow: none !important;
+}
+
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .main-content,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .view-container {
+    background: transparent !important;
+}
+
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .top-header {
+    border-bottom-color: var(--review-border) !important;
+    background: var(--review-header) !important;
+    box-shadow: none !important;
+    backdrop-filter: blur(18px);
+}
+
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .sidebar .logo,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .top-header .page-title,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .card-title,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .monitor-title,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .monitor-panel-head strong,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .dashboard-mini-title,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .server-title,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .projector-mini-title,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .protocol-device-title,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .protocol-light-switch-title {
+    color: var(--review-text) !important;
+}
+
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .sidebar .nav-menu li {
+    color: var(--review-muted) !important;
+    background: transparent !important;
+    border-left-color: transparent !important;
+}
+
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .sidebar .nav-menu li:hover,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .sidebar .nav-menu li.active {
+    color: var(--review-text) !important;
+    background: var(--review-accent-soft) !important;
+    border-left-color: var(--review-accent) !important;
+}
+
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .ui-style-switcher,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .top-env-summary,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .top-user-badge,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .top-header .sys-time,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .top-lyrics-bar {
+    border-color: var(--review-border) !important;
+    background: var(--review-panel) !important;
+    box-shadow: none !important;
+}
+
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .ui-style-switcher-label,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .ui-style-option,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .top-env-label,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .top-user-role,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .top-time-sub,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .monitor-kicker,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .monitor-subtitle,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .dashboard-mini-subtitle,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .label,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .meta {
+    color: var(--review-muted) !important;
+}
+
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .top-env-value,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .top-user-name,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .top-time-main,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .value,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .dash-stat-card .value,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .dashboard-mini-metric .value {
+    color: var(--review-text) !important;
+}
+
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .card,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .monitor-panel,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .dashboard-monitor-hero > *,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .server-group-section,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .server-card,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .projector-mini-card,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .protocol-device-card,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .protocol-light-switch-card,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .ups-card,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .monitor-hero-kpi,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .monitor-status-tile,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .dash-stat-card,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .dashboard-ai-tile,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .dashboard-audio-now,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .monitor-domain-tile,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .monitor-focus-card,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .monitor-feed-row,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .monitor-alert-item,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .dashboard-hero-chip,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .dashboard-mini-card,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .dashboard-mini-metric,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .home-status-row,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .home-ui-footer-pill,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .info-bar,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .param-box {
+    border-color: var(--review-border) !important;
+    background: var(--review-panel) !important;
+    box-shadow: var(--review-shadow) !important;
+}
+
+body[data-ui-review-style="apple"] .card,
+body[data-ui-review-style="apple"] .monitor-panel,
+body[data-ui-review-style="apple"] .dashboard-mini-card,
+body[data-ui-review-style="apple"] .dash-stat-card {
+    border-radius: 14px !important;
+}
+
+body[data-ui-review-style="meizu"] .card,
+body[data-ui-review-style="meizu"] .monitor-panel,
+body[data-ui-review-style="meizu"] .dashboard-mini-card,
+body[data-ui-review-style="meizu"] .dash-stat-card {
+    border-radius: 10px !important;
+}
+
+body[data-ui-review-style="smartisan"] .card,
+body[data-ui-review-style="smartisan"] .monitor-panel,
+body[data-ui-review-style="smartisan"] .dashboard-mini-card,
+body[data-ui-review-style="smartisan"] .dash-stat-card,
+body[data-ui-review-style="smartisan"] .ui-style-switcher,
+body[data-ui-review-style="smartisan"] .top-env-summary,
+body[data-ui-review-style="smartisan"] .top-user-badge,
+body[data-ui-review-style="smartisan"] .top-header .sys-time {
+    border-radius: 6px !important;
+}
+
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .ui-style-option.active,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .ui-style-option[aria-pressed="true"],
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .top-user-menu-btn.primary,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .btn-ai,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .btn-base.primary,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .protocol-action-btn.read {
+    border-color: var(--review-accent) !important;
+    background: var(--review-accent) !important;
+    color: #ffffff !important;
+    box-shadow: none !important;
+}
+
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .btn-base,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .server-tool-btn,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .server-action-btn,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .projector-mini-btn,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .protocol-action-btn,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) input,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) select,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) textarea {
+    border-color: var(--review-border-strong) !important;
+    background: var(--review-panel-soft) !important;
+    color: var(--review-text) !important;
+}
+
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .tag.normal,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .ups-chip.online,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .home-mini-pill.online,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .protocol-light-health-pill.ok {
+    border-color: color-mix(in srgb, var(--review-success) 46%, transparent) !important;
+    background: color-mix(in srgb, var(--review-success) 13%, transparent) !important;
+    color: var(--review-success) !important;
+}
+
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .tag.warn,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .ups-chip.warning,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .home-mini-pill.warning,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .protocol-light-health-pill.neutral {
+    border-color: color-mix(in srgb, var(--review-warning) 46%, transparent) !important;
+    background: color-mix(in srgb, var(--review-warning) 13%, transparent) !important;
+    color: var(--review-warning) !important;
+}
+
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .tag.error,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .ups-chip.error,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .home-mini-pill.error,
+body[data-ui-review-style]:not([data-ui-review-style="ops"]) .protocol-light-health-pill.bad {
+    border-color: color-mix(in srgb, var(--review-danger) 46%, transparent) !important;
+    background: color-mix(in srgb, var(--review-danger) 13%, transparent) !important;
+    color: var(--review-danger) !important;
+}
+
+@media screen and (max-width: 1280px) {
+    .ui-style-switcher-label {
+        display: none;
+    }
+
+    .ui-style-option {
+        min-width: 46px;
+        padding: 0 8px;
+    }
+}
+
+@media screen and (max-width: 900px) {
+    .ui-style-switcher {
+        order: 5;
+        width: 100%;
+        min-height: 44px;
+        justify-content: space-between;
+    }
+
+    .ui-style-option {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+}
