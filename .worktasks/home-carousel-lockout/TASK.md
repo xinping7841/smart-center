@@ -20,7 +20,7 @@ Add a homepage rolling playback / carousel switch, reuse safe read-only dashboar
 ## Current Phase
 
 ```text
-ready_for_merge_deploy
+merged_deployed_verified
 ```
 
 ## Change Scope
@@ -47,6 +47,9 @@ docs/LOCAL_MODEL_CONTROL_INTENTS.jsonl
   - excludes automation page from carousel rotation while display lockout is active.
 - Updated AI_* markers on template/runtime/CSS.
 - Updated query knowledge and control intent seed for 本地 AI 模型 learning.
+- Committed task branch as `d64a885 feat: add homepage carousel lockout` and pushed it to origin.
+- Merged to `main` as `a8391dd merge: homepage carousel lockout` and pushed `main`.
+- Deployed/restarted production on node-120 with release `smart-center-release-20260608_154833-main-a8391dd`.
 
 ## Verified
 
@@ -59,11 +62,17 @@ docs/LOCAL_MODEL_CONTROL_INTENTS.jsonl
   - initial switch state is `关闭` and config entry is not disabled.
   - enabling the switch changes state to `播放中`, adds `home-carousel-active`, and disables config entry.
   - clicking fake config/control targets shows `滚动播放中，请先关闭巡屏再进行控制或系统配置` and does not call the fake control handler.
+- Production node-120 read-only verification confirmed:
+  - `smart-center.service` is `active`.
+  - `/` returns HTTP 200.
+  - homepage includes `20260608-home-carousel-lockout-v1`, `home-carousel-toggle`, and `home-carousel-state`.
+  - production `app-runtime.js` includes the lockout message and request guard.
+  - production `ui-dark-ops-palette.css` includes carousel toggle and active-state CSS.
+  - recent service log check found no Traceback/ERROR/Exception lines.
 
 ## Not Verified
 
 - Full Flask local runtime was not started because this Windows environment does not have the project Flask dependency installed outside a venv.
-- Production deploy/restart verification pending.
 - No real device control was triggered.
 
 ## Risks
@@ -80,7 +89,4 @@ Requires frontend_assets and templates_index locks before code edits.
 
 ## Next
 
-- Commit and push branch.
-- Merge to main after final sync check.
-- Deploy/restart on node-120 and verify service active plus homepage asset version.
-- Release frontend_assets and templates_index locks.
+- Release `frontend_assets` and `templates_index` locks after this deployment record is pushed.
