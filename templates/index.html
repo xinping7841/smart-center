@@ -3,11 +3,11 @@
 AI_MODULE: main_dashboard_template
 AI_PURPOSE: Main Smart Center shell with sidebar navigation, lazy view containers, and initial runtime configuration.
 AI_BOUNDARY: Keep business logic in static/js modules and APIs; this template should only inject minimal config and stable DOM anchors.
-AI_DATA_FLOW: Flask CONFIG/current user -> sidebar/view placeholders/runtime config -> static/js/app-runtime.js and lazy view modules; final visual cascade ends at ui-dark-ops-palette.css.
+AI_DATA_FLOW: Flask CONFIG/current user -> sidebar/view placeholders/runtime config -> static/js/app-runtime.js and lazy view modules; final visual cascade ends at ui-dark-ops-palette.css plus the removable ui-style-review layer.
 AI_RUNTIME: Served as the primary / page by app.py on node-120.
 AI_RISK: High. DOM ids, onclick bridges, asset versions, and sidebar behavior affect all dashboards and real-control buttons.
-AI_COMPAT: Preserve view ids, global function hooks, sidebar item semantics, and asset version query strings used by deployed browsers.
-AI_SEARCH_KEYWORDS: index template, dashboard shell, sidebar, lazy views, app-runtime, dark ops palette, final stylesheet.
+AI_COMPAT: Preserve view ids, global function hooks, sidebar item semantics, and asset version query strings used by deployed browsers; remove data-ui-review-remove assets together after final UI style selection.
+AI_SEARCH_KEYWORDS: index template, dashboard shell, sidebar, lazy views, app-runtime, dark ops palette, final stylesheet, UI style review switcher.
 -->
 <html lang="zh-CN">
 <head>
@@ -21,6 +21,9 @@ AI_SEARCH_KEYWORDS: index template, dashboard shell, sidebar, lazy views, app-ru
     <link rel="stylesheet" href="/static/css/views/hotfix-overrides.css?v=20260604-dashboard-audio-status-v1">
     <link rel="stylesheet" href="/static/css/views/ui-wide-1080.css?v=20260604-dashboard-audio-status-v1">
     <link rel="stylesheet" href="/static/css/views/ui-dark-ops-palette.css?v=20260608-dark-ops-palette-v1">
+    <!-- UI_STYLE_REVIEW_REMOVE_START: temporary homepage style comparison CSS -->
+    <link rel="stylesheet" href="/static/css/views/ui-style-review.css?v=20260608-ui-style-review-v1" data-ui-review-remove="1">
+    <!-- UI_STYLE_REVIEW_REMOVE_END -->
 </head>
 <body>
     <div id="toast" class="toast-msg">提示信息</div>
@@ -81,6 +84,15 @@ AI_SEARCH_KEYWORDS: index template, dashboard shell, sidebar, lazy views, app-ru
                 <span class="top-lyrics-text" id="top-lyrics-text">等待歌词</span>
             </div>
             <div class="top-header-right">
+                <!-- UI_STYLE_REVIEW_REMOVE_START: temporary homepage style comparison control -->
+                <div class="ui-style-switcher" data-ui-style-switcher data-ui-review-remove="1" role="group" aria-label="UI style comparison">
+                    <span class="ui-style-switcher-label">Style</span>
+                    <button class="ui-style-option active" type="button" data-ui-style="ops" aria-pressed="true">Ops</button>
+                    <button class="ui-style-option" type="button" data-ui-style="apple" aria-pressed="false">Apple</button>
+                    <button class="ui-style-option" type="button" data-ui-style="meizu" aria-pressed="false">Meizu</button>
+                    <button class="ui-style-option" type="button" data-ui-style="smartisan" aria-pressed="false">Smartisan</button>
+                </div>
+                <!-- UI_STYLE_REVIEW_REMOVE_END -->
                 <div class="top-env-summary" id="top-env-summary">
                     <div class="top-env-badge"><span class="top-env-icon temp"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M10 5a2 2 0 1 1 4 0v7.2a4.5 4.5 0 1 1-4 0V5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12 14V8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="17" r="1.8" fill="currentColor"/></svg></span><span class="top-env-meta"><span class="top-env-label">温度</span><span class="top-env-value" id="top-env-temp">--</span></span></div>
                     <div class="top-env-badge"><span class="top-env-icon hum"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3.8C9.4 7.2 6 10.4 6 14.2A6 6 0 0 0 18 14.2c0-3.8-3.4-7-6-10.4Z" fill="currentColor" fill-opacity="0.92"/><path d="M9.6 15.4c.5 1.4 1.6 2.2 3 2.5" stroke="#dbeafe" stroke-width="1.4" stroke-linecap="round"/></svg></span><span class="top-env-meta"><span class="top-env-label">湿度</span><span class="top-env-value" id="top-env-hum">--</span></span></div>
@@ -177,5 +189,8 @@ AI_SEARCH_KEYWORDS: index template, dashboard shell, sidebar, lazy views, app-ru
         } catch (_) {}
     </script>
     <script src="/static/js/app-runtime.js?v=20260604-dashboard-audio-status-v1"></script>
+    <!-- UI_STYLE_REVIEW_REMOVE_START: temporary homepage style comparison script -->
+    <script src="/static/js/views/ui-style-review.js?v=20260608-ui-style-review-v1" data-ui-review-remove="1"></script>
+    <!-- UI_STYLE_REVIEW_REMOVE_END -->
 </body>
 </html>
