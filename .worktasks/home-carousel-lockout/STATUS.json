@@ -1,0 +1,23 @@
+{
+  "task": "home-carousel-lockout",
+  "module": "frontend_assets,templates_index",
+  "machine": "12700k",
+  "kind": "light",
+  "branch": "codex/12700k-home-carousel-lockout-20260608",
+  "worktree": "D:/SmartCenter/smart-center-worktrees/ui-review-tone-down",
+  "started_at": "2026-06-08",
+  "status": "ready_for_merge_deploy",
+  "verified": [
+    "bash scripts/collab/check-sync.sh",
+    "node --check static/js/app-runtime.js",
+    "git diff --check",
+    "python -m compileall app.py api services runtime config.py background.py power.py snmp_core.py",
+    "static Node assertions for guarded helper bridge and control URL patterns",
+    "browser/static harness for switch state and read-only click lockout"
+  ],
+  "not_verified": [
+    "full local Flask runtime because this Windows environment lacks installed Flask dependency outside a venv",
+    "production deploy/restart"
+  ],
+  "real_device_control_triggered": false
+}

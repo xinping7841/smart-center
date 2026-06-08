@@ -1,9 +1,9 @@
         // AI_MODULE: app_runtime
-        // AI_PURPOSE: 中控首页和各视图的旧全局运行时入口，继续兼容内联 onclick。
+        // AI_PURPOSE: 中控首页和各视图的旧全局运行时入口，继续兼容内联 onclick 与首页巡屏锁定。
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
-        // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 各 /api/* 控制接口。
-        // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断。
-        const lazyModuleVersion = '20260604-dashboard-audio-status-v1';
+        // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 首页巡屏守卫或各 /api/* 控制接口。
+        // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断；巡屏开启时必须阻断控制与配置入口。
+        const lazyModuleVersion = '20260608-home-carousel-lockout-v1';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const wideUiStyle = `/static/css/views/ui-wide-1080.css?v=${lazyModuleVersion}`;
         const withWideUiStyle = styles => [...styles, wideUiStyle];
@@ -167,6 +167,36 @@
         SmartCenter.registerViewModules('sequencer', ['sequencer-view-style', 'sequencer-runtime']);
         SmartCenter.registerViewModules('env', ['env-view-style', 'env-runtime']);
         SmartCenter.registerViewModules('logs', ['logs-view-style', 'logs-runtime']);
+        const smartUtils = SmartCenter.utils || {};
+        const rawFetchJson = smartUtils.fetchJson || window.fetchJson;
+        const rawFetchJsonLoose = smartUtils.fetchJsonLoose || window.fetchJsonLoose;
+        const rawPostJsonLoose = smartUtils.postJsonLoose || window.postJsonLoose;
+        const rawBrowserFetch = typeof window.fetch === 'function' ? window.fetch.bind(window) : null;
+        const escapeHtml = smartUtils.escapeHtml || window.escapeHtml || (value => String(value ?? ''));
+        const hasPermission = smartUtils.hasPermission || window.hasPermission || (() => false);
+        const getPermissionDisabledAttrs = smartUtils.getPermissionDisabledAttrs || window.getPermissionDisabledAttrs || (() => '');
+        const getPermissionDisabledClass = smartUtils.getPermissionDisabledClass || window.getPermissionDisabledClass || (() => '');
+        function fetchJson() {
+            if (isHomeCarouselEnabled() && isHomeCarouselControlUrl(arguments[0])) {
+                showHomeCarouselLockout();
+                return Promise.resolve({ ok: false, error: 'home_carousel_lockout' });
+            }
+            return rawFetchJson.apply(window, arguments);
+        }
+        function fetchJsonLoose() {
+            if (isHomeCarouselEnabled() && isHomeCarouselControlUrl(arguments[0])) {
+                showHomeCarouselLockout();
+                return Promise.resolve({ ok: false, error: 'home_carousel_lockout' });
+            }
+            return rawFetchJsonLoose.apply(window, arguments);
+        }
+        function postJsonLoose(url, payload, fallbackText = '请求失败') {
+            if (isHomeCarouselEnabled() && isHomeCarouselControlUrl(url)) {
+                showHomeCarouselLockout();
+                return Promise.resolve({ ok: false, error: 'home_carousel_lockout' });
+            }
+            return rawPostJsonLoose.call(window, url, payload, fallbackText);
+        }
         function ensureModulesReady(moduleNames, contextLabel = '功能模块') {
             if (!window.SmartCenter || typeof SmartCenter.ensureModules !== 'function') return Promise.resolve([]);
             return SmartCenter.ensureModules(moduleNames).catch(err => {
@@ -510,7 +540,202 @@
             }
         }
         ensureInitialVisibleView();
+        const HOME_CAROUSEL_STORAGE_KEY = 'smartCenterHomeCarouselEnabled';
+        const HOME_CAROUSEL_LOCKOUT_MESSAGE = '滚动播放中，请先关闭巡屏再进行控制或系统配置';
+        const HOME_CAROUSEL_CONTROL_PATTERNS = [
+            'togglePower(', 'doPowerStart(', 'doPowerStop(', 'toggleLight(', 'executeScene(',
+            'controlDoor(', 'fireSequencerAction(', 'fireScreenCommand(', 'fireProjectorCommand(',
+            'controlHvac(', 'sendServerCmd(', 'wakeServer(', 'moveServer(', 'fireUniversalCommand(',
+            'fireControlCenterControl(', 'toggleProtocolDeviceOutput(', 'pulseProtocolDevice(',
+            'controlNodeRedDevice(', 'saveConfig(', 'loadConfig(', 'openAppleAudioConfig(',
+        ];
+        const HOME_CAROUSEL_CONTROL_URLS = [
+            '/api/hvac/control', '/api/sequencer/control', '/api/screen/control', '/api/projector/control',
+            '/api/control_center/execute', '/api/control_center/save', '/api/control_center/niren/mode',
+            '/api/control_center/import/', '/api/control_center/generate_panel', '/api/universal/control',
+            '/api/door/control', '/door_control/', '/api/light/control', '/api/set', '/api/onekey_start',
+            '/api/onekey_stop', '/api/ups/control', '/api/wake/', '/api/machines/', '/api/automation/toggle',
+            '/api/automation/update', '/api/automation/test', '/api/node-red/device-state', '/api/config/save',
+            '/api/hvac/config', '/api/screen/config', '/api/local-model/config', '/api/local-model/control/confirm',
+            '/api/apple-audio/transport', '/api/apple-audio/queue', '/api/apple-audio/playlists/queue',
+            '/api/apple-audio/playlists/add-track', '/api/apple-audio/bluetooth/connect', '/api/apple-audio/config',
+            '/api/apple-audio/rescan',
+        ];
+        const HOME_CAROUSEL_VIEW_BLOCKLIST = new Set(['auto']);
+        let homeCarouselUserEnabled = false;
+        let homeCarouselInitialized = false;
+
+        function getStoredHomeCarouselEnabled() {
+            try {
+                return localStorage.getItem(HOME_CAROUSEL_STORAGE_KEY) === '1';
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function setStoredHomeCarouselEnabled(enabled) {
+            try {
+                localStorage.setItem(HOME_CAROUSEL_STORAGE_KEY, enabled ? '1' : '0');
+            } catch (_) {}
+        }
+
+        function isHomeCarouselEnabled() {
+            return !!homeCarouselUserEnabled;
+        }
+
+        function getHomeCarouselRequestUrl(input) {
+            if (!input) return '';
+            if (typeof input === 'string') return input;
+            if (typeof URL !== 'undefined' && input instanceof URL) return input.href;
+            if (typeof Request !== 'undefined' && input instanceof Request) return input.url || '';
+            if (typeof input === 'object' && input.url) return String(input.url);
+            return String(input || '');
+        }
+
+        function isHomeCarouselControlUrl(url) {
+            const text = getHomeCarouselRequestUrl(url).toLowerCase();
+            if (!text) return false;
+            if (/\/api\/node-red\/device\/[^/?#]+\/control(?:[/?#]|$)/i.test(text)) return true;
+            return HOME_CAROUSEL_CONTROL_URLS.some(pattern => text.includes(pattern.toLowerCase()));
+        }
+
+        function buildHomeCarouselLockoutFetchResponse() {
+            const payload = JSON.stringify({ ok: false, error: 'home_carousel_lockout', message: HOME_CAROUSEL_LOCKOUT_MESSAGE });
+            if (typeof Response === 'function') {
+                return new Response(payload, {
+                    status: 409,
+                    statusText: 'Home Carousel Lockout',
+                    headers: { 'Content-Type': 'application/json' },
+                });
+            }
+            return {
+                ok: false,
+                status: 409,
+                json: () => Promise.resolve(JSON.parse(payload)),
+                text: () => Promise.resolve(payload),
+            };
+        }
+
+        function installHomeCarouselRequestGuard() {
+            if (window.SmartCenter?.utils) Object.assign(window.SmartCenter.utils, { fetchJson, fetchJsonLoose, postJsonLoose });
+            Object.assign(window, { fetchJson, fetchJsonLoose, postJsonLoose });
+            if (!rawBrowserFetch || window.fetch?.__smartHomeCarouselGuard) return;
+            const guardedFetch = function homeCarouselGuardedFetch(input, options) {
+                if (isHomeCarouselEnabled() && isHomeCarouselControlUrl(input)) {
+                    showHomeCarouselLockout();
+                    return Promise.resolve(buildHomeCarouselLockoutFetchResponse());
+                }
+                return rawBrowserFetch(input, options);
+            };
+            guardedFetch.__smartHomeCarouselGuard = true;
+            window.fetch = guardedFetch;
+        }
+        installHomeCarouselRequestGuard();
+
+        function isHomeCarouselControlElement(element) {
+            if (!element || element.id === 'home-carousel-toggle' || element.closest?.('.home-carousel-toggle')) return false;
+            const configTarget = element.closest?.('.system-link, #top-user-config-btn, a[href^="/config"], [onclick*="/config"], [onclick*="openConfigCenter"]');
+            if (configTarget) return true;
+            const actionTarget = element.closest?.('button, a, input, select, textarea, label, [role="button"], [onclick]');
+            if (!actionTarget) return false;
+            const onclickText = String(actionTarget.getAttribute?.('onclick') || '');
+            if (HOME_CAROUSEL_CONTROL_PATTERNS.some(pattern => onclickText.includes(pattern))) return true;
+            const permission = String(actionTarget.getAttribute?.('data-permission') || actionTarget.dataset?.permission || '');
+            if (permission && /\.(control|config|edit|manage)$/i.test(permission)) return true;
+            const href = String(actionTarget.getAttribute?.('href') || '');
+            return href.startsWith('/config');
+        }
+
+        function showHomeCarouselLockout() {
+            showToast(HOME_CAROUSEL_LOCKOUT_MESSAGE, true);
+        }
+
+        function syncHomeCarouselUi() {
+            const enabled = isHomeCarouselEnabled();
+            const toggle = document.getElementById('home-carousel-toggle');
+            const stateEl = document.getElementById('home-carousel-state');
+            const configLink = document.querySelector('.system-link');
+            const configBtn = document.getElementById('top-user-config-btn');
+            if (toggle) toggle.checked = enabled;
+            if (stateEl) stateEl.textContent = enabled ? '播放中' : '关闭';
+            document.body.classList.toggle('home-carousel-active', enabled);
+            document.documentElement.classList.toggle('home-carousel-active', enabled);
+            [configLink, configBtn].forEach(el => {
+                if (!el) return;
+                el.classList.toggle('home-carousel-disabled', enabled);
+                if (enabled) {
+                    el.setAttribute('aria-disabled', 'true');
+                    el.title = HOME_CAROUSEL_LOCKOUT_MESSAGE;
+                } else {
+                    el.removeAttribute('aria-disabled');
+                    if (el.title === HOME_CAROUSEL_LOCKOUT_MESSAGE) el.removeAttribute('title');
+                }
+            });
+        }
+
+        function setHomeCarouselEnabled(enabled, options = {}) {
+            const next = !!enabled;
+            homeCarouselUserEnabled = next;
+            setStoredHomeCarouselEnabled(next);
+            syncHomeCarouselUi();
+            if (next) {
+                sidebarCarouselIntervalMs = getSidebarCarouselIntervalMs();
+                sidebarCarouselActive = true;
+                document.body.classList.add('sidebar-carousel-mode');
+                syncSidebarCarouselIndex();
+                scheduleSidebarCarouselNext(Number(options.delayMs) || 1200);
+                if (!options.silent) showToast('已开启巡屏，控制和系统配置已锁定');
+            } else {
+                stopSidebarCarousel();
+                if (!options.silent) showToast('已关闭巡屏，可以进行控制和系统配置');
+            }
+        }
+
+        function toggleHomeCarousel(forceEnabled = null) {
+            const next = forceEnabled === null ? !isHomeCarouselEnabled() : !!forceEnabled;
+            setHomeCarouselEnabled(next);
+        }
+
+        function installHomeCarouselGuards() {
+            if (homeCarouselInitialized) return;
+            homeCarouselInitialized = true;
+            document.addEventListener('click', event => {
+                if (!isHomeCarouselEnabled()) return;
+                const target = event.target instanceof Element ? event.target : null;
+                if (!isHomeCarouselControlElement(target)) return;
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+                showHomeCarouselLockout();
+            }, true);
+        }
+
+        function initHomeCarouselSwitch() {
+            const toggle = document.getElementById('home-carousel-toggle');
+            homeCarouselUserEnabled = getStoredHomeCarouselEnabled();
+            installHomeCarouselRequestGuard();
+            installHomeCarouselGuards();
+            if (toggle) {
+                toggle.addEventListener('click', event => event.stopPropagation());
+                toggle.addEventListener('change', event => {
+                    event.stopPropagation();
+                    setHomeCarouselEnabled(!!toggle.checked);
+                });
+            }
+            syncHomeCarouselUi();
+            if (homeCarouselUserEnabled) {
+                sidebarCarouselIntervalMs = getSidebarCarouselIntervalMs();
+                sidebarCarouselActive = true;
+                document.body.classList.add('sidebar-carousel-mode');
+                syncSidebarCarouselIndex();
+                scheduleSidebarCarouselNext(1200);
+            }
+        }
         function ensurePermission(permission, actionText = '执行当前操作') {
+            if (isHomeCarouselEnabled() && /\.(control|config|edit|manage)$/i.test(String(permission || ''))) {
+                showHomeCarouselLockout();
+                return false;
+            }
             return SmartCenter.utils.ensurePermission(permission, actionText, {
                 notifier: showToast,
             });
@@ -934,6 +1159,10 @@
             menu.classList.toggle('open', shouldOpen);
         }
         function openConfigCenter() {
+            if (isHomeCarouselEnabled()) {
+                showHomeCarouselLockout();
+                return;
+            }
             if (!canOpenConfigCenter()) {
                 showToast('当前账号无配置中心访问权限', true);
                 return;
@@ -1458,6 +1687,7 @@
                 if (!match) return null;
                 const viewId = normalizeViewIdCandidate(match[1]);
                 if (!viewId || seen.has(viewId)) return null;
+                if (isHomeCarouselEnabled() && HOME_CAROUSEL_VIEW_BLOCKLIST.has(viewId)) return null;
                 seen.add(viewId);
                 return {
                     viewId,
@@ -1610,6 +1840,9 @@
             switchTab,
             startSidebarCarousel,
             stopSidebarCarousel,
+            toggleHomeCarousel,
+            setHomeCarouselEnabled,
+            isHomeCarouselEnabled,
             findNavElementByView,
             getViewTitleFromNav,
         });
@@ -2302,6 +2535,7 @@
                     el.title = '当前账号无服务器控制权限';
                 });
             }
+            syncHomeCarouselUi();
         }
 
         function reportFrontendError(scope, err) {
@@ -2375,6 +2609,7 @@
         document.addEventListener('DOMContentLoaded', () => {
             applyAdaptiveDensity();
             guardFrontendStep('bootstrap.dashboard_shell', () => ensureDashboardShellRendered());
+            guardFrontendStep('bootstrap.home_carousel_switch', () => initHomeCarouselSwitch());
             guardFrontendStep('bootstrap.permission_ui', () => applyPermissionUI());
             guardFrontendStep('bootstrap.dashboard_order', () => applyDashboardSectionOrder());
             guardFrontendStep('bootstrap.dashboard_masonry_observer', () => initDashboardMasonryObservers());
@@ -2452,7 +2687,7 @@
                 switchTab('dashboard', '场馆总览', initialNav);
             }, '默认页面初始化异常，已切换为降级启动');
             guardFrontendStep('bootstrap.sidebar_carousel', () => {
-                startSidebarCarousel();
+                if (!isHomeCarouselEnabled()) startSidebarCarousel();
             }, '页面轮播初始化失败');
             window.addEventListener('hashchange', () => {
                 guardFrontendStep('route.hashchange', () => {
