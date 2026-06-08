@@ -1,0 +1,14 @@
+{
+  "task": "ui-finalize-ops-theme",
+  "machine": "12700k",
+  "kind": "light",
+  "branch": "codex/12700k-ui-finalize-ops-theme-20260608",
+  "worktree": "D:/SmartCenter/smart-center-worktrees/ui-review-tone-down",
+  "locks": [
+    "frontend_assets",
+    "templates_index"
+  ],
+  "status": "in_progress",
+  "goal": "Finalize the approved dark Ops theme and remove the temporary UI comparison switcher.",
+  "device_control": "not touched; no real device actions authorized or executed"
+}
