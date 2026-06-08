@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <!--
 AI_MODULE: main_dashboard_template
-AI_PURPOSE: Main Smart Center shell with sidebar navigation, homepage rolling playback switch, lazy view containers, and initial runtime configuration.
+AI_PURPOSE: Main Smart Center shell with stable sidebar/header dimensions, sidebar navigation, homepage rolling playback switch, lazy view containers, and initial runtime configuration.
 AI_BOUNDARY: Keep business logic in static/js modules and APIs; this template should only inject minimal config and stable DOM anchors.
 AI_DATA_FLOW: Flask CONFIG/current user -> sidebar/view placeholders/home carousel switch/runtime config -> static/js/app-runtime.js and lazy view modules; final visual cascade ends at ui-dark-ops-palette.css.
 AI_RUNTIME: Served as the primary / page by app.py on node-120.
 AI_RISK: High. DOM ids, onclick bridges, asset versions, and sidebar behavior affect all dashboards and real-control buttons.
 AI_COMPAT: Preserve view ids, global function hooks, sidebar item semantics, and asset version query strings used by deployed browsers.
-AI_SEARCH_KEYWORDS: index template, dashboard shell, sidebar, home carousel switch, rolling playback lockout, lazy views, app-runtime, dark ops palette, final stylesheet, finalized Ops theme.
+AI_SEARCH_KEYWORDS: index template, dashboard shell, stable sidebar, page switch jump, home carousel switch, rolling playback lockout, lazy views, app-runtime, dark ops palette, final stylesheet, finalized Ops theme.
 -->
 <html lang="zh-CN">
 <head>
@@ -19,7 +19,7 @@ AI_SEARCH_KEYWORDS: index template, dashboard shell, sidebar, home carousel swit
     <link rel="stylesheet" href="/static/css/generated/core-theme.css?v=20260604-dashboard-audio-status-v1">
     <link rel="stylesheet" href="/static/css/views/dashboard-inline.css?v=20260604-dashboard-audio-status-v1">
     <link rel="stylesheet" href="/static/css/views/hotfix-overrides.css?v=20260604-dashboard-audio-status-v1">
-    <link rel="stylesheet" href="/static/css/views/ui-wide-1080.css?v=20260604-dashboard-audio-status-v1">
+    <link rel="stylesheet" href="/static/css/views/ui-wide-1080.css?v=20260608-stable-shell-sidebar-v1">
     <link rel="stylesheet" href="/static/css/views/ui-dark-ops-palette.css?v=20260608-home-carousel-lockout-v1">
 </head>
 <body>
@@ -184,6 +184,6 @@ AI_SEARCH_KEYWORDS: index template, dashboard shell, sidebar, home carousel swit
             if (initialView && initialView !== 'dashboard') window.renderPageShell?.(initialView);
         } catch (_) {}
     </script>
-    <script src="/static/js/app-runtime.js?v=20260608-home-carousel-lockout-v1"></script>
+    <script src="/static/js/app-runtime.js?v=20260608-stable-shell-sidebar-v1"></script>
 </body>
 </html>

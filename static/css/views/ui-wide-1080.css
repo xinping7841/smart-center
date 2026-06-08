@@ -1,6 +1,8 @@
 /* AI_MODULE: ui_wide_1080_polish
-   AI_PURPOSE: Monitoring-wall layout for 16:9 1920x1080 and 3840x2160 displays.
-   AI_BOUNDARY: Presentation only; no device control behavior or API payload changes. */
+   AI_PURPOSE: Monitoring-wall layout for 16:9 1920x1080 and 3840x2160 displays, including stable app-shell dimensions across view switches.
+   AI_BOUNDARY: Presentation only; no device control behavior or API payload changes.
+   AI_RISK: Medium visual risk. Shell width/header changes affect every page, so sidebar and top-header dimensions must stay stable when switching views.
+   AI_SEARCH_KEYWORDS: dashboard wide mode, stable sidebar, shell layout, page switch jump, app shell dimensions, ui-wide-1080. */
 
 :root {
     --bg-dark: #071018;
@@ -16,6 +18,7 @@
     --success: #20b982;
     --danger: #ee5b5b;
     --warning: #d9a441;
+    --shell-sidebar-width: 224px;
     --sidebar-width: 224px;
     --view-padding: 16px 20px 18px;
     --header-padding: 10px 20px;
@@ -1872,7 +1875,7 @@ body.dashboard-wide-mode .monitor-empty {
 
 @media screen and (min-width: 2200px) and (min-height: 1400px) {
     body.dashboard-wide-mode {
-        --sidebar-width: 286px;
+        --sidebar-width: var(--shell-sidebar-width);
         --view-padding: 24px 28px 28px;
         --header-padding: 14px 28px;
         --grid-gap: 18px;
@@ -2309,6 +2312,144 @@ body.dashboard-wide-mode .monitor-empty {
     body.dashboard-wide-mode .home-total-log-list .log-item:nth-of-type(n+9) {
         display: none;
     }
+}
+
+/* Stable shell: keep navigation and header geometry fixed between dashboard and detail pages.
+   Dashboard content can scale for wall displays, but the app shell must not resize during view switches. */
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout),
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) {
+    --sidebar-width: var(--shell-sidebar-width) !important;
+    --header-padding: 10px 20px !important;
+    --header-gap: 12px !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .sidebar,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .sidebar {
+    flex: 0 0 var(--shell-sidebar-width) !important;
+    width: var(--shell-sidebar-width) !important;
+    min-width: var(--shell-sidebar-width) !important;
+    max-width: var(--shell-sidebar-width) !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .sidebar .logo,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .sidebar .logo {
+    min-height: 52px !important;
+    padding: 13px 15px !important;
+    font-size: 16px !important;
+    line-height: 1.12 !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .sidebar .nav-menu,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .sidebar .nav-menu {
+    padding: 7px 6px !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .sidebar .nav-menu li,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .sidebar .nav-menu li {
+    min-height: 36px !important;
+    margin: 0 1px 3px !important;
+    padding: 8px 10px !important;
+    border-left-width: 3px !important;
+    border-radius: 7px !important;
+    gap: 9px !important;
+    font-size: 13px !important;
+    line-height: 1.15 !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .sidebar .nav-menu li span,
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .sidebar .nav-menu li.system-link span,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .sidebar .nav-menu li span,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .sidebar .nav-menu li.system-link span {
+    width: 20px !important;
+    height: 20px !important;
+    border-radius: 6px !important;
+    font-size: 15px !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .sidebar .sys-info,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .sidebar .sys-info {
+    padding: 9px 10px 10px !important;
+    font-size: 10px !important;
+    line-height: 1.55 !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-header,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-header {
+    min-height: 58px !important;
+    padding: var(--header-padding) !important;
+    gap: var(--header-gap) !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-header .page-title,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-header .page-title {
+    font-size: 16px !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-env-summary,
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-user-badge,
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-header .sys-time,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-env-summary,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-user-badge,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-header .sys-time {
+    min-height: 34px !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-env-summary,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-env-summary {
+    padding: 5px 7px !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-env-badge,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-env-badge {
+    min-width: 74px !important;
+    padding: 3px 5px !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-env-icon,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-env-icon {
+    width: 20px !important;
+    height: 20px !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-env-label,
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-user-role,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-env-label,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-user-role {
+    font-size: 9px !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-env-value,
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-user-name,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-env-value,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-user-name {
+    font-size: 11px !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-user-badge,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-user-badge {
+    padding: 4px 7px !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-user-avatar,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-user-avatar {
+    width: 26px !important;
+    height: 26px !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-header .sys-time,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-header .sys-time {
+    min-width: 124px !important;
+    padding: 4px 9px !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-time-main,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-time-main {
+    font-size: 13px !important;
+}
+
+body:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-time-sub,
+body.dashboard-wide-mode:not(.mobile-layout):not(.tablet-layout):not(.touch-wide-layout):not(.touch-portrait-layout) .top-time-sub {
+    font-size: 9px !important;
 }
 
 @media screen and (max-width: 1700px) {
