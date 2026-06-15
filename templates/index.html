@@ -11,6 +11,7 @@ AI_SEARCH_KEYWORDS: index template, dashboard shell, stable sidebar, page switch
 -->
 <html lang="zh-CN">
 <head>
+    <meta name="csrf-token" content="{{ csrf_token or "" }}">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <script src="/static/js/core/viewport-layout.js?v=20260604-dashboard-audio-status-v1"></script>
@@ -164,7 +165,7 @@ AI_SEARCH_KEYWORDS: index template, dashboard shell, stable sidebar, page switch
     </div>
 
     <script src="/static/js/core/bootstrap.js?v=20260530-lazy-modules"></script>
-    <script src="/static/js/core/utils.js?v=20260531-lazy-loader-v2"></script>
+    <script src="/static/js/core/utils.js?v=20260612v3"></script>
 
     <script>
         // AI_MODULE: app_runtime_config
@@ -184,6 +185,6 @@ AI_SEARCH_KEYWORDS: index template, dashboard shell, stable sidebar, page switch
             if (initialView && initialView !== 'dashboard') window.renderPageShell?.(initialView);
         } catch (_) {}
     </script>
-    <script src="/static/js/app-runtime.js?v=20260608-stable-shell-sidebar-v1"></script>
+    <script src="/static/js/app-runtime.js?v=20260612v3"></script>
 </body>
 </html>

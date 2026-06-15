@@ -614,3 +614,35 @@ Next useful expansion:
 - Add richer formatting for per-device history and filtered log summaries.
 - Add a small in-service tool dispatcher endpoint that enforces the allowlist above before any local-model response can trigger an API call.
 - Add protected network access to the node-120 local model service if the bot is not running on node-120.
+
+## 设备-协议-API 完整对照表
+
+| 设备类型 | 协议 | 查询 API | 控制 API | 风险 |
+|---------|------|---------|---------|------|
+| 强电柜 | Modbus TCP/RTU | /api/status | /api/set, /api/onekey_start | 高 |
+| 电表 | Modbus + HTTP | /api/meters | /api/meter/* | 中 |
+| 时序电源 | 串口/自定义 TCP | /api/sequencer/status | /api/sequencer/control | 高 |
+| UPS | RS232 Q1/Q6 | /api/ups/status | /api/ups/* | 高 |
+| 灯光 | TCP/UDP/POE/RF | /api/light/status | /api/light/control | 中 |
+| 门禁 | RTSP + 视觉 | /api/door/status | /api/door/* | 高 |
+| 投影机 | PJLink/TCP/UDP | /api/projector/status | /api/projector/control | 中 |
+| 空调 | 米家 miio | /api/hvac/status | /api/hvac/control | 中 |
+| 屏幕 | 串口/网络 | /api/screen/status | /api/screen/control | 低 |
+| 服务器 | Agent HTTP | /api/server/status | /api/server/wol | 高 |
+| Apple Audio | AppleScript | /api/apple-audio/status | /api/apple-audio/* | 低 |
+| 环境传感器 | MQTT/HA/串口 | /api/env/status | - (只读) | 低 |
+| 电流采集 | Modbus | /api/current-collector/status | - (只读) | 中 |
+| 协议控制 | 多种协议 | /api/universal/status | /api/universal/control | 中 |
+| SNMP | SNMP v2c/v3 | /api/snmp/status | - (只读) | 低 |
+
+## NL 控制安全链
+
+所有自然语言控制请求必须经过：
+1. **意图分类** → `control_intent_router` 匹配设备类型和动作
+2. **LLM 翻译** → `control_model_translator` 标准化为结构化命令
+3. **策略检查** → `natural_language_orchestrator` 验证权限和确认策略
+4. **权限校验** → `require_permission` 检查用户角色
+5. **操作锁** → `acquire_operation_lock` 防止并发冲突
+6. **审计记录** → `log_audit_event` 记录操作轨迹
+7. **二次确认** → 高风险操作弹出确认对话框
+8. **执行** → API 端点 → 设备驱动 → 物理设备

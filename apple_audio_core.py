@@ -30,6 +30,9 @@ from pathlib import Path
 
 from config import CONFIG
 from paths import DATA_DIR, ensure_directory, ensure_parent_dir
+from log_config import get_logger
+_log = get_logger(__name__)
+
 
 try:
     from mutagen import File as MutagenFile
@@ -145,6 +148,7 @@ def _coerce_volume_percent(value):
     try:
         return max(0, min(int(round(float(value))), 100))
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return 70
 
 
@@ -220,6 +224,7 @@ def _parse_track_no(value):
     try:
         return int(match.group(0))
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return 0
 
 
@@ -243,6 +248,7 @@ def _safe_relative(path: Path, root: Path):
     try:
         return str(path.relative_to(root)).replace("\\", "/")
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return path.name
 
 
@@ -252,6 +258,7 @@ def _read_id3v1_tag(path: Path):
             fh.seek(-128, os.SEEK_END)
             chunk = fh.read(128)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return {}
     if len(chunk) != 128 or chunk[:3] != b"TAG":
         return {}
@@ -273,6 +280,7 @@ def _load_audio(path: Path):
     try:
         audio = MutagenFile(path)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return None, None, 0.0
     if audio is None:
         return None, None, 0.0
@@ -323,6 +331,7 @@ def _decode_flac_picture_block(raw):
     try:
         data = base64.b64decode(raw)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return b"", ""
     try:
         offset = 0
@@ -345,6 +354,7 @@ def _decode_flac_picture_block(raw):
         if image_data:
             return image_data, mime
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return b"", ""
     return b"", ""
 
@@ -679,6 +689,7 @@ class AppleAudioService:
                     try:
                         proc.kill()
                     except Exception:
+                        _log.debug("non-critical error suppressed", exc_info=True)
                         pass
         with self.lock:
             self._mark_local_player_locked("idle", message)
@@ -692,6 +703,7 @@ class AppleAudioService:
         try:
             raw = Path(path).read_bytes()[-max(int(limit or 0), 200):]
         except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return ""
         return raw.decode("utf-8", errors="replace").strip()
 
@@ -836,6 +848,7 @@ class AppleAudioService:
             try:
                 proc.wait(timeout=0.5)
             except Exception:
+                _log.debug("non-critical error suppressed", exc_info=True)
                 pass
             proc = None
             time.sleep(0.35 + attempt * 0.25)
@@ -1036,13 +1049,14 @@ class AppleAudioService:
                     if tags.getall("SYLT"):
                         has_synced = True
                 except Exception:
+                    _log.debug("non-critical error suppressed", exc_info=True)
                     pass
                 try:
                     if tags.getall("USLT"):
                         has_plain = True
                 except Exception:
+                    _log.debug("non-critical error suppressed", exc_info=True)
                     pass
-
             tag_plain = _pick_tag_text(
                 tags,
                 [
@@ -1170,8 +1184,8 @@ class AppleAudioService:
                 try:
                     candidate.unlink()
                 except Exception:
+                    _log.debug("non-critical error suppressed", exc_info=True)
                     pass
-
     def _store_embedded_cover(self, track_id, image_bytes, mime):
         if not image_bytes:
             return ""
@@ -1181,6 +1195,7 @@ class AppleAudioService:
         try:
             target.write_bytes(image_bytes)
         except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return ""
         return str(target)
 
@@ -1281,6 +1296,7 @@ class AppleAudioService:
             except UnicodeDecodeError:
                 text = sidecar.read_text(encoding="gbk", errors="ignore")
         except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return None
         if not text.strip():
             return None
@@ -1459,6 +1475,7 @@ class AppleAudioService:
                 self.state["last_scan_at"] = str(payload.get("last_scan_at") or "")
                 self.state["scan_count"] = len(parsed)
         except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return
 
     def _save_library_cache(self):
@@ -1510,6 +1527,7 @@ class AppleAudioService:
             with self.lock:
                 self.custom_playlists = playlists
         except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return
 
     def _save_custom_playlists_locked(self):
@@ -1680,10 +1698,11 @@ class AppleAudioService:
                     try:
                         entry.unlink()
                     except Exception:
+                        _log.debug("non-critical error suppressed", exc_info=True)
                         pass
         except Exception:
+            _log.debug("non-critical error suppressed", exc_info=True)
             pass
-
     def _scrape_track_lyrics_payload(self, track, force=False):
         if not isinstance(track, dict):
             return
@@ -1963,6 +1982,7 @@ class AppleAudioService:
         try:
             return max(0, int(self.library_by_id.get(track_id, {}).get("duration", 0) or 0))
         except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return 0
 
     def _dashboard_payload_locked(self):
@@ -2025,6 +2045,7 @@ class AppleAudioService:
             try:
                 self._start_local_player_for_track(auto_start_track_id)
             except Exception:
+                _log.debug("non-critical error suppressed", exc_info=True)
                 pass
         with self.lock:
             self._tick_locked()
@@ -2117,6 +2138,7 @@ class AppleAudioService:
             try:
                 self._start_local_player_for_track(auto_start_track_id)
             except Exception:
+                _log.debug("non-critical error suppressed", exc_info=True)
                 pass
         with self.lock:
             self._tick_locked()
@@ -2253,6 +2275,7 @@ class AppleAudioService:
             try:
                 local_results = local_results[: max(1, int(limit))]
             except Exception:
+                _log.debug("non-critical error suppressed", exc_info=True)
                 pass
         jamendo_results = self.search_jamendo(query, limit=limit) if include_jamendo else []
         merged = local_results + jamendo_results

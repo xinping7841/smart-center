@@ -1,3 +1,4 @@
+# ⚠️ STALE COPY — canonical source is ../../modbus_core.py. Update there first.
 import socket
 import threading
 import time

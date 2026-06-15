@@ -24,6 +24,8 @@ from auth.session import get_current_user
 from config import CONFIG, save_config
 from data_logger import add_log, load_logs
 from event_logger import record_event, record_state_change
+from log_config import get_logger
+_log = get_logger(__name__)
 
 bp = Blueprint("sequencer", __name__)
 
@@ -709,6 +711,7 @@ def control_sequencer(seq, action, channel=None):
             raw={"commands": [frame_to_hex(item) for item in commands], "responses": [frame_to_hex(item) for item in responses]},
         )
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
     command_text = " ; ".join(frame_to_hex(item) for item in commands)
     response_text = " ; ".join(frame_to_hex(item) for item in responses)

@@ -41,6 +41,8 @@ from pysnmp.hlapi.asyncio import (
     usmNoAuthProtocol,
     usmNoPrivProtocol,
 )
+from log_config import get_logger
+_log = get_logger(__name__)
 
 # Module role: SNMP polling, vendor parsing, and normalized status summaries.
 # Boundaries: raw OID collection, vendor-specific interpretation, and UI-facing
@@ -62,6 +64,7 @@ def _close_snmp_engine(engine: Any) -> None:
             try:
                 close_method()
             except Exception:
+                _log.debug("non-critical error suppressed", exc_info=True)
                 pass
             return
 
@@ -366,6 +369,7 @@ def _safe_int(value: Any, default: int = 0) -> int:
     try:
         return int(value)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return default
 
 
@@ -373,6 +377,7 @@ def _safe_float(value: Any, default: float = 0.0) -> float:
     try:
         return float(value)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return default
 
 
@@ -401,6 +406,7 @@ def _decode_hex_text(value: Any) -> str:
     try:
         raw = bytes.fromhex(hex_text)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return text
     for encoding in ("utf-8", "gbk", "utf-16-be"):
         try:
@@ -570,6 +576,7 @@ def _parse_iso_datetime(value: Any) -> Any:
     try:
         return datetime.fromisoformat(text)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return None
 
 
@@ -642,6 +649,7 @@ def _parse_storage_rows(walk_values: Dict[str, str]) -> List[Dict[str, Any]]:
         try:
             return int(str(oid).split(".")[-1])
         except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return None
 
     for oid, value in walk_values.items():
@@ -2090,6 +2098,7 @@ def _build_interface_rows(walk_values: Dict[str, str]) -> List[Dict[str, Any]]:
         try:
             return int(str(oid).split(".")[-1])
         except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return None
 
     for oid, value in walk_values.items():
@@ -2479,6 +2488,7 @@ def _parse_oid_suffix_ints(oid: str, prefix: str) -> List[int]:
         try:
             values.append(int(item))
         except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return []
     return values
 
@@ -3918,6 +3928,7 @@ def _coerce_metric_value(raw_value: str, value_type: str = "auto", scale: Any = 
         try:
             return float(match.group(0))
         except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return None
 
     text = str(raw_value or "").strip()

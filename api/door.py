@@ -6,6 +6,9 @@
 # AI_RISK: 高，可能触发门控动作；视觉判断错误会影响安防状态。
 # AI_COMPAT: /video_feed、/get_door_status、/api/door/* 历史路由需保留。
 # AI_SEARCH_KEYWORDS: door, vision, camera, recording, dataset, video_feed.
+from log_config import get_logger
+_log = get_logger(__name__)
+
 
 import base64
 import json
@@ -740,13 +743,13 @@ def _set_camera_frame(camera_key, frame):
                     while q.qsize() >= 2:
                         q.get_nowait()
                 except Exception:
+                    _log.debug("non-critical error suppressed", exc_info=True)
                     pass
                 try:
                     q.put_nowait(frame.copy())
                 except Exception:
+                    _log.debug("non-critical error suppressed", exc_info=True)
                     pass
-
-
 def _capture_frame(camera_key, allow_fallback=True):
     with frame_lock:
         frame = camera_frames.get(camera_key)
@@ -990,6 +993,7 @@ def _camera_capture_worker(camera_key, stop_event):
             try:
                 cap.grab()
             except Exception:
+                _log.debug("non-critical error suppressed", exc_info=True)
                 pass
             frame = next_frame
 
@@ -1068,6 +1072,7 @@ def _compute_diff(img1, img2):
     try:
         img1 = _hist_match(img1, img2).astype(np.uint8)
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
     delta = cv2.absdiff(img1, img2)
     thresh = cv2.threshold(delta, 30, 255, cv2.THRESH_BINARY)[1]
@@ -1682,6 +1687,7 @@ def _apply_analytics_to_status(results, vision_cfg):
         try:
             people_count = max(people_count, int(item.get("people_count", 0) or 0))
         except Exception:
+            _log.debug("non-critical error suppressed", exc_info=True)
             pass
         zones = item.get("zone_counts")
         if isinstance(zones, dict):
@@ -2108,6 +2114,7 @@ def _model_rebuild_snapshot():
             if isinstance(persisted, dict):
                 snapshot.update(persisted)
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
     return snapshot
 
@@ -2183,6 +2190,7 @@ def _start_recording_session(duration_sec=180):
                 try:
                     p.kill()
                 except Exception:
+                    _log.debug("non-critical error suppressed", exc_info=True)
                     pass
         with record_lock:
             record_state["running"] = False
@@ -2199,6 +2207,7 @@ def _stop_recording_session():
         try:
             os.kill(int(pid), 15)
         except Exception:
+            _log.debug("non-critical error suppressed", exc_info=True)
             pass
     time.sleep(0.2)
     with record_lock:
@@ -2215,9 +2224,8 @@ def _set_model_rebuild_state(**kwargs):
     try:
         _safe_write_json(MODEL_REBUILD_STATUS_FILE, data)
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
-
-
 def _append_infer_trace(payload, vision_cfg):
     if not bool(vision_cfg.get("trace_enabled", True)):
         return
@@ -2231,9 +2239,11 @@ def _append_infer_trace(payload, vision_cfg):
                 if rotated.exists():
                     rotated.unlink()
             except Exception:
+                _log.debug("non-critical error suppressed", exc_info=True)
                 pass
             os.replace(str(trace_path), str(rotated))
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
     row = dict(payload or {})
     row["ts"] = time.strftime("%Y-%m-%dT%H:%M:%S")
@@ -2241,9 +2251,8 @@ def _append_infer_trace(payload, vision_cfg):
         with trace_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
-
-
 def _run_door_model_rebuild_async():
     script_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "scripts", "rebuild_door_model.py"))
     config_path = os.environ.get("SMART_CENTER_CONFIG_FILE", "")
@@ -2699,8 +2708,8 @@ def api_door_model_rebuild():
             if "rebuild_door_model.py" in line and "python" in line:
                 return jsonify({"status": "error", "msg": "已有模型重建进程在运行中"}), 409
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
-
     started = _run_door_model_rebuild_async()
     if not started:
         return jsonify({"status": "error", "msg": "模型重建任务启动失败"}), 500

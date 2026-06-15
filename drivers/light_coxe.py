@@ -1,9 +1,18 @@
+# AI_MODULE: light_driver_coxe
+# AI_PURPOSE: COX 系列灯光驱动 — 通过 TCP/串口控制 COX 品牌灯光设备。
+# AI_BOUNDARY: 仅 COX 品牌；其他灯光品牌另建 driver。
+# AI_DATA_FLOW: CONFIG.light_groups -> COX TCP command -> 灯光设备。
+# AI_SEARCH_KEYWORDS: coxe, light, TCP, serial, driver.
 # drivers/light_coxe.py
 
 import threading
 import modbus_tk.modbus_tcp as modbus_tcp
 import modbus_tk.defines as cst
 from .base import BaseDriver
+from log_config import get_logger
+
+_log = get_logger(__name__)
+
 
 class CoxeLightDriver(BaseDriver):
     def __init__(self, config):
@@ -32,7 +41,8 @@ class CoxeLightDriver(BaseDriver):
         if self.client:
             try:
                 self.client.close()
-            except:
+            except Exception:
+                _log.debug("non-critical error suppressed", exc_info=True)
                 pass
             self.client = None
         self.is_online = False

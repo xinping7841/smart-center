@@ -78,10 +78,25 @@
         return `${method} ${url} ${headerKey}`;
     }
 
+    function getCsrfToken() {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) return meta.getAttribute('content');
+        const match = document.cookie.match(/(?:^|; )csrf_token=([^;]*)/);
+        return match ? match[1] : '';
+    }
+
     async function fetchJson(url, options = {}, fallbackText = '请求失败', parseOptions = {}) {
         const dedupeKey = getFetchJsonDedupeKey(url, options);
         if (dedupeKey && inFlight.has(dedupeKey)) {
             return inFlight.get(dedupeKey);
+        }
+        // CSRF protection: attach token for unsafe methods
+        const method = (options.method || 'GET').toUpperCase();
+        if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+            const csrfToken = getCsrfToken();
+            if (csrfToken) {
+                options.headers = Object.assign({}, options.headers || {}, { 'X-CSRF-Token': csrfToken });
+            }
         }
         const requestPromise = fetch(url, options)
             .then(response => parseJsonResponse(response, fallbackText, parseOptions))

@@ -22,6 +22,9 @@ from auth.decorators import require_permission
 from config import CONFIG, SERVER_COMMANDS
 from data_logger import add_log
 from paths import DB_FILE as DB_FILE_PATH, ensure_parent_dir
+from log_config import get_logger
+_log = get_logger(__name__)
+
 
 bp = Blueprint('server', __name__)
 DB_FILE = str(DB_FILE_PATH)
@@ -76,7 +79,7 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS machines (mac TEXT PRIMARY KEY, hostname TEXT, ip TEXT, last_online TEXT, data TEXT, is_manual INTEGER DEFAULT 0, custom_name TEXT)''')
     for col, defval in [("sort_order","INTEGER DEFAULT 999"), ("remark","TEXT DEFAULT ''"), ("card_size","TEXT DEFAULT 'normal'"), ("asset_group","TEXT DEFAULT ''")]:
         try: c.execute(f"ALTER TABLE machines ADD COLUMN {col} {defval}")
-        except: pass
+        except Exception: _log.debug("non-critical error suppressed", exc_info=True); pass
     c.execute('''CREATE TABLE IF NOT EXISTS metrics_history (id INTEGER PRIMARY KEY AUTOINCREMENT, mac TEXT, timestamp TEXT, data TEXT)''')
     c.execute('''CREATE TABLE IF NOT EXISTS machine_commands (
         mac TEXT PRIMARY KEY,
@@ -92,20 +95,21 @@ def clean_old_history():
             conn = sqlite3.connect(DB_FILE); c = conn.cursor()
             c.execute("DELETE FROM metrics_history WHERE timestamp < ?", ((datetime.now() - timedelta(hours=1)).isoformat(),))
             conn.commit(); conn.close()
-        except: pass
+        except Exception: _log.debug("non-critical error suppressed", exc_info=True); pass
         time.sleep(600)
 
 def get_local_ip():
     try:
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM); s.connect(("8.8.8.8", 80))
         ip = s.getsockname()[0]; s.close(); return ip
-    except: return "127.0.0.1"
+    except Exception: _log.debug("error in fallback path", exc_info=True); return "127.0.0.1"
 
 
 def _read_text_file(path):
     try:
         return Path(path).read_text(encoding="utf-8", errors="ignore").strip()
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return ""
 
 
@@ -160,6 +164,7 @@ def _linux_iface_for_ip(ip_addr):
     try:
         result = subprocess.run(["ip", "-o", "-4", "addr", "show"], capture_output=True, text=True, timeout=2)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return ""
     if result.returncode != 0:
         return ""
@@ -372,6 +377,7 @@ def _list_local_ipv4_broadcasts():
                 continue
             targets.append(str(address.network.broadcast_address))
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
     return targets
 
@@ -383,6 +389,7 @@ def _ipv4_network24(ip_text):
             return None
         return ipaddress.ip_network(f"{address}/24", strict=False)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return None
 
 
@@ -391,6 +398,7 @@ def _parse_machine_data_json(raw_value):
         parsed = json.loads(raw_value or "{}")
         return parsed if isinstance(parsed, dict) else {}
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return {}
 
 
@@ -402,6 +410,7 @@ def _online_window_for_machine_data(status_data):
         if report_interval > 0:
             offline_window_sec = max(180, int(report_interval * 2 + 30))
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
     return offline_window_sec
 
@@ -463,6 +472,7 @@ def _wol_broadcast_targets(target_ip):
             # chance to cross VLANs when the gateway allows it.
             targets.append(str(ipaddress.ip_network(f"{address}/24", strict=False).broadcast_address))
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
     targets.extend(_list_local_ipv4_broadcasts())
     for fallback in ("192.168.50.255", "192.168.40.255", "192.168.19.255"):
@@ -484,6 +494,7 @@ def _parse_machine_timestamp(value):
             return parsed.astimezone().replace(tzinfo=None)
         return parsed
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return None
 
 
@@ -537,6 +548,7 @@ def _parse_machine_payload(payload_text):
     try:
         return json.loads(payload_text) if payload_text else {}
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return {}
 
 
@@ -636,6 +648,7 @@ def _gpu_row_score(row):
         if float(row.get("temp") or 0) > 0:
             score += 100
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
     if "nvidia" in str(row.get("source") or "").lower():
         score += 10
@@ -643,6 +656,7 @@ def _gpu_row_score(row):
         if float(row.get("util_percent") or 0) > 0:
             score += 1
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
     return score
 
@@ -727,6 +741,7 @@ def _valid_ping_target(ip):
             return ""
         return text
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return ""
 
 
@@ -922,6 +937,7 @@ def _machine_command_to_json(command):
     try:
         return json.dumps(command, ensure_ascii=False, separators=(",", ":"))
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return json.dumps(str(command), ensure_ascii=False)
 
 
@@ -929,6 +945,7 @@ def _machine_command_from_json(command_text):
     try:
         return json.loads(command_text) if command_text else None
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return command_text
 
 
@@ -1045,6 +1062,7 @@ def get_agent_server_port():
     try:
         return int(server_cfg.get("agent_port", 6899) or 6899)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return 6899
 
 def get_agent_candidate_hosts(request_host=None):
@@ -1275,6 +1293,7 @@ def _read_linux_gpu_snapshot():
                     "source": source,
                 })
         except Exception:
+            _log.debug("non-critical error suppressed", exc_info=True)
             pass
     with LOCAL_MACHINE_STATE_LOCK:
         LOCAL_MACHINE_GPU_CACHE["payload"] = gpu_list
@@ -1292,6 +1311,7 @@ def _parse_linux_memory_speed(raw_text):
     try:
         value = int(match.group(1))
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return None
     if value <= 0:
         return None
@@ -1335,8 +1355,8 @@ def _read_linux_memory_speed():
                 if value:
                     return value
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
-
     # 3) lshw fallback
     try:
         result = subprocess.run(
@@ -1356,8 +1376,8 @@ def _read_linux_memory_speed():
                 if value:
                     return value
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
-
     return None
 
 
@@ -1374,6 +1394,7 @@ def _linux_command_output(command, timeout=3):
         if result.returncode == 0:
             return result.stdout or ""
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
     return ""
 
@@ -1404,6 +1425,7 @@ def _parse_linux_size_bytes(text):
     try:
         return int(float(match.group(1)) * scale)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return 0
 
 
@@ -1798,6 +1820,7 @@ def _read_codemeter_service_state():
         if result.returncode == 0 and result.stdout.strip():
             return "active"
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
     return "unknown"
 
@@ -1868,6 +1891,7 @@ def _parse_codemeter_output(text):
             parsed = datetime.fromisoformat(normalized.replace(" ", "T").replace("Z", "+00:00"))
             return (parsed.date() - datetime.now().date()).days
         except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return None
 
     def _append_license(target, seen, serial, code, expires_at="", validity="expires"):
@@ -2955,6 +2979,7 @@ def local_server_monitor_loop():
                 _annotate_report_timing(_build_local_machine_status(), now_iso, now_iso),
             )
         except Exception:
+            _log.debug("non-critical error suppressed", exc_info=True)
             pass
         time.sleep(LOCAL_MONITOR_INTERVAL_SEC)
 
@@ -7004,6 +7029,7 @@ def serialize_machine_rows(rows):
         try:
             conn_cmd.close()
         except Exception:
+            _log.debug("non-critical error suppressed", exc_info=True)
             pass
     for row in rows:
         report_online = False
@@ -7013,7 +7039,7 @@ def serialize_machine_rows(rows):
         status_data = {}
         try:
             status_data = json.loads(row[4]) if row[4] else {}
-        except:
+        except Exception:
             status_data = {}
         status_data = _sanitize_machine_payload(status_data)
         agent_status = status_data.get("agent", {}) if isinstance(status_data, dict) else {}
@@ -7027,7 +7053,7 @@ def serialize_machine_rows(rows):
         online_reference_at = server_received_at or row[3]
         if online_reference_at:
             try: report_online = (datetime.now() - datetime.fromisoformat(str(online_reference_at).replace('Z','+00:00')).replace(tzinfo=None)).total_seconds() < offline_window_sec
-            except: pass
+            except Exception: _log.debug("non-critical error suppressed", exc_info=True); pass
         runtime_freshness = _payload_runtime_freshness(status_data, server_received_at or row[3])
         has_runtime_metrics = _payload_has_runtime_metrics(status_data)
         runtime_fresh = bool(runtime_freshness.get("fresh"))
@@ -7122,6 +7148,7 @@ def serialize_machine_rows(rows):
                     add_log(-1, f"[状态变化][服务器] {name_text} {'在线' if current_online else '离线'}（状态识别）")
                 MACHINE_STATE_LOG_CACHE[cache_key] = current_online
         except Exception:
+            _log.debug("non-critical error suppressed", exc_info=True)
             pass
     return machines
 
@@ -7306,6 +7333,7 @@ def parse_arp_table():
                 if normalized_mac:
                     items.append({"ip": parts[0], "mac": normalized_mac, "type": parts[2]})
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
     return items
 
@@ -7339,6 +7367,7 @@ def ping_host(ip):
         )
         return result.returncode == 0
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return False
 
 def normalize_discovered_item(item, known_machines):

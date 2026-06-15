@@ -1,3 +1,8 @@
+# AI_MODULE: power_adapter
+# AI_PURPOSE: 强电适配层 — 统一不同品牌电柜的 Modbus 通道映射。
+# AI_BOUNDARY: 不直接通信；为 modbus_core 提供设备适配。
+# AI_DATA_FLOW: CONFIG cabinet config -> channel map -> modbus_core relay control。
+# AI_SEARCH_KEYWORDS: power, adapter, channel, relay, modbus.
 # drivers/power_adapter.py
 
 from .base import BaseDriver

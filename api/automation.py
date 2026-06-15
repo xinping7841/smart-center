@@ -18,6 +18,8 @@ from config import CONFIG, save_config
 from data_logger import add_log, load_logs
 from event_logger import query_events
 from runtime.automation import execute_scene, get_automation_runtime_snapshot
+from log_config import get_logger
+_log = get_logger(__name__)
 
 bp = Blueprint("automation", __name__)
 
@@ -57,6 +59,7 @@ def _normalize_hhmm(value, fallback="00:00"):
         hour = int(parts[0])
         minute = int(parts[1])
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return fallback
     if hour < 0 or hour > 23 or minute < 0 or minute > 59:
         return fallback
@@ -71,6 +74,7 @@ def _parse_log_time(value):
     try:
         return datetime.fromisoformat(normalized).timestamp()
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
     for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y/%m/%d %H:%M:%S"):
         try:
@@ -311,8 +315,8 @@ def api_automation_logs():
                 continue
             matched.append(converted)
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
-
     seen = set()
     unique = []
     for item in matched:

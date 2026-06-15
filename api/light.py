@@ -20,6 +20,8 @@ from config import CONFIG, LIGHT_ONLINE, LIGHT_STATUS
 from data_logger import add_log, load_logs
 from event_logger import record_event, record_state_change
 from runtime.automation import execute_scene
+from log_config import get_logger
+_log = get_logger(__name__)
 
 bp = Blueprint("light", __name__)
 LIGHT_LOGS_CACHE = {"expires_at": 0.0, "payload": []}
@@ -386,6 +388,7 @@ def api_light_control():
                             raw={"request": d, "fresh": fresh},
                         )
                     except Exception:
+                        _log.debug("non-critical error suppressed", exc_info=True)
                         pass
                     log_audit_event(
                         "light.channel.set",
@@ -442,6 +445,7 @@ def api_light_control():
                             raw={"result": result, "fresh": fresh},
                         )
                     except Exception:
+                        _log.debug("non-critical error suppressed", exc_info=True)
                         pass
                     log_audit_event(
                         "light.action.execute",

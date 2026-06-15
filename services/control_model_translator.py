@@ -1,3 +1,8 @@
+# AI_MODULE: control_model_translator
+# AI_PURPOSE: 控制指令翻译 — 将抽象控制意图翻译为具体设备协议命令。
+# AI_BOUNDARY: 不执行设备通信；只做指令格式转换。
+# AI_DATA_FLOW: 意图路由结果 -> 协议翻译 -> device command payload。
+# AI_SEARCH_KEYWORDS: translate, command, protocol, device, intent.
 """Local-model translator for natural-language control text.
 
 AI_MODULE: control_model_translator
@@ -21,6 +26,10 @@ from dataclasses import dataclass
 from typing import Any
 
 import requests
+from log_config import get_logger
+
+_log = get_logger(__name__)
+
 
 DEFAULT_LOCAL_MODEL_BASE_URL = "http://127.0.0.1:8001/v1"
 
@@ -68,6 +77,7 @@ def _extract_json_object(text: str) -> dict[str, Any] | None:
         parsed = json.loads(raw)
         return parsed if isinstance(parsed, dict) else None
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
     decoder = json.JSONDecoder()
     for index, char in enumerate(raw):

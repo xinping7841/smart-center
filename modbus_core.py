@@ -10,6 +10,9 @@ _MODBUS_DEBUG_LOCK = threading.Lock()
 _MODBUS_DEBUG_LAST = {}
 
 
+from log_config import get_logger as _get_logger
+_modbus_log = _get_logger("modbus_core")
+
 def _debug_log(key, message):
     if not MODBUS_DEBUG:
         return
@@ -19,7 +22,7 @@ def _debug_log(key, message):
         if now - last < MODBUS_DEBUG_THROTTLE_SEC:
             return
         _MODBUS_DEBUG_LAST[key] = now
-    print(message, flush=True)
+    _modbus_log.debug("%s", message)
 
 def calc_crc(data):
     crc = 0xFFFF
@@ -64,14 +67,14 @@ class ModbusClient:
             try:
                 self.sock.shutdown(socket.SHUT_RDWR)
                 self.sock.close()
-            except: pass
+            except Exception: _log.debug("non-critical error suppressed", exc_info=True); pass
             self.sock = None
 
     def _flush_input(self):
         try:
             self.sock.setblocking(False)
             while self.sock.recv(4096): pass
-        except: pass
+        except Exception: _log.debug("non-critical error suppressed", exc_info=True); pass
         finally: self.sock.settimeout(self.timeout)
 
     def _safe_communicate(self, payload, is_rtu=False):
@@ -133,7 +136,7 @@ def parse_pdu_relay(pdu, count):
             bits = []
             for i in range(count): bits.append(pdu[3 + i*2 + 1] == 1)
             return bits
-    except: return None
+    except Exception: _log.debug("error in fallback path", exc_info=True); return None
 
 def parse_av100_mode(p_mode, cab_conf):
     try: 
@@ -142,7 +145,7 @@ def parse_av100_mode(p_mode, cab_conf):
         elif mode_val == 1: return cab_conf["ui_text"]["label_mode_remote"]
         elif mode_val in [2, 3]: return cab_conf["ui_text"].get("label_mode_external", "卡控模式")
         return cab_conf["ui_text"]["label_mode_unknown"]
-    except: return cab_conf["ui_text"]["label_mode_unknown"]
+    except Exception: _log.debug("error in fallback path", exc_info=True); return cab_conf["ui_text"]["label_mode_unknown"]
 
 def parse_av100_env(p_env):
     try:
@@ -150,7 +153,7 @@ def parse_av100_env(p_env):
         hum = int.from_bytes(d[0:2], "big") * 0.1
         temp = int.from_bytes(d[2:4], "big") * 0.1
         return hum, temp
-    except: return 0.0, 0.0
+    except Exception: _log.debug("error in fallback path", exc_info=True); return 0.0, 0.0
 
 def parse_av100_meter(p_env, p_curr, mode="type1", ct_ratio=1.0):
     va, vb, vc, ia, ib, ic, energy = 0, 0, 0, 0, 0, 0, 0
@@ -209,13 +212,13 @@ def parse_av100_meter(p_env, p_curr, mode="type1", ct_ratio=1.0):
 
 def parse_pdu_smart_env(pdu):
     try: return int.from_bytes(pdu[3:5], "big")*0.1, int.from_bytes(pdu[5:7], "big")*0.1
-    except: return None
+    except Exception: _log.debug("error in fallback path", exc_info=True); return None
 def parse_pdu_smart_pwr(pdu):
     try:
         d = pdu[3:]
         return (int.from_bytes(d[0:2], "big")*0.1, int.from_bytes(d[2:4], "big")*0.1, int.from_bytes(d[4:6], "big")*0.1,
                 int.from_bytes(d[6:8], "big")*0.1, int.from_bytes(d[8:10], "big")*0.1, int.from_bytes(d[10:12], "big")*0.1)
-    except: return None
+    except Exception: _log.debug("error in fallback path", exc_info=True); return None
 def parse_prsense_env(pdu):
     try:
         # RTU 响应格式: 地址(1) 功能码(1) 字节数(1) 数据区(N)
@@ -254,7 +257,7 @@ def parse_prsense_env(pdu):
             "pressure": round(pressure, 1),
             "illuminance": lux
         }
-    except: return None
+    except Exception: _log.debug("error in fallback path", exc_info=True); return None
 
 try:
     from config import CONFIG
@@ -270,6 +273,7 @@ def init_modbus_clients():
         try:
             c.close()
         except Exception:
+            _log.debug("non-critical error suppressed", exc_info=True)
             pass
     cabinets = list((CONFIG or {}).get("cabinets", []))
     clients = {

@@ -1,3 +1,8 @@
+# AI_MODULE: xiaomi_cloud
+# AI_PURPOSE: 小米云服务接入 — 通过小米云 API 控制米家设备。
+# AI_BOUNDARY: 小米设备专用；其他品牌设备走各自的 driver。
+# AI_DATA_FLOW: 小米云 API -> 设备状态 -> miio_hvac / 前端。
+# AI_SEARCH_KEYWORDS: xiaomi, mi cloud, miio, mijia, IoT.
 from typing import Any, Dict, List, Optional
 
 

@@ -24,6 +24,8 @@ from services.home_assistant_bridge import merge_ha_cfg
 from services.miio_hvac import miio_hvac_service
 from services.xiaomi_cloud import fetch_xiaomi_cloud_devices, filter_xiaomi_devices
 from api.node_red import control_node_red_device, get_node_red_device_status
+from log_config import get_logger
+_log = get_logger(__name__)
 
 bp = Blueprint("hvac", __name__)
 
@@ -106,6 +108,7 @@ def _maybe_refresh_stale_ha_device(device, status):
     try:
         age_value = float(age_sec)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return False
     if age_value < 600:
         return False
@@ -333,6 +336,7 @@ def control_hvac():
                 raw={"detail": detail, "result": str(result), "status": refreshed},
             )
         except Exception:
+            _log.debug("non-critical error suppressed", exc_info=True)
             pass
         log_audit_event("hvac.control", target=str(device_id), detail=detail)
         return jsonify({"success": True, "msg": "控制成功", "result": str(result), "status": refreshed})
@@ -355,6 +359,7 @@ def control_hvac():
                 raw={"error": str(exc)},
             )
         except Exception:
+            _log.debug("non-critical error suppressed", exc_info=True)
             pass
         log_audit_event(
             "hvac.control",

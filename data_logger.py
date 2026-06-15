@@ -12,6 +12,10 @@ from paths import (
     ensure_parent_dir,
 )
 
+from log_config import get_logger
+_log = get_logger(__name__)
+
+
 BASE_DIR = str(DATA_DIR)
 PROJECT_NAME = os.path.basename(str(DATA_DIR))
 LOG_FILE = str(LOG_FILE_PATH)
@@ -26,6 +30,7 @@ def _safe_float(value, default=0.0):
             return float(default)
         return float(value)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return float(default)
 
 
@@ -34,6 +39,7 @@ def _read_json_file(path, default):
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return default
 
 
@@ -239,7 +245,8 @@ def load_logs(cab_idx=None):
             _LOG_CACHE["mtime"] = mtime
             _LOG_CACHE["logs"] = loaded if isinstance(loaded, list) else []
         logs = list(_LOG_CACHE["logs"])
-    except: 
+    except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return []
         
     cutoff = (datetime.now() - timedelta(days=30)).isoformat()
@@ -253,7 +260,7 @@ def add_log(cab_idx, operation):
     try:
         with open(LOG_FILE, "r", encoding="utf-8") as f:
             logs = json.load(f)
-    except:
+    except Exception:
         logs = []
         
     new_entry = {"time": datetime.now().isoformat(), "cab_idx": cab_idx, "operation": operation}
@@ -271,9 +278,8 @@ def add_log(cab_idx, operation):
     try:
         record_legacy_operation(cab_idx, operation)
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
-
-
 def add_structured_log(cab_idx, operation, category="system", detail=None, actor=None, status="ok"):
     detail = detail if isinstance(detail, dict) else {}
     actor = actor if isinstance(actor, dict) else {}
@@ -311,8 +317,8 @@ def add_structured_log(cab_idx, operation, category="system", detail=None, actor
         event_detail.setdefault("source", "system")
         record_legacy_operation(cab_idx, operation, category=category, status=status, detail=event_detail, actor=actor)
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
-
 def load_energy_log():
     return _normalize_energy_log(_read_json_file(ENERGY_LOG_FILE, {}))
 
@@ -323,9 +329,9 @@ def save_energy_log(data):
         ensure_parent_dir(ENERGY_LOG_PATH)
         with open(ENERGY_LOG_FILE, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-    except: 
+    except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
-
 init_energy_log()
 restore_energy_log_from_backups()
 restore_operation_logs_from_backups()

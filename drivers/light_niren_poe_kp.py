@@ -1,8 +1,17 @@
+# AI_MODULE: light_driver_niren_poe
+# AI_PURPOSE: 日能 POE 键盘面板灯光驱动 — POE 供电的键控灯光面板。
+# AI_BOUNDARY: 仅日能 POE 面板；不处理其他灯光协议。
+# AI_DATA_FLOW: CONFIG.light_groups -> UDP/TCP -> POE 面板 -> 继电器。
+# AI_SEARCH_KEYWORDS: niren, POE, keypad, light, relay.
 import socket
 import threading
 import time
 
 from .base import BaseDriver
+from log_config import get_logger
+
+_log = get_logger(__name__)
+
 
 
 def _crc16_modbus(data):
@@ -85,10 +94,12 @@ class NirenPoeKpRelayDriver(BaseDriver):
             try:
                 self.sock.shutdown(socket.SHUT_RDWR)
             except Exception:
+                _log.debug("non-critical error suppressed", exc_info=True)
                 pass
             try:
                 self.sock.close()
             except Exception:
+                _log.debug("non-critical error suppressed", exc_info=True)
                 pass
             self.sock = None
 

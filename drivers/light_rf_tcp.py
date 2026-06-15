@@ -1,3 +1,8 @@
+# AI_MODULE: light_driver_rf_tcp
+# AI_PURPOSE: RF TCP 灯光驱动 — 通过 TCP 转 RF 控制无线灯光模块。
+# AI_BOUNDARY: 仅 RF TCP 转接设备；不直接操作 RF。
+# AI_DATA_FLOW: CONFIG -> TCP relay -> RF transmitter -> 灯光接收器。
+# AI_SEARCH_KEYWORDS: RF, TCP, wireless, light, driver.
 import json
 import socket
 import threading

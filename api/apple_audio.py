@@ -17,6 +17,8 @@ from apple_audio_core import apple_audio_service
 from auth.decorators import require_permission
 from config import CONFIG, save_config
 from data_logger import add_log
+from log_config import get_logger
+_log = get_logger(__name__)
 
 bp = Blueprint("apple_audio", __name__)
 
@@ -144,6 +146,7 @@ def api_apple_audio_config():
         try:
             cfg["jamendo_limit"] = max(1, min(int(data.get("jamendo_limit")), 50))
         except Exception:
+            _log.debug("non-critical error suppressed", exc_info=True)
             pass
     _save_cfg(cfg)
     return jsonify({"success": True, "config": cfg, "state": apple_audio_service.snapshot()})
@@ -233,6 +236,7 @@ def api_apple_audio_stream(track_id):
             if end < start:
                 end = start
         except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return Response(status=416)
         length = end - start + 1
         response = Response(

@@ -28,6 +28,8 @@ from current_collector import (
     registers_to_currents,
 )
 from data_logger import add_log
+from log_config import get_logger
+_log = get_logger(__name__)
 
 
 bp = Blueprint("current_collector", __name__)
@@ -283,6 +285,7 @@ def _seconds_since_iso(value):
             now = datetime.now()
         return max((now - dt).total_seconds(), 0.0)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return None
 
 
@@ -301,6 +304,7 @@ def _is_push_source_allowed(config):
     try:
         remote_ip = ipaddress.ip_address(remote_addr)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return False, f"source host not allowed: {remote_addr}"
     for item in allowed_hosts:
         try:
@@ -334,6 +338,7 @@ def _apply_zero_deadband(value, config):
     try:
         number = float(value)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return None
     deadband = _coerce_float(
         config.get("zero_deadband_a"),

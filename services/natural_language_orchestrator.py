@@ -1,3 +1,8 @@
+# AI_MODULE: nl_orchestrator
+# AI_PURPOSE: 自然语言编排 — 协调意图识别、翻译和执行的全流程。
+# AI_BOUNDARY: 编排层，不直接访问设备；通过 api/* 和 services/* 间接控制。
+# AI_DATA_FLOW: 飞书消息 -> router -> translator -> device action -> 反馈。
+# AI_SEARCH_KEYWORDS: orchestrator, NL, pipeline, intent, feishu, automation.
 """Natural-language process policy and audit helpers.
 
 AI_MODULE: natural_language_orchestrator

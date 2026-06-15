@@ -17,6 +17,9 @@ import os
 import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from paths import PROJECTOR_BRANDS_FILE, RUNTIME_DIR, ensure_parent_dir
+from log_config import get_logger
+_log = get_logger(__name__)
+
 
 BRANDS_FILE = str(PROJECTOR_BRANDS_FILE)
 
@@ -62,6 +65,7 @@ def _read_inferred_projector_state():
     except FileNotFoundError:
         return {}
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return {}
 
 
@@ -84,6 +88,7 @@ def _current_inferred_meter_power(cabinet_idx=0):
     try:
         return float(power_kw), meter
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return None, meter
 
 
@@ -91,6 +96,7 @@ def _safe_float(value, default=None):
     try:
         return float(value)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return default
 
 
@@ -98,6 +104,7 @@ def _safe_int(value, default=0):
     try:
         return int(value)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return default
 
 
@@ -441,6 +448,7 @@ def _parse_iso_like_ts(value):
             normalized = normalized[:-2] + ":" + normalized[-2:]
         return datetime.fromisoformat(normalized).timestamp()
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return None
 
 
@@ -476,6 +484,7 @@ def _read_remote_cabinet_meter(cabinet_idx=0, timeout=2.0):
                 try:
                     cache_map[int(idx)] = dict(item)
                 except Exception:
+                    _log.debug("non-critical error suppressed", exc_info=True)
                     pass
         INFERRED_PROJECTOR_METER_CACHE.update({"expires_at": now + 1.5, "payload": cache_map})
         if cabinet_idx in cache_map:
@@ -779,7 +788,8 @@ def load_brand_library():
         try:
             with open(BRANDS_FILE, "r", encoding="utf-8") as f:
                 return sanitize_brand_library(json.load(f))
-        except:
+        except Exception:
+            _log.debug("non-critical error suppressed", exc_info=True)
             pass
     return {"brands": []}
 
@@ -891,10 +901,10 @@ class ProjectorDriver:
         self.control_type = self.cfg.get("control_type", "pjlink")
         
     def execute(self, cmd_config):
-        print(f"\n[Projector DEBUG] =========================================")
-        print(f"[Projector DEBUG] 准备控制投影机：{self.cfg.get('name', '未命名')} (ID: {self.cfg.get('id')})")
-        print(f"[Projector DEBUG] 品牌：{self.brand_id} | 协议：{self.control_type}")
-        print(f"[Projector DEBUG] 前端传入参数：{cmd_config}")
+        _log.debug(f"\n[Projector DEBUG] =========================================")
+        _log.debug(f"[Projector DEBUG] 准备控制投影机：{self.cfg.get('name', '未命名')} (ID: {self.cfg.get('id')})")
+        _log.debug(f"[Projector DEBUG] 品牌：{self.brand_id} | 协议：{self.control_type}")
+        _log.debug(f"[Projector DEBUG] 前端传入参数：{cmd_config}")
         
         # 兼容旧版的纯字符串调用
         if isinstance(cmd_config, str):
@@ -919,7 +929,7 @@ class ProjectorDriver:
             fmt = cmd_config.get("format", "hex")
             payload = self._apply_runtime_payload_rules(payload, fmt)
 
-        print(f"[Projector DEBUG] 最终解析 -> 协议模式：[{self.control_type}], 格式：[{fmt}], Payload: [{payload}]")
+        _log.debug(f"[Projector DEBUG] 最终解析 -> 协议模式：[{self.control_type}], 格式：[{fmt}], Payload: [{payload}]")
 
         if self.control_type == "inferred_rs232":
             return self._send_inferred_rs232_group(payload, fmt)
@@ -929,6 +939,7 @@ class ProjectorDriver:
                 try:
                     payload = bytes.fromhex(payload.replace(" ", "")).decode("ascii")
                 except Exception:
+                    _log.debug("non-critical error suppressed", exc_info=True)
                     pass
             return self._send_pjlink(payload)
         elif self.control_type in [
@@ -1039,7 +1050,7 @@ class ProjectorDriver:
                             break
                     payload = new_payload.hex(' ').upper()
             except Exception as e:
-                print(f"[Projector DEBUG] ID replace failed: {str(e)}")
+                _log.debug(f"[Projector DEBUG] ID replace failed: {str(e)}")
             return payload
         try:
             import re
@@ -1050,7 +1061,7 @@ class ProjectorDriver:
                 old_id = match.group(2)
                 payload = payload.replace(f'#{cmd_prefix}{old_id},', f'#{cmd_prefix}{device_id},')
         except Exception as e:
-            print(f"[Projector DEBUG] ID replace failed (str): {str(e)}")
+            _log.debug(f"[Projector DEBUG] ID replace failed (str): {str(e)}")
         return payload
 
     def _build_transport_payload(self, payload_raw, fmt):
@@ -1184,36 +1195,36 @@ class ProjectorDriver:
         ip = self.cfg.get("ip")
         port = int(self.cfg.get("port", 4352))
         password = self.cfg.get("password", "")
-        print(f"[Projector DEBUG] [PJLink] 正在连接 -> {ip}:{port}")
+        _log.debug(f"[Projector DEBUG] [PJLink] 正在连接 -> {ip}:{port}")
         try:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.settimeout(3.0)
                 s.connect((ip, port))
-                print(f"[Projector DEBUG] [PJLink] TCP 连接成功，等待设备握手...")
+                _log.debug(f"[Projector DEBUG] [PJLink] TCP 连接成功，等待设备握手...")
                 
                 init_res = s.recv(1024).decode('utf-8').strip()
-                print(f"[Projector DEBUG] [PJLink] 收到握手回码 -> {init_res}")
+                _log.debug(f"[Projector DEBUG] [PJLink] 收到握手回码 -> {init_res}")
                 
                 prefix = ""
                 if init_res.startswith("PJLINK 1"):
                     rand_str = init_res.split(" ")[2]
                     prefix = hashlib.md5((rand_str + password).encode('utf-8')).hexdigest()
-                    print(f"[Projector DEBUG] [PJLink] 已计算 MD5 认证前缀")
+                    _log.debug(f"[Projector DEBUG] [PJLink] 已计算 MD5 认证前缀")
                 elif not init_res.startswith("PJLINK 0"):
                     return False, f"PJLink 握手异常：{init_res}"
 
                 full_cmd = f"{prefix}{command}\r"
-                print(f"[Projector DEBUG] [PJLink] 最终发出报文 -> {full_cmd.strip()}")
+                _log.debug(f"[Projector DEBUG] [PJLink] 最终发出报文 -> {full_cmd.strip()}")
                 s.sendall(full_cmd.encode('utf-8'))
                 
                 res = s.recv(1024).decode('utf-8').strip()
-                print(f"[Projector DEBUG] [PJLink] 投影机最终返回 -> {res}")
+                _log.debug(f"[Projector DEBUG] [PJLink] 投影机最终返回 -> {res}")
                 
                 if "ERR" in res: return False, f"投影机报错：{res}"
                 return True, res
         except Exception as e:
             err_msg = f"{str(e)}"
-            print(f"[Projector DEBUG] [PJLink] 发生致命错误：{err_msg}\n{traceback.format_exc()}")
+            _log.debug(f"[Projector DEBUG] [PJLink] 发生致命错误：{err_msg}\n{traceback.format_exc()}")
             return False, f"PJLink 通讯失败：{err_msg}"
 
     def _open_pjlink_session(self):
@@ -1286,77 +1297,77 @@ class ProjectorDriver:
     def _send_tcp_raw(self, payload_raw, fmt):
         ip = self.cfg.get("ip")
         port = int(self.cfg.get("port", 502))
-        print(f"[Projector DEBUG] [TCP 透传] 正在连接 -> {ip}:{port}")
-        print(f"[Projector DEBUG] [TCP 透传] 超时设置：连接 5 秒，读取 2 秒")
+        _log.debug(f"[Projector DEBUG] [TCP 透传] 正在连接 -> {ip}:{port}")
+        _log.debug(f"[Projector DEBUG] [TCP 透传] 超时设置：连接 5 秒，读取 2 秒")
         try:
             if fmt == "hex":
                 payload = bytes.fromhex(payload_raw.replace(" ", ""))
             else:
                 payload = payload_raw.encode('utf-8').decode('unicode_escape').encode('utf-8')
                 
-            print(f"[Projector DEBUG] [TCP 透传] 实际发出的 16 进制数据 -> {payload.hex(' ').upper()}")
+            _log.debug(f"[Projector DEBUG] [TCP 透传] 实际发出的 16 进制数据 -> {payload.hex(' ').upper()}")
             
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.settimeout(5.0)  # 增加连接超时到 5 秒
-                print(f"[Projector DEBUG] [TCP 透传] 开始连接...")
+                _log.debug(f"[Projector DEBUG] [TCP 透传] 开始连接...")
                 s.connect((ip, port))
-                print(f"[Projector DEBUG] [TCP 透传] 连接成功，正在发送...")
+                _log.debug(f"[Projector DEBUG] [TCP 透传] 连接成功，正在发送...")
                 s.sendall(payload)
-                print(f"[Projector DEBUG] [TCP 透传] 数据已发送，等待响应...")
+                _log.debug(f"[Projector DEBUG] [TCP 透传] 数据已发送，等待响应...")
                 
                 time.sleep(0.3)  # 增加等待时间到 300ms
                 try:
                     s.settimeout(2.0)  # 增加读取超时到 2 秒
                     res = s.recv(1024)
                     if res:
-                        print(f"[Projector DEBUG] [TCP 透传] 收到的 16 进制返回 -> {res.hex(' ').upper()}")
+                        _log.debug(f"[Projector DEBUG] [TCP 透传] 收到的 16 进制返回 -> {res.hex(' ').upper()}")
                         return True, f"网关返回：{res.hex(' ').upper()}"
                     else:
-                        print(f"[Projector DEBUG] [TCP 透传] 连接被关闭，网关没有返回数据")
+                        _log.debug(f"[Projector DEBUG] [TCP 透传] 连接被关闭，网关没有返回数据")
                         return True, "已发送 (网关无返回)"
                 except socket.timeout:
-                    print(f"[Projector DEBUG] [TCP 透传] 读取超时！网关没有返回数据 (这通常是正常的)")
+                    _log.debug(f"[Projector DEBUG] [TCP 透传] 读取超时！网关没有返回数据 (这通常是正常的)")
                     return True, "已发送 (网关无返回)"
                 except Exception as e:
-                    print(f"[Projector DEBUG] [TCP 透传] 接收异常：{str(e)}")
+                    _log.debug(f"[Projector DEBUG] [TCP 透传] 接收异常：{str(e)}")
                     return True, "已发送 (接收异常)"
         except socket.timeout:
-            print(f"[Projector DEBUG] [TCP 透传] 连接超时！请检查 IP 地址和端口是否正确")
+            _log.debug(f"[Projector DEBUG] [TCP 透传] 连接超时！请检查 IP 地址和端口是否正确")
             return False, f"连接超时，请检查网络配置 (IP: {ip}, Port: {port})"
         except ConnectionRefusedError:
-            print(f"[Projector DEBUG] [TCP 透传] 连接被拒绝！目标设备可能未开机或端口未开放")
+            _log.debug(f"[Projector DEBUG] [TCP 透传] 连接被拒绝！目标设备可能未开机或端口未开放")
             return False, f"连接被拒绝，请检查设备是否开机 (IP: {ip}, Port: {port})"
         except Exception as e:
-            print(f"[Projector DEBUG] [TCP 透传] 发生异常：{str(e)}\n{traceback.format_exc()}")
+            _log.debug(f"[Projector DEBUG] [TCP 透传] 发生异常：{str(e)}\n{traceback.format_exc()}")
             return False, f"TCP 透传通讯失败：{str(e)}"
 
     def _send_udp_raw(self, payload_raw, fmt):
         ip = self.cfg.get("ip")
         port = int(self.cfg.get("port", 502))
-        print(f"[Projector DEBUG] [UDP 透传] 正在发送 -> {ip}:{port}")
+        _log.debug(f"[Projector DEBUG] [UDP 透传] 正在发送 -> {ip}:{port}")
         try:
             if fmt == "hex":
                 payload = bytes.fromhex(payload_raw.replace(" ", ""))
             else:
                 payload = payload_raw.encode('utf-8').decode('unicode_escape').encode('utf-8')
                 
-            print(f"[Projector DEBUG] [UDP 透传] 实际发出的 16 进制数据 -> {payload.hex(' ').upper()}")
+            _log.debug(f"[Projector DEBUG] [UDP 透传] 实际发出的 16 进制数据 -> {payload.hex(' ').upper()}")
             
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.settimeout(3.0)
             sock.sendto(payload, (ip, port))
-            print(f"[Projector DEBUG] [UDP 透传] 数据已发送")
+            _log.debug(f"[Projector DEBUG] [UDP 透传] 数据已发送")
             sock.close()
             
             return True, "UDP 已发送"
         except Exception as e:
-            print(f"[Projector DEBUG] [UDP 透传] 发生异常：{str(e)}\n{traceback.format_exc()}")
+            _log.debug(f"[Projector DEBUG] [UDP 透传] 发生异常：{str(e)}\n{traceback.format_exc()}")
             return False, f"UDP 透传通讯失败：{str(e)}"
 
     def _send_rs232(self, payload_raw, fmt):
         com_port = self.cfg.get("com_port")
         baudrate = int(self.cfg.get("baudrate", 9600))
-        print(f"[Projector DEBUG] [串口 RS232] 准备打开本地串口 -> {com_port} (波特率：{baudrate})")
+        _log.debug(f"[Projector DEBUG] [串口 RS232] 准备打开本地串口 -> {com_port} (波特率：{baudrate})")
         
         with self.lock:
             try:
@@ -1365,7 +1376,7 @@ class ProjectorDriver:
                 else:
                     payload = payload_raw.encode('utf-8').decode('unicode_escape').encode('utf-8')
                 
-                print(f"[Projector DEBUG] [串口 RS232] 实际发出的 16 进制数据 -> {payload.hex(' ').upper()}")
+                _log.debug(f"[Projector DEBUG] [串口 RS232] 实际发出的 16 进制数据 -> {payload.hex(' ').upper()}")
                 with serial.Serial(com_port, baudrate, timeout=1.5) as ser:
                     ser.flushInput()
                     ser.write(payload)
@@ -1373,13 +1384,13 @@ class ProjectorDriver:
                     res = ser.read_all()
                     
                     if not res:
-                        print(f"[Projector DEBUG] [串口 RS232] 投影机未返回任何数据")
+                        _log.debug(f"[Projector DEBUG] [串口 RS232] 投影机未返回任何数据")
                     else:
-                        print(f"[Projector DEBUG] [串口 RS232] 收到返回数据 -> HEX: {res.hex(' ').upper()} | STR: {res.decode('utf-8', errors='ignore')}")
+                        _log.debug(f"[Projector DEBUG] [串口 RS232] 收到返回数据 -> HEX: {res.hex(' ').upper()} | STR: {res.decode('utf-8', errors='ignore')}")
                         
                     return True, f"串口返回：{res.hex(' ').upper() if fmt=='hex' else res.decode('utf-8', errors='ignore')}"
             except Exception as e:
-                print(f"[Projector DEBUG] [串口 RS232] 发生异常：{str(e)}\n{traceback.format_exc()}")
+                _log.debug(f"[Projector DEBUG] [串口 RS232] 发生异常：{str(e)}\n{traceback.format_exc()}")
                 return False, f"串口通讯失败：{str(e)}"
 
     def _send_appotronics_dh_tcp(self, payload, fmt):
@@ -1387,11 +1398,11 @@ class ProjectorDriver:
         ip = self.cfg.get("ip")
         port = int(self.cfg.get("port", 9761))
 
-        print(f"\n{'='*60}")
-        print(f"[光峰 DH TCP] 开始发送指令")
-        print(f"{'='*60}")
-        print(f"[光峰 DH TCP] 目标地址: {ip}:{port}")
-        print(f"[光峰 DH TCP] 投影机名称: {self.cfg.get('name', '未命名')}")
+        _log.debug(f"\n{'='*60}")
+        _log.debug(f"[光峰 DH TCP] 开始发送指令")
+        _log.debug(f"{'='*60}")
+        _log.debug(f"[光峰 DH TCP] 目标地址: {ip}:{port}")
+        _log.debug(f"[光峰 DH TCP] 投影机名称: {self.cfg.get('name', '未命名')}")
 
         try:
             # 解析 payload
@@ -1400,24 +1411,24 @@ class ProjectorDriver:
             else:
                 payload_bytes = payload.encode('utf-8')
 
-            print(f"[光峰 DH TCP] 原始指令 (HEX): {payload}")
-            print(f"[光峰 DH TCP] 字节长度: {len(payload_bytes)} bytes")
-            print(f"[光峰 DH TCP] 字节数据: {' '.join(f'{b:02X}' for b in payload_bytes)}")
+            _log.debug(f"[光峰 DH TCP] 原始指令 (HEX): {payload}")
+            _log.debug(f"[光峰 DH TCP] 字节长度: {len(payload_bytes)} bytes")
+            _log.debug(f"[光峰 DH TCP] 字节数据: {' '.join(f'{b:02X}' for b in payload_bytes)}")
 
             # 建立 TCP 连接
-            print(f"[光峰 DH TCP] 正在建立 TCP 连接...")
+            _log.debug(f"[光峰 DH TCP] 正在建立 TCP 连接...")
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 s.settimeout(5.0)
                 s.connect((ip, port))
-                print(f"[光峰 DH TCP] [OK] TCP 连接成功")
+                _log.debug(f"[光峰 DH TCP] [OK] TCP 连接成功")
 
                 # 发送数据
-                print(f"[光峰 DH TCP] 正在发送数据...")
+                _log.debug(f"[光峰 DH TCP] 正在发送数据...")
                 s.sendall(payload_bytes)
-                print(f"[光峰 DH TCP] [OK] 数据发送成功")
+                _log.debug(f"[光峰 DH TCP] [OK] 数据发送成功")
 
                 # 等待响应
-                print(f"[光峰 DH TCP] 等待设备响应...")
+                _log.debug(f"[光峰 DH TCP] 等待设备响应...")
                 time.sleep(0.5)
                 s.settimeout(3.0)
 
@@ -1425,46 +1436,46 @@ class ProjectorDriver:
                     res = s.recv(1024)
                     if res:
                         res_hex = ' '.join(f'{b:02X}' for b in res)
-                        print(f"[光峰 DH TCP] [OK] 收到响应:")
-                        print(f"[光峰 DH TCP]   响应长度: {len(res)} bytes")
-                        print(f"[光峰 DH TCP]   响应数据: {res_hex}")
-                        print(f"{'='*60}\n")
+                        _log.debug(f"[光峰 DH TCP] [OK] 收到响应:")
+                        _log.debug(f"[光峰 DH TCP]   响应长度: {len(res)} bytes")
+                        _log.debug(f"[光峰 DH TCP]   响应数据: {res_hex}")
+                        _log.debug(f"{'='*60}\n")
                         return True, f"控制完成，响应：{res_hex}"
                     else:
-                        print(f"[光峰 DH TCP] [WARN] 连接被关闭，无响应数据")
-                        print(f"{'='*60}\n")
+                        _log.debug(f"[光峰 DH TCP] [WARN] 连接被关闭，无响应数据")
+                        _log.debug(f"{'='*60}\n")
                         return True, "已发送 (无响应)"
 
                 except socket.timeout:
-                    print(f"[光峰 DH TCP] [WARN] 读取超时 (3秒内无响应)")
-                    print(f"[光峰 DH TCP] 注: 部分指令可能不返回数据，这是正常的")
-                    print(f"{'='*60}\n")
+                    _log.debug(f"[光峰 DH TCP] [WARN] 读取超时 (3秒内无响应)")
+                    _log.debug(f"[光峰 DH TCP] 注: 部分指令可能不返回数据，这是正常的")
+                    _log.debug(f"{'='*60}\n")
                     return True, "已发送 (超时无响应)"
 
         except socket.timeout:
-            print(f"[光峰 DH TCP] [ERROR] 连接超时")
-            print(f"[光峰 DH TCP] 请检查:")
-            print(f"[光峰 DH TCP]   1. IP 地址是否正确: {ip}")
-            print(f"[光峰 DH TCP]   2. 端口是否正确: {port}")
-            print(f"[光峰 DH TCP]   3. 网络是否连通")
-            print(f"{'='*60}\n")
+            _log.debug(f"[光峰 DH TCP] [ERROR] 连接超时")
+            _log.debug(f"[光峰 DH TCP] 请检查:")
+            _log.debug(f"[光峰 DH TCP]   1. IP 地址是否正确: {ip}")
+            _log.debug(f"[光峰 DH TCP]   2. 端口是否正确: {port}")
+            _log.debug(f"[光峰 DH TCP]   3. 网络是否连通")
+            _log.debug(f"{'='*60}\n")
             return False, f"连接超时 (IP: {ip}, Port: {port})"
 
         except ConnectionRefusedError:
-            print(f"[光峰 DH TCP] [ERROR] 连接被拒绝")
-            print(f"[光峰 DH TCP] 可能原因:")
-            print(f"[光峰 DH TCP]   1. 投影机未开机")
-            print(f"[光峰 DH TCP]   2. 端口 {port} 未开放")
-            print(f"[光峰 DH TCP]   3. 防火墙阻止连接")
-            print(f"{'='*60}\n")
+            _log.debug(f"[光峰 DH TCP] [ERROR] 连接被拒绝")
+            _log.debug(f"[光峰 DH TCP] 可能原因:")
+            _log.debug(f"[光峰 DH TCP]   1. 投影机未开机")
+            _log.debug(f"[光峰 DH TCP]   2. 端口 {port} 未开放")
+            _log.debug(f"[光峰 DH TCP]   3. 防火墙阻止连接")
+            _log.debug(f"{'='*60}\n")
             return False, f"连接被拒绝 (IP: {ip}, Port: {port})"
 
         except Exception as e:
-            print(f"[光峰 DH TCP] [ERROR] 发生异常: {str(e)}")
-            print(f"[光峰 DH TCP] 异常详情:")
+            _log.debug(f"[光峰 DH TCP] [ERROR] 发生异常: {str(e)}")
+            _log.debug(f"[光峰 DH TCP] 异常详情:")
             import traceback
-            print(traceback.format_exc())
-            print(f"{'='*60}\n")
+            _log.debug("traceback: %s", traceback.format_exc())
+            _log.debug(f"{'='*60}\n")
             return False, f"通讯失败：{str(e)}"
 
     def _tcp_ping(self):
@@ -1476,7 +1487,8 @@ class ProjectorDriver:
                 s.settimeout(2.0)
                 s.connect((ip, port))
                 return True
-        except:
+        except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return False
 
     def _extract_response_hex(self, res):
@@ -1495,6 +1507,7 @@ class ProjectorDriver:
             res_hex = self._extract_response_hex(res)
             return bytes.fromhex(res_hex) if res_hex else None
         except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return None
 
     def get_status(self):
@@ -1728,8 +1741,8 @@ class ProjectorDriver:
                 try:
                     session.close()
                 except Exception:
+                    _log.debug("non-critical error suppressed", exc_info=True)
                     pass
-
         if self.control_type == "appotronics_dh_tcp":
             status["online"] = self._tcp_ping()
             if not status["online"]:
@@ -1751,7 +1764,7 @@ class ProjectorDriver:
                     if data_byte == 0x04:
                         status["error"] = "告警"
                 except Exception as e:
-                    print(f"[光峰 DH] 电源状态解析失败: {e}")
+                    _log.debug(f"[光峰 DH] 电源状态解析失败: {e}")
 
             power_on_state_resp = self._query_appotronics_dh_hex("EB 90 00 0C 00 00 08 02 00 0C 00 9D")
             if power_on_state_resp and len(power_on_state_resp) >= 11:
@@ -1760,30 +1773,30 @@ class ProjectorDriver:
                     if status["power"] in [None, "unknown", "warning"]:
                         status["power"] = "on" if power_on_state == 0x01 else "off"
                 except Exception:
+                    _log.debug("non-critical error suppressed", exc_info=True)
                     pass
-
             temp_resp = self._query_appotronics_dh_hex("EB 90 00 0C 00 00 08 01 80 5C 00 6C")
             if temp_resp and len(temp_resp) >= 11:
                 try:
                     status["temp"] = int(temp_resp[10])
                 except Exception:
+                    _log.debug("non-critical error suppressed", exc_info=True)
                     pass
-
             lamp_resp = self._query_appotronics_dh_hex("EB 90 00 0C 00 00 08 01 80 61 00 71")
             if lamp_resp and len(lamp_resp) >= 14:
                 try:
                     status["lamp_hours"] = int.from_bytes(lamp_resp[10:14], byteorder="big", signed=False)
                 except Exception:
+                    _log.debug("non-critical error suppressed", exc_info=True)
                     pass
-
             power_save_resp = self._query_appotronics_dh_hex("EB 90 00 0C 00 00 08 01 80 0A 00 1A")
             if power_save_resp and len(power_save_resp) >= 11:
                 try:
                     save_byte = power_save_resp[10]
                     status["other_info"] = f"节能模式: {'开启' if save_byte == 0x01 else '关闭'}"
                 except Exception:
+                    _log.debug("non-critical error suppressed", exc_info=True)
                     pass
-
             power_mode_resp = self._query_appotronics_dh_hex("EB 90 00 0C 00 00 08 02 00 0E 00 9F")
             if power_mode_resp and len(power_mode_resp) >= 11:
                 try:
@@ -1794,8 +1807,8 @@ class ProjectorDriver:
                     else:
                         status["other_info"] = f"上电模式: {mode_text}"
                 except Exception:
+                    _log.debug("non-critical error suppressed", exc_info=True)
                     pass
-
             return status
 
         if self.normalized_brand_id == "smile" and self.control_type in ["smile_ek_tcp", "smile_ek_udp", "smile_ek_com", "rs232"]:
@@ -1915,7 +1928,7 @@ class ProjectorDriver:
                             status_code = res_hex[-2:]  # 最后两个字符
                             status["power"] = status_parse['power'].get(status_code, f"未知 ({status_code})")
                     except Exception as e:
-                        print(f"[状态查询] 电源状态解析失败：{e}")
+                        _log.debug(f"[状态查询] 电源状态解析失败：{e}")
                 else:
                     # 旧版解析逻辑
                     if "1" in res:
@@ -1936,7 +1949,7 @@ class ProjectorDriver:
                         temp_val = int(res_hex[-4:-2], 16)
                         status["temp"] = temp_val
                 except Exception as e:
-                    print(f"[状态查询] 温度解析失败：{e}")
+                    _log.debug(f"[状态查询] 温度解析失败：{e}")
         
         # 查询灯泡时长
         if 'lamp_hours' in status_queries:
@@ -1951,7 +1964,7 @@ class ProjectorDriver:
                         hours_val = int(res_hex[-8:-4], 16)
                         status["lamp_hours"] = hours_val
                 except Exception as e:
-                    print(f"[状态查询] 灯泡时长解析失败：{e}")
+                    _log.debug(f"[状态查询] 灯泡时长解析失败：{e}")
         
         # 查询信号源状态
         if 'signal_source' in status_queries:
@@ -1966,7 +1979,7 @@ class ProjectorDriver:
                             source_code = res_hex[-2:]
                             status["source"] = status_parse['signal_source'].get(source_code, f"未知 ({source_code})")
                 except Exception as e:
-                    print(f"[状态查询] 信号源解析失败：{e}")
+                    _log.debug(f"[状态查询] 信号源解析失败：{e}")
         
         # 查询错误状态
         if 'error' in status_queries:
@@ -1982,6 +1995,6 @@ class ProjectorDriver:
                         else:
                             status["error"] = f"错误 ({error_code})"
                 except Exception as e:
-                    print(f"[状态查询] 错误状态解析失败：{e}")
+                    _log.debug(f"[状态查询] 错误状态解析失败：{e}")
         
         return status

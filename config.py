@@ -20,6 +20,10 @@ from paths import (
     ensure_parent_dir,
 )
 
+from log_config import get_logger
+_log = get_logger(__name__)
+
+
 CONFIG_FILE = str(CONFIG_FILE_PATH)
 SERVER_COMMANDS = {}
 
@@ -179,6 +183,7 @@ def _clone_rtsp_url_with_host(rtsp_url, host_value):
     try:
         parsed = urlsplit(base_url)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return base_url
     if not parsed.scheme:
         return base_url
@@ -1150,6 +1155,7 @@ def _load_projector_brand_commands_by_id(brand_cmd_id):
         with open(PROJECTOR_BRANDS_FILE, "r", encoding="utf-8") as f:
             data = sanitize_projector_brand_library(json.load(f))
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return []
     for brand in data.get("brands", []):
         if str(brand.get("id", "")).strip() == str(brand_cmd_id).strip():
@@ -1720,8 +1726,8 @@ def _select_preferred_outdoor_light_device_id(loaded_config):
             if int(light.get("channels", 0) or 0) == 1:
                 score += 2
         except Exception:
+            _log.debug("non-critical error suppressed", exc_info=True)
             pass
-
         for channel_cfg in light.get("channels_config", []) or []:
             if _contains_outdoor_hint(channel_cfg.get("name")):
                 score += 4
@@ -1847,7 +1853,7 @@ def load_config():
         try:
             with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 loaded_config.update(json.load(f))
-        except: pass
+        except Exception: _log.debug("non-critical error suppressed", exc_info=True); pass
         
     if not loaded_config.get("cabinets"): loaded_config["cabinets"] = [DEFAULT_CABINET.copy()]
     if "global_text" not in loaded_config: loaded_config["global_text"] = DEFAULT_UI_TEXT.copy()
@@ -2589,8 +2595,8 @@ def load_config():
         try:
             _write_config_file(loaded_config)
         except Exception:
+            _log.debug("non-critical error suppressed", exc_info=True)
             pass
-
     return loaded_config
 
 CONFIG = load_config()
@@ -2644,7 +2650,8 @@ def get_projector_brands():
         with open(PROJECTOR_BRANDS_FILE, "r", encoding="utf-8") as f:
             data = sanitize_projector_brand_library(json.load(f))
             return data.get("brands", [])
-    except:
+    except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return []
 
 def get_brand_commands(brand_id):

@@ -13,6 +13,10 @@ from copy import deepcopy
 from datetime import datetime
 
 from data_logger import add_log
+from log_config import get_logger
+
+_log = get_logger(__name__)
+
 
 
 DEFAULT_MQTT_ENV = {
@@ -134,12 +138,13 @@ class _SensorMqttClient:
         try:
             client.loop_stop()
         except Exception:
+            _log.debug("non-critical error suppressed", exc_info=True)
             pass
         try:
             client.disconnect()
         except Exception:
+            _log.debug("non-critical error suppressed", exc_info=True)
             pass
-
     def update_config(self, sensor_cfg):
         new_cfg = _merge_mqtt_cfg(sensor_cfg)
         if new_cfg == self.cfg:

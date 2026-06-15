@@ -1,3 +1,8 @@
+# AI_MODULE: driver_base
+# AI_PURPOSE: 设备驱动基类 — 定义所有设备驱动的统一接口。
+# AI_BOUNDARY: 不实现具体协议；子类实现 connect/send/close。
+# AI_DATA_FLOW: background pollers -> driver instance -> physical device。
+# AI_SEARCH_KEYWORDS: driver, base, interface, abstract, device.
 # drivers/base.py
 
 class BaseDriver:

@@ -37,6 +37,8 @@ from services.natural_language_orchestrator import (
     summarize_command_for_process,
 )
 from paths import CONFIG_FILE
+from log_config import get_logger as _get_logger
+
 
 try:
     import lark_oapi as lark
@@ -3162,7 +3164,7 @@ class FeishuBot:
         )
         self.intent_classifier = _build_intent_classifier(config)
         self.control_translator = _build_control_translator(config)
-        self.log = log or (lambda text: print(text, flush=True))
+        self.log = log or (lambda text: _get_logger('feishu_bot').info('%s', text))
         self.api_client = (
             lark.Client.builder()
             .app_id(config.app_id)

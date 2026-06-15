@@ -17,6 +17,8 @@ from auth.decorators import require_permission
 from config import CONFIG
 from runtime.state import SNMP_STATUS
 from snmp_core import poll_snmp_device
+from log_config import get_logger
+_log = get_logger(__name__)
 
 bp = Blueprint("snmp", __name__)
 
@@ -198,6 +200,7 @@ def _parse_updated_at(value):
     try:
         return datetime.fromisoformat(text)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return None
 
 

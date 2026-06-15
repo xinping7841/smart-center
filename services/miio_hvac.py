@@ -7,6 +7,10 @@
 # AI_COMPAT: Preserve status keys consumed by api/hvac.py and static/js/views/hvac-view.js.
 # AI_SEARCH_KEYWORDS: miio, xiaomi, hvac, air conditioner, normalize, HA freshness.
 from datetime import datetime
+from log_config import get_logger
+
+_log = get_logger(__name__)
+
 
 
 def _now_iso():
@@ -32,6 +36,7 @@ def _pick_attr(obj, names, default=None):
                 if value is not None:
                     return value
             except Exception:
+                _log.debug("non-critical error suppressed", exc_info=True)
                 pass
         if isinstance(obj, dict) and name in obj and obj.get(name) is not None:
             return obj.get(name)

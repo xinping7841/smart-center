@@ -15,6 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from flask import Flask, g, request, send_from_directory
 from werkzeug.serving import BaseWSGIServer, WSGIRequestHandler
+from security.csrf import init_csrf
 
 from api.auth_api import bp as auth_api_bp
 from api.apple_audio import bp as apple_audio_bp
@@ -48,6 +49,7 @@ from runtime import ensure_runtime_started, init_runtime, start_background_servi
 os.environ.pop("OPENCV_FFMPEG_CAPTURE_OPTIONS", None)
 
 app = Flask(__name__)
+init_csrf(app)
 app.config["SECRET_KEY"] = os.environ.get("SMART_POWER_SECRET_KEY", "smart-power-monitor-dev-secret")
 app.config["MAX_CONTENT_LENGTH"] = int(os.environ.get("SMART_POWER_MAX_CONTENT_LENGTH", 524288))
 app.config["SEND_FILE_MAX_AGE_DEFAULT"] = int(os.environ.get("SMART_CENTER_STATIC_MAX_AGE", "31536000"))
@@ -147,7 +149,9 @@ def load_request_user():
 
 @app.context_processor
 def inject_auth_context():
-    return {"current_user": get_current_user()}
+    from security.csrf import _generate_token, _get_cookie_token, COOKIE_NAME
+    token = _get_cookie_token() or _generate_token()
+    return {"current_user": get_current_user(), "csrf_token": token}
 
 
 @app.after_request
@@ -323,9 +327,11 @@ ensure_runtime_started()
 
 
 if __name__ == "__main__":
-    print(">>> [startup] 1/3 initialize runtime")
+    from log_config import get_logger
+    _startup_log = get_logger("smart-center.startup")
+    _startup_log.info("1/3 initialize runtime")
     init_runtime()
-    print(">>> [startup] 2/3 start background services")
+    _startup_log.info("2/3 start background services")
     start_background_services()
-    print(">>> [startup] 3/3 web server listening on :6899")
+    _startup_log.info("3/3 web server listening on :6899")
     serve_http(app)

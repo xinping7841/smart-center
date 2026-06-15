@@ -1,3 +1,8 @@
+# AI_MODULE: control_intent_router
+# AI_PURPOSE: 自然语言控制意图路由 — 将 NL 输入匹配到具体设备动作。
+# AI_BOUNDARY: 不执行设备通信；只做意图解析和路由决策。
+# AI_DATA_FLOW: 飞书消息/Agent -> 意图分类 -> 控制翻译器 -> 设备 API。
+# AI_SEARCH_KEYWORDS: intent, NLU, router, natural language, device control.
 """Conservative natural-language control router for Smart Center.
 
 AI_MODULE: control_intent_router

@@ -1,3 +1,7 @@
+# AI_MODULE: control_learning
+# AI_PURPOSE: 控制学习 — 从历史操作中学习设备控制模式。
+# AI_BOUNDARY: 不直接控制设备；输出学习结果供 orchestrator 使用。
+# AI_SEARCH_KEYWORDS: learning, pattern, history, control, training.
 """Persistent feedback memory for natural-language controls.
 
 AI_MODULE: control_learning

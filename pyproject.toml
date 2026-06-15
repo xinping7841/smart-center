@@ -1,0 +1,62 @@
+[project]
+name = "smart-center"
+version = "1.0.0"
+description = "演播中控调度引擎 — Smart Center Control System"
+requires-python = ">=3.12"
+dependencies = [
+    "Flask==3.0.0",
+    "fastapi==0.115.12",
+    "requests==2.33.1",
+    "modbus_tk==1.1.5",
+    "numpy==2.4.3",
+    "opencv-python==4.13.0.92",
+    "paho-mqtt==2.1.0",
+    "pysnmp==6.2.6",
+    "pyserial==3.5",
+    "python-miio==0.5.12",
+    "uvicorn==0.34.2",
+    "wakeonlan==3.1.0",
+    "lark-oapi==1.6.5",
+    "mutagen==1.47.0",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+exclude = [
+    ".venv",
+    "__pycache__",
+    "*.pyc",
+    "deploy/",
+    "meter_service/",
+    "music_tag_web/",
+    "backups/",
+    "tests/",
+    "scripts/",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "B",   # flake8-bugbear
+    "I",   # isort
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # do not perform function calls in argument defaults
+    "B904",  # raise without from inside except
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true
+check_untyped_defs = false
+warn_return_any = false
+warn_unused_ignores = false

@@ -20,6 +20,9 @@ import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from copy import deepcopy
 from xml.etree import ElementTree as ET
+from log_config import get_logger
+_log = get_logger(__name__)
+
 
 try:
     import serial
@@ -778,6 +781,7 @@ def payload_to_bytes(command, payload_text):
                 parsed = json.loads(text)
                 text = json.dumps(parsed, ensure_ascii=False)
             except Exception:
+                _log.debug("non-critical error suppressed", exc_info=True)
                 pass
         return text.encode("utf-8") + _line_ending_bytes(command.get("line_ending"))
     if fmt == "hex":
@@ -828,11 +832,13 @@ def _parse_host_range(host_text):
     try:
         start_ip = ipaddress.ip_address(start_text)
     except Exception:
+        _log.debug("error in fallback path", exc_info=True)
         return []
     if "." in end_text:
         try:
             end_ip = ipaddress.ip_address(end_text)
         except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return []
     else:
         try:
@@ -840,6 +846,7 @@ def _parse_host_range(host_text):
             start_parts = start_text.split(".")
             end_ip = ipaddress.ip_address(".".join(start_parts[:3] + [str(last)]))
         except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return []
     if start_ip.version != 4 or end_ip.version != 4 or int(end_ip) < int(start_ip):
         return []
@@ -881,6 +888,7 @@ def _bytes_preview(value):
         try:
             return value.decode("utf-8", errors="ignore")
         except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return value.hex(" ")
     return str(value or "")
 
@@ -969,12 +977,14 @@ def _coerce_osc_arg(value):
             number = int(str(value).strip())
             return "i", number, struct.pack(">i", number)
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
     try:
         number = float(str(value).strip())
         if str(value).strip() and re.search(r"[.eE]", str(value).strip()):
             return "f", number, struct.pack(">f", number)
     except Exception:
+        _log.debug("non-critical error suppressed", exc_info=True)
         pass
     text = str(value)
     return "s", text, _osc_pad(text.encode("utf-8"))
@@ -1201,6 +1211,7 @@ def _xlsx_cell_value(cell, shared_strings):
         try:
             return shared_strings[int(text)]
         except Exception:
+            _log.debug("error in fallback path", exc_info=True)
             return ""
     return text
 

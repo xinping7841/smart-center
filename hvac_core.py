@@ -4,6 +4,9 @@
 """
 import socket
 import struct
+from log_config import get_logger
+_log = get_logger(__name__)
+
 
 class HVACDriver:
     """温控设备驱动基类"""
@@ -44,9 +47,9 @@ class HVACDriver:
         try:
             if hasattr(self, 'sock'):
                 self.sock.close()
-        except:
+        except Exception:
+            _log.debug("non-critical error suppressed", exc_info=True)
             pass
-
     def read_status(self):
         """
         读取设备状态

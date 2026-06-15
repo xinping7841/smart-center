@@ -1,0 +1,50 @@
+{
+  "env": {
+    "browser": true,
+    "es2021": true
+  },
+  "extends": "eslint:recommended",
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "script"
+  },
+  "rules": {
+    "no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_"
+      }
+    ],
+    "no-undef": "warn",
+    "no-console": [
+      "warn",
+      {
+        "allow": [
+          "warn",
+          "error"
+        ]
+      }
+    ],
+    "no-var": "error",
+    "prefer-const": "warn",
+    "no-eval": "error",
+    "no-implied-eval": "error",
+    "no-new-func": "error"
+  },
+  "ignorePatterns": [
+    "static/vendor/**",
+    "static/*.min.js",
+    "*.gz"
+  ],
+  "globals": {
+    "SmartCenter": "readonly",
+    "showToast": "readonly",
+    "fetchJson": "readonly",
+    "fetchJsonLoose": "readonly",
+    "postJsonLoose": "readonly",
+    "escapeHtml": "readonly",
+    "hasPermission": "readonly",
+    "getPermissionDisabledAttrs": "readonly",
+    "getPermissionDisabledClass": "readonly"
+  }
+}
