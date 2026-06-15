@@ -9,7 +9,7 @@
 <body>
   <div class="layout">
     <aside class="sidebar">
-      <div class="logo">协议控制</div>
+      <div class="logo">{{ config.global_text.title_main if config.global_text else '展厅中控系统' }}</div>
       <ul class="nav-menu">
         {% for item in (config.sidebar|sort(attribute='sort') if config.sidebar else []) %}
           {% if item.visible %}
@@ -21,6 +21,37 @@
           </li>
           {% endif %}
         {% endfor %}
+        {% if not (config.sidebar|default([])|selectattr('id', 'equalto', 'logs')|list) %}
+        <li>
+          <a href="/#view-logs"><span class="nav-icon">🧾</span><span>日志中心</span></a>
+        </li>
+        {% endif %}
+        {% if not (config.sidebar|default([])|selectattr('id', 'equalto', 'sequencer')|list) %}
+        <li>
+          <a href="/#view-sequencer"><span class="nav-icon">🔌</span><span>时序电源</span></a>
+        </li>
+        {% endif %}
+        {% if config.hvac_devices|default([])|length > 0 and not (config.sidebar|default([])|selectattr('id', 'equalto', 'hvac')|list) %}
+        <li>
+          <a href="/#view-hvac"><span class="nav-icon">❄️</span><span>空调控制</span></a>
+        </li>
+        {% endif %}
+        {% if not (config.sidebar|default([])|selectattr('id', 'equalto', 'apple_audio')|list) %}
+        <li>
+          <a href="/#view-apple_audio"><span class="nav-icon">🎼</span><span>音乐播放器</span></a>
+        </li>
+        {% endif %}
+        {% if current_user and (
+          (current_user.role|string|lower == 'admin')
+          or (current_user.account_category|string|lower == 'admin')
+          or ('system.config' in (current_user.permissions or []))
+          or ('auth.manage' in (current_user.permissions or []))
+          or ('meter.config' in (current_user.permissions or []))
+        ) %}
+        <li class="system-link">
+          <a href="/config"><span class="nav-icon">⚙</span><span>{{ config.global_text.system_config if config.global_text else '系统配置' }}</span></a>
+        </li>
+        {% endif %}
       </ul>
       <div class="sys-info">Smart Center<br>电流采集</div>
     </aside>

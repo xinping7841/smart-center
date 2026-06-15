@@ -16,6 +16,7 @@ import ipaddress
 from flask import Blueprint, jsonify, render_template, request
 
 from auth.decorators import require_permission
+from auth.session import get_current_user
 from config import CONFIG, save_config
 from current_collector import (
     CurrentCollector,
@@ -491,7 +492,7 @@ def ensure_poll_thread_started():
 def current_collector_page():
     if get_current_collector_config().get("source_mode") != "push":
         ensure_poll_thread_started()
-    return render_template("current_collector.html", config=CONFIG)
+    return render_template("current_collector.html", config=CONFIG, current_user=get_current_user())
 
 
 @bp.route("/api/current-collector/status")
