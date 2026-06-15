@@ -9,7 +9,7 @@
 ## 1. 获取代码
 
 ```bash
-git clone node-120-ts:/srv/git/smart-center-clean.git
+git clone -b handoff/12700k-baseline https://github.com/xinping7841/smart-center.git smart-center-clean
 cd smart-center-clean
 git log --oneline -3   # 最新: d3315ab
 ```
@@ -191,7 +191,7 @@ urllib.error.URLError / HTTPError                   →  requests.RequestExcepti
 
 ```bash
 # 1. 克隆
-git clone node-120-ts:/srv/git/smart-center-clean.git
+git clone -b handoff/12700k-baseline https://github.com/xinping7841/smart-center.git smart-center-clean
 cd smart-center-clean
 
 # 2. 创建 venv
