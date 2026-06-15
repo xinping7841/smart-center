@@ -1,0 +1,15 @@
+{
+  "task": "node-red-pending-confirm-clear",
+  "module": "frontend_controls",
+  "machine": "12700k",
+  "kind": "light",
+  "branch": "codex/12700k-node-red-pending-confirm-clear-20260615",
+  "worktree": "D:\\IDE\\AI\\smart-center-worktrees\\node-red-pending-confirm-clear",
+  "started_at": "2026-06-15 21:33:52",
+  "status": "deploy_verify",
+  "verified": [
+    "python -m compileall api/node_red.py",
+    "git diff --check",
+    "local stale-readback target hold and confirm-clear simulation"
+  ]
+}

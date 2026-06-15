@@ -282,6 +282,17 @@ def _normalize_device_payload(device_id, payload, meta=None, transport_error="",
     return normalized
 
 
+def _clear_confirmed_inflight(device_id, normalized):
+    target_status = str((normalized or {}).get("target_status") or "").strip().lower()
+    if target_status not in {"on", "off"}:
+        return False
+    current_status = str((normalized or {}).get("status") or "").strip().lower()
+    if current_status != target_status:
+        return False
+    _finish_control_inflight(device_id)
+    return True
+
+
 def get_node_red_device_status(device_id, include_control_pending=True):
     meta = _device_meta(device_id)
     if not meta:
@@ -291,6 +302,8 @@ def get_node_red_device_status(device_id, include_control_pending=True):
         if code >= 400:
             raise RuntimeError(f"HTTP {code}: {payload}")
         normalized = _normalize_device_payload(device_id, payload, meta=meta, include_control_pending=include_control_pending)
+        if include_control_pending and _clear_confirmed_inflight(device_id, normalized):
+            normalized = _normalize_device_payload(device_id, payload, meta=meta, include_control_pending=include_control_pending)
     except Exception as exc:
         cached = deepcopy(STATE_CACHE.get(device_id) or {})
         normalized = _normalize_device_payload(
