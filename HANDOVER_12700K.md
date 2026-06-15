@@ -8,14 +8,26 @@
 
 ## 1. 获取代码
 
+
+> **所有机器都用 GitHub 作为 origin。** node-120 生产机额外加 `production` remote：
+> `git remote add production node-120-ts:/srv/git/smart-center-clean.git`
+> 本机已有 production remote，12700K 不需要。
 ```bash
-git clone -b handoff/12700k-baseline https://github.com/xinping7841/smart-center.git smart-center-clean
+git clone git@github.com:xinping7841/smart-center.git smart-center-clean
 cd smart-center-clean
 git log --oneline -3   # 最新: d3315ab
 ```
 
+
+> **所有机器都用 GitHub 作为 origin。** node-120 生产机额外加 `production` remote：
+> `git remote add production node-120-ts:/srv/git/smart-center-clean.git`
+> 本机已有 production remote，12700K 不需要。
 remote `origin` 指向 node-120 的 bare repo (`/srv/git/smart-center-clean.git`)，post-receive 已配自动推 GitHub (`xinping7841/smart-center`)。push origin 即可双向同步。
 
+
+> **所有机器都用 GitHub 作为 origin。** node-120 生产机额外加 `production` remote：
+> `git remote add production node-120-ts:/srv/git/smart-center-clean.git`
+> 本机已有 production remote，12700K 不需要。
 ## 2. 项目身份
 
 **演播中控调度引擎** — 运行在 node-120 (100.80.138.78) 上的场馆设备集中控制系统。
@@ -191,7 +203,7 @@ urllib.error.URLError / HTTPError                   →  requests.RequestExcepti
 
 ```bash
 # 1. 克隆
-git clone -b handoff/12700k-baseline https://github.com/xinping7841/smart-center.git smart-center-clean
+git clone git@github.com:xinping7841/smart-center.git smart-center-clean
 cd smart-center-clean
 
 # 2. 创建 venv
