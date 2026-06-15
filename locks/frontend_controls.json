@@ -1,0 +1,11 @@
+﻿{
+    "module":  "frontend_controls",
+    "owner_machine":  "12700k",
+    "owner_branch":  "codex/12700k-current-collector-sidebar-unify-20260615",
+    "task":  "current-collector-sidebar-unify",
+    "kind":  "light",
+    "worktree":  "D:\\IDE\\AI\\smart-center-worktrees\\current-collector-sidebar-unify",
+    "started_at":  "2026-06-15 22:59:33",
+    "expected_until":  "",
+    "note":  "created by scripts/collab/start-work.ps1"
+}
