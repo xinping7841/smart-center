@@ -11,8 +11,11 @@
 
     const SmartCenter = global.SmartCenter || (global.SmartCenter = {});
     const utils = SmartCenter.utils || {};
+    const LIGHT_CHANNEL_TARGET_UI_MS = 6000;
+    const LIGHT_CHANNEL_VERIFY_HOLD_MS = 30000;
     const state = SmartCenter.lightRuntime = Object.assign({
         lightLocks: {},
+        lightDesiredStates: {},
         lightStates: {},
         lightInputStates: {},
         lightOnlineStates: {},
@@ -62,6 +65,7 @@
             const devId = String(dev?.id ?? '');
             if (!devId) return;
             state.lightLocks[devId] = state.lightLocks[devId] || {};
+            state.lightDesiredStates[devId] = state.lightDesiredStates[devId] || {};
             state.lightStates[devId] = state.lightStates[devId] || [];
             state.lightInputStates[devId] = state.lightInputStates[devId] || [];
             if (state.lightOnlineStates[devId] === undefined) state.lightOnlineStates[devId] = false;
@@ -85,6 +89,8 @@
     function getLightChannelStateFromSources(devId, chNum, channelsMap = {}) {
         const devKey = String(devId);
         const channelNo = Number(chNum);
+        const desired = state.lightDesiredStates[devKey]?.[channelNo];
+        if (desired && Date.now() - desired.ts < LIGHT_CHANNEL_TARGET_UI_MS) return desired.target;
         const apiSources = [
             (channelsMap || {})[devId],
             (channelsMap || {})[devKey],
@@ -238,6 +244,37 @@
         return name || remark || fallback;
     }
 
+    function setLightDesiredState(devId, chNum, targetState) {
+        const devKey = String(devId);
+        const channelNo = Number(chNum);
+        state.lightDesiredStates[devKey] = state.lightDesiredStates[devKey] || {};
+        state.lightDesiredStates[devKey][channelNo] = { target: !!targetState, ts: Date.now(), confirmed: false };
+        state.lightStates[devKey] = state.lightStates[devKey] || [];
+        state.lightStates[devKey][channelNo] = !!targetState;
+    }
+
+    function clearLightDesiredState(devId, chNum) {
+        const desired = state.lightDesiredStates[String(devId)];
+        if (desired) delete desired[Number(chNum)];
+    }
+
+    function shouldAcceptLightState(devId, chNum, incomingState) {
+        const devKey = String(devId);
+        const channelNo = Number(chNum);
+        const desired = state.lightDesiredStates[devKey]?.[channelNo];
+        if (!desired) return true;
+        const normalized = normalizeLightChannelState(incomingState);
+        const age = Date.now() - desired.ts;
+        if (normalized === desired.target) {
+            desired.confirmed = true;
+            desired.confirmedAt = Date.now();
+            return true;
+        }
+        if (age < LIGHT_CHANNEL_VERIFY_HOLD_MS) return false;
+        clearLightDesiredState(devKey, channelNo);
+        return true;
+    }
+
     function renderDashboardInputSummary(device, extraMeta, compact = false, context = {}) {
         const inputs = Array.isArray(extraMeta?.inputs) ? extraMeta.inputs : [];
         const visibleInputs = getVisibleLightInputs(device);
@@ -388,6 +425,7 @@
         state.lightStates[devKey] = state.lightStates[devKey] || [];
         channels.forEach((channelState, idx) => {
             const chNum = idx + 1;
+            if (!shouldAcceptLightState(devKey, chNum, channelState)) return;
             state.lightStates[devKey][chNum] = channelState;
             renderLightChannel(devKey, chNum);
         });
@@ -411,15 +449,17 @@
         state.lightLocks[devKey] = state.lightLocks[devKey] || {};
         state.lightStates[devKey] = state.lightStates[devKey] || [];
         state.lightLocks[devKey][chNum] = Date.now();
-        state.lightStates[devKey][chNum] = targetState;
+        setLightDesiredState(devKey, chNum, targetState);
         renderLightChannel(devKey, chNum);
         if (typeof ctx.postJsonLoose !== 'function') {
+            clearLightDesiredState(devKey, chNum);
             ctx.showToast('灯光控制运行库缺少请求方法', true);
             return Promise.resolve(false);
         }
         return ctx.postJsonLoose('/api/light/control', { type: 'single', device_id: devKey, channel: chNum, is_open: targetState }, '灯光控制请求失败')
             .then(data => {
                 if (!data.success) {
+                    clearLightDesiredState(devKey, chNum);
                     state.lightStates[devKey][chNum] = status;
                     renderLightChannel(devKey, chNum);
                     ctx.showToast(data.msg || '灯光控制失败', true);
@@ -431,6 +471,7 @@
                 return data;
             })
             .catch(err => {
+                clearLightDesiredState(devKey, chNum);
                 state.lightStates[devKey][chNum] = status;
                 renderLightChannel(devKey, chNum);
                 ctx.showToast(ctx.translateApiError(err?.message, '灯光控制请求失败'), true);
@@ -439,7 +480,7 @@
             .finally(() => {
                 setTimeout(() => {
                     if (state.lightLocks[devKey]) delete state.lightLocks[devKey][chNum];
-                }, 1200);
+                }, LIGHT_CHANNEL_VERIFY_HOLD_MS);
             });
     }
 
@@ -548,7 +589,7 @@
                     state.lightStates[devKey] = state.lightStates[devKey] || [];
                     (data.channels?.[rawDevId] || data.channels?.[devKey] || []).forEach((channelState, idx) => {
                         const chNum = idx + 1;
-                        if (locks[chNum] && (Date.now() - locks[chNum] < 2000)) return;
+                        if (locks[chNum] && !shouldAcceptLightState(devKey, chNum, channelState)) return;
                         state.lightStates[devKey][chNum] = channelState;
                         renderLightChannel(devKey, chNum);
                     });
@@ -578,6 +619,7 @@
     const api = {
         getStateSnapshot: () => ({
             lightLocks: state.lightLocks,
+            lightDesiredStates: state.lightDesiredStates,
             lightStates: state.lightStates,
             lightInputStates: state.lightInputStates,
             lightOnlineStates: state.lightOnlineStates,

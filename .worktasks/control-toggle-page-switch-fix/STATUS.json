@@ -1,0 +1,17 @@
+{
+  "task": "control-toggle-page-switch-fix",
+  "module": "frontend_controls",
+  "machine": "12700k",
+  "kind": "light",
+  "branch": "codex/12700k-control-toggle-page-switch-fix-20260615",
+  "worktree": "D:\\IDE\\AI\\smart-center-worktrees\\control-toggle-page-switch-fix",
+  "started_at": "2026-06-15 20:37:13",
+  "status": "ready_to_finish",
+  "verified": [
+    "node --check static/js/app-runtime.js",
+    "node --check static/js/views/light-runtime.js",
+    "node --check static/js/views/universal.js",
+    "python -m compileall app.py api services runtime config.py background.py power.py snmp_core.py",
+    "git diff --check"
+  ]
+}

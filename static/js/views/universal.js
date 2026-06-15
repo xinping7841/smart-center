@@ -14,6 +14,10 @@
     const utils = SmartCenter.utils || {};
     const nodeRedPending = {};
     const nodeRedCooldownUntil = {};
+    const nodeRedDesiredStates = {};
+    const protocolDesiredStates = {};
+    const CONTROL_TARGET_UI_MS = 6000;
+    const CONTROL_VERIFY_HOLD_MS = 30000;
     const protocolReadCache = {};
     let universalRendered = false;
 
@@ -552,14 +556,48 @@
         if (label) label.textContent = text || (state === true ? '正常' : (state === false ? '断开' : '异常'));
     }
 
+    function getProtocolCardId(card) {
+        return String(card?.dataset?.target || card?.dataset?.readDo || card?.dataset?.doOn || card?.dataset?.doOff || '').trim();
+    }
+
+    function setProtocolDesiredState(card, target) {
+        const id = getProtocolCardId(card);
+        if (!id) return;
+        protocolDesiredStates[id] = { target: !!target, ts: nowMs(), confirmed: false };
+    }
+
+    function clearProtocolDesiredState(card) {
+        const id = getProtocolCardId(card);
+        if (id) delete protocolDesiredStates[id];
+    }
+
+    function shouldAcceptProtocolOutput(card, value) {
+        const id = getProtocolCardId(card);
+        const desired = id ? protocolDesiredStates[id] : null;
+        if (!desired || value === null || value === undefined) return true;
+        const age = nowMs() - desired.ts;
+        if (!!value === desired.target) {
+            desired.confirmed = true;
+            desired.confirmedAt = nowMs();
+            return true;
+        }
+        if (age < CONTROL_VERIFY_HOLD_MS) return false;
+        clearProtocolDesiredState(card);
+        return true;
+    }
+
     function applyProtocolOutput(card, value) {
         const toggle = card.querySelector('[data-role="do-toggle"]');
         const switchText = card.querySelector('[data-text="switch"]');
+        const cardId = getProtocolCardId(card);
+        const desired = cardId ? protocolDesiredStates[cardId] : null;
+        let displayValue = value;
+        if (desired && nowMs() - desired.ts < CONTROL_TARGET_UI_MS) displayValue = desired.target;
         if (toggle) {
-            toggle.checked = value === true;
-            toggle.disabled = value === null;
+            toggle.checked = displayValue === true;
+            toggle.disabled = displayValue === null;
         }
-        if (switchText) switchText.textContent = value === true ? '当前输出：开' : (value === false ? '当前输出：关' : '状态读取失败');
+        if (switchText) switchText.textContent = displayValue === true ? '当前输出：开' : (displayValue === false ? '当前输出：关' : '状态读取失败');
     }
 
     function setProtocolNote(card, text, isWarn = false) {
@@ -587,8 +625,11 @@
                 else if (okCount === 1 || hasDisplayState) setProtocolLamp(card, 'health', null, '部分异常');
                 else setProtocolLamp(card, 'health', false, '异常');
                 setProtocolLamp(card, 'di', diState.value, diState.text);
-                setProtocolLamp(card, 'do', doState.value, doState.text);
-                applyProtocolOutput(card, doState.value);
+                const acceptedDoValue = shouldAcceptProtocolOutput(card, doState.value)
+                    ? doState.value
+                    : protocolDesiredStates[getProtocolCardId(card)]?.target;
+                setProtocolLamp(card, 'do', acceptedDoValue, doState.text);
+                applyProtocolOutput(card, acceptedDoValue);
                 const describeIssue = (label, state) => {
                     if (state.ok) return '';
                     if (state.stale) return `${label}本次失败(${state.failures})，保留${formatTimeShort(state.cachedAt)}`;
@@ -676,6 +717,9 @@
             input.checked = !input.checked;
             return;
         }
+        const previousChecked = !input.checked;
+        setProtocolDesiredState(card, input.checked);
+        applyProtocolOutput(card, input.checked);
         input.disabled = true;
         postJson('/api/control_center/execute', { control_id: controlId, params: {} }, '协议输出控制失败')
             .then(data => {
@@ -684,8 +728,9 @@
                 setTimeout(() => updateProtocolDeviceCard(card), 260);
             })
             .catch(err => {
+                clearProtocolDesiredState(card);
                 notify(err.message || '输出控制失败', true);
-                input.checked = !input.checked;
+                input.checked = previousChecked;
             })
             .finally(() => { setTimeout(() => { input.disabled = false; }, 360); });
     }
@@ -697,6 +742,9 @@
         const id = String(device?.device_id || '');
         const remaining = getNodeRedCooldownRemainingSec(id, device);
         if (nodeRedPending[id] || remaining > 0 || isNodeRedControlPending(device)) return 'is-busy';
+        const desired = getNodeRedDesiredState(id, device);
+        if (desired === true) return 'is-on';
+        if (desired === false) return 'is-off';
         if (status === 'on') return 'is-on';
         if (status === 'off') return 'is-off';
         if (['starting', 'stopping', 'pending_ack', 'partial'].includes(status)) return 'is-busy';
@@ -706,13 +754,55 @@
 
     function nodeRedActionLabel(device) {
         const status = String(device?.status || '').toLowerCase();
+        const desired = getNodeRedDesiredState(device?.device_id, device);
+        if (desired === true) return '关灯';
+        if (desired === false) return '开灯';
         if (status === 'on' || status === 'starting' || status === 'pending_ack') return '\u5173\u706f';
         return '\u5f00\u706f';
     }
 
     function nodeRedActionForToggle(device) {
         const status = String(device?.status || '').toLowerCase();
+        const desired = getNodeRedDesiredState(device?.device_id, device);
+        if (desired === true) return 'off';
+        if (desired === false) return 'on';
         return status === 'on' || status === 'starting' || status === 'pending_ack' ? 'off' : 'on';
+    }
+
+    function normalizeNodeRedDesiredState(value) {
+        const text = String(value || '').toLowerCase();
+        if (text === 'on') return true;
+        if (text === 'off') return false;
+        return null;
+    }
+
+    function getNodeRedDesiredState(deviceId, device = null) {
+        const id = String(deviceId || device?.device_id || '');
+        if (!id) return null;
+        const desired = nodeRedDesiredStates[id];
+        if (!desired) return null;
+        const status = String(device?.status || '').toLowerCase();
+        const actual = status === 'on' ? true : (status === 'off' ? false : null);
+        if (actual === desired.target) {
+            desired.confirmed = true;
+            desired.confirmedAt = nowMs();
+            return actual;
+        }
+        if (nowMs() - desired.ts < CONTROL_VERIFY_HOLD_MS) return desired.target;
+        delete nodeRedDesiredStates[id];
+        return actual;
+    }
+
+    function setNodeRedDesiredState(deviceId, action) {
+        const id = String(deviceId || '');
+        const target = normalizeNodeRedDesiredState(action);
+        if (!id || target === null) return;
+        nodeRedDesiredStates[id] = { target, ts: nowMs(), confirmed: false };
+    }
+
+    function clearNodeRedDesiredState(deviceId) {
+        const id = String(deviceId || '');
+        if (id) delete nodeRedDesiredStates[id];
     }
 
     function nodeRedHealthText(device) {
@@ -750,6 +840,9 @@
         if (nodeRedPending[id]) return '\u6267\u884c\u4e2d';
         if (isNodeRedControlPending(device)) return '\u56de\u8bfb\u4e2d';
         if (remaining > 0) return `\u4fdd\u62a4 ${remaining}s`;
+        const desired = getNodeRedDesiredState(id, device);
+        if (desired === true) return '亮';
+        if (desired === false) return '暗';
         const status = String(device?.status || '').toLowerCase();
         if (status === 'on') return '\u4eae';
         if (status === 'off') return '\u6697';
@@ -789,7 +882,8 @@
         const disabled = id ? '' : 'disabled';
         const safeId = escapeHtml(id);
         const action = nodeRedActionForToggle(device);
-        const checked = String(device?.status || '').toLowerCase() === 'on' ? 'checked' : '';
+        const desired = getNodeRedDesiredState(id, device);
+        const checked = (desired === true || (desired === null && String(device?.status || '').toLowerCase() === 'on')) ? 'checked' : '';
         const remaining = getNodeRedCooldownRemainingSec(id, device);
         const isPending = !!nodeRedPending[id] || isNodeRedControlPending(device);
         const controlDisabled = disabled || isPending || remaining > 0 ? 'disabled' : '';
@@ -853,6 +947,7 @@
             return Promise.resolve({});
         }
         nodeRedPending[id] = true;
+        setNodeRedDesiredState(id, action);
         if (inputEl) inputEl.disabled = true;
         notify('Node-RED \u6307\u4ee4\u4e0b\u53d1\u4e2d...', false);
         return postJsonAllowHttpError('/api/node-red/device/' + encodeURIComponent(id) + '/control', { action })
@@ -870,9 +965,11 @@
                     nodeRedCooldownUntil[id] = nowMs() + retrySec * 1000;
                 }
                 notify('\u6267\u884c\u5931\u8d25: ' + (data.msg || data.message || '\u672a\u77e5\u9519\u8bef'), true);
+                clearNodeRedDesiredState(id);
                 return updateNodeRedDevices(true);
             })
             .catch(error => {
+                clearNodeRedDesiredState(id);
                 notify(error.message || '\u7f51\u7edc\u8bf7\u6c42\u9519\u8bef', true);
                 return updateNodeRedDevices(true);
             })

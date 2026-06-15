@@ -3,7 +3,7 @@
         // AI_BOUNDARY: 模板变量由 templates/index.html 注入；本文件只消费 configData/currentUser。
         // AI_DATA_FLOW: configData + API 响应 -> DOM 渲染；用户点击 -> 首页巡屏守卫或各 /api/* 控制接口。
         // AI_RISK: 高，保留真实设备控制链路，拆分时不得改变 payload 和权限判断；巡屏开启时必须阻断控制与配置入口。
-        const lazyModuleVersion = '20260608-stable-shell-sidebar-v1';
+        const lazyModuleVersion = '20260615-control-toggle-page-switch-v1';
         const lazyStyle = name => `/static/css/generated/${name}.css?v=${lazyModuleVersion}`;
         const wideUiStyle = `/static/css/views/ui-wide-1080.css?v=${lazyModuleVersion}`;
         const withWideUiStyle = styles => [...styles, wideUiStyle];
@@ -1658,8 +1658,7 @@
             const mode = String(params.get('display_mode') || params.get('mode') || '').toLowerCase();
             if (['carousel', 'rotation', 'rotate'].includes(mode)) return true;
             if (isTruthyConfig(params.get('carousel')) || isTruthyConfig(params.get('sidebar_carousel')) || isTruthyConfig(params.get('auto_rotate'))) return true;
-            const cfg = getSidebarCarouselConfig();
-            return isTruthyConfig(cfg.enabled ?? cfg.enable ?? cfg.auto_rotate);
+            return false;
         }
         function coerceSidebarCarouselIntervalMs(value) {
             const numeric = Number(value);
@@ -2687,7 +2686,7 @@
                 switchTab('dashboard', '场馆总览', initialNav);
             }, '默认页面初始化异常，已切换为降级启动');
             guardFrontendStep('bootstrap.sidebar_carousel', () => {
-                if (!isHomeCarouselEnabled()) startSidebarCarousel();
+                if (!isHomeCarouselEnabled() && isSidebarCarouselEnabled()) startSidebarCarousel();
             }, '页面轮播初始化失败');
             window.addEventListener('hashchange', () => {
                 guardFrontendStep('route.hashchange', () => {
