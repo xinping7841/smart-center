@@ -1,0 +1,16 @@
+{
+  "task": "node-red-click-optimistic-card",
+  "module": "frontend_controls",
+  "machine": "12700k",
+  "kind": "light",
+  "branch": "codex/12700k-node-red-click-optimistic-card-20260615",
+  "worktree": "D:\\IDE\\AI\\smart-center-worktrees\\node-red-click-optimistic-card",
+  "started_at": "2026-06-15 21:50:31",
+  "status": "completed",
+  "verified": [
+    "node --check static/js/views/universal.js",
+    "node --check static/js/app-runtime.js",
+    "git diff --check",
+    "mock frontend stale-off poll keeps checkbox checked"
+  ]
+}

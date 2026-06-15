@@ -15,6 +15,8 @@
     const nodeRedPending = {};
     const nodeRedCooldownUntil = {};
     const nodeRedDesiredStates = {};
+    const nodeRedDeviceCache = {};
+    const nodeRedVerifyTimers = {};
     const protocolDesiredStates = {};
     const CONTROL_TARGET_UI_MS = 6000;
     const CONTROL_VERIFY_HOLD_MS = 30000;
@@ -876,6 +878,86 @@
         return remainingMs > 0 ? Math.ceil(remainingMs / 1000) : 0;
     }
 
+    function rememberNodeRedDevice(device) {
+        const id = String(device?.device_id || '');
+        if (id) nodeRedDeviceCache[id] = device;
+    }
+
+    function nodeRedTargetText(action) {
+        return action === 'on' ? '\u4eae' : '\u6697';
+    }
+
+    function buildNodeRedOptimisticDevice(deviceId, action, sourceDevice = null) {
+        const id = String(deviceId || '');
+        const source = sourceDevice && typeof sourceDevice === 'object' ? sourceDevice : (nodeRedDeviceCache[id] || {});
+        const state = source.state && typeof source.state === 'object' ? { ...source.state } : {};
+        const targetText = nodeRedTargetText(action);
+        state.target_status = action;
+        state.target_text = targetText;
+        return {
+            ...source,
+            device_id: id,
+            device_name: source.device_name || (id === 'courtyard_light' ? '\u6237\u5916\u706f' : id),
+            device_type: source.device_type || 'rf_light',
+            status: action,
+            display_status: 'pending_ack',
+            display_text: '\u6267\u884c\u4e2d',
+            target_status: action,
+            target_text: targetText,
+            control_pending: true,
+            control_pending_remaining_sec: Math.max(Number(source.control_pending_remaining_sec || 0), Math.ceil(CONTROL_TARGET_UI_MS / 1000)),
+            state,
+        };
+    }
+
+    function findNodeRedDeviceCard(deviceId) {
+        const grid = document.getElementById('node-red-device-grid');
+        if (!grid) return null;
+        const id = String(deviceId || '');
+        return Array.from(grid.querySelectorAll('[data-node-red-device]'))
+            .find(card => String(card.dataset.nodeRedDevice || '') === id) || null;
+    }
+
+    function renderNodeRedDeviceIntoCard(device) {
+        const id = String(device?.device_id || '');
+        if (!id) return;
+        rememberNodeRedDevice(device);
+        renderUniversalPageShell();
+        const grid = document.getElementById('node-red-device-grid');
+        if (!grid) return;
+        const html = renderNodeRedDeviceCard(device);
+        const card = findNodeRedDeviceCard(id);
+        if (card) {
+            card.outerHTML = html;
+        } else if (!grid.querySelector('[data-node-red-device]')) {
+            grid.innerHTML = html;
+        } else {
+            grid.insertAdjacentHTML('beforeend', html);
+        }
+    }
+
+    function renderNodeRedOptimisticCard(deviceId, action, sourceDevice = null) {
+        renderNodeRedDeviceIntoCard(buildNodeRedOptimisticDevice(deviceId, action, sourceDevice));
+    }
+
+    function scheduleNodeRedVerify(deviceId, delayMs = 450) {
+        const id = String(deviceId || '');
+        if (!id) return;
+        if (nodeRedVerifyTimers[id]) clearTimeout(nodeRedVerifyTimers[id]);
+        nodeRedVerifyTimers[id] = setTimeout(() => {
+            delete nodeRedVerifyTimers[id];
+            delete nodeRedPending[id];
+            updateNodeRedDevices(true);
+        }, delayMs);
+    }
+
+    function cancelNodeRedVerify(deviceId) {
+        const id = String(deviceId || '');
+        if (!id || !nodeRedVerifyTimers[id]) return;
+        clearTimeout(nodeRedVerifyTimers[id]);
+        delete nodeRedVerifyTimers[id];
+    }
+
     function renderNodeRedDeviceCard(device) {
         const id = String(device?.device_id || '');
         const lightName = id === 'courtyard_light' ? '\u6237\u5916\u706f' : (device?.device_name || id || '\u672a\u547d\u540d\u706f\u5177');
@@ -929,7 +1011,10 @@
         return fetchJsonLoose('/api/node-red/devices', {}, 'Node-RED \u8bbe\u5907\u72b6\u6001\u8bfb\u53d6\u5931\u8d25')
             .then(data => {
                 const devices = Array.isArray(data.devices) ? data.devices : [];
-                devices.forEach(syncNodeRedCooldown);
+                devices.forEach(device => {
+                    syncNodeRedCooldown(device);
+                    rememberNodeRedDevice(device);
+                });
                 grid.innerHTML = devices.length
                     ? devices.map(renderNodeRedDeviceCard).join('')
                     : '<div class="node-red-empty">\u672a\u914d\u7f6e Node-RED \u7edf\u4e00\u8bbe\u5907\u3002</div>';
@@ -954,35 +1039,52 @@
         }
         nodeRedPending[id] = true;
         setNodeRedDesiredState(id, action);
-        if (inputEl) inputEl.disabled = true;
+        if (inputEl) {
+            inputEl.checked = action === 'on';
+            inputEl.disabled = true;
+        }
+        renderNodeRedOptimisticCard(id, action);
         notify('Node-RED \u6307\u4ee4\u4e0b\u53d1\u4e2d...', false);
         return postJsonAllowHttpError('/api/node-red/device/' + encodeURIComponent(id) + '/control', { action })
             .then(data => {
                 if (data.success || data.ok) {
-                    const device = data.device || {};
+                    const device = data.device && typeof data.device === 'object'
+                        ? { ...data.device }
+                        : buildNodeRedOptimisticDevice(id, action);
+                    if (getNodeRedServerTargetState(device) === null) {
+                        const state = device.state && typeof device.state === 'object' ? { ...device.state } : {};
+                        state.target_status = action;
+                        state.target_text = nodeRedTargetText(action);
+                        device.target_status = action;
+                        device.target_text = nodeRedTargetText(action);
+                        device.state = state;
+                    }
+                    device.control_pending = device.control_pending !== false;
+                    device.control_pending_remaining_sec = Math.max(Number(device.control_pending_remaining_sec || 0), Math.ceil(CONTROL_TARGET_UI_MS / 1000));
                     syncNodeRedCooldown(device);
                     const cooldownSec = Number(device.control_cooldown_sec || 0);
                     if (cooldownSec > 0) nodeRedCooldownUntil[id] = Math.max(nodeRedCooldownUntil[id] || 0, nowMs() + cooldownSec * 1000);
+                    renderNodeRedDeviceIntoCard(device);
                     notify(data.msg || '\u6267\u884c\u6210\u529f', false);
-                    return updateNodeRedDevices(true);
+                    scheduleNodeRedVerify(id);
+                    return data;
                 }
                 if (data.error === 'cooldown') {
                     const retrySec = Math.max(1, Number(data.retry_after_sec || 1));
                     nodeRedCooldownUntil[id] = nowMs() + retrySec * 1000;
                 }
                 notify('\u6267\u884c\u5931\u8d25: ' + (data.msg || data.message || '\u672a\u77e5\u9519\u8bef'), true);
+                cancelNodeRedVerify(id);
+                delete nodeRedPending[id];
                 clearNodeRedDesiredState(id);
                 return updateNodeRedDevices(true);
             })
             .catch(error => {
+                cancelNodeRedVerify(id);
+                delete nodeRedPending[id];
                 clearNodeRedDesiredState(id);
                 notify(error.message || '\u7f51\u7edc\u8bf7\u6c42\u9519\u8bef', true);
                 return updateNodeRedDevices(true);
-            })
-            .finally(() => {
-                delete nodeRedPending[id];
-                if (inputEl) inputEl.disabled = false;
-                setTimeout(() => updateNodeRedDevices(true), 80);
             });
     }
 
