@@ -1,0 +1,11 @@
+﻿{
+    "module":  "frontend_controls",
+    "owner_machine":  "12700k",
+    "owner_branch":  "codex/12700k-node-red-pending-confirm-clear-20260615",
+    "task":  "node-red-pending-confirm-clear",
+    "kind":  "light",
+    "worktree":  "D:\\IDE\\AI\\smart-center-worktrees\\node-red-pending-confirm-clear",
+    "started_at":  "2026-06-15 21:33:52",
+    "expected_until":  "",
+    "note":  "created by scripts/collab/start-work.ps1"
+}
