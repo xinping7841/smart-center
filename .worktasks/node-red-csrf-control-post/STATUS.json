@@ -1,0 +1,10 @@
+﻿{
+    "task":  "node-red-csrf-control-post",
+    "module":  "frontend_controls",
+    "machine":  "12700k",
+    "kind":  "light",
+    "branch":  "codex/12700k-node-red-csrf-control-post-20260615",
+    "worktree":  "D:\\IDE\\AI\\smart-center-worktrees\\node-red-csrf-control-post",
+    "started_at":  "2026-06-15 22:10:58",
+    "status":  "in_progress"
+}

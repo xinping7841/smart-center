@@ -46,15 +46,28 @@
         }
         return fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: withCsrfHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(payload),
         }).then(response => response.json());
+    }
+
+    function getCsrfToken() {
+        const meta = document.querySelector('meta[name="csrf-token"]');
+        const metaToken = meta ? String(meta.getAttribute('content') || '').trim() : '';
+        if (metaToken) return metaToken;
+        const match = document.cookie.match(/(?:^|; )csrf_token=([^;]*)/);
+        return match ? decodeURIComponent(match[1]) : '';
+    }
+
+    function withCsrfHeaders(headers = {}) {
+        const csrfToken = getCsrfToken();
+        return csrfToken ? Object.assign({}, headers, { 'X-CSRF-Token': csrfToken }) : headers;
     }
 
     function postJsonAllowHttpError(url, payload) {
         return fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: withCsrfHeaders({ 'Content-Type': 'application/json' }),
             body: JSON.stringify(payload),
         }).then(response => response.json().catch(() => ({})));
     }
