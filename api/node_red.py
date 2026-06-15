@@ -179,6 +179,19 @@ def _control_inflight_remaining(device_id, now_ts=None):
         return max(expires_at - now_ts, 0.0)
 
 
+def _control_inflight_info(device_id, now_ts=None):
+    key = _cooldown_key(device_id)
+    now_ts = float(now_ts or time.monotonic())
+    with CONTROL_IN_PROGRESS_LOCK:
+        current = deepcopy(CONTROL_IN_PROGRESS.get(key) or {})
+        expires_at = float(current.get("expires_at", 0.0) or 0.0)
+        if expires_at <= now_ts:
+            CONTROL_IN_PROGRESS.pop(key, None)
+            return {}
+        current["remaining_sec"] = round(expires_at - now_ts, 1)
+        return current
+
+
 def _begin_control_inflight(device_id, owner="", action=""):
     key = _cooldown_key(device_id)
     now_ts = time.monotonic()
@@ -254,6 +267,16 @@ def _normalize_device_payload(device_id, payload, meta=None, transport_error="",
     pending_remaining = _control_inflight_remaining(device_id) if include_control_pending else 0.0
     normalized["control_pending"] = pending_remaining > 0
     normalized["control_pending_remaining_sec"] = round(pending_remaining, 1)
+    if include_control_pending and normalized["control_pending"]:
+        inflight = _control_inflight_info(device_id)
+        target_status = str(inflight.get("action") or "").strip().lower()
+        if target_status in {"on", "off"}:
+            normalized["target_status"] = target_status
+            normalized["target_text"] = STATUS_TEXT.get(target_status, target_status)
+            normalized["display_status"] = "pending_ack"
+            normalized["display_text"] = "执行中"
+            normalized["state"] = dict(normalized.get("state") or {})
+            normalized["state"].update({"target_status": target_status, "target_text": STATUS_TEXT.get(target_status, target_status)})
     if isinstance(payload.get("power"), dict):
         normalized["power"] = payload.get("power")
     return normalized
@@ -312,8 +335,9 @@ def control_node_red_device(device_id, action, source="central_control"):
             status_code, status_payload = _node_red_request(meta["status_path"], "GET")
             if status_code >= 400:
                 raise RuntimeError(f"status readback HTTP {status_code}: {status_payload}")
-            normalized = _normalize_device_payload(device_id, status_payload, meta=meta, include_control_pending=False)
-            finish_inflight = True
+            normalized = _normalize_device_payload(device_id, status_payload, meta=meta, include_control_pending=True)
+            # Keep the pending target visible until a later status poll confirms it.
+            finish_inflight = str(normalized.get("status") or "").lower() == normalized_action
         else:
             normalized = _normalize_device_payload(
                 device_id,
@@ -420,8 +444,9 @@ def api_node_red_device_control(device_id):
                 status_code, status_payload = _node_red_request(meta["status_path"], "GET")
                 if status_code >= 400:
                     raise RuntimeError(f"status readback HTTP {status_code}: {status_payload}")
-                normalized = _normalize_device_payload(device_id, status_payload, meta=meta, include_control_pending=False)
-                finish_inflight = True
+                normalized = _normalize_device_payload(device_id, status_payload, meta=meta, include_control_pending=True)
+                # Keep the pending target visible until a later status poll confirms it.
+                finish_inflight = str(normalized.get("status") or "").lower() == action
             else:
                 normalized = _normalize_device_payload(
                     device_id,

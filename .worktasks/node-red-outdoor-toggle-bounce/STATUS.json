@@ -1,0 +1,16 @@
+{
+  "task": "node-red-outdoor-toggle-bounce",
+  "module": "frontend_controls",
+  "machine": "12700k",
+  "kind": "light",
+  "branch": "codex/12700k-node-red-outdoor-toggle-bounce-20260615",
+  "worktree": "D:\\IDE\\AI\\smart-center-worktrees\\node-red-outdoor-toggle-bounce",
+  "started_at": "2026-06-15 21:10:43",
+  "status": "deploy_verify",
+  "verified": [
+    "node --check static/js/app-runtime.js",
+    "node --check static/js/views/universal.js",
+    "python -m compileall api/node_red.py",
+    "git diff --check"
+  ]
+}

@@ -741,10 +741,10 @@
         const status = String(device?.display_status || device?.status || 'unknown').toLowerCase();
         const id = String(device?.device_id || '');
         const remaining = getNodeRedCooldownRemainingSec(id, device);
-        if (nodeRedPending[id] || remaining > 0 || isNodeRedControlPending(device)) return 'is-busy';
         const desired = getNodeRedDesiredState(id, device);
         if (desired === true) return 'is-on';
         if (desired === false) return 'is-off';
+        if (nodeRedPending[id] || remaining > 0 || isNodeRedControlPending(device)) return 'is-busy';
         if (status === 'on') return 'is-on';
         if (status === 'off') return 'is-off';
         if (['starting', 'stopping', 'pending_ack', 'partial'].includes(status)) return 'is-busy';
@@ -776,11 +776,17 @@
         return null;
     }
 
+    function getNodeRedServerTargetState(device) {
+        const target = device?.target_status || device?.state?.target_status || device?.raw?.target_status || device?.raw?.state?.target_status;
+        return normalizeNodeRedDesiredState(target);
+    }
+
     function getNodeRedDesiredState(deviceId, device = null) {
         const id = String(deviceId || device?.device_id || '');
         if (!id) return null;
         const desired = nodeRedDesiredStates[id];
-        if (!desired) return null;
+        const serverTarget = getNodeRedServerTargetState(device);
+        if (!desired) return serverTarget;
         const status = String(device?.status || '').toLowerCase();
         const actual = status === 'on' ? true : (status === 'off' ? false : null);
         if (actual === desired.target) {
@@ -838,11 +844,11 @@
         const id = String(device?.device_id || '');
         const remaining = getNodeRedCooldownRemainingSec(id, device);
         if (nodeRedPending[id]) return '\u6267\u884c\u4e2d';
-        if (isNodeRedControlPending(device)) return '\u56de\u8bfb\u4e2d';
-        if (remaining > 0) return `\u4fdd\u62a4 ${remaining}s`;
         const desired = getNodeRedDesiredState(id, device);
         if (desired === true) return '亮';
         if (desired === false) return '暗';
+        if (isNodeRedControlPending(device)) return '\u56de\u8bfb\u4e2d';
+        if (remaining > 0) return `\u4fdd\u62a4 ${remaining}s`;
         const status = String(device?.status || '').toLowerCase();
         if (status === 'on') return '\u4eae';
         if (status === 'off') return '\u6697';
